@@ -2,6 +2,7 @@ import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 import json
 from setup_to_xml import create_universe_elements, create_fixture_elements
+from shows_to_xml import create_show_elements
 
 
 def create_qlc_workspace():
@@ -31,6 +32,9 @@ def create_qlc_workspace():
 
     # Create Fixtures
     create_fixture_elements(engine)
+
+    # Create Show
+    create_show_elements(engine)
 
     # Create VirtualConsole section
     vc = ET.SubElement(root, "VirtualConsole")
