@@ -1,8 +1,8 @@
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 import json
-from setup_to_xml import create_universe_elements, create_fixture_elements
-from shows_to_xml import create_show_elements
+from utils.setup_to_xml import create_universe_elements, create_fixture_elements
+from utils.shows_to_xml import create_show_elements
 
 
 def create_qlc_workspace():
