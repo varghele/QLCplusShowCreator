@@ -7,7 +7,7 @@ import json
 
 def read_universes_from_csv():
     universes = []
-    csv_path = os.path.join('setup', 'universes.json')
+    csv_path = os.path.join('../setup', 'universes.json')
     with open(csv_path, 'r') as file:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
@@ -16,7 +16,7 @@ def read_universes_from_csv():
 
 def read_fixtures_from_csv():
     fixtures = []
-    csv_path = os.path.join('setup', 'fixtures.csv')
+    csv_path = os.path.join('../setup', 'fixtures.csv')
     with open(csv_path, 'r') as file:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
@@ -28,7 +28,7 @@ def create_universe_elements(input_output_map):
     """
     Creates universe elements from JSON data and adds them to the input_output_map
     """
-    with open('setup/universes.json', 'r') as file:
+    with open('../setup/universes.json', 'r') as file:
         config = json.load(file)
 
     for universe in config['universes']:

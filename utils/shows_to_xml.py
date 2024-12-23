@@ -9,7 +9,7 @@ def create_show_elements(root):
     Parameters:
         root: The root XML element to add the show functions to
     """
-    shows_dir = 'shows'
+    shows_dir = '../shows'
     show_id = 0  # Initialize show ID counter
 
     # Get all show folders
