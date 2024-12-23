@@ -1,4 +1,4 @@
 name,signature,bpm,num_bars,transition
 vers,4/4,190,64,instant
 interlude,2/4,190,2,linear
-chorus,3/8,160,48,instant
+chorus,4/8,160,48,instant

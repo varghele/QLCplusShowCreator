@@ -1,8 +1,9 @@
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 import json
-from utils.setup_to_xml import create_universe_elements, create_fixture_elements
-from utils.shows_to_xml import create_show_elements
+from utils.to_xml.setup_to_xml import create_universe_elements, create_fixture_elements, create_channels_groups
+from utils.to_xml.shows_to_xml import create_show_elements
+from utils.make.make_channel_groups import make_channel_groups_from_fixtures
 
 
 def create_qlc_workspace():
@@ -28,13 +29,20 @@ def create_qlc_workspace():
     input_output_map = ET.SubElement(engine, "InputOutputMap")
 
     # Call the function from setup_to_xml.py to create universe elements
-    create_universe_elements(input_output_map)
+    create_universe_elements(input_output_map, universes_json_pth='setup/universes.json')
 
     # Create Fixtures
-    create_fixture_elements(engine)
+    create_fixture_elements(engine, setup_fixtures_dir='setup')
+
+    # Make channel groups from fixtures
+    make_channel_groups_from_fixtures()
+
+    # Create ChannelsGroups from groups.csv
+    create_channels_groups(engine)
 
     # Create Show
-    create_show_elements(engine)
+    create_show_elements(engine, shows_dir='shows')
+
 
     # Create VirtualConsole section
     vc = ET.SubElement(root, "VirtualConsole")

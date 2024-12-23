@@ -3,13 +3,12 @@ import json
 import xml.etree.ElementTree as ET
 
 
-def create_show_elements(root):
+def create_show_elements(root, shows_dir='../shows'):
     """
     Creates show function elements from show files in the shows folder
     Parameters:
         root: The root XML element to add the show functions to
     """
-    shows_dir = '../shows'
     show_id = 0  # Initialize show ID counter
 
     # Get all show folders
