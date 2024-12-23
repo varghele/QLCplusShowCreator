@@ -1,0 +1,27 @@
+{"base": {
+
+  "Workspace": {
+    "CurrentWindow": "VirtualConsole",
+    "author": "varghele"
+  },
+
+  "VirtualConsole": {
+    "Appearance": {
+      "BackgroundColor": 4278190080}
+
+  },
+
+  "Properties": {
+    "Size": {
+      "Width": 1920,
+      "Height": 1080
+    },
+
+    "GrandMaster": {
+      "ChannelMode": "Intensity",
+      "ValueMode": "Reduce",
+      "SliderMode": "Normal"
+    }
+  }
+}
+  }
