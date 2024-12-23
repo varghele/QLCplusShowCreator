@@ -3,7 +3,7 @@ import json
 import xml.etree.ElementTree as ET
 
 
-def create_show_elements(root, shows_dir='../shows'):
+def create_shows(root, shows_dir='../shows'):
     """
     Creates show function elements from show files in the shows folder
     Parameters:
@@ -18,7 +18,6 @@ def create_show_elements(root, shows_dir='../shows'):
         if os.path.isdir(show_path):
             # Check if all required files exist
             required_files = [
-                f"{show_name}_elements",
                 f"{show_name}_events",
                 f"{show_name}_setup.json",
                 f"{show_name}_structure"

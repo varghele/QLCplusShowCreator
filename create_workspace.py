@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 import json
 from utils.to_xml.setup_to_xml import create_universe_elements, create_fixture_elements, create_channels_groups
-from utils.to_xml.shows_to_xml import create_show_elements
+from utils.to_xml.shows_to_xml import create_shows
 from utils.make.make_channel_groups import make_channel_groups_from_fixtures
 
 
@@ -41,7 +41,7 @@ def create_qlc_workspace():
     create_channels_groups(engine)
 
     # Create Show
-    create_show_elements(engine, shows_dir='shows')
+    create_shows(engine, shows_dir='shows')
 
 
     # Create VirtualConsole section
