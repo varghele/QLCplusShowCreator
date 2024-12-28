@@ -1,12 +1,17 @@
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 import json
-from utils.to_xml.setup_to_xml import create_universe_elements, create_fixture_elements, create_channels_groups
+import os
+from utils.to_xml.setup_to_xml import (create_universe_elements, create_fixture_elements,
+                                       create_channels_groups)
 from utils.to_xml.shows_to_xml import create_shows
 from utils.make.make_channel_groups import make_channel_groups_from_fixtures
 
 
 def create_qlc_workspace():
+    # Set up base dir
+    base_dir = os.getcwd()
+
     # Load configuration from JSON
     with open('config.json', 'r') as config_file:
         config = json.load(config_file)
@@ -34,14 +39,14 @@ def create_qlc_workspace():
     # Create Fixtures
     create_fixture_elements(engine, setup_fixtures_dir='setup')
 
-    # Make channel groups from fixtures
+    # Make channel groups from fixtures - Do before implanting channel groups
     make_channel_groups_from_fixtures()
 
     # Create ChannelsGroups from groups.csv
     create_channels_groups(engine)
 
     # Create Show
-    create_shows(engine, shows_dir='shows')
+    create_shows(engine, shows_dir='shows', base_dir=base_dir)
 
 
     # Create VirtualConsole section

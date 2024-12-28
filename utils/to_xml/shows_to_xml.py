@@ -1,9 +1,40 @@
 import os
 import json
 import xml.etree.ElementTree as ET
+import pandas as pd
 
 
-def create_shows(root, shows_dir='../shows'):
+def create_tracks(function, base_dir="../"):
+    """
+    Creates Track elements for a show function
+    Parameters:
+        function: The Function XML element (show) to add tracks to
+    """
+    # Get groups from groups.csv
+    groups_file = os.path.join(base_dir, 'setup', 'groups.csv')
+
+    if not os.path.exists(groups_file):
+        print("Groups file not found in setup directory")
+        return
+
+        # Read groups data and get unique categories
+    groups_df = pd.read_csv(groups_file)
+    categories = groups_df['category'].unique()
+
+    # Create a track for each valid category
+    track_id = 0
+    for category in categories:
+        if pd.isna(category) or category == 'None':
+            continue
+
+        track = ET.SubElement(function, "Track")
+        track.set("ID", str(track_id))
+        track.set("Name", str(category).upper())  # Convert category name to uppercase
+        track.set("isMute", "0")
+        track_id += 1
+
+
+def create_shows(root, shows_dir='../shows', base_dir='../'):
     """
     Creates show function elements from show files in the shows folder
     Parameters:
@@ -41,11 +72,8 @@ def create_shows(root, shows_dir='../shows'):
                     time_division.set("Type", setup_data.get("TimeType", "Time"))
                     time_division.set("BPM", str(setup_data.get("BPM", 120)))
 
-                    # Add additional show configuration from setup file if needed
-                    #if "Elements" in setup_data:
-                    #    elements = ET.SubElement(function, "Elements")
-                    #    for elem in setup_data["Elements"]:
-                    #        ET.SubElement(elements, "Element", elem)
+                    # Create tracks for this show
+                    create_tracks(function, base_dir)
 
                 except json.JSONDecodeError:
                     print(f"Error reading setup file for show: {show_name}")

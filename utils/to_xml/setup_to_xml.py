@@ -15,6 +15,7 @@ def read_universes_from_csv():
             universes.append(row)
     return universes
 
+
 def read_fixtures_from_csv(setup_fixtures_dir):
     fixtures = []
     csv_path = os.path.join(setup_fixtures_dir, 'fixtures.csv')
@@ -122,4 +123,3 @@ def create_channels_groups(root):
             group_id += 1
 
     return root
-
