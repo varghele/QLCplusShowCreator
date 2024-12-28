@@ -1,4 +1,4 @@
-name,signature,bpm,num_bars,transition
-vers,4/4,190,64,instant
-interlude,2/4,190,2,linear
-chorus,4/8,160,48,instant
+name,signature,bpm,num_bars,transition,color
+vers,4/4,190,16,instant,#00ffff
+interlude,2/4,100,16,gradual,#ff8000
+chorus,4/8,160,16,instant,#ff0080
