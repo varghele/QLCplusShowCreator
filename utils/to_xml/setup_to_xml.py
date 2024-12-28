@@ -69,7 +69,7 @@ def create_fixture_elements(root, setup_fixtures_dir='../setup', id_start=0):
         ET.SubElement(fixture_elem, "Model").text = fixture['Model']
         ET.SubElement(fixture_elem, "Mode").text = f"{int(fixture['Mode'])} Channels Mode"
         ET.SubElement(fixture_elem, "ID").text = str(index + id_start)  # Add ID element with incremental value
-        ET.SubElement(fixture_elem, "Name").text = f"{fixture['Model']}"  # Add Name element
+        ET.SubElement(fixture_elem, "Name").text = f"{fixture['Name']}"  # Add Name element
         ET.SubElement(fixture_elem, "Universe").text = str(int(fixture['Universe']) - 1)  # Convert to 0-based index
         ET.SubElement(fixture_elem, "Address").text = str(int(fixture['Address']) - 1)  # Convert to 0-based index
         ET.SubElement(fixture_elem, "Channels").text = str(int(fixture['Channels']))
