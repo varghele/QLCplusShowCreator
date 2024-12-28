@@ -1,6 +1,6 @@
 Universe,Address,Manufacturer,Model,Channels,Mode,Name
-1,1,Showtec,Sunstrip Active,2,2,Sunstrip1
-1,3,Showtec,Sunstrip Active,10,10,Sunstrip2
-1,13,Showtec,Sunstrip Active,5,5,Sunstrip3
-1,18,Varytec,Hero Spot 60,14,14,MH1
-1,32,Varytec,Hero Spot 60,14,14,MH2
+1,1,Showtec,Sunstrip Active,2,2 Channels Mode,Sunstrip1
+1,3,Showtec,Sunstrip Active,10,10 Channels Mode,Sunstrip2
+1,13,Showtec,Sunstrip Active,5,5 Channels Mode,Sunstrip3
+1,18,Varytec,Hero Spot 60,14,14 Channel,MH1
+1,32,Varytec,Hero Spot 60,14,14 Channel,MH2
