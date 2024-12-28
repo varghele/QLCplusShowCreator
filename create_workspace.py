@@ -8,6 +8,8 @@ from utils.to_xml.shows_to_xml import create_shows
 from utils.make.make_channel_groups import make_channel_groups_from_fixtures
 
 
+
+
 def create_qlc_workspace():
     # Set up base dir
     base_dir = os.getcwd()

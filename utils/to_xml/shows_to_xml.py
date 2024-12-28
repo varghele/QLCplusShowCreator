@@ -3,6 +3,40 @@ import json
 import xml.etree.ElementTree as ET
 import pandas as pd
 
+import importlib
+from utils.step_utils import create_step
+
+def load_effects(effects_dir="effects"):
+    """Loads all effect modules"""
+    effects = {}
+    for effect_file in os.listdir(effects_dir):
+        if effect_file.endswith('.py') and not effect_file.startswith('__'):
+            module_name = effect_file[:-3]
+            module_path = f"effects.{module_name}"
+            effects[module_name] = importlib.import_module(module_path)
+    return effects
+
+def add_steps_to_sequence(sequence, steps):
+    """Adds steps to a sequence"""
+    for step in steps:
+        sequence.append(step)
+
+# LOAD EFFECTS
+effects = load_effects()
+
+
+# Create a sequence with effects
+def create_sequence_with_effects(sequence, start_step=0):
+    # Get blinder channels from your configuration
+    blinder_channels = [199, 173, 196]
+
+    # Add a strobe effect
+    strobe_steps = effects['blinders'].strobe(start_step, blinder_channels, speed="fast")
+    add_steps_to_sequence(sequence, strobe_steps)
+
+    # Add a flash effect after the strobe
+    flash_steps = effects['blinders'].flash(start_step + len(strobe_steps), blinder_channels)
+    add_steps_to_sequence(sequence, flash_steps)
 
 def calculate_start_time(previous_time, signature, bpm, num_bars, transition, previous_bpm=None):
     """
