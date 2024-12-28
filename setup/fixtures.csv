@@ -1,4 +1,4 @@
-Universe,Address,Manufacturer,Model,Channels,Mode
-1,1,Showtec,Sunstrip Active,2,2
-1,3,Showtec,Sunstrip Active,10,10
-1,13,Showtec,Sunstrip Active,5,5
+Universe,Address,Manufacturer,Model,Channels,Mode,Name
+1,1,Showtec,Sunstrip Active,2,2,Sunstrip1
+1,3,Showtec,Sunstrip Active,10,10,Sunstrip2
+1,13,Showtec,Sunstrip Active,5,5,Sunstrip3
