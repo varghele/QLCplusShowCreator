@@ -204,10 +204,6 @@ def create_shows(root, shows_dir='../shows', base_dir='../'):
                     # Create tracks for this show
                     create_tracks(function, root, base_dir)
 
-                    # Create sequences in tracks
-                    #TODO
-                    #create_sequence(root, sequence_id, sequence_name, bound_scene_id)
-
                 except json.JSONDecodeError:
                     print(f"Error reading setup file for show: {show_name}")
                 except Exception as e:
