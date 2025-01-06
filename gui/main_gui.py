@@ -181,9 +181,27 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.tableWidget_3.setHorizontalHeaderLabels(show_headers)
 
         # Set column widths for shows table
-        self.tableWidget_3.setColumnWidth(0, 200)  # Show Part
-        self.tableWidget_3.setColumnWidth(1, 200)  # Fixture Group
-        self.tableWidget_3.horizontalHeader().setStretchLastSection(True)  # Value stretches
+        #self.tableWidget_3.setColumnWidth(0, 200)  # Show Part
+        #self.tableWidget_3.setColumnWidth(1, 200)  # Fixture Group
+        #self.tableWidget_3.horizontalHeader().setStretchLastSection(True)  # Value stretches
+
+        # Make tableWidget_3 stretch to fill parent
+        self.tableWidget_3.setGeometry(QtCore.QRect(10, 90, self.tab_2.width() - 20, self.tab_2.height() - 100))
+
+        # Make table resize with parent
+        def resize_table(event):
+            self.tableWidget_3.setGeometry(QtCore.QRect(10, 90, event.size().width() - 20, event.size().height() - 100))
+
+        # Connect resize event to the tab
+        self.tab_2.resizeEvent = resize_table
+
+        # Make columns stretch to fill table width
+        header = self.tableWidget_3.horizontalHeader()
+        for i in range(5):  # 5 columns: Show Part, Fixture Group, Effect, Speed, Color
+            if i == 4:  # Last column (Color)
+                header.setStretchLastSection(True)
+            else:
+                header.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.Interactive)
 
         # Enable sorting and styling for all tables
         for table in [self.tableWidget, self.tableWidget_3]:
@@ -191,6 +209,65 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             table.setShowGrid(True)
             table.setAlternatingRowColors(True)
             table.horizontalHeader().setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
+
+    def save_cell_value(self, row, show_name):
+        try:
+            # Get the values from the row
+            show_part = self.tableWidget_3.item(row, 0).text()
+            fixture_group = self.tableWidget_3.item(row, 1).text()
+            effect = self.tableWidget_3.item(row, 2).text() if self.tableWidget_3.item(row, 2) else ""
+
+            # Safely get speed value
+            speed_widget = self.tableWidget_3.cellWidget(row, 3)
+            speed = speed_widget.currentText() if speed_widget else "1"  # Default to "1" if widget doesn't exist
+
+            # Safely get color value
+            color_button = self.tableWidget_3.cellWidget(row, 4)
+            color = color_button.property("current_color") if color_button else ""
+
+            # Create the show directory if it doesn't exist
+            show_dir = os.path.join(self.project_root, "shows", show_name)
+            os.makedirs(show_dir, exist_ok=True)
+
+            # Load existing data
+            values_file = os.path.join(show_dir, f"{show_name}_values.json")
+            show_data = []
+            if os.path.exists(values_file):
+                with open(values_file, 'r') as f:
+                    try:
+                        show_data = json.load(f)
+                    except:
+                        pass
+
+            # Update or add the value
+            found = False
+            for item in show_data:
+                if item['show_part'] == show_part and item['fixture_group'] == fixture_group:
+                    item.update({
+                        'effect': effect,
+                        'speed': speed,
+                        'color': color
+                    })
+                    found = True
+                    break
+
+            if not found:
+                show_data.append({
+                    'show_part': show_part,
+                    'fixture_group': fixture_group,
+                    'effect': effect,
+                    'speed': speed,
+                    'color': color
+                })
+
+            # Save the updated data
+            with open(values_file, 'w') as f:
+                json.dump(show_data, f, indent=2)
+
+        except Exception as e:
+            print(f"Error saving cell value: {e}")
+            import traceback
+            traceback.print_exc()
 
     def update_row_colors(self):
         for row in range(self.tableWidget.rowCount()):
@@ -690,50 +767,194 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def import_show_structure(self):
         try:
-            # Read show parts from structure file
-            structure_file = os.path.join(self.project_root, "shows", "show_1", "show_1_structure.csv")
-            show_parts = []
-            with open(structure_file, 'r') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    show_parts.append(row['name'])
+            # Set up fixed columns
+            headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color']
+            self.tableWidget_3.setColumnCount(len(headers))
+            self.tableWidget_3.setHorizontalHeaderLabels(headers)
 
-            # Read channel groups from groups.csv
+            # Get all show directories
+            shows_dir = os.path.join(self.project_root, "shows")
+            show_structures = {}
+
+            # Scan for all show structure files
+            for show_dir in os.listdir(shows_dir):
+                show_path = os.path.join(shows_dir, show_dir)
+                if os.path.isdir(show_path):
+                    structure_file = os.path.join(show_path, f"{show_dir}_structure.csv")
+                    if os.path.exists(structure_file):
+                        show_parts = []
+                        with open(structure_file, 'r') as f:
+                            reader = csv.DictReader(f)
+                            for row in reader:
+                                show_parts.append(row['showpart'])
+                        show_structures[show_dir] = show_parts
+
+            # Update combo box with available shows
+            self.comboBox.clear()
+            self.comboBox.addItems(sorted(show_structures.keys()))
+
+            # Read fixture groups from groups.csv
             groups_file = os.path.join(self.setup_dir, "groups.csv")
-            channel_groups = set()
+            fixture_groups = set()
             with open(groups_file, 'r') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    channel_groups.add(row['category'])
+                    fixture_groups.add(row['category'])
 
-            # Clear existing table
-            self.tableWidget_3.setRowCount(0)
-            self.tableWidget_3.setColumnCount(len(show_parts) + 1)  # +1 for channel group column
+            def update_show_table(show_name):
+                if show_name in show_structures:
+                    show_parts = show_structures[show_name]
 
-            # Set headers
-            headers = ['Channel Group'] + show_parts
-            self.tableWidget_3.setHorizontalHeaderLabels(headers)
+                    # Clear existing table
+                    self.tableWidget_3.setRowCount(0)
 
-            # Add rows for each channel group
-            for row, group in enumerate(sorted(channel_groups)):
-                self.tableWidget_3.insertRow(row)
+                    # Set up fixed columns
+                    headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color']
+                    self.tableWidget_3.setColumnCount(len(headers))
+                    self.tableWidget_3.setHorizontalHeaderLabels(headers)
 
-                # Add channel group name
-                group_item = QtWidgets.QTableWidgetItem(group)
-                group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)  # Make read-only
-                self.tableWidget_3.setItem(row, 0, group_item)
+                    # Read structure file to get colors
+                    structure_file = os.path.join(self.project_root, "shows", show_name, f"{show_name}_structure.csv")
+                    part_colors = {}
+                    with open(structure_file, 'r') as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            part_colors[row['showpart']] = row['color']
 
-                # Add empty cells for each show part
-                for col in range(1, len(show_parts) + 1):
-                    item = QtWidgets.QTableWidgetItem("")
-                    self.tableWidget_3.setItem(row, col, item)
+                    # Load existing values from JSON if it exists
+                    values_file = os.path.join(self.project_root, "shows", show_name,
+                                               f"{show_name}_values.json")
+                    existing_values = {}
+                    if os.path.exists(values_file):
+                        try:
+                            with open(values_file, 'r') as f:
+                                values_data = json.load(f)
+                                for item in values_data:
+                                    key = (item['show_part'], item['fixture_group'])
+                                    existing_values[key] = item
+                        except Exception as e:
+                            print(f"Error loading values file: {e}")
 
-            # Adjust column widths
-            self.tableWidget_3.resizeColumnsToContents()
+                    # Read fixture groups from groups.csv
+                    groups_file = os.path.join(self.setup_dir, "groups.csv")
+                    fixture_groups = set()
+                    with open(groups_file, 'r') as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            fixture_groups.add(row['category'])
 
-            # Update combo box with show parts
-            self.comboBox.clear()
-            self.comboBox.addItems(show_parts)
+                    # Add rows for each show part and fixture group combination
+                    row = 0
+                    for show_part in show_parts:
+                        for group in sorted(fixture_groups):
+                            self.tableWidget_3.insertRow(row)
+
+                            # Show Part (read-only)
+                            show_part_item = QtWidgets.QTableWidgetItem(show_part)
+                            show_part_item.setFlags(show_part_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+                            self.tableWidget_3.setItem(row, 0, show_part_item)
+
+                            # Fixture Group (read-only)
+                            group_item = QtWidgets.QTableWidgetItem(group)
+                            group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+                            self.tableWidget_3.setItem(row, 1, group_item)
+
+                            # Effect (empty editable cell)
+                            effect_item = QtWidgets.QTableWidgetItem("")
+                            self.tableWidget_3.setItem(row, 2, effect_item)
+
+                            # Speed (combo box)
+                            speed_combo = QtWidgets.QComboBox()
+                            speed_values = ['1/32', '1/16', '1/8', '1/4', '1/2', '1', '2', '4', '8', '16', '32']
+                            speed_combo.addItems(speed_values)
+                            speed_combo.setCurrentText('1')  # Set default value to '1'
+                            self.tableWidget_3.setCellWidget(row, 3, speed_combo)
+
+                            # Color picker button
+                            color_button = QtWidgets.QPushButton()
+                            color_button.setFixedHeight(25)
+
+                            # Load existing values if available
+                            key = (show_part, group)
+                            if key in existing_values:
+                                values = existing_values[key]
+                                # Set Effect
+                                if values.get('effect'):
+                                    effect_item.setText(values['effect'])
+                                # Set Speed
+                                if values.get('speed'):
+                                    speed_combo.setCurrentText(values['speed'])
+                                # Set Color
+                                if values.get('color'):
+                                    color_button.setStyleSheet(f"background-color: {values['color']};")
+                                    color_button.setText(values['color'])
+                                    color_button.setProperty("current_color", values['color'])
+                            else:
+                                color_button.setText("Pick Color")
+
+                            def create_color_picker(button, row_num):
+                                def show_color_picker():
+                                    color = QtWidgets.QColorDialog.getColor(
+                                        initial=QtGui.QColor(button.property("current_color") or "#000000"),
+                                        options=QtWidgets.QColorDialog.ColorDialogOption.ShowAlphaChannel
+                                    )
+                                    if color.isValid():
+                                        hex_color = color.name().upper()
+                                        button.setStyleSheet(f"background-color: {hex_color};")
+                                        button.setText(hex_color)
+                                        button.setProperty("current_color", hex_color)
+                                        self.save_cell_value(row_num, show_name)  # Add this line
+
+                                return show_color_picker
+
+                            """# Set initial color if it exists in the structure
+                            if show_part in part_colors:
+                                initial_color = "#ffffff" #part_colors[show_part]
+                                color_button.setStyleSheet(f"background-color: {initial_color};")
+                                color_button.setText(initial_color)
+                                color_button.setProperty("current_color", initial_color)
+                            else:
+                                color_button.setText("Pick Color")"""
+
+                            color_button.clicked.connect(create_color_picker(color_button, row))
+                            self.tableWidget_3.setCellWidget(row, 4, color_button)
+
+                            # Set row background color based on show part
+                            if show_part in part_colors:
+                                color = part_colors[show_part]
+                                qcolor = QtGui.QColor(color)
+                                qcolor.setAlpha(40)  # Set transparency
+                                for col in range(5):
+                                    item = self.tableWidget_3.item(row, col)
+                                    if item:
+                                        item.setBackground(qcolor)
+
+                            row += 1
+
+                    # Connect table item changed signal (for Effect column)
+                    def on_item_changed(item):
+                        if item.column() == 2:  # Effect column
+                            self.save_cell_value(item.row(), show_name)
+
+                    self.tableWidget_3.itemChanged.connect(on_item_changed)
+
+                    # Make columns stretch to fill table width
+                    header = self.tableWidget_3.horizontalHeader()
+                    for i in range(5):
+                        if i == 4:  # Last column (Color)
+                            header.setStretchLastSection(True)
+                        else:
+                            header.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.Stretch)
+
+                    print("Show structure updated successfully")
+
+            # Connect combo box selection to table update
+            self.comboBox.currentTextChanged.connect(update_show_table)
+
+            # Initialize table with first show if available
+            if self.comboBox.count() > 0:
+                first_show = self.comboBox.itemText(0)
+                update_show_table(first_show)
 
             print("Show structure imported successfully")
 
