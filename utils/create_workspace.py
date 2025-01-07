@@ -102,6 +102,3 @@ def create_qlc_workspace():
         f.write('<!DOCTYPE Workspace>\n')
         # Write the rest of the pretty-printed XML, but skip the first line (xml declaration)
         f.write('\n'.join(pretty_xml.split('\n')[1:]))
-
-
-create_qlc_workspace()

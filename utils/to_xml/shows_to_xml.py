@@ -244,6 +244,8 @@ def create_shows(root, shows_dir='../shows', base_dir='../'):
         root: The root XML element to add the show functions to
         shows_dir: Directory containing show files
         base_dir: Base directory path
+    Returns:
+        int: Next available ID
     """
     show_id = 0  # Initialize show ID counter
 
@@ -259,10 +261,14 @@ def create_shows(root, shows_dir='../shows', base_dir='../'):
             # Check if all required files exist
             required_files = [
                 f"{show_name}_setup.json",
-                f"{show_name}_structure.csv"  # Added file extension
+                f"{show_name}_structure.csv",  # Added file extension
+                f"{show_name}_values.json"  # Added values file requirement
             ]
 
-            if all(os.path.exists(os.path.join(show_path, f)) for f in required_files):
+            missing_files = [f for f in required_files
+                             if not os.path.exists(os.path.join(show_path, f))]
+
+            if not missing_files:
                 try:
                     # Create Function element for the show
                     function = ET.SubElement(root, "Function")
@@ -293,11 +299,10 @@ def create_shows(root, shows_dir='../shows', base_dir='../'):
                     import traceback
                     traceback.print_exc()
             else:
-                missing_files = [f for f in required_files
-                               if not os.path.exists(os.path.join(show_path, f))]
                 print(f"Show {show_name} is missing required files: {missing_files}")
 
     return show_id
+
 
 
 
