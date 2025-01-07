@@ -8,7 +8,7 @@ def create_step(number, fade_in=0, hold=0, fade_out=0, values=None):
     step.set("FadeIn", str(fade_in))
     step.set("Hold", str(hold))
     step.set("FadeOut", str(fade_out))
-    step.set("Values", "17")
+    step.set("Values", "0")
 
     if values:
         step.text = values

@@ -12,11 +12,17 @@ from utils.make.make_channel_groups import make_channel_groups_from_fixtures
 
 def create_qlc_workspace():
     # Set up base dir
-    base_dir = os.getcwd()
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     # Load configuration from JSON
-    with open('config.json', 'r') as config_file:
+    with open(os.path.join(base_dir, 'config.json'), 'r') as config_file:
         config = json.load(config_file)
+
+    # Update other file paths to use base_dir
+    universes_json_path = os.path.join(base_dir, 'setup', 'universes.json')
+    setup_fixtures_dir = os.path.join(base_dir, 'setup')
+    shows_dir = os.path.join(base_dir, 'shows')
+    workspace_path = os.path.join(base_dir, 'workspace.qxw')
 
     # Create the root element with namespace
     root = ET.Element("Workspace")
@@ -36,10 +42,10 @@ def create_qlc_workspace():
     input_output_map = ET.SubElement(engine, "InputOutputMap")
 
     # Call the function from setup_to_xml.py to create universe elements
-    create_universe_elements(input_output_map, universes_json_pth='setup/universes.json')
+    create_universe_elements(input_output_map, universes_json_pth=universes_json_path)
 
     # Create Fixtures
-    create_fixture_elements(engine, setup_fixtures_dir='setup')
+    create_fixture_elements(engine, setup_fixtures_dir=setup_fixtures_dir)
 
     # Make channel groups from fixtures - Do before implanting channel groups
     make_channel_groups_from_fixtures()
@@ -48,7 +54,7 @@ def create_qlc_workspace():
     create_channels_groups(engine)
 
     # Create Show
-    create_shows(engine, shows_dir='shows', base_dir=base_dir)
+    create_shows(engine, shows_dir=shows_dir, base_dir=base_dir)
 
 
     # Create VirtualConsole section
@@ -90,7 +96,7 @@ def create_qlc_workspace():
     pretty_xml = reparsed.toprettyxml(indent="  ")  # 2 spaces for indentation
 
     # Write to file with proper formatting
-    with open("workspace.qxw", "w", encoding='UTF-8') as f:
+    with open(workspace_path, "w", encoding='UTF-8') as f:
         # Write the XML declaration and DOCTYPE
         f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
         f.write('<!DOCTYPE Workspace>\n')
