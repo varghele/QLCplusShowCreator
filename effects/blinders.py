@@ -1,5 +1,7 @@
 from utils.step_utils import create_step
 
+def strobe_new(channels, bpm, speed, color):
+    pass
 
 def strobe(start_step, channels, speed="fast"):
     """
@@ -28,11 +30,3 @@ def strobe(start_step, channels, speed="fast"):
         steps.append(step)
 
     return steps
-
-
-def flash(start_step, channels, intensity=255):
-    """
-    Creates a single flash effect
-    """
-    values = ",".join([f"{channel}:{intensity}:0" for channel in channels])
-    return [create_step(start_step, fade_in=0, hold=1, fade_out=2, values=values)]

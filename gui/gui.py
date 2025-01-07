@@ -5,7 +5,8 @@ import json
 import xml.etree.ElementTree as ET
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtWidgets import QMainWindow, QDialog, QFileDialog, QLineEdit, QFormLayout, QDialogButtonBox
-from effect_selection import EffectSelectionDialog
+from .effect_selection import EffectSelectionDialog
+from utils.create_workspace import create_qlc_workspace
 
 
 class Ui_MainWindow(object):
@@ -131,8 +132,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Initialize fixture paths list
         self.fixture_paths = []
 
-        # Load effects dictionary
-        with open(f'{self.project_root}/effects/effects.json', 'r') as f:
+        # Load effects dictionary using correct path
+        effects_json_path = os.path.join(self.project_root, "effects", "effects.json")
+        with open(effects_json_path, 'r') as f:
             self.effects_dir = json.load(f)
 
         # Set up table headers
@@ -1233,53 +1235,42 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             traceback.print_exc()
 
     def create_workspace(self):
-        #TODO: Write this
         try:
-            # Get the show data from the table
-            show_data = []
-            row_count = self.tableWidget_3.rowCount()
-            col_count = self.tableWidget_3.columnCount()
+            # First save the current show to ensure all data is up to date
+            self.save_show()
 
-            # Get headers (show parts)
-            headers = []
-            for col in range(1, col_count):  # Skip first column (Channel Group)
-                header_item = self.tableWidget_3.horizontalHeaderItem(col)
-                if header_item:
-                    headers.append(header_item.text())
+            # Get current show name
+            current_show = self.comboBox.currentText()
+            if not current_show:
+                print("No show selected")
+                return
 
-            # Get data for each channel group
-            for row in range(row_count):
-                channel_group = self.tableWidget_3.item(row, 0).text()
+            # Create workspace using the imported function
+            # Pass the project root directory to ensure correct file paths
+            create_qlc_workspace()
 
-                for col, show_part in enumerate(headers, start=1):
-                    value_item = self.tableWidget_3.item(row, col)
-                    value = value_item.text() if value_item else ""
+            print("Workspace created successfully")
 
-                    if value:  # Only add if there's a value
-                        show_data.append({
-                            'show_part': show_part,
-                            'channel_group': channel_group,
-                            'value': value
-                        })
-
-            # Write to CSV file
-            if show_data:
-                show_file = os.path.join(self.project_root, "shows", "show_1", "show_1.csv")
-                os.makedirs(os.path.dirname(show_file), exist_ok=True)
-
-                with open(show_file, 'w', newline='') as f:
-                    writer = csv.DictWriter(f, fieldnames=['show_part', 'channel_group', 'value'])
-                    writer.writeheader()
-                    writer.writerows(show_data)
-
-                print(f"Show data written to {show_file}")
-            else:
-                print("No show data to write")
+            # Show success message to the user
+            QtWidgets.QMessageBox.information(
+                self,
+                "Success",
+                "QLC+ workspace has been created successfully.",
+                QtWidgets.QMessageBox.StandardButton.Ok
+            )
 
         except Exception as e:
-            print(f"Error writing shows: {e}")
+            print(f"Error creating workspace: {e}")
             import traceback
             traceback.print_exc()
+
+            # Show error message to the user
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to create workspace: {str(e)}",
+                QtWidgets.QMessageBox.StandardButton.Ok
+            )
 
 
 def main():
