@@ -104,7 +104,8 @@ def create_channels_groups(root):
         channels_list = []
         for _, fixture in group.iterrows():
             # Get fixture ID and number of channels
-            fixture_id = fixture['id']
+            fixture_id = fixture['id'] #wrong
+            #fixture_id =
             num_channels = int(fixture['Channels'])
 
             # Add each channel to the list

@@ -1215,7 +1215,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                         # Write row to CSV
                         writer.writerow([
-                            group_ids[group],  # id
+                            row,  # id
                             group,  # category
                             self.tableWidget.cellWidget(row, 0).value(),  # Universe
                             self.tableWidget.cellWidget(row, 1).value(),  # Address
