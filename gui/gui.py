@@ -5,11 +5,12 @@ import json
 import xml.etree.ElementTree as ET
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtWidgets import QMainWindow, QDialog, QFileDialog, QLineEdit, QFormLayout, QDialogButtonBox
+from effect_selection import EffectSelectionDialog
 
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
-        MainWindow.setObjectName("MainWindow")
+        MainWindow.setObjectName("QLCAutoShow")
         MainWindow.resize(1200, 900)  # Changed window size
         self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
         self.centralwidget.setObjectName("centralwidget")
@@ -129,6 +130,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Initialize fixture paths list
         self.fixture_paths = []
+
+        # Load effects dictionary
+        with open(f'{self.project_root}/effects/effects.json', 'r') as f:
+            self.effects_dir = json.load(f)
 
         # Set up table headers
         self._setup_tables()
@@ -828,10 +833,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                     self.tableWidget_3.setItem(row, 1, group_item)
 
-                    # Effect (empty editable cell)
-                    effect_item = QtWidgets.QTableWidgetItem("")
-                    self.tableWidget_3.setItem(row, 2, effect_item)
-
                     # Speed (combo box)
                     speed_combo = QtWidgets.QComboBox()
                     speed_values = ['1/32', '1/16', '1/8', '1/4', '1/2', '1', '2', '4', '8', '16', '32']
@@ -846,15 +847,45 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                     self.tableWidget_3.setCellWidget(row, 3, speed_combo)
 
+                    # Effect (button to open selection dialog)
+                    effect_button = QtWidgets.QPushButton("Select Effect")
+                    if key in existing_values and existing_values[key].get('effect'):
+                        effect_button.setText(existing_values[key]['effect'])
+                        effect_button.setProperty("current_effect", existing_values[key]['effect'])
+                    else:
+                        effect_button.setText("Select Effect")
+                        effect_button.setProperty("current_effect", "")
+
+                    def create_effect_selector(target_row):
+                        def show_effect_dialog():
+                            # Get the button from the correct row
+                            button = self.tableWidget_3.cellWidget(target_row, 2)
+                            if not button:
+                                return
+
+                            dialog = EffectSelectionDialog(self.effects_dir, self)
+                            if dialog.exec() == QDialog.DialogCode.Accepted:
+                                selected_effect = dialog.get_selected_effect()
+                                if selected_effect == "CLEAR":
+                                    button.setText("Select Effect")
+                                    button.setProperty("current_effect", "")
+                                elif selected_effect:
+                                    button.setText(selected_effect)
+                                    button.setProperty("current_effect", selected_effect)
+
+                        return show_effect_dialog
+
+                    # Connect the button with explicit row reference
+                    effect_button.clicked.connect(create_effect_selector(row))
+                    self.tableWidget_3.setCellWidget(row, 2, effect_button)
+
                     # Color picker button
                     color_button = QtWidgets.QPushButton()
                     color_button.setFixedHeight(25)
 
-                    # Load existing values if available
+                    # Load existing color values if available
                     if key in existing_values:
                         values = existing_values[key]
-                        if values.get('effect'):
-                            effect_item.setText(values['effect'])
                         if values.get('color'):
                             color_button.setStyleSheet(f"background-color: {values['color']};")
                             color_button.setText(values['color'])
@@ -931,11 +962,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             for row in range(row_count):
                 show_part = self.tableWidget_3.item(row, 0).text()
                 fixture_group = self.tableWidget_3.item(row, 1).text()
-                effect = self.tableWidget_3.item(row, 2).text() if self.tableWidget_3.item(row, 2) else ""
-
+                # Save effects from button
+                effect_button = self.tableWidget_3.cellWidget(row, 2)
+                effect = effect_button.property("current_effect") if effect_button else ""
+                # Save speed from speed widget
                 speed_widget = self.tableWidget_3.cellWidget(row, 3)
                 speed = speed_widget.currentText() if speed_widget else "1"
-
+                # Save colors
                 color_button = self.tableWidget_3.cellWidget(row, 4)
                 color = color_button.property("current_color") if color_button else ""
 
