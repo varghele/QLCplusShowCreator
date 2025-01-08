@@ -2,9 +2,56 @@ import os
 import json
 import xml.etree.ElementTree as ET
 import pandas as pd
-
 import importlib
-from utils.step_utils import create_step
+
+
+def add_steps_to_sequence(sequence, steps):
+    """Adds steps to a sequence"""
+    for step in steps:
+        sequence.append(step)
+
+
+def load_effects(effects_dir="effects"):
+    """
+    Loads all effect modules from the effects directory
+    Parameters:
+        effects_dir: Directory containing effect modules (default: "effects")
+    Returns:
+        dict: Dictionary of loaded effect modules with category names as keys
+    """
+    effects = {}
+
+    # Convert relative path to absolute path
+    effects_dir = os.path.abspath(effects_dir)
+
+    # Check if directory exists
+    if not os.path.exists(effects_dir):
+        print(f"Effects directory not found: {effects_dir}")
+        return effects
+
+    try:
+        # Load each Python file in the effects directory
+        for effect_file in os.listdir(effects_dir):
+            if effect_file.endswith('.py') and not effect_file.startswith('__'):
+                category = effect_file[:-3]  # Remove .py extension
+                try:
+                    # Import the module using importlib
+                    module_path = f"effects.{category}"
+                    effects[category] = importlib.import_module(module_path)
+                    print(f"Loaded effects for category: {category}")
+                except ImportError as e:
+                    print(f"Error importing {effect_file}: {e}")
+                except Exception as e:
+                    print(f"Error loading {effect_file}: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+    except Exception as e:
+        print(f"Error scanning effects directory: {e}")
+        import traceback
+        traceback.print_exc()
+
+    return effects
 
 def calculate_start_time(previous_time, signature, bpm, num_bars, transition, previous_bpm=None):
     """
@@ -103,13 +150,17 @@ def create_tracks(function, root, base_dir="../"):
         print(f"Structure file not found: {structure_file}")
         return
 
+    # Load effects modules
+    effects_dir = os.path.join(base_dir, "effects")
+    effects = load_effects(effects_dir)
+
     # Load the show values if they exist
     show_values = {}
     if os.path.exists(values_file):
         try:
             with open(values_file, 'r') as f:
-                values_data = json.load(f)
-                for item in values_data:
+                values = json.load(f)
+                for item in values:
                     key = (item['show_part'], item['fixture_group'])
                     show_values[key] = item
         except Exception as e:
@@ -164,26 +215,28 @@ def create_tracks(function, root, base_dir="../"):
         previous_bpm = None
 
         for _, row in structure_df.iterrows():
-            show_part = row['showpart']
-            key = (show_part, category)
-
-            # Get effect data from show_values
-            effect_data = show_values.get(key, {})
-            effect_name = effect_data.get('effect', '')
-            effect_speed = effect_data.get('speed', '1')
-            effect_color = effect_data.get('color', '')
-
-            sequence_name = f"{show_name}_{category}_{row['showpart']}"
+            sequence_name = f"{show_name}_{category}_{row['name']}"
             sequence = create_sequence(root, current_id, sequence_name, scene.get("ID"))
 
-            # Add effect steps if an effect is specified
-            if effect_name=="":
-                # Create steps based on effect, speed, and color
-                create_step(sequence, effect_name, effect_speed, effect_color)
-            else:
-                pass
+            # Get effect data for this show part and category
+            key = (row['showpart'], category)
+            if key in show_values:
+                effect_data = show_values[key]
+                if effect_data.get('effect'):
+                    # Get fixture channels for this category
+                    channels = []
+                    for _, fixture in category_fixtures.iterrows():
+                        channels.extend(range(int(fixture['Channels'])))
 
-            # Add to track
+                    # Create effect steps
+                    effect_module = effects.get(category.lower())
+                    if effect_module and hasattr(effect_module, effect_data['effect']):
+                        effect_func = getattr(effect_module, effect_data['effect'])
+                        steps = effect_func(0, channels,
+                                            speed=effect_data.get('speed', '1'),
+                                            color=effect_data.get('color', ''))
+                        add_steps_to_sequence(sequence, steps)
+
             show_function = ET.SubElement(track, "ShowFunction")
             show_function.set("ID", str(current_id))
             show_function.set("StartTime", str(start_time))
@@ -256,8 +309,12 @@ def create_shows(root, shows_dir='../shows', base_dir='../'):
                     time_division.set("Type", setup_data.get("TimeType", "Time"))
                     time_division.set("BPM", str(setup_data.get("BPM", 120)))
 
+                    # Load effects modules
+                    effects_dir = os.path.join(base_dir, "effects")
+                    effects = load_effects(effects_dir)
+
                     # Create tracks for this show and get next available ID
-                    next_id = create_tracks(function, root, base_dir)
+                    next_id = create_tracks(function, root, base_dir, effects=effects)
                     show_id = next_id  # Update show_id for next iteration
 
                     print(f"Successfully created show: {show_name}")
