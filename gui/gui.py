@@ -11,7 +11,7 @@ from utils.create_workspace import create_qlc_workspace
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
-        MainWindow.setObjectName("QLCAutoShow")
+        MainWindow.setObjectName(" ")
         MainWindow.resize(1200, 900)  # Changed window size
         self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
         self.centralwidget.setObjectName("centralwidget")
@@ -56,6 +56,12 @@ class Ui_MainWindow(object):
         self.label.setObjectName("label")
 
         self.tabWidget.addTab(self.tab, "")
+
+        # Stage Tab
+        self.tab_stage = QtWidgets.QWidget()
+        self.tab_stage.setObjectName("tab_stage")
+
+        self.tabWidget.addTab(self.tab_stage, "")
 
         # Shows Tab
         self.tab_2 = QtWidgets.QWidget()
@@ -104,7 +110,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "QLCAutoShow"))
         self.pushButton.setToolTip(_translate("MainWindow", "<html><head/><body><p>Add Fixture</p></body></html>"))
         self.pushButton.setText(_translate("MainWindow", "+"))
         self.pushButton_2.setToolTip(_translate("MainWindow", "<html><head/><body><p>Remove Fixture</p></body></html>"))
@@ -116,8 +122,10 @@ class Ui_MainWindow(object):
         self.pushButton_5.setText(_translate("MainWindow", "Load Shows"))
         self.pushButton_6.setText(_translate("MainWindow", "Create Workspace"))
         self.pushButton_7.setText(_translate("MainWindow", "Save Show"))
+        # Stage Tab
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_stage), _translate("MainWindow", "Stage"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Shows"))
-        self.menuQLCAutoShow.setTitle(_translate("MainWindow", "QLCAutoShow"))
+        self.menuQLCAutoShow.setTitle(_translate("MainWindow", " "))
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -320,7 +328,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     os.path.expanduser('~/.qlcplus/fixtures')
                 ])
             elif sys.platform == 'win32':
-                qlc_fixture_dirs.append(os.path.join(os.path.expanduser('~'), 'QLC+', 'fixtures'))
+                qlc_fixture_dirs.extend([
+                    os.path.join(os.path.expanduser('~'), 'QLC+', 'fixtures'),  # User fixtures
+                    'C:\\QLC+\\Fixtures'  # System-wide fixtures
+                ])
             elif sys.platform == 'darwin':
                 qlc_fixture_dirs.append(os.path.expanduser('~/Library/Application Support/QLC+/fixtures'))
 
@@ -587,7 +598,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     os.path.expanduser('~/.qlcplus/fixtures')
                 ])
             elif sys.platform == 'win32':
-                qlc_fixture_dirs.append(os.path.join(os.path.expanduser('~'), 'QLC+', 'fixtures'))
+                qlc_fixture_dirs.extend([
+                    os.path.join(os.path.expanduser('~'), 'QLC+', 'fixtures'),  # User fixtures
+                    'C:\\QLC+\\Fixtures'  # System-wide fixtures
+                ])
             elif sys.platform == 'darwin':
                 qlc_fixture_dirs.append(os.path.expanduser('~/Library/Application Support/QLC+/fixtures'))
 
@@ -1057,7 +1071,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     os.path.expanduser('~/.qlcplus/fixtures')
                 ])
             elif sys.platform == 'win32':
-                qlc_fixture_dirs.append(os.path.join(os.path.expanduser('~'), 'QLC+', 'fixtures'))
+                qlc_fixture_dirs.extend([
+                    os.path.join(os.path.expanduser('~'), 'QLC+', 'fixtures'),  # User fixtures
+                    'C:\\QLC+\\Fixtures'  # System-wide fixtures
+                ])
             elif sys.platform == 'darwin':
                 qlc_fixture_dirs.append(os.path.expanduser('~/Library/Application Support/QLC+/fixtures'))
 
