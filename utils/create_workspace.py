@@ -8,8 +8,6 @@ from utils.to_xml.shows_to_xml import create_shows
 from utils.make.make_channel_groups import make_channel_groups_from_fixtures
 
 
-
-
 def create_qlc_workspace():
     # Set up base dir
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -55,7 +53,6 @@ def create_qlc_workspace():
 
     # Create Show
     create_shows(engine, shows_dir=shows_dir, base_dir=base_dir)
-
 
     # Create VirtualConsole section
     vc = ET.SubElement(root, "VirtualConsole")
