@@ -11,6 +11,55 @@ def add_steps_to_sequence(sequence, steps):
         sequence.append(step)
 
 
+def calculate_total_beats(signature, num_bars):
+    """
+    Calculate total number of beats from time signature and number of bars
+    """
+    # Parse time signature (e.g., "4/4", "3/4")
+    numerator, _ = map(int, signature.split('/'))
+
+    # Total beats = beats per bar * number of bars
+    total_beats = numerator * num_bars
+
+    return total_beats
+
+def load_show_values(values_file):
+    """
+    Load show values from JSON file
+    Parameters:
+        values_file: Path to the values JSON file
+    Returns:
+        dict: Dictionary of show values indexed by (show_part, fixture_group)
+    """
+    show_values = {}
+    if os.path.exists(values_file):
+        try:
+            with open(values_file, 'r') as f:
+                values = json.load(f)
+                for item in values:
+                    key = (item['show_part'], item['fixture_group'])
+                    show_values[key] = item
+        except Exception as e:
+            print(f"Error loading values file: {e}")
+    return show_values
+
+def load_fixture_definitions(json_path):
+    """
+    Load fixture definitions from JSON file
+    Parameters:
+        json_path: Path to the fixtures.json file
+    Returns:
+        dict: Dictionary of fixture definitions
+    """
+    try:
+        with open(json_path, 'r') as f:
+            fixture_definitions = json.load(f)
+        return fixture_definitions
+    except Exception as e:
+        print(f"Error loading fixture definitions from {json_path}: {e}")
+        return {}
+
+
 def load_effects(effects_dir="effects"):
     """
     Loads all effect modules from the effects directory
@@ -89,7 +138,7 @@ def calculate_start_time(previous_time, signature, bpm, num_bars, transition, pr
         raise ValueError(f"Unknown transition type: {transition}")
 
 
-def create_sequence(root, sequence_id, sequence_name, bound_scene_id):
+def create_sequence(root, sequence_id, sequence_name, bound_scene_id, bpm=120):
     """
     Creates a Sequence function element
     Parameters:
@@ -97,6 +146,7 @@ def create_sequence(root, sequence_id, sequence_name, bound_scene_id):
         sequence_id: ID of the sequence
         sequence_name: Name of the sequence
         bound_scene_id: ID of the bound scene
+        bpm: Beats per minute for timing
     Returns:
         Element: The created sequence element
     """
@@ -106,10 +156,13 @@ def create_sequence(root, sequence_id, sequence_name, bound_scene_id):
     sequence.set("Name", sequence_name)
     sequence.set("BoundScene", str(bound_scene_id))
 
+    # Calculate default timing based on BPM
+    ms_per_beat = 60000 / bpm
+
     speed = ET.SubElement(sequence, "Speed")
-    speed.set("FadeIn", "0")
+    speed.set("FadeIn", str(int(ms_per_beat * 0.1)))  # 10% of beat time
     speed.set("FadeOut", "0")
-    speed.set("Duration", "0")
+    speed.set("Duration", str(int(ms_per_beat)))
 
     direction = ET.SubElement(sequence, "Direction")
     direction.text = "Forward"
@@ -125,7 +178,7 @@ def create_sequence(root, sequence_id, sequence_name, bound_scene_id):
     return sequence
 
 
-def create_tracks(function, root, base_dir="../"):
+def create_tracks(function, root, effects, base_dir="../"):
     """
     Creates Track elements, Scenes, and Sequences for each channel group category
     Parameters:
@@ -141,6 +194,7 @@ def create_tracks(function, root, base_dir="../"):
     show_name = function.get('Name')
     structure_file = os.path.join(base_dir, 'shows', show_name, f"{show_name}_structure.csv")  # Added .csv extension
     values_file = os.path.join(base_dir, 'shows', show_name, f"{show_name}_values.json")
+    fixtures_file = os.path.join(base_dir, 'setup', 'fixtures.json')
 
     # Check if required files exist
     if not os.path.exists(groups_file):
@@ -150,21 +204,13 @@ def create_tracks(function, root, base_dir="../"):
         print(f"Structure file not found: {structure_file}")
         return
 
-    # Load effects modules
-    effects_dir = os.path.join(base_dir, "effects")
-    effects = load_effects(effects_dir)
+    # Load effects modules (now in argument)
+    #effects_dir = os.path.join(base_dir, "effects")
+    #effects = load_effects(effects_dir)
 
-    # Load the show values if they exist
-    show_values = {}
-    if os.path.exists(values_file):
-        try:
-            with open(values_file, 'r') as f:
-                values = json.load(f)
-                for item in values:
-                    key = (item['show_part'], item['fixture_group'])
-                    show_values[key] = item
-        except Exception as e:
-            print(f"Error loading values file: {e}")
+    # Load show values and fixture definitions
+    show_values = load_show_values(values_file)
+    fixture_definitions = load_fixture_definitions(fixtures_file)
 
     # Read the CSV files
     groups_df = pd.read_csv(groups_file)
@@ -215,34 +261,58 @@ def create_tracks(function, root, base_dir="../"):
         previous_bpm = None
 
         for _, row in structure_df.iterrows():
-            sequence_name = f"{show_name}_{category}_{row['name']}"
-            sequence = create_sequence(root, current_id, sequence_name, scene.get("ID"))
+            sequence_name = f"{show_name}_{category}_{row['showpart']}"
+            sequence = create_sequence(root, current_id, sequence_name, scene.get("ID"), row['bpm'])
 
             # Get effect data for this show part and category
             key = (row['showpart'], category)
+            print(f"Checking key: {key}")
             if key in show_values:
                 effect_data = show_values[key]
+                print(f"Effect data: {effect_data}")
                 if effect_data.get('effect'):
-                    # Get fixture channels for this category
-                    channels = []
+                    print(f"Found effect: {effect_data['effect']}")
+                    # Get fixture definitions and channels for this category
                     for _, fixture in category_fixtures.iterrows():
-                        channels.extend(range(int(fixture['Channels'])))
+                        fixture_key = f"{fixture['Manufacturer']}_{fixture['Model']}"
+                        print(f"Looking for fixture: {fixture_key}")
+                        fixture_def = fixture_definitions.get(fixture_key)
+                        print(f"Found fixture definition: {True if fixture_def else False}")
 
-                    # Create effect steps
-                    effect_module = effects.get(category.lower())
-                    if effect_module and hasattr(effect_module, effect_data['effect']):
-                        effect_func = getattr(effect_module, effect_data['effect'])
-                        steps = effect_func(0, channels,
-                                            speed=effect_data.get('speed', '1'),
-                                            color=effect_data.get('color', ''))
-                        add_steps_to_sequence(sequence, steps)
+                        if fixture_def:
+                            # Split module and function name
+                            module_name, func_name = effect_data['effect'].split('.')
+                            effect_module = effects.get(module_name)
+                            print(f"Effect module: {effect_module}")
+                            print(f"Effect function name: {func_name}")
+                            print(f"Has attribute: {hasattr(effect_module, func_name)}")
+
+                            # Get the first available mode if CurrentMode is not specified
+                            available_modes = fixture_def.get('modes', [])
+                            current_mode = (fixture.get('CurrentMode') if 'CurrentMode' in fixture
+                                            else available_modes[0]['name'] if available_modes
+                            else None)
+
+                            if effect_module and hasattr(effect_module, func_name) and current_mode:
+                                print(f"Creating effect steps with mode: {current_mode}")
+                                effect_func = getattr(effect_module, func_name)
+                                # Calculate beats
+                                total_beats = calculate_total_beats(row['signature'], row['num_bars'])
+                                steps = effect_func(start_time,
+                                                    fixture_def,
+                                                    current_mode,
+                                                    bpm=row['bpm'],
+                                                    speed=effect_data.get('speed', '1'),
+                                                    color=effect_data.get('color', ''),
+                                                    total_beats=total_beats)
+                                print(f"Steps created: {len(steps) if steps else 0}")
+                                add_steps_to_sequence(sequence, steps)
 
             show_function = ET.SubElement(track, "ShowFunction")
             show_function.set("ID", str(current_id))
             show_function.set("StartTime", str(start_time))
             show_function.set("Color", row['color'])
 
-            # Calculate next start time
             start_time = calculate_start_time(
                 start_time,
                 row['signature'],
@@ -251,7 +321,6 @@ def create_tracks(function, root, base_dir="../"):
                 row['transition'],
                 previous_bpm
             )
-
             previous_bpm = row['bpm']
             current_id += 1
 
@@ -314,7 +383,7 @@ def create_shows(root, shows_dir='../shows', base_dir='../'):
                     effects = load_effects(effects_dir)
 
                     # Create tracks for this show and get next available ID
-                    next_id = create_tracks(function, root, base_dir, effects=effects)
+                    next_id = create_tracks(function, root, effects, base_dir)
                     show_id = next_id  # Update show_id for next iteration
 
                     print(f"Successfully created show: {show_name}")
