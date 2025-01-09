@@ -655,13 +655,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 model = fixture.find("qlc:Model", ns).text
                 current_mode = fixture.find("qlc:Mode", ns).text
 
-                # Find group for this fixture
+                # Find group for this fixture by checking channel lists
                 group_name = ""
                 for group in root.findall(".//qlc:Engine/qlc:ChannelsGroup", ns):
-                    if group.text and fixture_id in group.text.split(','):
+                    # Split channel list and get fixture IDs (first number of each pair)
+                    channel_pairs = group.text.split(',')
+                    fixture_ids = set(channel_pairs[::2])  # Take every other item (the fixture IDs)
+
+                    if fixture_id in fixture_ids:
                         group_name = group.get('Name')
                         self.existing_groups.add(group_name)
-                        break
+                        break  # We can break here since each fixture belongs to only one group
 
                 # Get fixture definition if available
                 fixture_def = fixture_definitions.get((manufacturer, model))
@@ -1100,34 +1104,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                                         # Only process if this fixture is in our table
                                         if (manufacturer, model) in models_in_table:
-                                            # Get physical information
-                                            physical = root.find('.//Physical', ns)
-                                            physical_info = {}
-                                            if physical is not None:
-                                                for elem in physical:
-                                                    physical_info[elem.tag] = elem.text
-
                                             # Get channels information
                                             channels_info = []
                                             for channel in root.findall('.//Channel', ns):
                                                 channel_data = {
-                                                    'name': channel.text,
-                                                    'number': channel.get('Number'),
+                                                    'name': channel.get('Name'),
+                                                    'preset': channel.get('Preset'),
                                                     'group': channel.find('Group', ns).text if channel.find('Group',
                                                                                                             ns) is not None else None,
-                                                    'byte': channel.find('Byte', ns).text if channel.find('Byte',
-                                                                                                          ns) is not None else None,
                                                     'capabilities': []
                                                 }
 
                                                 # Get capabilities
                                                 for capability in channel.findall('Capability', ns):
                                                     cap_data = {
-                                                        'min': capability.get('Min'),
-                                                        'max': capability.get('Max'),
-                                                        'name': capability.text,
-                                                        'color': capability.get('Color'),
-                                                        'resource': capability.get('Resource')
+                                                        'min': int(capability.get('Min')),
+                                                        'max': int(capability.get('Max')),
+                                                        'preset': capability.get('Preset'),
+                                                        'name': capability.text
                                                     }
                                                     channel_data['capabilities'].append(cap_data)
 
@@ -1138,20 +1132,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                             for mode in root.findall('.//Mode', ns):
                                                 mode_data = {
                                                     'name': mode.get('Name'),
-                                                    'physical': {},
                                                     'channels': []
                                                 }
-
-                                                # Get mode-specific physical info
-                                                mode_physical = mode.find('Physical', ns)
-                                                if mode_physical is not None:
-                                                    for elem in mode_physical:
-                                                        mode_data['physical'][elem.tag] = elem.text
 
                                                 # Get channels for this mode
                                                 for channel in mode.findall('Channel', ns):
                                                     mode_data['channels'].append({
-                                                        'number': channel.get('Number'),
+                                                        'number': int(channel.get('Number')),
                                                         'name': channel.text
                                                     })
 
@@ -1162,7 +1149,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                             fixture_definitions[key] = {
                                                 'manufacturer': manufacturer,
                                                 'model': model,
-                                                'physical': physical_info,
                                                 'channels': channels_info,
                                                 'modes': modes_info
                                             }
@@ -1175,34 +1161,34 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             with open(fixtures_json_path, 'w') as f:
                 json.dump(fixture_definitions, f, indent=4)
 
-                # Save current fixture data to CSV
-                fixtures_csv_path = os.path.join(self.setup_dir, "fixtures.csv")
-                with open(fixtures_csv_path, 'w', newline='') as f:
-                    writer = csv.writer(f)
+            # Save current fixture data to CSV
+            fixtures_csv_path = os.path.join(self.setup_dir, "fixtures.csv")
+            with open(fixtures_csv_path, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    ['Universe', 'Address', 'Manufacturer', 'Model', 'Channels', 'Mode', 'Name', 'Group',
+                     'Direction'])
+
+                for row in range(self.tableWidget.rowCount()):
+                    universe = self.tableWidget.cellWidget(row, 0).value()
+                    address = self.tableWidget.cellWidget(row, 1).value()
+                    manufacturer = self.tableWidget.item(row, 2).text()
+                    model = self.tableWidget.item(row, 3).text()
+                    channels = self.tableWidget.item(row, 4).text()
+
+                    # Get mode without channel count
+                    mode_combo = self.tableWidget.cellWidget(row, 5)
+                    mode_text = mode_combo.currentText() if mode_combo else ""
+                    mode = mode_text.split(' (')[0] if ' (' in mode_text else mode_text
+
+                    #mode = self.tableWidget.cellWidget(row, 5).currentText()
+                    name = self.tableWidget.item(row, 6).text()
+                    group = self.tableWidget.cellWidget(row, 7).currentText()
+                    direction = self.tableWidget.cellWidget(row, 8).currentText()
+
                     writer.writerow(
-                        ['Universe', 'Address', 'Manufacturer', 'Model', 'Channels', 'Mode', 'Name', 'Group',
-                         'Direction'])
-
-                    for row in range(self.tableWidget.rowCount()):
-                        universe = self.tableWidget.cellWidget(row, 0).value()
-                        address = self.tableWidget.cellWidget(row, 1).value()
-                        manufacturer = self.tableWidget.item(row, 2).text()
-                        model = self.tableWidget.item(row, 3).text()
-                        channels = self.tableWidget.item(row, 4).text()
-
-                        # Get mode without channel count
-                        mode_combo = self.tableWidget.cellWidget(row, 5)
-                        mode_text = mode_combo.currentText() if mode_combo else ""
-                        mode = mode_text.split(' (')[0] if ' (' in mode_text else mode_text
-
-                        #mode = self.tableWidget.cellWidget(row, 5).currentText()
-                        name = self.tableWidget.item(row, 6).text()
-                        group = self.tableWidget.cellWidget(row, 7).currentText()
-                        direction = self.tableWidget.cellWidget(row, 8).currentText()
-
-                        writer.writerow(
-                            [universe, address, manufacturer, model, channels, mode, name, group, direction])
-                    print("Fixtures saved successfully to fixtures.csv")
+                        [universe, address, manufacturer, model, channels, mode, name, group, direction])
+                print("Fixtures saved successfully to fixtures.csv")
 
             # Save current fixture data to groups.csv
             groups_csv_path = os.path.join(self.setup_dir, "groups.csv")
