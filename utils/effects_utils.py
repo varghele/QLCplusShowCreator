@@ -48,7 +48,7 @@ def load_effect(module_name, effect_name):
         return None
 
 
-# Usage example:
+# Set up effects combo box for GUI:
 def setup_effects_combo(self, combo_box):
     effects = list_effects_in_directory("path/to/effects/directory")
 
@@ -59,3 +59,62 @@ def setup_effects_combo(self, combo_box):
     for module, functions in effects.items():
         for func in functions:
             combo_box.addItem(f"{module}.{func}")
+
+
+def get_channels_by_property(fixture_def, mode_name, properties):
+    """
+    Extracts channels with specific properties from a fixture definition
+    Parameters:
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to check ("8 Channel", "14 Channel", etc.)
+        properties: List of properties to look for (["IntensityMasterDimmer", "Shutter", etc.])
+    Returns:
+        dict: Dictionary of channel numbers by property
+    """
+    channels = {}
+
+    # Find the specified mode
+    mode = None
+    for m in fixture_def['modes']:
+        if m['name'] == mode_name:
+            mode = m
+            break
+
+    if not mode:
+        return channels
+
+    # For each channel in the mode
+    for channel_mapping in mode['channels']:
+        channel_number = channel_mapping['number']
+        channel_name = channel_mapping['name']
+
+        # Find the channel definition
+        channel_def = None
+        for ch in fixture_def['channels']:
+            if ch['name'] == channel_name:
+                channel_def = ch
+                break
+
+        if not channel_def:
+            continue
+
+        # Check preset property
+        if channel_def.get('preset') in properties:
+            channels[channel_def['preset']] = channel_number
+
+        # Check group property
+        if channel_def.get('group') in properties:
+            channels[channel_def['group']] = channel_number
+
+        # Check capabilities for properties
+        for capability in channel_def.get('capabilities', []):
+            if capability.get('preset') in properties:
+                if capability['preset'] not in channels:
+                    channels[capability['preset']] = []
+                channels[capability['preset']].append({
+                    'channel': channel_number,
+                    'min': capability['min'],
+                    'max': capability['max']
+                })
+
+    return channels

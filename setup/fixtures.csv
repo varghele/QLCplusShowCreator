@@ -1,5 +1,5 @@
 Universe,Address,Manufacturer,Model,Channels,Mode,Name,Group,Direction
-1,1,Showtec,Sunstrip Active,10,10 Channels Mode,SUN1,MH,
-1,11,Showtec,Sunstrip Active,10,10 Channels Mode,SUN2,MH,
-1,21,Stairville,MH-X25,12,12 Ch,MH1,SUN,
-1,33,Stairville,MH-X25,12,12 Ch,MH2,SUN,
+1,1,Showtec,Sunstrip Active,10,10 Channels Mode,SUN1,SUN,
+1,11,Showtec,Sunstrip Active,10,10 Channels Mode,SUN2,SUN,
+1,21,Stairville,MH-X25,12,12 Ch,MH1,MH,
+1,33,Stairville,MH-X25,12,12 Ch,MH2,MH,
