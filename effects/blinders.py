@@ -2,7 +2,7 @@ from utils.effects_utils import get_channels_by_property
 import xml.etree.ElementTree as ET
 
 
-def strobe(start_step, fixture_def, mode_name, bpm=120, speed="1", color=None, total_beats=4):
+def strobe(start_step, fixture_def, mode_name, bpm=120, speed="1", color=None, total_beats=4, fixture_num=1):
     """
     Creates a strobe effect for fixtures with intensity channels
     Parameters:
@@ -69,21 +69,19 @@ def strobe(start_step, fixture_def, mode_name, bpm=120, speed="1", color=None, t
         step_on.set("FadeIn", str(fade_in))
         step_on.set("Hold", str(hold))
         step_on.set("FadeOut", str(fade_out))
+        step_on.set("Values", str(total_channels*fixture_num))
 
         # Build values string for ON state
-        values_parts = []
-        values_parts.append(str(total_channels))  # Add total channels count
-        fixture_num = 0
-        for preset, channels in channels_dict.items():
-            if isinstance(channels, list):
-                values = []
-                for channel_info in channels:
-                    channel = channel_info['channel']
-                    values.extend([str(channel), "255"])
-                values_parts.append(f"{fixture_num}:{','.join(values)}")
-                fixture_num += 1
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+            for channel_info in channels_dict['IntensityDimmer']:
+                channel = channel_info['channel']
+                channel_values.extend([str(channel), "255"])
+            values.append(f"{i}:{','.join(channel_values)}")
 
-        step_on.set("Values", ">".join(values_parts))
+        # Set the text content of the element
+        step_on.text = ":".join(values)
 
         # Create OFF step
         step_off = ET.Element("Step")
@@ -91,21 +89,7 @@ def strobe(start_step, fixture_def, mode_name, bpm=120, speed="1", color=None, t
         step_off.set("FadeIn", str(int(remaining_time)))
         step_off.set("Hold", "0")
         step_off.set("FadeOut", "0")
-
-        # Build values string for OFF state
-        values_parts = []
-        values_parts.append(str(total_channels))  # Add total channels count
-        fixture_num = 0
-        for preset, channels in channels_dict.items():
-            if isinstance(channels, list):
-                values = []
-                for channel_info in channels:
-                    channel = channel_info['channel']
-                    values.extend([str(channel), "0"])
-                values_parts.append(f"{fixture_num}:{','.join(values)}")
-                fixture_num += 1
-
-        step_off.set("Values", ">".join(values_parts))
+        step_off.set("Values", str(total_channels*fixture_num))
 
         steps.extend([step_on, step_off])
 

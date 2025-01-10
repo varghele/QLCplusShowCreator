@@ -223,6 +223,10 @@ def create_tracks(function, root, effects, base_dir="../"):
         if pd.isna(category) or category == 'None':
             continue
 
+        # Calculate number of fixtures of same type fixture
+        category_fixtures = groups_df[groups_df['category'] == category]
+        fixture_num = len(category_fixtures)
+
         # Create Track
         track = ET.SubElement(function, "Track")
         track.set("ID", str(track_id))
@@ -289,7 +293,7 @@ def create_tracks(function, root, effects, base_dir="../"):
 
                             # Get the first available mode if CurrentMode is not specified
                             available_modes = fixture_def.get('modes', [])
-                            current_mode = (fixture.get('CurrentMode') if 'CurrentMode' in fixture
+                            current_mode = (fixture.get('Mode') if 'Mode' in fixture
                                             else available_modes[0]['name'] if available_modes
                             else None)
 
@@ -304,7 +308,8 @@ def create_tracks(function, root, effects, base_dir="../"):
                                                     bpm=row['bpm'],
                                                     speed=effect_data.get('speed', '1'),
                                                     color=effect_data.get('color', ''),
-                                                    total_beats=total_beats)
+                                                    total_beats=total_beats,
+                                                    fixture_num=fixture_num)
                                 print(f"Steps created: {len(steps) if steps else 0}")
                                 add_steps_to_sequence(sequence, steps)
 

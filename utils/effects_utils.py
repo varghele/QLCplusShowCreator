@@ -67,7 +67,7 @@ def get_channels_by_property(fixture_def, mode_name, properties):
     Parameters:
         fixture_def: Dictionary containing fixture definition
         mode_name: Name of the mode to check ("8 Channel", "14 Channel", etc.)
-        properties: List of properties to look for (["IntensityMasterDimmer", "Shutter", etc.])
+        properties: List of properties to look for (["IntensityDimmer", "Shutter", etc.])
     Returns:
         dict: Dictionary of channel numbers by property
     """
@@ -100,11 +100,19 @@ def get_channels_by_property(fixture_def, mode_name, properties):
 
         # Check preset property
         if channel_def.get('preset') in properties:
-            channels[channel_def['preset']] = channel_number
+            if channel_def['preset'] not in channels:
+                channels[channel_def['preset']] = []
+            channels[channel_def['preset']].append({
+                'channel': channel_number
+            })
 
         # Check group property
         if channel_def.get('group') in properties:
-            channels[channel_def['group']] = channel_number
+            if channel_def['group'] not in channels:
+                channels[channel_def['group']] = []
+            channels[channel_def['group']].append({
+                'channel': channel_number
+            })
 
         # Check capabilities for properties
         for capability in channel_def.get('capabilities', []):
@@ -118,3 +126,4 @@ def get_channels_by_property(fixture_def, mode_name, properties):
                 })
 
     return channels
+
