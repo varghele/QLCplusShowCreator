@@ -204,10 +204,6 @@ def create_tracks(function, root, effects, base_dir="../"):
         print(f"Structure file not found: {structure_file}")
         return
 
-    # Load effects modules (now in argument)
-    #effects_dir = os.path.join(base_dir, "effects")
-    #effects = load_effects(effects_dir)
-
     # Load show values and fixture definitions
     show_values = load_show_values(values_file)
     fixture_definitions = load_fixture_definitions(fixtures_file)
@@ -264,9 +260,16 @@ def create_tracks(function, root, effects, base_dir="../"):
         start_time = 0
         previous_bpm = None
 
-        for _, row in structure_df.iterrows():
+        for i, row in structure_df.iterrows():
             sequence_name = f"{show_name}_{category}_{row['showpart']}"
             sequence = create_sequence(root, current_id, sequence_name, scene.get("ID"), row['bpm'])
+
+            # Get the next row's BPM (if it exists)
+            next_bpm = None
+            if (i+1 < len(structure_df)) and (row['transition']=='gradual'):
+                next_bpm = structure_df.iloc[i + 1]['bpm']
+            else:
+                next_bpm = row['bpm']  # Use current BPM if there's no next row
 
             # Get effect data for this show part and category
             key = (row['showpart'], category)
@@ -305,7 +308,8 @@ def create_tracks(function, root, effects, base_dir="../"):
                                 steps = effect_func(start_time,
                                                     fixture_def,
                                                     current_mode,
-                                                    bpm=row['bpm'],
+                                                    start_bpm=row['bpm'],
+                                                    end_bpm=next_bpm,
                                                     speed=effect_data.get('speed', '1'),
                                                     color=effect_data.get('color', ''),
                                                     total_beats=total_beats,
