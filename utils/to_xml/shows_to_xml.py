@@ -11,19 +11,6 @@ def add_steps_to_sequence(sequence, steps):
     for step in steps:
         sequence.append(step)
 
-
-def calculate_total_beats(signature, num_bars):
-    """
-    Calculate total number of beats from time signature and number of bars
-    """
-    # Parse time signature (e.g., "4/4", "3/4")
-    numerator, _ = map(int, signature.split('/'))
-
-    # Total beats = beats per bar * number of bars
-    total_beats = numerator * num_bars
-
-    return total_beats
-
 def load_show_values(values_file):
     """
     Load show values from JSON file
@@ -337,13 +324,6 @@ def create_tracks(function, root, effects, base_dir="../"):
             sequence_name = f"{show_name}_{category}_{row['showpart']}"
             sequence = create_sequence(root, current_id, sequence_name, scene.get("ID"), row['bpm'])
 
-            # Get the next row's BPM (if it exists)
-            next_bpm = None
-            if (i+1 < len(structure_df)) and (row['transition']=='gradual'):
-                next_bpm = structure_df.iloc[i + 1]['bpm']
-            else:
-                next_bpm = row['bpm']  # Use current BPM if there's no next row
-
             # Get effect data for this show part and category
             key = (row['showpart'], category)
             print(f"Checking key: {key}")
@@ -377,8 +357,6 @@ def create_tracks(function, root, effects, base_dir="../"):
                             if effect_module and hasattr(effect_module, func_name) and current_mode:
                                 print(f"Creating effect steps with mode: {current_mode}")
                                 effect_func = getattr(effect_module, func_name)
-                                # Calculate beats
-                                total_beats = calculate_total_beats(row['signature'], row['num_bars'])
                                 steps = effect_func(start_time,
                                                     fixture_def,
                                                     current_mode,
