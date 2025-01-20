@@ -1072,7 +1072,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             if sys.platform.startswith('linux'):
                 qlc_fixture_dirs.extend([
                     '/usr/share/qlcplus/fixtures',
-                    os.path.expanduser('~/.qlcplus/fixtures')
+                    os.path.expanduser('~/.qlcplus/')
                 ])
             elif sys.platform == 'win32':
                 qlc_fixture_dirs.extend([
