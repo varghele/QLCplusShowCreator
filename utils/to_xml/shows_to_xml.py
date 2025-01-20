@@ -1,6 +1,7 @@
 import os
 import json
 import xml.etree.ElementTree as ET
+
 import pandas as pd
 import importlib
 
@@ -136,6 +137,78 @@ def calculate_start_time(previous_time, signature, bpm, num_bars, transition, pr
 
     else:
         raise ValueError(f"Unknown transition type: {transition}")
+
+
+def calculate_step_timing(signature, start_bpm, end_bpm, num_bars, speed="1", transition="gradual"):
+    """
+    Calculate step timings and count based on BPM transition
+    Parameters:
+        signature: Time signature as string (e.g. "4/4")
+        start_bpm: Starting BPM
+        end_bpm: Target BPM
+        num_bars: Number of bars
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        transition: Type of transition ("instant" or "gradual")
+    Returns:
+        tuple: (step_timings, total_steps)
+            step_timings: List of step durations in milliseconds
+            total_steps: Total number of steps needed
+    """
+    # Convert speed fraction to float
+    if isinstance(speed, str) and '/' in speed:
+        num, denom = map(int, speed.split('/'))
+        speed_multiplier = num / denom
+    else:
+        speed_multiplier = float(speed)
+
+    numerator, denominator = map(int, signature.split('/'))
+    beats_per_bar = (numerator * 4) / denominator
+    total_beats = num_bars * beats_per_bar
+    steps_per_beat = speed_multiplier
+    total_steps = int(total_beats * steps_per_beat)
+
+    step_timings = []
+
+    if transition == "instant" or start_bpm == end_bpm or start_bpm is None:
+        ms_per_beat = 60000 / end_bpm
+        ms_per_step = ms_per_beat / steps_per_beat
+        step_timings = [ms_per_step] * total_steps
+
+
+    elif transition == "gradual":
+        for bar in range(num_bars):
+            # Calculate current and next bar's BPM
+            current_progress = (bar / num_bars) ** 0.52
+            current_bpm = start_bpm + (end_bpm - start_bpm) * current_progress
+
+            next_progress = ((bar + 1) / num_bars) ** 0.52
+            next_bpm = start_bpm + (end_bpm - start_bpm) * next_progress if bar < num_bars - 1 else end_bpm
+
+            # Calculate total time for this bar
+            milliseconds_per_bar = (60000 / current_bpm) * beats_per_bar
+            steps_in_bar = int(beats_per_bar * steps_per_beat)
+
+            # Calculate step timings with linear decrease
+            total_time = 0
+            bar_steps = []
+
+            for step in range(steps_in_bar):
+                step_progress = step / (steps_in_bar - 1) if steps_in_bar > 1 else 0
+                step_bpm = current_bpm + (next_bpm - current_bpm) * step_progress
+                ms_per_step = (60000 / step_bpm) / steps_per_beat
+                bar_steps.append(ms_per_step)
+                total_time += ms_per_step
+
+            # Normalize step timings to fit milliseconds_per_bar
+            scaling_factor = milliseconds_per_bar / total_time
+            normalized_steps = [step * scaling_factor for step in bar_steps]
+            step_timings.extend(normalized_steps)
+
+
+    else:
+        raise ValueError(f"Unknown transition type: {transition}")
+
+    return [int(timing) for timing in step_timings], total_steps
 
 
 def create_sequence(root, sequence_id, sequence_name, bound_scene_id, bpm=120):
@@ -279,8 +352,9 @@ def create_tracks(function, root, effects, base_dir="../"):
                 print(f"Effect data: {effect_data}")
                 if effect_data.get('effect'):
                     print(f"Found effect: {effect_data['effect']}")
-                    # Get fixture definitions and channels for this category
-                    for _, fixture in category_fixtures.iterrows():
+                    # Get unique fixture definitions and channels for this category
+                    unique_fixtures = category_fixtures.drop_duplicates(subset=['Manufacturer', 'Model'])
+                    for _, fixture in unique_fixtures.iterrows():
                         fixture_key = f"{fixture['Manufacturer']}_{fixture['Model']}"
                         print(f"Looking for fixture: {fixture_key}")
                         fixture_def = fixture_definitions.get(fixture_key)
@@ -308,11 +382,13 @@ def create_tracks(function, root, effects, base_dir="../"):
                                 steps = effect_func(start_time,
                                                     fixture_def,
                                                     current_mode,
-                                                    start_bpm=row['bpm'],
-                                                    end_bpm=next_bpm,
+                                                    start_bpm=previous_bpm,
+                                                    end_bpm=row['bpm'],
+                                                    signature=row['signature'],
+                                                    transition=row['transition'],
+                                                    num_bars=row['num_bars'],
                                                     speed=effect_data.get('speed', '1'),
                                                     color=effect_data.get('color', ''),
-                                                    total_beats=total_beats,
                                                     fixture_num=fixture_num)
                                 print(f"Steps created: {len(steps) if steps else 0}")
                                 add_steps_to_sequence(sequence, steps)
