@@ -5,7 +5,7 @@ from utils.to_xml.shows_to_xml import calculate_step_timing
 
 
 def color_noise(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                num_bars=1, speed="1", color="#FF0000", noise_intensity=0.1, fixture_num=1):
+                num_bars=1, speed="1", color="#FF0000", noise_intensity=0.1, fixture_num=1, fixture_start_id=0):
     """
     Creates a color effect with Gaussian noise around a base color for LED bars
     Parameters:
@@ -21,6 +21,7 @@ def color_noise(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
         color: Hex color code (e.g. "#FF0000" for red)
         noise_intensity: Standard deviation for Gaussian noise (0-1)
         fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
     Returns:
         list: List of XML Step elements
     """
@@ -29,6 +30,12 @@ def color_noise(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
                                              ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
 
     # Convert hex to RGB
     color = color.lstrip('#')
@@ -83,9 +90,11 @@ def color_noise(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
                     white_value = min(255, max(0, int((noisy_r + noisy_g + noisy_b) / 3)))
                     channel_values.extend([str(channel['channel']), str(white_value)])
 
-            values.append(f"{i}:{','.join(channel_values)}")
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 
-        step.set("Values", ":".join(values))
+        #step.set("Values", ":".join(values))
+        step.set("Values", str(total_channels * fixture_num))
+        step.text = ":".join(values)
         steps.append(step)
         current_step += 1
 
