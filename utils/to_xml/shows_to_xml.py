@@ -275,6 +275,7 @@ def create_tracks(function, root, effects, base_dir="../"):
     current_id = int(function.get("ID")) + 1
 
     track_id = 0
+    fixture_start_id = 0
     for category in categories:
         if pd.isna(category) or category == 'None':
             continue
@@ -367,7 +368,8 @@ def create_tracks(function, root, effects, base_dir="../"):
                                                     num_bars=row['num_bars'],
                                                     speed=effect_data.get('speed', '1'),
                                                     color=effect_data.get('color', ''),
-                                                    fixture_num=fixture_num)
+                                                    fixture_num=fixture_num,
+                                                    fixture_start_id=fixture_start_id)
                                 print(f"Steps created: {len(steps) if steps else 0}")
                                 add_steps_to_sequence(sequence, steps)
 
@@ -386,8 +388,9 @@ def create_tracks(function, root, effects, base_dir="../"):
             )
             previous_bpm = row['bpm']
             current_id += 1
-
+        fixture_start_id += fixture_num
         track_id += 1
+
 
     return current_id
 

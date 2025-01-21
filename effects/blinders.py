@@ -4,7 +4,7 @@ from utils.to_xml.shows_to_xml import calculate_step_timing
 
 
 def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-           num_bars=1, speed="1", color=None, fixture_num=1):
+           num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0):
     """
     Creates a strobe effect for fixtures with intensity channels
     Parameters:
@@ -19,6 +19,7 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Color value (not used for basic strobe)
         fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
     Returns:
         list: List of XML Step elements
     """
@@ -67,7 +68,7 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
             for channel_info in channels_dict['IntensityDimmer']:
                 channel = channel_info['channel']
                 channel_values.extend([str(channel), "255"])
-            values.append(f"{i}:{','.join(channel_values)}")
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 
         step.text = ":".join(values)
         steps.append(step)
@@ -87,7 +88,7 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
             for channel_info in channels_dict['IntensityDimmer']:
                 channel = channel_info['channel']
                 channel_values.extend([str(channel), "0"])
-            values.append(f"{i}:{','.join(channel_values)}")
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 
         step.text = ":".join(values)
         steps.append(step)
@@ -98,7 +99,7 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
 
 
 def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-            num_bars=1, speed="1", color=None, fixture_num=1):
+            num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0):
     """
     Creates a twinkling effect with curved BPM transition
     Parameters:
@@ -113,6 +114,7 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Color value (not used for basic twinkle)
         fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
     Returns:
         list: List of XML Step elements
     """
@@ -156,7 +158,7 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
                 channel = channel_info['channel']
                 value = "255" if (idx + step_idx) % 2 == 0 else "150"
                 channel_values.extend([str(channel), value])
-            values.append(f"{i}:{','.join(channel_values)}")
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 
         step.text = ":".join(values)
         steps.append(step)
