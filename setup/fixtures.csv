@@ -3,4 +3,5 @@ Universe,Address,Manufacturer,Model,Channels,Mode,Name,Group,Direction
 1,11,Showtec,Sunstrip Active,10,10 Channels Mode,Sun2,SUN,
 1,21,Stairville,MH-X25,12,12 Ch,MH1,MH,
 1,33,Stairville,MH-X25,12,12 Ch,MH2,MH,
-2,1,Varghele,LED BAR,40,40 Channel,Bar1,BARS,
+2,1,Varghele,LED Bar,40,40 Channel,Bar1,BARS,
+2,41,Varghele,LED Bar,40,40 Channel,Bar2,BARS,
