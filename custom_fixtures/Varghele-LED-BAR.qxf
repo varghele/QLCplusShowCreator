@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE FixtureDefinition>
+<FixtureDefinition xmlns="http://www.qlcplus.org/FixtureDefinition">
+ <Creator>
+  <Name>Q Light Controller Plus</Name>
+  <Version>4.12.4</Version>
+  <Author>Markus</Author>
+ </Creator>
+ <Manufacturer>Varghele</Manufacturer>
+ <Model>LED BAR</Model>
+ <Type>LED Bar (Beams)</Type>
+ <Channel Name="Red 1" Preset="IntensityRed"/>
+ <Channel Name="Green 1" Preset="IntensityGreen"/>
+ <Channel Name="Blue 1" Preset="IntensityBlue"/>
+ <Channel Name="White 1" Preset="IntensityWhite"/>
+ <Channel Name="Red 2" Preset="IntensityRed"/>
+ <Channel Name="Green 2" Preset="IntensityGreen"/>
+ <Channel Name="Blue 2" Preset="IntensityBlue"/>
+ <Channel Name="White 2" Preset="IntensityWhite"/>
+ <Channel Name="Red 3" Preset="IntensityRed"/>
+ <Channel Name="Green 3" Preset="IntensityGreen"/>
+ <Channel Name="Blue 3" Preset="IntensityBlue"/>
+ <Channel Name="White 3" Preset="IntensityWhite"/>
+ <Channel Name="Red 4" Preset="IntensityRed"/>
+ <Channel Name="Green 4" Preset="IntensityGreen"/>
+ <Channel Name="Blue 4" Preset="IntensityBlue"/>
+ <Channel Name="White 4" Preset="IntensityWhite"/>
+ <Channel Name="Red 5" Preset="IntensityRed"/>
+ <Channel Name="Green 5" Preset="IntensityGreen"/>
+ <Channel Name="Blue 5" Preset="IntensityBlue"/>
+ <Channel Name="White 5" Preset="IntensityWhite"/>
+ <Channel Name="Red 6" Preset="IntensityRed"/>
+ <Channel Name="Green 6" Preset="IntensityGreen"/>
+ <Channel Name="Blue 6" Preset="IntensityBlue"/>
+ <Channel Name="White 6" Preset="IntensityWhite"/>
+ <Channel Name="Red 7" Preset="IntensityRed"/>
+ <Channel Name="Green 7" Preset="IntensityGreen"/>
+ <Channel Name="Blue 7" Preset="IntensityBlue"/>
+ <Channel Name="White 7" Preset="IntensityWhite"/>
+ <Channel Name="Red 8" Preset="IntensityRed"/>
+ <Channel Name="Green 8" Preset="IntensityGreen"/>
+ <Channel Name="Blue 8" Preset="IntensityBlue"/>
+ <Channel Name="White 8" Preset="IntensityWhite"/>
+ <Channel Name="Red 9" Preset="IntensityRed"/>
+ <Channel Name="Green 9" Preset="IntensityGreen"/>
+ <Channel Name="Blue 9" Preset="IntensityBlue"/>
+ <Channel Name="White 9" Preset="IntensityWhite"/>
+ <Channel Name="Red 10" Preset="IntensityRed"/>
+ <Channel Name="Green 10" Preset="IntensityGreen"/>
+ <Channel Name="Blue 10" Preset="IntensityBlue"/>
+ <Channel Name="White 10" Preset="IntensityWhite"/>
+ <Mode Name="40 Channels Mode">
+  <Channel Number="0" ActsOn="0">Red 1</Channel>
+  <Channel Number="1" ActsOn="1">Green 1</Channel>
+  <Channel Number="2" ActsOn="2">Blue 1</Channel>
+  <Channel Number="3" ActsOn="3">White 1</Channel>
+  <Channel Number="4" ActsOn="4">Red 2</Channel>
+  <Channel Number="5" ActsOn="5">Green 2</Channel>
+  <Channel Number="6" ActsOn="6">Blue 2</Channel>
+  <Channel Number="7" ActsOn="7">White 2</Channel>
+  <Channel Number="8" ActsOn="8">Red 3</Channel>
+  <Channel Number="9" ActsOn="9">Green 3</Channel>
+  <Channel Number="10" ActsOn="10">Blue 3</Channel>
+  <Channel Number="11" ActsOn="11">White 3</Channel>
+  <Channel Number="12" ActsOn="12">Red 4</Channel>
+  <Channel Number="13" ActsOn="13">Green 4</Channel>
+  <Channel Number="14" ActsOn="14">Blue 4</Channel>
+  <Channel Number="15" ActsOn="15">White 4</Channel>
+  <Channel Number="16" ActsOn="16">Red 5</Channel>
+  <Channel Number="17" ActsOn="17">Green 5</Channel>
+  <Channel Number="18" ActsOn="18">Blue 5</Channel>
+  <Channel Number="19" ActsOn="19">White 5</Channel>
+  <Channel Number="20" ActsOn="20">Red 6</Channel>
+  <Channel Number="21" ActsOn="21">Green 6</Channel>
+  <Channel Number="22" ActsOn="22">Blue 6</Channel>
+  <Channel Number="23" ActsOn="23">White 6</Channel>
+  <Channel Number="24" ActsOn="24">Red 7</Channel>
+  <Channel Number="25" ActsOn="25">Green 7</Channel>
+  <Channel Number="26" ActsOn="26">Blue 7</Channel>
+  <Channel Number="27" ActsOn="27">White 7</Channel>
+  <Channel Number="28" ActsOn="28">Red 8</Channel>
+  <Channel Number="29" ActsOn="29">Green 8</Channel>
+  <Channel Number="30" ActsOn="30">Blue 8</Channel>
+  <Channel Number="31" ActsOn="31">White 8</Channel>
+  <Channel Number="32" ActsOn="32">Red 9</Channel>
+  <Channel Number="33" ActsOn="33">Green 9</Channel>
+  <Channel Number="34" ActsOn="34">Blue 9</Channel>
+  <Channel Number="35" ActsOn="35">White 9</Channel>
+  <Channel Number="36" ActsOn="36">Red 10</Channel>
+  <Channel Number="37" ActsOn="37">Green 10</Channel>
+  <Channel Number="38" ActsOn="38">Blue 10</Channel>
+  <Channel Number="39" ActsOn="39">White 10</Channel>
+ </Mode>
+ <Physical>
+  <Bulb Type="LED" Lumens="0" ColourTemperature="0"/>
+  <Dimensions Weight="0.5" Width="50" Height="1000" Depth="50"/>
+  <Lens Name="Other" DegreesMin="0" DegreesMax="0"/>
+  <Focus Type="Fixed" PanMax="0" TiltMax="0"/>
+  <Layout Width="10" Height="1"/>
+  <Technical PowerConsumption="30" DmxConnector="3-pin"/>
+ </Physical>
+</FixtureDefinition>
