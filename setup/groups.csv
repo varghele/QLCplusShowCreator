@@ -1,2 +1,19 @@
 id,category,Universe,Address,Manufacturer,Model,Channels,Mode
 0,BARS,1,1,Varghele,LED BAR,40,40 Channels Mode
+1,BARS,1,41,Varghele,LED BAR,40,40 Channels Mode
+2,BARS,1,81,Varghele,LED BAR,40,40 Channels Mode
+3,BARS,1,121,Varghele,LED BAR,40,40 Channels Mode
+4,BARS,1,161,Varghele,LED BAR,40,40 Channels Mode
+5,BARS,1,201,Varghele,LED BAR,40,40 Channels Mode
+6,BARS,1,241,Varghele,LED BAR,40,40 Channels Mode
+7,BARS,1,281,Varghele,LED BAR,40,40 Channels Mode
+8,PANEL,2,1,Varghele,LED BAR,40,40 Channels Mode
+9,PANEL,2,41,Varghele,LED BAR,40,40 Channels Mode
+10,PANEL,2,81,Varghele,LED BAR,40,40 Channels Mode
+11,PANEL,2,121,Varghele,LED BAR,40,40 Channels Mode
+12,WASH,3,29,Stairville,Wild Wash Pro 648 RGB LED,6,6 Channel
+13,WASH,4,29,Stairville,Wild Wash Pro 648 RGB LED,6,6 Channel
+14,SUN,3,35,Showtec,Sunstrip Active,10,10 Channels Mode
+15,SUN,4,35,Showtec,Sunstrip Active,10,10 Channels Mode
+16,PAR,3,45,Stairville,Retro Flat Par 18x12W RGBW ,8,8 Channel
+17,PAR,1,1,Stairville,Retro Flat Par 18x12W RGBW ,8,8 Channel
