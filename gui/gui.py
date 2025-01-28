@@ -639,6 +639,32 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                         }
                                     except Exception as e:
                                         print(f"Error parsing fixture file {fixture_path}: {e}")
+                        elif manufacturer_path.endswith('.qxf'):
+                            try:
+                                tree = ET.parse(manufacturer_path)
+                                root = tree.getroot()
+                                ns = {'': 'http://www.qlcplus.org/FixtureDefinition'}
+
+                                manufacturer = root.find('.//Manufacturer', ns).text
+                                model = root.find('.//Model', ns).text
+
+                                # Get all available modes
+                                modes = []
+                                for mode in root.findall('.//Mode', ns):
+                                    mode_name = mode.get('Name')
+                                    channels = mode.findall('Channel', ns)
+                                    modes.append({
+                                        'name': mode_name,
+                                        'channels': len(channels)
+                                    })
+
+                                fixture_definitions[(manufacturer, model)] = {
+                                    'path': manufacturer_path,
+                                    'modes': modes
+                                }
+                            except Exception as e:
+                                print(f"Error parsing fixture file {manufacturer_path}: {e}")
+
 
             # Parse workspace
             tree = ET.parse(workspace_path)
