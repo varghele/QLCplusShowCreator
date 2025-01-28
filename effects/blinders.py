@@ -3,6 +3,70 @@ import xml.etree.ElementTree as ET
 from utils.to_xml.shows_to_xml import calculate_step_timing
 
 
+def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+           num_bars=1, speed="1", intensity=255, fixture_num=1, fixture_start_id=0):
+    """
+    Creates a static effect for fixtures with intensity channels
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        intensity: Intensity value (0-255)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+    Returns:
+        list: List of XML Step elements
+    """
+    channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+    if not channels_dict:
+        return []
+
+    # Get step timings and count
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Create single step with full duration
+    total_duration = sum(step_timings)
+
+    step = ET.Element("Step")
+    step.set("Number", str(start_step))
+    step.set("FadeIn", str(int(total_duration)))
+    step.set("Hold", "0")
+    step.set("FadeOut", "0")
+    step.set("Values", str(total_channels * fixture_num))
+
+    # Build values string for all fixtures at specified intensity
+    values = []
+    for i in range(fixture_num):
+        channel_values = []
+        for channel_info in channels_dict['IntensityDimmer']:
+            channel = channel_info['channel']
+            channel_values.extend([str(channel), str(intensity)])
+        values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+    step.text = ":".join(values)
+
+    return [step]
+
+
 def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
            num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0):
     """
