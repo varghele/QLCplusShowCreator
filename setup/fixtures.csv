@@ -16,4 +16,4 @@ Universe,Address,Manufacturer,Model,Channels,Mode,Name,Group,Direction
 3,35,Showtec,Sunstrip Active,10,10 Channels Mode,Sun1,SUN,
 4,35,Showtec,Sunstrip Active,10,10 Channels Mode,Sun2,SUN,
 3,45,Stairville,Retro Flat Par 18x12W RGBW ,8,8 Channel,Par1,PAR,
-1,1,Stairville,Retro Flat Par 18x12W RGBW ,8,8 Channel,Par2,PAR,
+4,45,Stairville,Retro Flat Par 18x12W RGBW ,8,8 Channel,Par2,PAR,

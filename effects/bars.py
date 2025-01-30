@@ -58,8 +58,8 @@ def static_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
 
     step = ET.Element("Step")
     step.set("Number", str(current_step))
-    step.set("FadeIn", str(int(total_duration)))
-    step.set("Hold", "0")
+    step.set("FadeIn", "0")
+    step.set("Hold", str(int(total_duration)))
     step.set("FadeOut", "0")
 
     # Build values string for all fixtures
@@ -401,26 +401,10 @@ def color_strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
 
     return steps
 
-
-def ping_pong2(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+def ping_pong(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
               num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
     """
     Creates a ping-pong effect that strobes one bar from left to right and back
-    Parameters:
-        start_step: Starting step number
-        fixture_def: Dictionary containing fixture definition
-        mode_name: Name of the mode to use
-        start_bpm: Starting BPM
-        end_bpm: Ending BPM
-        signature: Time signature as string (e.g. "4/4")
-        transition: Type of transition ("instant" or "gradual")
-        num_bars: Number of bars to fill
-        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
-        color: Hex color code (e.g. "#FF0000" for red)
-        fixture_num: Number of fixtures of this type
-        fixture_start_id: starting ID for the fixture to properly assign values
-    Returns:
-        list: List of XML Step elements
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                              ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
@@ -450,130 +434,84 @@ def ping_pong2(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature
 
     steps = []
     current_step = start_step
+    current_fixture = 0
+    direction = 1  # 1 for forward, -1 for backward
 
-    # Calculate steps per complete ping-pong cycle
-    steps_per_cycle = 2 * (fixture_num - 1)  # Forward + backward movement
-    step_duration = int(sum(step_timings) / total_steps)
+    for step_duration in step_timings:
+        # Base timing calculations
+        fade_in = min(50, int(step_duration * 0.1))
+        hold = min(50, int(step_duration * 0.4))
+        fade_out = 0
+        remaining_time = step_duration - fade_in - hold
 
-    # Calculate how many complete cycles we need
-    total_cycles = int(total_steps / steps_per_cycle)
-    remaining_steps = total_steps % steps_per_cycle
+        # ON step
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(fade_in))
+        step.set("Hold", str(hold))
+        step.set("FadeOut", str(fade_out))
+        step.set("Values", str(total_channels * fixture_num))
 
-    for cycle in range(total_cycles):
-        # Forward movement (left to right)
-        for fixture_idx in range(fixture_num):
-            step = ET.Element("Step")
-            step.set("Number", str(current_step))
-            step.set("FadeIn", str(int(step_duration * 0.1)))
-            step.set("Hold", str(int(step_duration * 0.4)))
-            step.set("FadeOut", "0")
-            step.set("Values", str(total_channels * fixture_num))
+        # Build values string with only current fixture active
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
 
-            values = []
-            for i in range(fixture_num):
-                channel_values = []
+            if i == current_fixture:
+                if 'IntensityRed' in channels_dict:
+                    for channel in channels_dict['IntensityRed']:
+                        channel_values.extend([str(channel['channel']), str(r)])
+                if 'IntensityGreen' in channels_dict:
+                    for channel in channels_dict['IntensityGreen']:
+                        channel_values.extend([str(channel['channel']), str(g)])
+                if 'IntensityBlue' in channels_dict:
+                    for channel in channels_dict['IntensityBlue']:
+                        channel_values.extend([str(channel['channel']), str(b)])
+                if 'IntensityWhite' in channels_dict:
+                    for channel in channels_dict['IntensityWhite']:
+                        channel_values.extend([str(channel['channel']), str(w)])
+            else:
+                for channel_type in ['IntensityRed', 'IntensityGreen', 'IntensityBlue', 'IntensityWhite']:
+                    if channel_type in channels_dict:
+                        for channel in channels_dict[channel_type]:
+                            channel_values.extend([str(channel['channel']), "0"])
 
-                if i == fixture_idx:
-                    if 'IntensityRed' in channels_dict:
-                        for channel in channels_dict['IntensityRed']:
-                            channel_values.extend([str(channel['channel']), str(r)])
-                    if 'IntensityGreen' in channels_dict:
-                        for channel in channels_dict['IntensityGreen']:
-                            channel_values.extend([str(channel['channel']), str(g)])
-                    if 'IntensityBlue' in channels_dict:
-                        for channel in channels_dict['IntensityBlue']:
-                            channel_values.extend([str(channel['channel']), str(b)])
-                    if 'IntensityWhite' in channels_dict:
-                        for channel in channels_dict['IntensityWhite']:
-                            channel_values.extend([str(channel['channel']), str(w)])
-                else:
-                    for channel_type in ['IntensityRed', 'IntensityGreen', 'IntensityBlue', 'IntensityWhite']:
-                        if channel_type in channels_dict:
-                            for channel in channels_dict[channel_type]:
-                                channel_values.extend([str(channel['channel']), "0"])
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 
-                values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
 
-            step.text = ":".join(values)
-            steps.append(step)
-            current_step += 1
+        # OFF step
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(int(remaining_time)))
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+        step.set("Values", str(total_channels * fixture_num))
 
-        # Backward movement (right to left)
-        for fixture_idx in range(fixture_num - 2, -1, -1):
-            step = ET.Element("Step")
-            step.set("Number", str(current_step))
-            step.set("FadeIn", str(int(step_duration * 0.1)))
-            step.set("Hold", str(int(step_duration * 0.4)))
-            step.set("FadeOut", "0")
-            step.set("Values", str(total_channels * fixture_num))
+        # Build values string for OFF state
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+            for channel_type in ['IntensityRed', 'IntensityGreen', 'IntensityBlue', 'IntensityWhite']:
+                if channel_type in channels_dict:
+                    for channel in channels_dict[channel_type]:
+                        channel_values.extend([str(channel['channel']), "0"])
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 
-            values = []
-            for i in range(fixture_num):
-                channel_values = []
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
 
-                if i == fixture_idx:
-                    if 'IntensityRed' in channels_dict:
-                        for channel in channels_dict['IntensityRed']:
-                            channel_values.extend([str(channel['channel']), str(r)])
-                    if 'IntensityGreen' in channels_dict:
-                        for channel in channels_dict['IntensityGreen']:
-                            channel_values.extend([str(channel['channel']), str(g)])
-                    if 'IntensityBlue' in channels_dict:
-                        for channel in channels_dict['IntensityBlue']:
-                            channel_values.extend([str(channel['channel']), str(b)])
-                    if 'IntensityWhite' in channels_dict:
-                        for channel in channels_dict['IntensityWhite']:
-                            channel_values.extend([str(channel['channel']), str(w)])
-                else:
-                    for channel_type in ['IntensityRed', 'IntensityGreen', 'IntensityBlue', 'IntensityWhite']:
-                        if channel_type in channels_dict:
-                            for channel in channels_dict[channel_type]:
-                                channel_values.extend([str(channel['channel']), "0"])
-
-                values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
-
-            step.text = ":".join(values)
-            steps.append(step)
-            current_step += 1
-
-    # Handle remaining steps if any
-    if remaining_steps > 0:
-        for fixture_idx in range(min(remaining_steps, fixture_num)):
-            step = ET.Element("Step")
-            step.set("Number", str(current_step))
-            step.set("FadeIn", str(int(step_duration * 0.1)))
-            step.set("Hold", str(int(step_duration * 0.4)))
-            step.set("FadeOut", "0")
-            step.set("Values", str(total_channels * fixture_num))
-
-            values = []
-            for i in range(fixture_num):
-                channel_values = []
-
-                if i == fixture_idx:
-                    if 'IntensityRed' in channels_dict:
-                        for channel in channels_dict['IntensityRed']:
-                            channel_values.extend([str(channel['channel']), str(r)])
-                    if 'IntensityGreen' in channels_dict:
-                        for channel in channels_dict['IntensityGreen']:
-                            channel_values.extend([str(channel['channel']), str(g)])
-                    if 'IntensityBlue' in channels_dict:
-                        for channel in channels_dict['IntensityBlue']:
-                            channel_values.extend([str(channel['channel']), str(b)])
-                    if 'IntensityWhite' in channels_dict:
-                        for channel in channels_dict['IntensityWhite']:
-                            channel_values.extend([str(channel['channel']), str(w)])
-                else:
-                    for channel_type in ['IntensityRed', 'IntensityGreen', 'IntensityBlue', 'IntensityWhite']:
-                        if channel_type in channels_dict:
-                            for channel in channels_dict[channel_type]:
-                                channel_values.extend([str(channel['channel']), "0"])
-
-                values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
-
-            step.text = ":".join(values)
-            steps.append(step)
-            current_step += 1
+        # Update current fixture and direction
+        current_fixture += direction
+        if current_fixture >= fixture_num - 1:
+            current_fixture = fixture_num - 1
+            direction = -1
+        elif current_fixture <= 0:
+            current_fixture = 0
+            direction = 1
 
     return steps
 
