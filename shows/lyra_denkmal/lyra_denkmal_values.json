@@ -11,7 +11,7 @@
     "fixture_group": "PANEL",
     "effect": "bars.fadein_color",
     "speed": "1",
-    "color": "#F8E45C"
+    "color": "#2EC27E"
   },
   {
     "show_part": "klickintro",
