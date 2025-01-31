@@ -1102,7 +1102,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 ])
             elif sys.platform == 'win32':
                 qlc_fixture_dirs.extend([
-                    os.path.join(os.path.expanduser('~'), 'QLC+', 'fixtures'),  # User fixtures
+                    os.path.join(os.path.expanduser('~'), 'QLC+'),  # User fixtures
                     'C:\\QLC+\\Fixtures'  # System-wide fixtures
                 ])
             elif sys.platform == 'darwin':

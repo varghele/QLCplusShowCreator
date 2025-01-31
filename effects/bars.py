@@ -516,3 +516,265 @@ def ping_pong(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
     return steps
 
 
+def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+                     num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
+    """
+    Creates a smooth ping-pong effect that moves one bar from left to right and back
+    with smooth transitions using fade-in
+    """
+    channels_dict = get_channels_by_property(fixture_def, mode_name,
+                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+    if not channels_dict:
+        return []
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Convert hex to RGB
+    color = color.lstrip('#')
+    r, g, b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+    w = int((r + g + b) / 3)
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    steps = []
+    current_step = start_step
+    current_fixture = 0
+    direction = 1  # 1 for forward, -1 for backward
+
+    for step_duration in step_timings:
+        # Create step with full duration fade
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(step_duration))  # Use full duration for fade
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+        step.set("Values", str(total_channels * fixture_num))
+
+        # Calculate next fixture position
+        next_fixture = current_fixture + direction
+        if next_fixture >= fixture_num:
+            next_fixture = fixture_num - 2  # Start moving back
+            direction = -1
+        elif next_fixture < 0:
+            next_fixture = 1  # Start moving forward
+            direction = 1
+
+        # Build values string for next position (target of fade)
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            if i == next_fixture:
+                if 'IntensityRed' in channels_dict:
+                    for channel in channels_dict['IntensityRed']:
+                        channel_values.extend([str(channel['channel']), str(r)])
+                if 'IntensityGreen' in channels_dict:
+                    for channel in channels_dict['IntensityGreen']:
+                        channel_values.extend([str(channel['channel']), str(g)])
+                if 'IntensityBlue' in channels_dict:
+                    for channel in channels_dict['IntensityBlue']:
+                        channel_values.extend([str(channel['channel']), str(b)])
+                if 'IntensityWhite' in channels_dict:
+                    for channel in channels_dict['IntensityWhite']:
+                        channel_values.extend([str(channel['channel']), str(w)])
+            else:
+                for channel_type in ['IntensityRed', 'IntensityGreen', 'IntensityBlue', 'IntensityWhite']:
+                    if channel_type in channels_dict:
+                        for channel in channels_dict[channel_type]:
+                            channel_values.extend([str(channel['channel']), "0"])
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+        # Update current fixture position
+        current_fixture = next_fixture
+
+    return steps
+
+
+def rgb_rainbow(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+            num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0):
+    """
+    Creates a rainbow effect that cycles through RGB colors with smooth transitions
+    """
+    channels_dict = get_channels_by_property(fixture_def, mode_name,
+                                             ["IntensityRed", "IntensityGreen", "IntensityBlue"])
+    if not channels_dict:
+        return []
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Define rainbow color sequence
+    rainbow_colors = [
+        (255, 0, 0),  # Red
+        (255, 127, 0),  # Orange
+        (255, 255, 0),  # Yellow
+        (0, 255, 0),  # Green
+        (0, 0, 255),  # Blue
+        (75, 0, 130),  # Indigo
+        (148, 0, 211)  # Violet
+    ]
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    steps = []
+    current_step = start_step
+
+    for step_idx, step_duration in enumerate(step_timings):
+        # Calculate current and next color indices
+        color_idx = step_idx % len(rainbow_colors)
+        next_color_idx = (color_idx + 1) % len(rainbow_colors)
+
+        # Get current color
+        r, g, b = rainbow_colors[color_idx]
+        next_r, next_g, next_b = rainbow_colors[next_color_idx]
+
+        # Create step with full duration fade
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(step_duration))  # Use full duration for fade
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+        step.set("Values", str(total_channels * fixture_num))
+
+        # Build values string for next color (target of fade)
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            if 'IntensityRed' in channels_dict:
+                for channel in channels_dict['IntensityRed']:
+                    channel_values.extend([str(channel['channel']), str(next_r)])
+
+            if 'IntensityGreen' in channels_dict:
+                for channel in channels_dict['IntensityGreen']:
+                    channel_values.extend([str(channel['channel']), str(next_g)])
+
+            if 'IntensityBlue' in channels_dict:
+                for channel in channels_dict['IntensityBlue']:
+                    channel_values.extend([str(channel['channel']), str(next_b)])
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+    return steps
+
+
+def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+                 num_bars=1, speed="1", color="None", fixture_num=1, fixture_start_id=0):
+    """
+    Creates a rainbow effect that cycles through RGBW colors with smooth transitions
+    """
+    channels_dict = get_channels_by_property(fixture_def, mode_name,
+                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+    if not channels_dict:
+        return []
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Define rainbow color sequence with RGBW values (R, G, B, W)
+    rainbow_colors = [
+        (255, 0, 0, 0),  # Red
+        (255, 127, 0, 0),  # Orange
+        (255, 255, 0, 0),  # Yellow
+        (0, 255, 0, 0),  # Green
+        (0, 255, 255, 0),  # Cyan
+        (0, 0, 255, 0),  # Blue
+        (75, 0, 130, 0),  # Indigo
+        (148, 0, 211, 0),  # Violet
+        (255, 255, 255, 255)  # White
+    ]
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    steps = []
+    current_step = start_step
+
+    for step_idx, step_duration in enumerate(step_timings):
+        # Calculate current and next color indices
+        color_idx = step_idx % len(rainbow_colors)
+        next_color_idx = (color_idx + 1) % len(rainbow_colors)
+
+        # Get current and next colors
+        r, g, b, w = rainbow_colors[next_color_idx]
+
+        # Create step with full duration fade
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(step_duration))  # Use full duration for fade
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+        step.set("Values", str(total_channels * fixture_num))
+
+        # Build values string for next color (target of fade)
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            if 'IntensityRed' in channels_dict:
+                for channel in channels_dict['IntensityRed']:
+                    channel_values.extend([str(channel['channel']), str(r)])
+
+            if 'IntensityGreen' in channels_dict:
+                for channel in channels_dict['IntensityGreen']:
+                    channel_values.extend([str(channel['channel']), str(g)])
+
+            if 'IntensityBlue' in channels_dict:
+                for channel in channels_dict['IntensityBlue']:
+                    channel_values.extend([str(channel['channel']), str(b)])
+
+            if 'IntensityWhite' in channels_dict:
+                for channel in channels_dict['IntensityWhite']:
+                    channel_values.extend([str(channel['channel']), str(w)])
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+    return steps
+
+
