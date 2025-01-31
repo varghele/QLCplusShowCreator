@@ -1,0 +1,492 @@
+[
+  {
+    "show_part": "klickintro",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "klickintro",
+    "fixture_group": "PANEL",
+    "effect": "bars.fadein_color",
+    "speed": "1",
+    "color": "#F8E45C"
+  },
+  {
+    "show_part": "klickintro",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "klickintro",
+    "fixture_group": "SUN",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "klickintro",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "intro",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "intro",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "intro",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "intro",
+    "fixture_group": "SUN",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "intro",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers1",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers1",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers1",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers1",
+    "fixture_group": "SUN",
+    "effect": "blinders.twinkle",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers1",
+    "fixture_group": "WASH",
+    "effect": "bars.rgb_rainbow",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers2",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers2",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers2",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers2",
+    "fixture_group": "SUN",
+    "effect": "blinders.twinkle",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers2",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "hold1",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "hold1",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "hold1",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "hold1",
+    "fixture_group": "SUN",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "hold1",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus1",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus1",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus1",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus1",
+    "fixture_group": "SUN",
+    "effect": "blinders.ping_pong_smooth",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus1",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "bridge",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "bridge",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "bridge",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "bridge",
+    "fixture_group": "SUN",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "bridge",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "intro2",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "intro2",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "intro2",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "intro2",
+    "fixture_group": "SUN",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "intro2",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers3",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers3",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers3",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers3",
+    "fixture_group": "SUN",
+    "effect": "blinders.twinkle",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "vers3",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "hold2",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "hold2",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "hold2",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "hold2",
+    "fixture_group": "SUN",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "hold2",
+    "fixture_group": "WASH",
+    "effect": "bars.rainbow_rgbw",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus2",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus2",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus2",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus2",
+    "fixture_group": "SUN",
+    "effect": "blinders.ping_pong_smooth",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus2",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "interlude",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "interlude",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "interlude",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "interlude",
+    "fixture_group": "SUN",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "interlude",
+    "fixture_group": "WASH",
+    "effect": "bars.rainbow_rgbw",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus3",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus3",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus3",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus3",
+    "fixture_group": "SUN",
+    "effect": "blinders.ping_pong_smooth",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus3",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus4",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus4",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus4",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus4",
+    "fixture_group": "SUN",
+    "effect": "blinders.ping_pong_smooth",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "chorus4",
+    "fixture_group": "WASH",
+    "effect": "bars.rainbow_rgbw",
+    "speed": "1",
+    "color": null
+  }
+]
