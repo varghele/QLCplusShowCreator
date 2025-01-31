@@ -755,6 +755,107 @@ def flicker_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
     return steps
 
 
+def heartbeat_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+                    num_bars=1, speed="1", color="#FF0000", beat_intensity=0.8, fixture_num=1, fixture_start_id=0):
+    """
+    Creates a heartbeat effect with a characteristic double-beat pattern
+    Parameters:
+        beat_intensity: Maximum intensity of the heartbeat (0-1)
+    """
+    channels_dict = get_channels_by_property(fixture_def, mode_name,
+                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+    if not channels_dict:
+        return []
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Convert hex to RGB
+    color = color.lstrip('#')
+    base_r, base_g, base_b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+
+    # Calculate heartbeat parameters based on BPM
+    avg_bpm = (start_bpm + end_bpm) / 2
+    speed_multiplier = float(eval(speed))
+    heart_frequency = avg_bpm / 60.0 * speed_multiplier
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    steps = []
+    current_step = start_step
+
+    for step_idx, step_duration in enumerate(step_timings):
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(int(step_duration * 0.1)))  # Quick rise
+        step.set("Hold", "0")
+        step.set("FadeOut", str(int(step_duration * 0.9)))  # Slower fall
+        step.set("Values", str(total_channels * fixture_num))
+
+        # Calculate heartbeat phase
+        phase = (step_idx / heart_frequency) % 1.0
+
+        # Create double-beat pattern
+        if phase < 0.15:
+            # First beat (stronger)
+            intensity = beat_intensity * (1 - phase / 0.15)
+        elif phase < 0.25:
+            # Quick recovery
+            intensity = beat_intensity * 0.3
+        elif phase < 0.35:
+            # Second beat (weaker)
+            intensity = beat_intensity * 0.7 * (1 - (phase - 0.25) / 0.1)
+        else:
+            # Rest period
+            intensity = beat_intensity * 0.2 * (1 - (phase - 0.35) / 0.65)
+
+        # Apply intensity to base color
+        r = int(base_r * intensity)
+        g = int(base_g * intensity)
+        b = int(base_b * intensity)
+
+        # Build values string for all fixtures
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            if 'IntensityRed' in channels_dict:
+                for channel in channels_dict['IntensityRed']:
+                    channel_values.extend([str(channel['channel']), str(r)])
+
+            if 'IntensityGreen' in channels_dict:
+                for channel in channels_dict['IntensityGreen']:
+                    channel_values.extend([str(channel['channel']), str(g)])
+
+            if 'IntensityBlue' in channels_dict:
+                for channel in channels_dict['IntensityBlue']:
+                    channel_values.extend([str(channel['channel']), str(b)])
+
+            if 'IntensityWhite' in channels_dict:
+                for channel in channels_dict['IntensityWhite']:
+                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    channel_values.extend([str(channel['channel']), str(white_value)])
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+    return steps
+
+
 def strobe_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
                  num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
     """
