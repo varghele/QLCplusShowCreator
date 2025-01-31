@@ -231,6 +231,81 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
     return steps
 
 
+def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4",
+                               transition="gradual",
+                               num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0):
+    """
+    Creates a smooth ping-pong effect that moves one bar from left to right and back
+    using only intensity channels with smooth transitions
+    """
+    channels_dict = get_channels_by_property(fixture_def, mode_name, ["Intensity"])
+    if not channels_dict:
+        return []
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    steps = []
+    current_step = start_step
+    current_fixture = 0
+    direction = 1  # 1 for forward, -1 for backward
+
+    for step_duration in step_timings:
+        # Create step with full duration fade
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(step_duration))  # Use full duration for fade
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+        step.set("Values", str(total_channels * fixture_num))
+
+        # Calculate next fixture position
+        next_fixture = current_fixture + direction
+        if next_fixture >= fixture_num:
+            next_fixture = fixture_num - 2  # Start moving back
+            direction = -1
+        elif next_fixture < 0:
+            next_fixture = 1  # Start moving forward
+            direction = 1
+
+        # Build values string for next position (target of fade)
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            if i == next_fixture:
+                if 'Intensity' in channels_dict:
+                    for channel in channels_dict['Intensity']:
+                        channel_values.extend([str(channel['channel']), "255"])
+            else:
+                if 'Intensity' in channels_dict:
+                    for channel in channels_dict['Intensity']:
+                        channel_values.extend([str(channel['channel']), "0"])
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+        # Update current fixture position
+        current_fixture = next_fixture
+
+    return steps
+
 
 
 
