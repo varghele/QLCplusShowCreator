@@ -238,7 +238,7 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
     Creates a smooth ping-pong effect that moves one bar from left to right and back
     using only intensity channels with smooth transitions
     """
-    channels_dict = get_channels_by_property(fixture_def, mode_name, ["Intensity"])
+    channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
     if not channels_dict:
         return []
 
@@ -287,12 +287,12 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
             channel_values = []
 
             if i == next_fixture:
-                if 'Intensity' in channels_dict:
-                    for channel in channels_dict['Intensity']:
+                if 'IntensityDimmer' in channels_dict:
+                    for channel in channels_dict['IntensityDimmer']:
                         channel_values.extend([str(channel['channel']), "255"])
             else:
-                if 'Intensity' in channels_dict:
-                    for channel in channels_dict['Intensity']:
+                if 'IntensityDimmer' in channels_dict:
+                    for channel in channels_dict['IntensityDimmer']:
                         channel_values.extend([str(channel['channel']), "0"])
 
             values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")

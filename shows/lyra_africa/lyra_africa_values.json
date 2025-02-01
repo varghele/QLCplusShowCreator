@@ -38,7 +38,7 @@
     "show_part": "drumintro",
     "fixture_group": "BARS",
     "effect": "bars.random_strobe_color",
-    "speed": "2",
+    "speed": "1/2",
     "color": "#FF7800"
   },
   {
@@ -52,7 +52,7 @@
     "show_part": "drumintro",
     "fixture_group": "PAR",
     "effect": "",
-    "speed": "1",
+    "speed": "4",
     "color": null
   },
   {
@@ -86,7 +86,7 @@
   {
     "show_part": "thema1",
     "fixture_group": "PAR",
-    "effect": "bars.rainbow_rgbw",
+    "effect": "dynamic.rainbow_rgbw",
     "speed": "1",
     "color": "#FFFFFF"
   },
@@ -100,7 +100,7 @@
   {
     "show_part": "thema1",
     "fixture_group": "WASH",
-    "effect": "bars.fadein_color",
+    "effect": "static.fadein_color",
     "speed": "1",
     "color": "#F8E45C"
   },
@@ -115,7 +115,7 @@
     "show_part": "vers1",
     "fixture_group": "PANEL",
     "effect": "",
-    "speed": "1",
+    "speed": "1/2",
     "color": null
   },
   {
@@ -178,7 +178,7 @@
     "show_part": "chorus1",
     "fixture_group": "BARS",
     "effect": "bars.plasma_color",
-    "speed": "2",
+    "speed": "1/2",
     "color": "#FFFFFF"
   },
   {
@@ -191,7 +191,7 @@
   {
     "show_part": "chorus1",
     "fixture_group": "PAR",
-    "effect": "",
+    "effect": "dynamic.rainbow_rgbw",
     "speed": "1",
     "color": null
   },
@@ -240,7 +240,7 @@
   {
     "show_part": "thema2",
     "fixture_group": "WASH",
-    "effect": "bars.fadein_color",
+    "effect": "static.fadein_color",
     "speed": "1",
     "color": "#F8E45C"
   },
@@ -318,7 +318,7 @@
     "show_part": "chorus2",
     "fixture_group": "BARS",
     "effect": "bars.plasma_color",
-    "speed": "2",
+    "speed": "1/4",
     "color": "#FFFFFF"
   },
   {
@@ -465,7 +465,7 @@
     "show_part": "chorus3",
     "fixture_group": "PANEL",
     "effect": "bars.ping_pong_smooth",
-    "speed": "4",
+    "speed": "1/4",
     "color": "#F6D32D"
   },
   {
@@ -506,7 +506,7 @@
   {
     "show_part": "chorus4",
     "fixture_group": "PAR",
-    "effect": "",
+    "effect": "dynamic.rainbow_rgbw",
     "speed": "1",
     "color": null
   },
@@ -519,6 +519,76 @@
   },
   {
     "show_part": "chorus4",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "outro1",
+    "fixture_group": "BARS",
+    "effect": "bars.heartbeat_color",
+    "speed": "1/2",
+    "color": "#FF5500"
+  },
+  {
+    "show_part": "outro1",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "outro1",
+    "fixture_group": "PAR",
+    "effect": "dynamic.rainbow_rgbw",
+    "speed": "1/2",
+    "color": null
+  },
+  {
+    "show_part": "outro1",
+    "fixture_group": "SUN",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "outro1",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "outro2",
+    "fixture_group": "BARS",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "outro2",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "outro2",
+    "fixture_group": "PAR",
+    "effect": "dynamic.rainbow_rgbw",
+    "speed": "1/2",
+    "color": null
+  },
+  {
+    "show_part": "outro2",
+    "fixture_group": "SUN",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "outro2",
     "fixture_group": "WASH",
     "effect": "",
     "speed": "1",

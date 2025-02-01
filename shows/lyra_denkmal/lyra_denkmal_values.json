@@ -51,7 +51,7 @@
   {
     "show_part": "intro",
     "fixture_group": "PAR",
-    "effect": "bars.rainbow_rgbw",
+    "effect": "dynamic.rainbow_rgbw",
     "speed": "1",
     "color": "#FFFFFF"
   },
@@ -170,7 +170,7 @@
   {
     "show_part": "hold1",
     "fixture_group": "WASH",
-    "effect": "bars.plasma_color",
+    "effect": "dynamic.plasma_color",
     "speed": "4",
     "color": "#FF7800"
   },
@@ -234,46 +234,11 @@
     "show_part": "bridge",
     "fixture_group": "SUN",
     "effect": "blinders.ping_pong_smooth",
-    "speed": "4",
+    "speed": "1/2",
     "color": "#FFFFFF"
   },
   {
     "show_part": "bridge",
-    "fixture_group": "WASH",
-    "effect": "",
-    "speed": "1",
-    "color": null
-  },
-  {
-    "show_part": "intro2",
-    "fixture_group": "BARS",
-    "effect": "bars.wave_color",
-    "speed": "1",
-    "color": "#2EC27E"
-  },
-  {
-    "show_part": "intro2",
-    "fixture_group": "PANEL",
-    "effect": "",
-    "speed": "1",
-    "color": null
-  },
-  {
-    "show_part": "intro2",
-    "fixture_group": "PAR",
-    "effect": "",
-    "speed": "1",
-    "color": null
-  },
-  {
-    "show_part": "intro2",
-    "fixture_group": "SUN",
-    "effect": "",
-    "speed": "1",
-    "color": null
-  },
-  {
-    "show_part": "intro2",
     "fixture_group": "WASH",
     "effect": "",
     "speed": "1",
@@ -345,7 +310,7 @@
   {
     "show_part": "hold2",
     "fixture_group": "WASH",
-    "effect": "bars.plasma_color",
+    "effect": "dynamic.plasma_color",
     "speed": "4",
     "color": "#FF7800"
   },
@@ -388,36 +353,71 @@
     "show_part": "interlude",
     "fixture_group": "BARS",
     "effect": "bars.heartbeat_color",
+    "speed": "1/2",
+    "color": "#FF0000"
+  },
+  {
+    "show_part": "interlude",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "interlude",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "interlude",
+    "fixture_group": "SUN",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "interlude",
+    "fixture_group": "WASH",
+    "effect": "dynamic.rainbow_rgbw",
+    "speed": "1",
+    "color": "#FFFFFF"
+  },
+  {
+    "show_part": "hold3",
+    "fixture_group": "BARS",
+    "effect": "bars.heartbeat_color",
     "speed": "2",
-    "color": "#F9F06B"
+    "color": "#00AAFF"
   },
   {
-    "show_part": "interlude",
+    "show_part": "hold3",
     "fixture_group": "PANEL",
     "effect": "",
     "speed": "1",
     "color": null
   },
   {
-    "show_part": "interlude",
+    "show_part": "hold3",
     "fixture_group": "PAR",
-    "effect": "",
-    "speed": "1",
-    "color": null
+    "effect": "dynamic.rainbow_rgbw",
+    "speed": "4",
+    "color": "#FFFFFF"
   },
   {
-    "show_part": "interlude",
+    "show_part": "hold3",
     "fixture_group": "SUN",
     "effect": "",
     "speed": "1",
     "color": null
   },
   {
-    "show_part": "interlude",
+    "show_part": "hold3",
     "fixture_group": "WASH",
-    "effect": "bars.rainbow_rgbw",
+    "effect": "",
     "speed": "1",
-    "color": "#FFFFFF"
+    "color": null
   },
   {
     "show_part": "chorus3",
@@ -471,7 +471,7 @@
   {
     "show_part": "chorus4",
     "fixture_group": "PAR",
-    "effect": "bars.rainbow_rgbw",
+    "effect": "dynamic.rainbow_rgbw",
     "speed": "1/2",
     "color": null
   },
@@ -485,8 +485,43 @@
   {
     "show_part": "chorus4",
     "fixture_group": "WASH",
-    "effect": "bars.rainbow_rgbw",
+    "effect": "dynamic.rainbow_rgbw",
     "speed": "1",
     "color": "#FFFFFF"
+  },
+  {
+    "show_part": "outro",
+    "fixture_group": "BARS",
+    "effect": "bars.strobe_color",
+    "speed": "1/8",
+    "color": "#FFFFFF"
+  },
+  {
+    "show_part": "outro",
+    "fixture_group": "PANEL",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "outro",
+    "fixture_group": "PAR",
+    "effect": "",
+    "speed": "1",
+    "color": null
+  },
+  {
+    "show_part": "outro",
+    "fixture_group": "SUN",
+    "effect": "blinders.strobe",
+    "speed": "1/8",
+    "color": null
+  },
+  {
+    "show_part": "outro",
+    "fixture_group": "WASH",
+    "effect": "",
+    "speed": "1",
+    "color": null
   }
 ]

@@ -4,15 +4,10 @@
       "name": "Universe 1",
       "id": 0,
       "output": {
-        "plugin": "E1.31",
-        "line": "1",
+        "plugin": "ArtNet",
+        "line": "0",
         "parameters": {
-          "multicast": "0",
-          "priority": "100",
-          "transmitMode": "Full",
-          "ucastIP": "172.17.0.156",
-          "ucastPort": "5568",
-          "universe": "1"
+          "outputIP": "127.0.0.1"
         }
       }
     },
@@ -23,7 +18,29 @@
         "plugin": "ArtNet",
         "line": "1",
         "parameters": {
-          "outputIP": "172.17.255.123"
+          "outputIP": "127.0.0.1"
+        }
+      }
+    },
+    {
+      "name": "Universe 3",
+      "id": 2,
+      "output": {
+        "plugin": "ArtNet",
+        "line": "2",
+        "parameters": {
+          "outputIP": "127.0.0.1"
+        }
+      }
+    },
+    {
+      "name": "Universe 4",
+      "id": 3,
+      "output": {
+        "plugin": "ArtNet",
+        "line": "3",
+        "parameters": {
+          "outputIP": "127.0.0.1"
         }
       }
     }

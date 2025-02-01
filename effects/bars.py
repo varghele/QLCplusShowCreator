@@ -409,7 +409,7 @@ def plasma_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
     base_frequency = avg_bpm / 60.0  # Convert BPM to Hz
 
     # Adjust frequency based on speed multiplier
-    frequency = base_frequency * speed_multiplier * 0.1  # Scale factor to make effect more visible
+    frequency = base_frequency * speed_multiplier * 0.99  # Scale factor to make effect more visible
 
     # Calculate phase shift based on BPM and fixture count
     phase_shift = (2 * math.pi) / (fixture_num * max(1, base_frequency / 4))
@@ -755,14 +755,14 @@ def flicker_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
 
 
 def heartbeat_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                    num_bars=1, speed="1", color="#FF0000", beat_intensity=0.8, fixture_num=1, fixture_start_id=0):
+                   num_bars=1, speed="1", color="#FF0000", beat_intensity=0.8, fixture_num=1, fixture_start_id=0):
     """
     Creates a heartbeat effect with a characteristic double-beat pattern
     Parameters:
         beat_intensity: Maximum intensity of the heartbeat (0-1)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -795,11 +795,12 @@ def heartbeat_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, sign
     current_step = start_step
 
     for step_idx, step_duration in enumerate(step_timings):
+        # First beat (stronger)
         step = ET.Element("Step")
         step.set("Number", str(current_step))
         step.set("FadeIn", str(int(step_duration * 0.1)))  # Quick rise
         step.set("Hold", "0")
-        step.set("FadeOut", str(int(step_duration * 0.9)))  # Slower fall
+        step.set("FadeOut", "0")
         step.set("Values", str(total_channels * fixture_num))
 
         # Calculate heartbeat phase
@@ -807,24 +808,20 @@ def heartbeat_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, sign
 
         # Create double-beat pattern
         if phase < 0.15:
-            # First beat (stronger)
-            intensity = beat_intensity * (1 - phase / 0.15)
+            intensity = beat_intensity
         elif phase < 0.25:
-            # Quick recovery
             intensity = beat_intensity * 0.3
         elif phase < 0.35:
-            # Second beat (weaker)
-            intensity = beat_intensity * 0.7 * (1 - (phase - 0.25) / 0.1)
+            intensity = beat_intensity * 0.7
         else:
-            # Rest period
-            intensity = beat_intensity * 0.2 * (1 - (phase - 0.35) / 0.65)
+            intensity = beat_intensity * 0.2
 
         # Apply intensity to base color
         r = int(base_r * intensity)
         g = int(base_g * intensity)
         b = int(base_b * intensity)
 
-        # Build values string for all fixtures
+        # Build values string for peak
         values = []
         for i in range(fixture_num):
             channel_values = []
@@ -850,6 +847,28 @@ def heartbeat_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, sign
 
         step.text = ":".join(values)
         steps.append(step)
+        current_step += 1
+
+        # Fall step (fade to zero)
+        fall_step = ET.Element("Step")
+        fall_step.set("Number", str(current_step))
+        fall_step.set("FadeIn", str(int(step_duration * 0.9)))  # Slow fall
+        fall_step.set("Hold", "0")
+        fall_step.set("FadeOut", "0")
+        fall_step.set("Values", str(total_channels * fixture_num))
+
+        # Build values string for zero intensity
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+            for channel_type in ['IntensityRed', 'IntensityGreen', 'IntensityBlue', 'IntensityWhite']:
+                if channel_type in channels_dict:
+                    for channel in channels_dict[channel_type]:
+                        channel_values.extend([str(channel['channel']), "0"])
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        fall_step.text = ":".join(values)
+        steps.append(fall_step)
         current_step += 1
 
     return steps
