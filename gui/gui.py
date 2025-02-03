@@ -5,106 +5,61 @@ import json
 import xml.etree.ElementTree as ET
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtWidgets import QMainWindow, QDialog, QFileDialog, QLineEdit, QFormLayout, QDialogButtonBox
+from PyQt6.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QTableWidgetItem, QToolBar
+from PyQt6.QtGui import QAction, QFont
 from .effect_selection import EffectSelectionDialog
 from utils.create_workspace import create_qlc_workspace
+from config.models import Configuration, FixtureGroup, ShowEffect, Show, ShowPart
+from typing import Dict, List, Optional
+
 
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
-        MainWindow.setObjectName(" ")
-        MainWindow.resize(1200, 900)  # Changed window size
+        MainWindow.setObjectName("QLCAutoShow")
+        MainWindow.resize(1200, 900)
+
+        # Create central widget
         self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
         self.centralwidget.setObjectName("centralwidget")
+
+        # Create toolbar
+        self.toolbar = QToolBar()
+        MainWindow.addToolBar(self.toolbar)
+
+        # Create Save and Load actions
+        self.saveAction = QAction("Save Configuration", MainWindow)
+        self.loadAction = QAction("Load Configuration", MainWindow)
+        self.toolbar.addAction(self.saveAction)
+        self.toolbar.addAction(self.loadAction)
+
+        # Main layout
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralwidget)
-        self.horizontalLayout.setObjectName("horizontalLayout")
         self.tabWidget = QtWidgets.QTabWidget(parent=self.centralwidget)
-        self.tabWidget.setObjectName("tabWidget")
 
         # Fixtures Tab
         self.tab = QtWidgets.QWidget()
-        self.tab.setObjectName("tab")
-
-        # Buttons remain the same size but adjusted positions
-        self.pushButton = QtWidgets.QPushButton(parent=self.tab)
-        self.pushButton.setGeometry(QtCore.QRect(10, 14, 31, 31))
-        self.pushButton.setObjectName("pushButton")
-
-        self.pushButton_2 = QtWidgets.QPushButton(parent=self.tab)
-        self.pushButton_2.setGeometry(QtCore.QRect(50, 14, 31, 31))
-        self.pushButton_2.setObjectName("pushButton_2")
-
-        self.pushButton_3 = QtWidgets.QPushButton(parent=self.tab)
-        self.pushButton_3.setGeometry(QtCore.QRect(978, 10, 191, 31))  # Adjusted x position
-        self.pushButton_3.setObjectName("pushButton_3")
-
-        self.pushButton_4 = QtWidgets.QPushButton(parent=self.tab)
-        self.pushButton_4.setGeometry(QtCore.QRect(110, 14, 181, 31))
-        self.pushButton_4.setObjectName("pushButton_4")
-
-        # Tables with increased width and height
-        self.tableWidget = QtWidgets.QTableWidget(parent=self.tab)
-        self.tableWidget.setGeometry(QtCore.QRect(10, 80, 1151, 640))  # Increased height
-        self.tableWidget.setObjectName("tableWidget")
-
-        # Labels
-        self.label = QtWidgets.QLabel(parent=self.tab)
-        self.label.setGeometry(QtCore.QRect(10, 60, 81, 17))
-        font = QtGui.QFont()
-        font.setPointSize(14)
-        font.setBold(True)
-        self.label.setFont(font)
-        self.label.setObjectName("label")
-
-        self.tabWidget.addTab(self.tab, "")
+        self.setupFixturesTab()
 
         # Stage Tab
         self.tab_stage = QtWidgets.QWidget()
-        self.tab_stage.setObjectName("tab_stage")
-
-        self.tabWidget.addTab(self.tab_stage, "")
+        self.setupStageTab()
 
         # Shows Tab
         self.tab_2 = QtWidgets.QWidget()
-        self.tab_2.setObjectName("tab_2")
+        self.setupShowsTab()
 
-        self.tableWidget_3 = QtWidgets.QTableWidget(parent=self.tab_2)
-        self.tableWidget_3.setGeometry(QtCore.QRect(10, 90, 1151, 701))  # Increased width and height
-        self.tableWidget_3.setObjectName("tableWidget_3")
+        # Add tabs to widget
+        self.tabWidget.addTab(self.tab, "Fixtures")
+        self.tabWidget.addTab(self.tab_stage, "Stage")
+        self.tabWidget.addTab(self.tab_2, "Shows")
 
-        self.pushButton_5 = QtWidgets.QPushButton(parent=self.tab_2)
-        self.pushButton_5.setGeometry(QtCore.QRect(10, 20, 171, 31))
-        self.pushButton_5.setObjectName("pushButton_5")
-
-        self.pushButton_6 = QtWidgets.QPushButton(parent=self.tab_2)
-        self.pushButton_6.setGeometry(QtCore.QRect(1151-131, 20, 141, 31))  # Adjusted x position
-        self.pushButton_6.setObjectName("pushButton_6")
-
-        self.pushButton_7 = QtWidgets.QPushButton(parent=self.tab_2)
-        self.pushButton_7.setGeometry(QtCore.QRect(200, 20, 101, 31))  # Adjusted x position
-        self.pushButton_7.setObjectName("pushButton_6")
-
-        self.comboBox = QtWidgets.QComboBox(parent=self.tab_2)
-        self.comboBox.setGeometry(QtCore.QRect(10, 60, 171, 25))
-        self.comboBox.setObjectName("comboBox")
-
-        self.tabWidget.addTab(self.tab_2, "")
         self.horizontalLayout.addWidget(self.tabWidget)
-
         MainWindow.setCentralWidget(self.centralwidget)
-        self.statusbar = QtWidgets.QStatusBar(parent=MainWindow)
-        self.statusbar.setObjectName("statusbar")
-        MainWindow.setStatusBar(self.statusbar)
 
-        self.menubar = QtWidgets.QMenuBar(parent=MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1200, 22))  # Adjusted width
-        self.menubar.setObjectName("menubar")
-        self.menuQLCAutoShow = QtWidgets.QMenu(parent=self.menubar)
-        self.menuQLCAutoShow.setObjectName("menuQLCAutoShow")
-        MainWindow.setMenuBar(self.menubar)
-        self.menuQLCAutoShow.addSeparator()
-        self.menubar.addAction(self.menuQLCAutoShow.menuAction())
+        # Setup status bar and menu
+        self.setupStatusAndMenu(MainWindow)
 
-        self.retranslateUi(MainWindow)
         self.tabWidget.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -122,42 +77,93 @@ class Ui_MainWindow(object):
         self.pushButton_5.setText(_translate("MainWindow", "Load Shows"))
         self.pushButton_6.setText(_translate("MainWindow", "Create Workspace"))
         self.pushButton_7.setText(_translate("MainWindow", "Save Show"))
-        # Stage Tab
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_stage), _translate("MainWindow", "Stage"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Shows"))
-        self.menuQLCAutoShow.setTitle(_translate("MainWindow", " "))
+        self.saveAction.setText(_translate("MainWindow", "Save Configuration"))
+        self.loadAction.setText(_translate("MainWindow", "Load Configuration"))
+
+    def setupFixturesTab(self):
+        # Add Fixture buttons
+        self.pushButton = QtWidgets.QPushButton(parent=self.tab)
+        self.pushButton.setGeometry(QtCore.QRect(10, 14, 31, 31))
+        self.pushButton.setText("+")
+        self.pushButton.setToolTip("Add Fixture")
+
+        self.pushButton_2 = QtWidgets.QPushButton(parent=self.tab)
+        self.pushButton_2.setGeometry(QtCore.QRect(50, 14, 31, 31))
+        self.pushButton_2.setText("-")
+        self.pushButton_2.setToolTip("Remove Fixture")
+
+        # Other buttons
+        self.pushButton_3 = QtWidgets.QPushButton("Import QLC WorkSpace", parent=self.tab)
+        self.pushButton_3.setGeometry(QtCore.QRect(978, 10, 191, 31))
+
+        self.pushButton_4 = QtWidgets.QPushButton("Load Fixtures To Show", parent=self.tab)
+        self.pushButton_4.setGeometry(QtCore.QRect(110, 14, 181, 31))
+
+        # Fixtures table
+        self.tableWidget = QtWidgets.QTableWidget(parent=self.tab)
+        self.tableWidget.setGeometry(QtCore.QRect(10, 80, 1151, 640))
+
+        # Fixtures label
+        self.label = QtWidgets.QLabel("Fixtures", parent=self.tab)
+        self.label.setGeometry(QtCore.QRect(10, 60, 81, 17))
+        self.label.setFont(QFont("", 14, QFont.Weight.Bold))
+
+    def setupShowsTab(self):
+        # Shows table
+        self.tableWidget_3 = QtWidgets.QTableWidget(parent=self.tab_2)
+        self.tableWidget_3.setGeometry(QtCore.QRect(10, 90, 1151, 701))
+
+        # Shows buttons
+        self.pushButton_5 = QtWidgets.QPushButton("Load Shows", parent=self.tab_2)
+        self.pushButton_5.setGeometry(QtCore.QRect(10, 20, 171, 31))
+
+        self.pushButton_6 = QtWidgets.QPushButton("Create Workspace", parent=self.tab_2)
+        self.pushButton_6.setGeometry(QtCore.QRect(1020, 20, 141, 31))
+
+        self.pushButton_7 = QtWidgets.QPushButton("Save Show", parent=self.tab_2)
+        self.pushButton_7.setGeometry(QtCore.QRect(200, 20, 101, 31))
+
+        # Shows combo box
+        self.comboBox = QtWidgets.QComboBox(parent=self.tab_2)
+        self.comboBox.setGeometry(QtCore.QRect(10, 60, 171, 25))
+
+    def setupStageTab(self):
+        # Stage tab implementation here
+        pass
+
+    def setupStatusAndMenu(self, MainWindow):
+        self.statusbar = QtWidgets.QStatusBar(parent=MainWindow)
+        MainWindow.setStatusBar(self.statusbar)
+
+        self.menubar = QtWidgets.QMenuBar(parent=MainWindow)
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1200, 22))
+        self.menuQLCAutoShow = QtWidgets.QMenu(parent=self.menubar)
+        MainWindow.setMenuBar(self.menubar)
+        self.menuQLCAutoShow.addSeparator()
+        self.menubar.addAction(self.menuQLCAutoShow.menuAction())
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        self.config = Configuration(fixtures=[], groups={})
 
-        # Get the project root directory
-        self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.setup_dir = os.path.join(self.project_root, "setup")
+        # Initialize paths and data
+        self.initialize_paths()
 
-        # Initialize fixture paths list
-        self.fixture_paths = []
-
-        # Load effects dictionary using correct path
-        effects_json_path = os.path.join(self.project_root, "effects", "effects.json")
-        with open(effects_json_path, 'r') as f:
-            self.effects_dir = json.load(f)
-
-        # Set up table headers
+        # Set up tables
         self._setup_tables()
 
-        # Connect buttons to functions
-        self.pushButton.clicked.connect(self.add_fixture)
-        self.pushButton_2.clicked.connect(self.remove_fixture)
-        self.pushButton_3.clicked.connect(self.import_workspace)
-        self.pushButton_4.clicked.connect(self.load_fixtures_to_show)
-        self.pushButton_5.clicked.connect(self.import_show_structure)
-        self.pushButton_7.clicked.connect(self.save_show)
-        self.pushButton_6.clicked.connect(self.create_workspace)
+        # Connect signals
+        self.connect_signals()
 
-        # Add this after other initializations
+        # Initialize colors
+        self.initialize_colors()
+
+    def initialize_colors(self):
         self.group_colors = {}
         self.color_index = 0
         self.predefined_colors = [
@@ -170,6 +176,406 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             QtGui.QColor(255, 255, 224),  # Light yellow
             QtGui.QColor(230, 230, 250)  # Lavender
         ]
+
+    def initialize_paths(self):
+        self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.setup_dir = os.path.join(self.project_root, "setup")
+        self.fixture_paths = []
+
+        # Load effects
+        effects_json_path = os.path.join(self.project_root, "effects", "effects.json")
+        with open(effects_json_path, 'r') as f:
+            self.effects_dir = json.load(f)
+
+    def connect_signals(self):
+        # Connect table signals
+        self.tableWidget.itemChanged.connect(self.update_config_from_table)
+
+        # Connect existing buttons
+        self.pushButton.clicked.connect(self.add_fixture)
+        self.pushButton_2.clicked.connect(self.remove_fixture)
+        self.pushButton_3.clicked.connect(self.import_workspace)
+        self.pushButton_4.clicked.connect(self.load_fixtures_to_show)
+        self.pushButton_5.clicked.connect(self.import_show_structure)
+        #self.pushButton_7.clicked.connect(self.save_show)
+        self.pushButton_6.clicked.connect(self.create_workspace)
+
+        # Connect new toolbar actions
+        self.saveAction.triggered.connect(self.save_configuration)
+        self.loadAction.triggered.connect(self.load_configuration)
+
+    def update_config_from_table(self, item):
+        """Update configuration when table items change"""
+        row = item.row()
+        col = item.column()
+
+        if row >= len(self.config.fixtures):
+            return
+
+        fixture = self.config.fixtures[row]
+
+        # Map column changes to fixture attributes
+        if col == 2:  # Manufacturer
+            fixture.manufacturer = item.text()
+        elif col == 3:  # Model
+            fixture.model = item.text()
+        elif col == 6:  # Name
+            fixture.name = item.text()
+
+        self.update_groups()
+
+    def update_config_from_widget(self, row: int, col: int, widget):
+        """Update configuration when widgets (spinboxes, comboboxes) change"""
+        if row >= len(self.config.fixtures):
+            return
+
+        fixture = self.config.fixtures[row]
+
+        if col == 0:  # Universe
+            fixture.universe = widget.value()
+        elif col == 1:  # Address
+            fixture.address = widget.value()
+        elif col == 5:  # Mode
+            fixture.current_mode = widget.currentText()
+        elif col == 7:  # Group
+            old_group = fixture.group
+            new_group = widget.currentText()
+
+            # Remove from old group if exists
+            if old_group in self.config.groups:
+                self.config.groups[old_group].fixtures.remove(fixture)
+                if not self.config.groups[old_group].fixtures:
+                    del self.config.groups[old_group]
+
+            # Add to new group
+            fixture.group = new_group
+            if new_group:
+                if new_group not in self.config.groups:
+                    self.config.groups[new_group] = FixtureGroup(new_group, [])
+                self.config.groups[new_group].fixtures.append(fixture)
+
+        elif col == 8:  # Direction
+            fixture.direction = widget.currentText()
+
+    def update_groups(self):
+        """Update groups in configuration"""
+        # Clear existing groups
+        self.config.groups = {}
+
+        # Rebuild groups from fixtures
+        for fixture in self.config.fixtures:
+            if fixture.group:
+                if fixture.group not in self.config.groups:
+                    self.config.groups[fixture.group] = FixtureGroup(fixture.group, [])
+                self.config.groups[fixture.group].fixtures.append(fixture)
+
+    def handle_new_group(self, group_combo):
+        """Handle adding a new group"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add New Group")
+        layout = QFormLayout()
+        new_group_input = QLineEdit()
+        layout.addRow("Group Name:", new_group_input)
+
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok |
+            QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        layout.addWidget(button_box)
+
+        dialog.setLayout(layout)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            new_group = new_group_input.text().strip()
+            if new_group:
+                current_index = group_combo.findText("Add New...")
+                group_combo.removeItem(current_index)
+                group_combo.addItem(new_group)
+                group_combo.addItem("Add New...")
+                group_combo.setCurrentText(new_group)
+
+    def update_fixture_tab_from_config(self):
+        """Update fixture tab UI from configuration"""
+        self.tableWidget.setRowCount(0)
+
+        for fixture in self.config.fixtures:
+            row = self.tableWidget.rowCount()
+            self.tableWidget.insertRow(row)
+
+            # Universe
+            universe_spin = QtWidgets.QSpinBox()
+            universe_spin.setRange(1, 16)
+            universe_spin.setValue(fixture.universe)
+            self.tableWidget.setCellWidget(row, 0, universe_spin)
+
+            # Address
+            address_spin = QtWidgets.QSpinBox()
+            address_spin.setRange(1, 512)
+            address_spin.setValue(fixture.address)
+            self.tableWidget.setCellWidget(row, 1, address_spin)
+
+            # Other columns
+            self.tableWidget.setItem(row, 2, QtWidgets.QTableWidgetItem(fixture.manufacturer))
+            self.tableWidget.setItem(row, 3, QtWidgets.QTableWidgetItem(fixture.model))
+
+            # Mode and Channels
+            mode_combo = QtWidgets.QComboBox()
+            if fixture.available_modes:
+                # Add all available modes to combo box
+                for mode in fixture.available_modes:
+                    mode_combo.addItem(f"{mode.name} ({mode.channels}ch)")
+
+                # Find and set current mode
+                current_mode_text = next(
+                    (f"{mode.name} ({mode.channels}ch)"
+                     for mode in fixture.available_modes
+                     if mode.name == fixture.current_mode),
+                    fixture.current_mode
+                )
+                index = mode_combo.findText(current_mode_text)
+                if index >= 0:
+                    mode_combo.setCurrentIndex(index)
+                    # Set initial channels value
+                    channels = fixture.available_modes[index].channels
+                    self.tableWidget.setItem(row, 4, QtWidgets.QTableWidgetItem(str(channels)))
+
+                # Create closure to update channels when mode changes
+                def create_mode_handler(current_row, modes):
+                    def handle_mode_change(index):
+                        if 0 <= index < len(modes):
+                            channels = modes[index].channels
+                            self.tableWidget.setItem(current_row, 4,
+                                                     QtWidgets.QTableWidgetItem(str(channels)))
+                            # Update configuration
+                            self.config.fixtures[current_row].current_mode = modes[index].name
+                            # Update colors if needed
+                            self.update_row_colors()
+
+                    return handle_mode_change
+
+                mode_combo.currentIndexChanged.connect(
+                    create_mode_handler(row, fixture.available_modes)
+                )
+            else:
+                mode_combo.addItem(fixture.current_mode)
+                self.tableWidget.setItem(row, 4, QtWidgets.QTableWidgetItem("0"))
+
+            self.tableWidget.setCellWidget(row, 5, mode_combo)
+
+            # Name
+            self.tableWidget.setItem(row, 6, QtWidgets.QTableWidgetItem(fixture.name))
+
+            # Group
+            group_combo = QtWidgets.QComboBox()
+            group_combo.setEditable(True)
+            group_combo.addItem("")
+            for group in sorted(self.config.groups.keys()):
+                group_combo.addItem(group)
+            group_combo.addItem("Add New...")
+            group_combo.setCurrentText(fixture.group)
+
+            def create_group_handler(current_row):
+                def handle_group_change(text):
+                    if text == "Add New...":
+                        self.handle_new_group(group_combo)
+                    else:
+                        # Update configuration
+                        self.config.fixtures[current_row].group = text
+                        self.update_groups()
+                    self.update_row_colors()
+
+                return handle_group_change
+
+            group_combo.currentTextChanged.connect(create_group_handler(row))
+            self.tableWidget.setCellWidget(row, 7, group_combo)
+
+            # Direction
+            direction_combo = QtWidgets.QComboBox()
+            direction_combo.addItems(["", "↑", "↓"])
+            direction_combo.setCurrentText(fixture.direction)
+            self.tableWidget.setCellWidget(row, 8, direction_combo)
+
+        self.update_row_colors()
+
+    def update_show_tab_from_config(self):
+        """Update show tab when switching to it or when configuration changes"""
+        # Clear existing table
+        self.tableWidget_3.setRowCount(0)
+
+        # Get current show from combo box
+        current_show = self.comboBox.currentText()
+        if not current_show or current_show not in self.config.shows:
+            return
+
+        show = self.config.shows[current_show]
+
+        # Set up headers if not already done
+        headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color']
+        if self.tableWidget_3.columnCount() != len(headers):
+            self.tableWidget_3.setColumnCount(len(headers))
+            self.tableWidget_3.setHorizontalHeaderLabels(headers)
+
+        # Add rows for each show part and fixture group combination
+        row = 0
+        for show_part in show.parts:
+            for group_name in sorted(self.config.groups.keys()):
+                self.tableWidget_3.insertRow(row)
+
+                # Show Part (read-only)
+                show_part_item = QtWidgets.QTableWidgetItem(show_part.name)
+                show_part_item.setFlags(show_part_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+                self.tableWidget_3.setItem(row, 0, show_part_item)
+
+                # Fixture Group (read-only)
+                group_item = QtWidgets.QTableWidgetItem(group_name)
+                group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+                self.tableWidget_3.setItem(row, 1, group_item)
+
+                # Find existing effect for this combination
+                existing_effect = next(
+                    (effect for effect in show.effects
+                     if effect.show_part == show_part.name
+                     and effect.fixture_group == group_name),
+                    None
+                )
+
+                # Effect button
+                effect_button = QtWidgets.QPushButton()
+                if existing_effect and existing_effect.effect:
+                    effect_button.setText(existing_effect.effect)
+                else:
+                    effect_button.setText("Select Effect")
+
+                def create_effect_handler(current_row, part_name, group):
+                    def handle_effect():
+                        dialog = EffectSelectionDialog(self.effects_dir, self)
+                        if dialog.exec() == QDialog.DialogCode.Accepted:
+                            effect = dialog.get_selected_effect()
+                            button = self.tableWidget_3.cellWidget(current_row, 2)
+                            if effect == "CLEAR":
+                                button.setText("Select Effect")
+                            else:
+                                button.setText(effect)
+                            self.update_show_effect(current_show, part_name, group,
+                                                    effect or "",
+                                                    self.get_speed(current_row),
+                                                    self.get_color(current_row))
+
+                    return handle_effect
+
+                effect_button.clicked.connect(
+                    create_effect_handler(row, show_part.name, group_name)
+                )
+                self.tableWidget_3.setCellWidget(row, 2, effect_button)
+
+                # Speed combo box
+                speed_combo = QtWidgets.QComboBox()
+                speed_values = ['1/32', '1/16', '1/8', '1/4', '1/2', '1', '2', '4', '8', '16', '32']
+                speed_combo.addItems(speed_values)
+                if existing_effect:
+                    speed_combo.setCurrentText(existing_effect.speed)
+                else:
+                    speed_combo.setCurrentText('1')
+
+                speed_combo.currentTextChanged.connect(
+                    lambda value, r=row: self.update_show_effect(
+                        current_show,
+                        show_part.name,
+                        group_name,
+                        self.get_effect(r),
+                        value,
+                        self.get_color(r)
+                    )
+                )
+                self.tableWidget_3.setCellWidget(row, 3, speed_combo)
+
+                # Color button
+                color_button = QtWidgets.QPushButton()
+                color_button.setFixedHeight(25)
+
+                if existing_effect and existing_effect.color:
+                    color_button.setStyleSheet(f"background-color: {existing_effect.color};")
+                    color_button.setText(existing_effect.color)
+                else:
+                    color_button.setText("Pick Color")
+
+                def create_color_handler(current_row, part_name, group):
+                    def handle_color():
+                        button = self.tableWidget_3.cellWidget(current_row, 4)
+                        color = QtWidgets.QColorDialog.getColor(
+                            initial=QtGui.QColor(existing_effect.color if existing_effect else "#000000"),
+                            options=QtWidgets.QColorDialog.ColorDialogOption.ShowAlphaChannel
+                        )
+                        if color.isValid():
+                            hex_color = color.name().upper()
+                            button.setStyleSheet(f"background-color: {hex_color};")
+                            button.setText(hex_color)
+                            self.update_show_effect(current_show, part_name, group,
+                                                    self.get_effect(current_row),
+                                                    self.get_speed(current_row),
+                                                    hex_color)
+
+                    return handle_color
+
+                color_button.clicked.connect(
+                    create_color_handler(row, show_part.name, group_name)
+                )
+                self.tableWidget_3.setCellWidget(row, 4, color_button)
+
+                # Set row background color based on show part
+                qcolor = QtGui.QColor(show_part.color)
+                qcolor.setAlpha(40)
+                for col in range(5):
+                    item = self.tableWidget_3.item(row, col)
+                    if item:
+                        item.setBackground(qcolor)
+
+                row += 1
+
+    def get_effect(self, row):
+        """Get effect from table row"""
+        button = self.tableWidget_3.cellWidget(row, 2)
+        return button.property("current_effect") if button else ""
+
+    def get_speed(self, row):
+        """Get speed from table row"""
+        combo = self.tableWidget_3.cellWidget(row, 3)
+        return combo.currentText() if combo else "1"
+
+    def get_color(self, row):
+        """Get color from table row"""
+        button = self.tableWidget_3.cellWidget(row, 4)
+        return button.property("current_color") if button else ""
+
+    def update_show_effect(self, show_name, show_part, fixture_group, effect, speed, color):
+        """Update show effect in configuration"""
+        if show_name not in self.config.shows:
+            return
+
+        show = self.config.shows[show_name]
+
+        # Find existing effect or create new one
+        existing_effect = next(
+            (effect for effect in show.effects
+             if effect.show_part == show_part
+             and effect.fixture_group == fixture_group),
+            None
+        )
+
+        if existing_effect:
+            existing_effect.effect = effect
+            existing_effect.speed = speed
+            existing_effect.color = color
+        else:
+            show.effects.append(ShowEffect(
+                show_part=show_part,
+                fixture_group=fixture_group,
+                effect=effect,
+                speed=speed,
+                color=color
+            ))
 
     def _setup_tables(self):
         # Setup Fixtures table
@@ -586,243 +992,269 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.extract_from_workspace(file_path)
 
     def extract_from_workspace(self, workspace_path):
+        """Extract configuration from workspace file"""
         try:
-            # Ensure setup directory exists
-            os.makedirs(self.setup_dir, exist_ok=True)
+            # Load configuration from workspace
+            self.config = Configuration.from_workspace(workspace_path)
 
-            # Get QLC+ fixture directories
-            qlc_fixture_dirs = []
-            if sys.platform.startswith('linux'):
-                qlc_fixture_dirs.extend([
-                    '/usr/share/qlcplus/fixtures',
-                    os.path.expanduser('~/.qlcplus/fixtures')
-                ])
-            elif sys.platform == 'win32':
-                qlc_fixture_dirs.extend([
-                    os.path.join(os.path.expanduser('~'), 'QLC+', 'fixtures'),  # User fixtures
-                    'C:\\QLC+\\Fixtures'  # System-wide fixtures
-                ])
-            elif sys.platform == 'darwin':
-                qlc_fixture_dirs.append(os.path.expanduser('~/Library/Application Support/QLC+/fixtures'))
+            # Import show structure into configuration
+            self.config = Configuration.import_show_structure(self.config, os.path.dirname(workspace_path))
 
-            # Scan all fixture definitions first
-            fixture_definitions = {}
-            for dir_path in qlc_fixture_dirs:
-                if os.path.exists(dir_path):
-                    for manufacturer_dir in os.listdir(dir_path):
-                        manufacturer_path = os.path.join(dir_path, manufacturer_dir)
-                        if os.path.isdir(manufacturer_path):
-                            for fixture_file in os.listdir(manufacturer_path):
-                                if fixture_file.endswith('.qxf'):
-                                    fixture_path = os.path.join(manufacturer_path, fixture_file)
-                                    try:
-                                        tree = ET.parse(fixture_path)
-                                        root = tree.getroot()
-                                        ns = {'': 'http://www.qlcplus.org/FixtureDefinition'}
+            # Update UI
+            self.update_fixture_tab_from_config()
+            self.update_show_tab_from_config()
 
-                                        manufacturer = root.find('.//Manufacturer', ns).text
-                                        model = root.find('.//Model', ns).text
+            # Initialize combo box with shows
+            if self.config.shows:
+                self.comboBox.clear()
+                self.comboBox.addItems(sorted(self.config.shows.keys()))
 
-                                        # Get all available modes
-                                        modes = []
-                                        for mode in root.findall('.//Mode', ns):
-                                            mode_name = mode.get('Name')
-                                            channels = mode.findall('Channel', ns)
-                                            modes.append({
-                                                'name': mode_name,
-                                                'channels': len(channels)
-                                            })
+                # Connect combo box selection to table update
+                self.comboBox.currentTextChanged.connect(self.update_show_tab_from_config)
 
-                                        fixture_definitions[(manufacturer, model)] = {
-                                            'path': fixture_path,
-                                            'modes': modes
-                                        }
-                                    except Exception as e:
-                                        print(f"Error parsing fixture file {fixture_path}: {e}")
-                        elif manufacturer_path.endswith('.qxf'):
-                            try:
-                                tree = ET.parse(manufacturer_path)
-                                root = tree.getroot()
-                                ns = {'': 'http://www.qlcplus.org/FixtureDefinition'}
-
-                                manufacturer = root.find('.//Manufacturer', ns).text
-                                model = root.find('.//Model', ns).text
-
-                                # Get all available modes
-                                modes = []
-                                for mode in root.findall('.//Mode', ns):
-                                    mode_name = mode.get('Name')
-                                    channels = mode.findall('Channel', ns)
-                                    modes.append({
-                                        'name': mode_name,
-                                        'channels': len(channels)
-                                    })
-
-                                fixture_definitions[(manufacturer, model)] = {
-                                    'path': manufacturer_path,
-                                    'modes': modes
-                                }
-                            except Exception as e:
-                                print(f"Error parsing fixture file {manufacturer_path}: {e}")
-
-
-            # Parse workspace
-            tree = ET.parse(workspace_path)
-            root = tree.getroot()
-            ns = {'qlc': 'http://www.qlcplus.org/Workspace'}
-
-            # Extract fixtures with their groups
-            fixtures_data = []
-            for fixture in root.findall(".//qlc:Engine/qlc:Fixture", ns):
-                fixture_id = fixture.find("qlc:ID", ns).text
-                universe = int(fixture.find("qlc:Universe", ns).text) + 1
-                address = int(fixture.find("qlc:Address", ns).text) + 1
-                manufacturer = fixture.find("qlc:Manufacturer", ns).text
-                model = fixture.find("qlc:Model", ns).text
-                current_mode = fixture.find("qlc:Mode", ns).text
-
-                # Find group for this fixture by checking channel lists
-                group_name = ""
-                for group in root.findall(".//qlc:Engine/qlc:ChannelsGroup", ns):
-                    # Split channel list and get fixture IDs (first number of each pair)
-                    channel_pairs = group.text.split(',')
-                    fixture_ids = set(channel_pairs[::2])  # Take every other item (the fixture IDs)
-
-                    if fixture_id in fixture_ids:
-                        group_name = group.get('Name')
-                        self.existing_groups.add(group_name)
-                        break  # We can break here since each fixture belongs to only one group
-
-                # Get fixture definition if available
-                fixture_def = fixture_definitions.get((manufacturer, model))
-
-                fixtures_data.append({
-                    'Universe': universe,
-                    'Address': address,
-                    'Manufacturer': manufacturer,
-                    'Model': model,
-                    'Name': fixture.find("qlc:Name", ns).text,
-                    'Group': group_name,
-                    'Direction': "",
-                    'CurrentMode': current_mode,
-                    'AvailableModes': fixture_def['modes'] if fixture_def else None
-                })
-
-            # Update fixtures table
-            self.tableWidget.setRowCount(0)
-            for fixture in fixtures_data:
-                row = self.tableWidget.rowCount()
-                self.tableWidget.insertRow(row)
-
-                # Create spinboxes for Universe and Address
-                universe_spin = QtWidgets.QSpinBox()
-                universe_spin.setRange(1, 16)
-                universe_spin.setValue(fixture['Universe'])
-                self.tableWidget.setCellWidget(row, 0, universe_spin)
-
-                address_spin = QtWidgets.QSpinBox()
-                address_spin.setRange(1, 512)
-                address_spin.setValue(fixture['Address'])
-                self.tableWidget.setCellWidget(row, 1, address_spin)
-
-                # Add manufacturer and model
-                self.tableWidget.setItem(row, 2, QtWidgets.QTableWidgetItem(fixture['Manufacturer']))
-                self.tableWidget.setItem(row, 3, QtWidgets.QTableWidgetItem(fixture['Model']))
-
-                # Create mode combobox with available modes
-                mode_combo = QtWidgets.QComboBox()
-                if fixture['AvailableModes']:
-                    for mode in fixture['AvailableModes']:
-                        mode_combo.addItem(f"{mode['name']} ({mode['channels']}ch)")
-
-                    # Set current mode
-                    current_mode = fixture['CurrentMode']
-                    index = mode_combo.findText(current_mode, QtCore.Qt.MatchFlag.MatchStartsWith)
-                    if index >= 0:
-                        mode_combo.setCurrentIndex(index)
-                        self.tableWidget.setItem(row, 4, QtWidgets.QTableWidgetItem(
-                            str(fixture['AvailableModes'][index]['channels'])))
-
-                    # Create closure to capture the current row
-                    def create_update_channels(current_row):
-                        def update_channels(index):
-                            channels = fixture['AvailableModes'][index]['channels']
-                            self.tableWidget.setItem(current_row, 4, QtWidgets.QTableWidgetItem(str(channels)))
-                            # Reapply color after updating channels
-                            group_combo = self.tableWidget.cellWidget(current_row, 7)
-                            if group_combo and group_combo.currentText():
-                                group_name = group_combo.currentText()
-                                if group_name in self.group_colors:
-                                    color = self.group_colors[group_name]
-                                    self.tableWidget.item(current_row, 4).setBackground(color)
-
-                        return update_channels
-
-                    mode_combo.currentIndexChanged.connect(create_update_channels(row))
-                else:
-                    mode_combo.addItem(fixture['CurrentMode'])
-                self.tableWidget.setCellWidget(row, 5, mode_combo)
-
-                # Add name
-                self.tableWidget.setItem(row, 6, QtWidgets.QTableWidgetItem(fixture['Name']))
-
-                # Create group combobox
-                group_combo = QtWidgets.QComboBox()
-                group_combo.setEditable(True)
-                group_combo.addItem("")
-                for group in sorted(self.existing_groups):
-                    group_combo.addItem(group)
-                group_combo.addItem("Add New...")
-                group_combo.setCurrentText(fixture['Group'])
-
-                def handle_group_selection(text):
-                    if text == "Add New...":
-                        dialog = QDialog(self)
-                        dialog.setWindowTitle("Add New Group")
-                        layout = QFormLayout()
-                        new_group_input = QLineEdit()
-                        layout.addRow("Group Name:", new_group_input)
-
-                        button_box = QDialogButtonBox(
-                            QDialogButtonBox.StandardButton.Ok |
-                            QDialogButtonBox.StandardButton.Cancel
-                        )
-                        button_box.accepted.connect(dialog.accept)
-                        button_box.rejected.connect(dialog.reject)
-                        layout.addWidget(button_box)
-
-                        dialog.setLayout(layout)
-
-                        if dialog.exec() == QDialog.DialogCode.Accepted:
-                            new_group = new_group_input.text().strip()
-                            if new_group:
-                                self.existing_groups.add(new_group)
-                                current_index = group_combo.findText("Add New...")
-                                group_combo.removeItem(current_index)
-                                group_combo.addItem(new_group)
-                                group_combo.addItem("Add New...")
-                                group_combo.setCurrentText(new_group)
-                    self.update_row_colors()
-
-                group_combo.currentTextChanged.connect(handle_group_selection)
-                self.tableWidget.setCellWidget(row, 7, group_combo)
-
-                # Create direction combobox
-                direction_combo = QtWidgets.QComboBox()
-                direction_combo.addItems(["", "↑", "↓"])
-                self.tableWidget.setCellWidget(row, 8, direction_combo)
-
-            # Update row colors
-            self.update_row_colors()
-
-            print("Workspace data displayed successfully")
+                # Initialize table with first show if available
+                if self.comboBox.count() > 0:
+                    first_show = self.comboBox.itemText(0)
+                    self.comboBox.setCurrentText(first_show)
+                    self.update_show_tab_from_config()
 
         except Exception as e:
-            print(f"Error processing workspace file: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to process workspace: {str(e)}")
             import traceback
             traceback.print_exc()
 
-    def update_show_table(self, show_name):
+    def import_show_structure(self):
+        try:
+            # Set up fixed columns
+            headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color']
+            self.tableWidget_3.setColumnCount(len(headers))
+            self.tableWidget_3.setHorizontalHeaderLabels(headers)
+
+            # Get all show directories
+            shows_dir = os.path.join(self.project_root, "shows")
+
+            # Scan for all show structure files
+            for show_dir in os.listdir(shows_dir):
+                show_path = os.path.join(shows_dir, show_dir)
+                if os.path.isdir(show_path):
+                    structure_file = os.path.join(show_path, f"{show_dir}_structure.csv")
+                    if os.path.exists(structure_file):
+                        # Create new Show object
+                        show = Show(name=show_dir)
+
+                        with open(structure_file, 'r') as f:
+                            reader = csv.DictReader(f)
+                            for row in reader:
+                                # Create ShowPart with default white color
+                                show_part = ShowPart(
+                                    name=row['showpart'],
+                                    color="#FFFFFF"  # Default color, can be customized later
+                                )
+                                # Add part to show
+                                show.parts.append(show_part)
+
+                                # Create empty effects for each group
+                                for group_name in self.config.groups.keys():
+                                    effect = ShowEffect(
+                                        show_part=show_part.name,
+                                        fixture_group=group_name,
+                                        effect="",
+                                        speed="1",
+                                        color=""
+                                    )
+                                    show.effects.append(effect)
+
+                        # Add show to configuration
+                        self.config.shows[show_dir] = show
+
+            # Update combo box with available shows
+            self.comboBox.clear()
+            self.comboBox.addItems(sorted(self.config.shows.keys()))
+
+            # Connect combo box selection to table update
+            self.comboBox.currentTextChanged.connect(self.update_show_tab_from_config)
+
+            # Initialize table with first show if available
+            if self.comboBox.count() > 0:
+                first_show = self.comboBox.itemText(0)
+                self.update_show_tab_from_config()
+
+            print("Show structure imported successfully")
+
+        except Exception as e:
+            print(f"Error importing show structure: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def load_fixtures_to_show(self):
+        """
+        This method is now optional since fixture information is already in the configuration.
+        It can be used to validate or update fixture definitions if needed.
+        """
+        try:
+            # All fixture information should already be in self.config.fixtures
+            # We can use this method to validate or update fixture definitions
+
+            # Get unique manufacturer/model combinations from configuration
+            models_in_config = {(fixture.manufacturer, fixture.model)
+                                for fixture in self.config.fixtures}
+
+            # Update fixture definitions if needed
+            fixture_definitions = self._scan_fixture_definitions(models_in_config)
+
+            # Save fixture definitions to JSON for reference
+            fixtures_json_path = os.path.join(self.setup_dir, "fixtures.json")
+            with open(fixtures_json_path, 'w') as f:
+                json.dump(fixture_definitions, f, indent=4)
+
+            print("Fixture definitions saved successfully to fixtures.json")
+
+        except Exception as e:
+            print(f"Error loading fixtures: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _scan_fixture_definitions(self, required_models: set) -> dict:
+        """Scan QLC+ fixture definitions for required models"""
+        fixture_definitions = {}
+
+        # Get QLC+ fixture directories based on platform
+        qlc_fixture_dirs = self._get_qlc_fixture_dirs()
+
+        for dir_path in qlc_fixture_dirs:
+            if not os.path.exists(dir_path):
+                continue
+
+            for manufacturer_dir in os.listdir(dir_path):
+                manufacturer_path = os.path.join(dir_path, manufacturer_dir)
+                if not os.path.isdir(manufacturer_path):
+                    continue
+
+                for fixture_file in os.listdir(manufacturer_path):
+                    if not fixture_file.endswith('.qxf'):
+                        continue
+
+                    fixture_path = os.path.join(manufacturer_path, fixture_file)
+                    try:
+                        definition = self._parse_fixture_definition(fixture_path)
+                        if (definition['manufacturer'], definition['model']) in required_models:
+                            key = f"{definition['manufacturer']}_{definition['model']}"
+                            fixture_definitions[key] = definition
+                    except Exception as e:
+                        print(f"Error parsing fixture file {fixture_path}: {e}")
+
+        return fixture_definitions
+
+    def _get_qlc_fixture_dirs(self) -> List[str]:
+        """Get QLC+ fixture directories based on platform"""
+        if sys.platform.startswith('linux'):
+            return [
+                '/usr/share/qlcplus/fixtures',
+                os.path.expanduser('~/.qlcplus/')
+            ]
+        elif sys.platform == 'win32':
+            return [
+                os.path.join(os.path.expanduser('~'), 'QLC+'),
+                'C:\\QLC+\\Fixtures'
+            ]
+        elif sys.platform == 'darwin':
+            return [
+                os.path.expanduser('~/Library/Application Support/QLC+/fixtures')
+            ]
+        return []
+
+    def _parse_fixture_definition(self, fixture_path: str) -> dict:
+        """Parse QLC+ fixture definition file"""
+        tree = ET.parse(fixture_path)
+        root = tree.getroot()
+        ns = {'': 'http://www.qlcplus.org/FixtureDefinition'}
+
+        manufacturer = root.find('.//Manufacturer', ns).text
+        model = root.find('.//Model', ns).text
+
+        channels_info = []
+        for channel in root.findall('.//Channel', ns):
+            channel_data = {
+                'name': channel.get('Name'),
+                'preset': channel.get('Preset'),
+                'group': channel.find('Group', ns).text if channel.find('Group', ns) else None,
+                'capabilities': [
+                    {
+                        'min': int(cap.get('Min')),
+                        'max': int(cap.get('Max')),
+                        'preset': cap.get('Preset'),
+                        'name': cap.text
+                    }
+                    for cap in channel.findall('Capability', ns)
+                ]
+            }
+            channels_info.append(channel_data)
+
+        modes_info = [
+            {
+                'name': mode.get('Name'),
+                'channels': [
+                    {
+                        'number': int(ch.get('Number')),
+                        'name': ch.text
+                    }
+                    for ch in mode.findall('Channel', ns)
+                ]
+            }
+            for mode in root.findall('.//Mode', ns)
+        ]
+
+        return {
+            'manufacturer': manufacturer,
+            'model': model,
+            'channels': channels_info,
+            'modes': modes_info
+        }
+
+    def setup_tab_connections(self):
+        """Set up tab change connections"""
+        self.tabWidget.currentChanged.connect(self.handle_tab_change)
+
+    def handle_tab_change(self, index):
+        """Handle tab changes"""
+        if self.tabWidget.tabText(index) == "Shows":
+            self.update_show_tab_from_config()
+
+    def save_configuration(self):
+        """Save configuration to file"""
+        try:
+            filename, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Configuration",
+                "",
+                "YAML Files (*.yaml);;All Files (*)"
+            )
+
+            if filename:
+                self.config.save(filename)
+                QMessageBox.information(self, "Success", "Configuration saved successfully!")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save configuration: {str(e)}")
+
+    def load_configuration(self):
+        """Load configuration from file"""
+        try:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                "Load Configuration",
+                "",
+                "YAML Files (*.yaml);;All Files (*)"
+            )
+
+            if filename:
+                self.config = Configuration.load(filename)
+                self.update_fixture_tab_from_config()
+                self.update_show_tab_from_config()
+                QMessageBox.information(self, "Success", "Configuration loaded successfully!")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load configuration: {str(e)}")
+
+    def update_show_table_old(self, show_name):
         if show_name in self.show_structures:  # Note: make show_structures a class attribute
             show_parts = self.show_structures[show_name]
 
@@ -996,7 +1428,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             print("Show structure updated successfully")
 
-    def save_show(self):
+    def save_show_old(self):
         try:
             current_show = self.comboBox.currentText()
             if not current_show:
@@ -1041,7 +1473,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             import traceback
             traceback.print_exc()
 
-    def import_show_structure(self):
+    def import_show_structure_old(self):
         try:
             # Set up fixed columns
             headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color']
@@ -1084,7 +1516,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             import traceback
             traceback.print_exc()
 
-    def load_fixtures_to_show(self):
+    def load_fixtures_to_show_old(self):
         try:
             # Get unique manufacturer/model combinations from the table
             models_in_table = set()
