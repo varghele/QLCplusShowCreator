@@ -57,12 +57,26 @@ class Show:
     parts: List[ShowPart] = field(default_factory=list)
     effects: List[ShowEffect] = field(default_factory=list)
 
+@dataclass
+class Universe:
+    id: int
+    name: str
+    output: Dict[str, any]
+
+@dataclass
+class UniverseOutput:
+    plugin: str
+    line: str
+    parameters: Dict[str, str]
+
+
 
 @dataclass
 class Configuration:
     fixtures: List[Fixture] = field(default_factory=list)
     groups: Dict[str, FixtureGroup] = field(default_factory=dict)
     shows: Dict[str, Show] = field(default_factory=dict)
+    universes: Dict[int, Universe] = field(default_factory=dict)
     workspace_path: Optional[str] = None
 
     @classmethod
@@ -149,8 +163,9 @@ class Configuration:
 
     def save(self, filename: str):
         """Save configuration to YAML file"""
+        config_dict = asdict(self)
         with open(filename, 'w') as f:
-            yaml.safe_dump(asdict(self), f, default_flow_style=False)
+            yaml.safe_dump(config_dict, f, default_flow_style=False)
 
     @classmethod
     def load(cls, filename: str) -> 'Configuration':
@@ -168,11 +183,24 @@ class Configuration:
             for name, group in data['groups'].items()
         }
 
-        return cls(
+        # Convert universe data
+        universes = {
+            int(id): Universe(**universe_data)
+            for id, universe_data in data.get('universes', {}).items()
+        }
+
+        config = cls(
             fixtures=fixtures,
             groups=groups,
+            universes=universes,
             workspace_path=data.get('workspace_path')
         )
+
+        # Initialize default universes if none exist
+        if not config.universes:
+            config.initialize_default_universes()
+
+        return config
 
     @staticmethod
     def _scan_fixture_definitions():
@@ -315,4 +343,44 @@ class Configuration:
             raise ValueError(f"Invalid workspace file format: {e}")
         except Exception as e:
             raise RuntimeError(f"Error parsing workspace file: {e}")
+
+    def initialize_default_universes(self):
+        """Initialize default universes with placeholder values"""
+        for i in range(1, 5):  # Create 4 universes
+            self.universes[i] = Universe(
+                id=i,
+                name=f"Universe {i}",
+                output={
+                    'plugin': 'E1.31',
+                    'line': '0',
+                    'parameters': {
+                        'ip': f'192.168.1.{i}',
+                        'port': '6454',
+                        'subnet': '0',
+                        'universe': str(i)
+                    }
+                }
+            )
+
+    def add_universe(self, universe_id: int, output_type: str, ip: str, port: str, subnet: str, universe: str):
+        """Add or update a universe configuration"""
+        self.universes[universe_id] = Universe(
+            id=universe_id,
+            name=f"Universe {universe_id}",
+            output={
+                'plugin': output_type,
+                'line': '0',
+                'parameters': {
+                    'ip': ip,
+                    'port': port,
+                    'subnet': subnet,
+                    'universe': universe
+                }
+            }
+        )
+
+    def remove_universe(self, universe_id: int):
+        """Remove a universe configuration"""
+        if universe_id in self.universes:
+            del self.universes[universe_id]
 

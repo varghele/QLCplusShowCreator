@@ -9,7 +9,8 @@ from PyQt6.QtWidgets import QMainWindow, QFileDialog, QMessageBox, QTableWidgetI
 from PyQt6.QtGui import QAction, QFont
 from .effect_selection import EffectSelectionDialog
 from utils.create_workspace import create_qlc_workspace
-from config.models import Configuration, FixtureGroup, ShowEffect, Show, ShowPart
+from config.models import Configuration, FixtureGroup, ShowEffect, Show, ShowPart, Universe
+from .tabs.Universe import UniverseDialog
 from typing import Dict, List, Optional
 
 
@@ -27,15 +28,42 @@ class Ui_MainWindow(object):
         self.toolbar = QToolBar()
         MainWindow.addToolBar(self.toolbar)
 
-        # Create Save and Load actions
-        self.saveAction = QAction("Save Configuration", MainWindow)
-        self.loadAction = QAction("Load Configuration", MainWindow)
+        # Create actions with icons from QtWidgets.QStyle
+        style = self.style()  # Get style from the widget
+        self.saveAction = QAction(QtWidgets.QApplication.style().standardIcon(
+            QtWidgets.QStyle.StandardPixmap.SP_DialogSaveButton),
+            "Save Configuration", MainWindow)
+        self.loadAction = QAction(QtWidgets.QApplication.style().standardIcon(
+            QtWidgets.QStyle.StandardPixmap.SP_DialogOpenButton),
+            "Load Configuration", MainWindow)
+        self.loadShowsAction = QAction(QtWidgets.QApplication.style().standardIcon(
+            QtWidgets.QStyle.StandardPixmap.SP_TitleBarShadeButton),
+            "Load Shows", MainWindow)
+        self.importWorkspaceAction = QAction(QtWidgets.QApplication.style().standardIcon(
+            QtWidgets.QStyle.StandardPixmap.SP_FileDialogDetailedView),
+            "Import Workspace", MainWindow)
+        self.createWorkspaceAction = QAction(QtWidgets.QApplication.style().standardIcon(
+            QtWidgets.QStyle.StandardPixmap.SP_MediaSeekForward),
+            "Create Workspace", MainWindow)
+
+        # Add actions to toolbar
         self.toolbar.addAction(self.saveAction)
         self.toolbar.addAction(self.loadAction)
+        spacer = QtWidgets.QWidget()
+        spacer.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
+                             QtWidgets.QSizePolicy.Policy.Expanding)
+        self.toolbar.addWidget(spacer)
+        self.toolbar.addAction(self.loadShowsAction)
+        self.toolbar.addAction(self.importWorkspaceAction)
+        self.toolbar.addAction(self.createWorkspaceAction)
 
         # Main layout
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralwidget)
         self.tabWidget = QtWidgets.QTabWidget(parent=self.centralwidget)
+
+        # Configuration/Universes tab
+        self.tab_config = QtWidgets.QWidget()
+        self.setupConfigTab()
 
         # Fixtures Tab
         self.tab = QtWidgets.QWidget()
@@ -50,6 +78,7 @@ class Ui_MainWindow(object):
         self.setupShowsTab()
 
         # Add tabs to widget
+        self.tabWidget.addTab(self.tab_config, "Configuration")
         self.tabWidget.addTab(self.tab, "Fixtures")
         self.tabWidget.addTab(self.tab_stage, "Stage")
         self.tabWidget.addTab(self.tab_2, "Shows")
@@ -70,7 +99,6 @@ class Ui_MainWindow(object):
         self.pushButton.setText(_translate("MainWindow", "+"))
         self.pushButton_2.setToolTip(_translate("MainWindow", "<html><head/><body><p>Remove Fixture</p></body></html>"))
         self.pushButton_2.setText(_translate("MainWindow", "-"))
-        self.pushButton_3.setText(_translate("MainWindow", "Import QLC WorkSpace"))
         self.pushButton_4.setText(_translate("MainWindow", "Load Fixtures To Show"))
         self.label.setText(_translate("MainWindow", "Fixtures"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Fixtures"))
@@ -81,6 +109,33 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Shows"))
         self.saveAction.setText(_translate("MainWindow", "Save Configuration"))
         self.loadAction.setText(_translate("MainWindow", "Load Configuration"))
+
+    def setupConfigTab(self):
+        # Main layout for the configuration tab
+        layout = QtWidgets.QVBoxLayout(self.tab_config)
+
+        # Universe list
+        self.universe_list = QtWidgets.QTableWidget()
+        self.universe_list.setColumnCount(6)
+        self.universe_list.setHorizontalHeaderLabels([
+            "Universe", "Output Type", "IP Address", "Port", "Subnet", "Universe"
+        ])
+
+        # Set table properties
+        self.universe_list.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.universe_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+
+        # Add/Remove buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        self.add_universe_btn = QtWidgets.QPushButton("+")
+        self.remove_universe_btn = QtWidgets.QPushButton("-")
+        button_layout.addWidget(self.add_universe_btn)
+        button_layout.addWidget(self.remove_universe_btn)
+        button_layout.addStretch()
+
+        # Add widgets to main layout
+        layout.addLayout(button_layout)
+        layout.addWidget(self.universe_list)
 
     def setupFixturesTab(self):
         # Add Fixture buttons
@@ -93,10 +148,6 @@ class Ui_MainWindow(object):
         self.pushButton_2.setGeometry(QtCore.QRect(50, 14, 31, 31))
         self.pushButton_2.setText("-")
         self.pushButton_2.setToolTip("Remove Fixture")
-
-        # Other buttons
-        self.pushButton_3 = QtWidgets.QPushButton("Import QLC WorkSpace", parent=self.tab)
-        self.pushButton_3.setGeometry(QtCore.QRect(978, 10, 191, 31))
 
         self.pushButton_4 = QtWidgets.QPushButton("Load Fixtures To Show", parent=self.tab)
         self.pushButton_4.setGeometry(QtCore.QRect(110, 14, 181, 31))
@@ -149,7 +200,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
-        self.config = Configuration(fixtures=[], groups={})
+        self.config = Configuration()
 
         # Initialize paths and data
         self.initialize_paths()
@@ -162,6 +213,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Initialize colors
         self.initialize_colors()
+
+        # Initialize universes
+        self.initialize_universes()
 
     def initialize_colors(self):
         self.group_colors = {}
@@ -177,6 +231,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             QtGui.QColor(230, 230, 250)  # Lavender
         ]
 
+    def initialize_universes(self):
+        """Initialize universes and load them into the table"""
+        if not hasattr(self.config, 'universes'):
+            self.config.universes = {}
+            self.config.initialize_default_universes()
+        self.load_universes_to_table()
+
     def initialize_paths(self):
         self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.setup_dir = os.path.join(self.project_root, "setup")
@@ -191,18 +252,25 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Connect table signals
         self.tableWidget.itemChanged.connect(self.update_config_from_table)
 
+        # Add universe management signals
+        self.add_universe_btn.clicked.connect(self.add_universe_config)
+        self.remove_universe_btn.clicked.connect(self.remove_universe_config)
+        self.universe_list.itemChanged.connect(self.on_universe_item_changed)
+
         # Connect existing buttons
         self.pushButton.clicked.connect(self.add_fixture)
         self.pushButton_2.clicked.connect(self.remove_fixture)
-        self.pushButton_3.clicked.connect(self.import_workspace)
         self.pushButton_4.clicked.connect(self.load_fixtures_to_show)
         self.pushButton_5.clicked.connect(self.import_show_structure)
         #self.pushButton_7.clicked.connect(self.save_show)
         self.pushButton_6.clicked.connect(self.create_workspace)
 
-        # Connect new toolbar actions
+        # Connect toolbar actions
         self.saveAction.triggered.connect(self.save_configuration)
         self.loadAction.triggered.connect(self.load_configuration)
+        self.loadShowsAction.triggered.connect(self.import_show_structure)
+        self.importWorkspaceAction.triggered.connect(self.import_workspace)
+        self.createWorkspaceAction.triggered.connect(self.create_workspace)
 
     def update_config_from_table(self, item):
         """Update configuration when table items change"""
@@ -1004,6 +1072,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.update_fixture_tab_from_config()
             self.update_show_tab_from_config()
 
+            # Initialize universes if none exist in the loaded configuration
+            if not hasattr(self.config, 'universes') or not self.config.universes:
+                self.config.universes = {}
+                self.config.initialize_default_universes()
+
+            # Update universe table
+            self.load_universes_to_table()
+
             # Initialize combo box with shows
             if self.config.shows:
                 self.comboBox.clear()
@@ -1023,6 +1099,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             import traceback
             traceback.print_exc()
 
+    # Show Tab -----------------------------------------
     def import_show_structure(self):
         try:
             # Set up fixed columns
@@ -1219,6 +1296,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Handle tab changes"""
         if self.tabWidget.tabText(index) == "Shows":
             self.update_show_tab_from_config()
+    # End of Show Tab ------------------------------------
 
     def save_configuration(self):
         """Save configuration to file"""
@@ -1253,6 +1331,90 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 QMessageBox.information(self, "Success", "Configuration loaded successfully!")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load configuration: {str(e)}")
+
+    # Universe Handling for Configuration Tab--------------
+    def add_universe_config(self):
+        """Add a new universe configuration"""
+        row = self.universe_list.rowCount()
+        universe_id = row + 1
+
+        # Add new universe to configuration
+        self.config.add_universe(
+            universe_id=universe_id,
+            output_type='E1.31',
+            ip=f'192.168.1.{universe_id}',
+            port='6454',
+            subnet='0',
+            universe=str(universe_id)
+        )
+
+        # Update table
+        self.load_universes_to_table()
+
+    def remove_universe_config(self):
+        """Remove selected universe configuration"""
+        current_row = self.universe_list.currentRow()
+        if current_row >= 0:
+            universe_id = int(self.universe_list.item(current_row, 0).text())
+            if universe_id in self.config.universes:
+                self.config.remove_universe(universe_id)
+            self.universe_list.removeRow(current_row)
+
+    def load_universes_to_table(self):
+        """Load universes from configuration to table"""
+        # Temporarily block signals to prevent unwanted updates
+        self.universe_list.blockSignals(True)
+        self.universe_list.setRowCount(0)
+
+        for universe_id, universe in self.config.universes.items():
+            row = self.universe_list.rowCount()
+            self.universe_list.insertRow(row)
+
+            # Universe ID
+            self.universe_list.setItem(row, 0, QtWidgets.QTableWidgetItem(str(universe.id)))
+
+            # Output type combo
+            output_combo = QtWidgets.QComboBox()
+            output_combo.addItems(["E1.31", "ArtNet", "DMX"])
+            output_combo.setCurrentText(universe.output['plugin'])
+            output_combo.currentTextChanged.connect(lambda text, r=row: self.on_output_type_changed(r))
+            self.universe_list.setCellWidget(row, 1, output_combo)
+
+            # Parameters
+            params = universe.output['parameters']
+            self.universe_list.setItem(row, 2, QtWidgets.QTableWidgetItem(params['ip']))
+            self.universe_list.setItem(row, 3, QtWidgets.QTableWidgetItem(params['port']))
+            self.universe_list.setItem(row, 4, QtWidgets.QTableWidgetItem(params['subnet']))
+            self.universe_list.setItem(row, 5, QtWidgets.QTableWidgetItem(params['universe']))
+
+        # Re-enable signals
+        self.universe_list.blockSignals(False)
+
+    def on_universe_item_changed(self, item):
+        """Handle changes to universe table items"""
+        row = item.row()
+        col = item.column()
+        universe_id = int(self.universe_list.item(row, 0).text())
+
+        if universe_id in self.config.universes:
+            # Update the appropriate field based on the column
+            if col == 2:  # IP Address
+                self.config.universes[universe_id].output['parameters']['ip'] = item.text()
+            elif col == 3:  # Port
+                self.config.universes[universe_id].output['parameters']['port'] = item.text()
+            elif col == 4:  # Subnet
+                self.config.universes[universe_id].output['parameters']['subnet'] = item.text()
+            elif col == 5:  # Universe
+                self.config.universes[universe_id].output['parameters']['universe'] = item.text()
+
+    def on_output_type_changed(self, row):
+        """Handle output type changes"""
+        output_type = self.universe_list.cellWidget(row, 1).currentText()
+        universe_id = int(self.universe_list.item(row, 0).text())
+
+        if universe_id in self.config.universes:
+            self.config.universes[universe_id].output['plugin'] = output_type
+    # End of Universe Tab----------------------------------
 
     def update_show_table_old(self, show_name):
         if show_name in self.show_structures:  # Note: make show_structures a class attribute
