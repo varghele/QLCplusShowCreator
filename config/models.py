@@ -63,6 +63,10 @@ class Universe:
     name: str
     output: Dict[str, any]
 
+    def __post_init__(self):
+        if self.name is None:
+            self.name = f"Universe {self.id}"
+
 @dataclass
 class UniverseOutput:
     plugin: str
@@ -163,9 +167,34 @@ class Configuration:
 
     def save(self, filename: str):
         """Save configuration to YAML file"""
-        config_dict = asdict(self)
+        data = {
+            'fixtures': [asdict(f) for f in self.fixtures],
+            'groups': {
+                name: {
+                    'name': group.name,
+                    'fixtures': [asdict(f) for f in group.fixtures]
+                }
+                for name, group in self.groups.items()
+            },
+            'universes': {
+                str(universe.id): {
+                    'name': universe.name,
+                    'output': universe.output
+                }
+                for universe in self.universes.values()
+            },
+            'shows': {
+                show.name: {
+                    'parts': [asdict(part) for part in show.parts],
+                    'effects': [asdict(effect) for effect in show.effects]
+                }
+                for show in self.shows.values()
+            },
+            'workspace_path': self.workspace_path
+        }
+
         with open(filename, 'w') as f:
-            yaml.safe_dump(config_dict, f, default_flow_style=False)
+            yaml.dump(data, f, default_flow_style=False)
 
     @classmethod
     def load(cls, filename: str) -> 'Configuration':
@@ -174,31 +203,101 @@ class Configuration:
             data = yaml.safe_load(f)
 
         # Convert dictionary back to Configuration object
-        fixtures = [Fixture(**f) for f in data['fixtures']]
-        groups = {
-            name: FixtureGroup(
-                name=group['name'],
-                fixtures=[Fixture(**f) for f in group['fixtures']]
-            )
-            for name, group in data['groups'].items()
-        }
+        fixtures = []
+        for f_data in data.get('fixtures', []):
+            if 'available_modes' in f_data:
+                modes = []
+                for mode_data in f_data['available_modes']:
+                    mode = FixtureMode(
+                        name=mode_data['name'],
+                        channels=mode_data['channels']
+                    )
+                    modes.append(mode)
+                f_data['available_modes'] = modes
+            fixtures.append(Fixture(**f_data))
 
-        # Convert universe data
-        universes = {
-            int(id): Universe(**universe_data)
-            for id, universe_data in data.get('universes', {}).items()
-        }
+        # Handle groups
+        groups = {}
+        for name, group_data in data.get('groups', {}).items():
+            group_fixtures = []
+            for f_data in group_data.get('fixtures', []):
+                if 'available_modes' in f_data:
+                    modes = []
+                    for mode_data in f_data['available_modes']:
+                        mode = FixtureMode(
+                            name=mode_data['name'],
+                            channels=mode_data['channels']
+                        )
+                        modes.append(mode)
+                    f_data['available_modes'] = modes
+                group_fixtures.append(Fixture(**f_data))
+
+            groups[name] = FixtureGroup(
+                name=name,
+                fixtures=group_fixtures
+            )
+
+        # Handle shows
+        shows = {}
+        if 'shows' in data:
+            for show_name, show_data in data['shows'].items():
+                # Convert show parts
+                parts = []
+                for part_data in show_data.get('parts', []):
+                    parts.append(ShowPart(
+                        name=part_data['name'],
+                        color=part_data['color'],
+                        signature=part_data['signature'],
+                        bpm=part_data['bpm'],
+                        num_bars=part_data['num_bars'],
+                        transition=part_data['transition']
+                    ))
+
+                # Convert show effects
+                effects = []
+                for effect_data in show_data.get('effects', []):
+                    effects.append(ShowEffect(
+                        show_part=effect_data['show_part'],
+                        fixture_group=effect_data['fixture_group'],
+                        effect=effect_data['effect'],
+                        speed=effect_data['speed'],
+                        color=effect_data['color']
+                    ))
+
+                # Create show
+                shows[show_name] = Show(
+                    name=show_name,
+                    parts=parts,
+                    effects=effects
+                )
+
+        # Handle universes
+        universes = {}
+        if 'universes' in data:
+            for universe_id_str, universe_data in data['universes'].items():
+                universe_id = int(universe_id_str)
+                universes[universe_id] = Universe(
+                    id=universe_id,
+                    output=universe_data.get('output', {
+                        'plugin': 'E1.31',
+                        'line': '0',
+                        'parameters': {
+                            'ip': f'192.168.1.{universe_id}',
+                            'port': '6454',
+                            'subnet': '0',
+                            'universe': str(universe_id)
+                        }
+                    }),
+                    name=universe_data.get('name', f"Universe {universe_id}")
+                )
 
         config = cls(
             fixtures=fixtures,
             groups=groups,
             universes=universes,
+            shows=shows,
             workspace_path=data.get('workspace_path')
         )
-
-        # Initialize default universes if none exist
-        if not config.universes:
-            config.initialize_default_universes()
 
         return config
 

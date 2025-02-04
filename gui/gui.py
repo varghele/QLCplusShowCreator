@@ -1325,12 +1325,38 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             )
 
             if filename:
+                # Load configuration
                 self.config = Configuration.load(filename)
+
+                # Initialize universes if none exist in loaded configuration
+                if not hasattr(self.config, 'universes'):
+                    self.config.universes = {}
+                    self.config.initialize_default_universes()
+
+                # Clear and update the universe table
+                self.universe_list.setRowCount(0)
+                self.load_universes_to_table()
+
+                # Update other UI elements
                 self.update_fixture_tab_from_config()
                 self.update_show_tab_from_config()
+
+                # Update combo box with shows if they exist
+                if hasattr(self.config, 'shows') and self.config.shows:
+                    self.comboBox.clear()
+                    self.comboBox.addItems(sorted(self.config.shows.keys()))
+
+                    # Initialize table with first show if available
+                    if self.comboBox.count() > 0:
+                        first_show = self.comboBox.itemText(0)
+                        self.comboBox.setCurrentText(first_show)
+                        self.update_show_tab_from_config()
+
                 QMessageBox.information(self, "Success", "Configuration loaded successfully!")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load configuration: {str(e)}")
+            import traceback
+            traceback.print_exc()  # This will print the full error trace to console
 
     # Universe Handling for Configuration Tab--------------
     def add_universe_config(self):
@@ -1362,33 +1388,30 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def load_universes_to_table(self):
         """Load universes from configuration to table"""
-        # Temporarily block signals to prevent unwanted updates
-        self.universe_list.blockSignals(True)
+        # Clear the table first
         self.universe_list.setRowCount(0)
 
-        for universe_id, universe in self.config.universes.items():
-            row = self.universe_list.rowCount()
-            self.universe_list.insertRow(row)
+        if hasattr(self.config, 'universes'):
+            for universe_id, universe in self.config.universes.items():
+                row = self.universe_list.rowCount()
+                self.universe_list.insertRow(row)
 
-            # Universe ID
-            self.universe_list.setItem(row, 0, QtWidgets.QTableWidgetItem(str(universe.id)))
+                # Universe ID
+                self.universe_list.setItem(row, 0, QtWidgets.QTableWidgetItem(str(universe.id)))
 
-            # Output type combo
-            output_combo = QtWidgets.QComboBox()
-            output_combo.addItems(["E1.31", "ArtNet", "DMX"])
-            output_combo.setCurrentText(universe.output['plugin'])
-            output_combo.currentTextChanged.connect(lambda text, r=row: self.on_output_type_changed(r))
-            self.universe_list.setCellWidget(row, 1, output_combo)
+                # Output type combo
+                output_combo = QtWidgets.QComboBox()
+                output_combo.addItems(["E1.31", "ArtNet", "DMX"])
+                output_combo.setCurrentText(universe.output.get('plugin', 'E1.31'))
+                output_combo.currentTextChanged.connect(lambda text, r=row: self.on_output_type_changed(r))
+                self.universe_list.setCellWidget(row, 1, output_combo)
 
-            # Parameters
-            params = universe.output['parameters']
-            self.universe_list.setItem(row, 2, QtWidgets.QTableWidgetItem(params['ip']))
-            self.universe_list.setItem(row, 3, QtWidgets.QTableWidgetItem(params['port']))
-            self.universe_list.setItem(row, 4, QtWidgets.QTableWidgetItem(params['subnet']))
-            self.universe_list.setItem(row, 5, QtWidgets.QTableWidgetItem(params['universe']))
-
-        # Re-enable signals
-        self.universe_list.blockSignals(False)
+                # Parameters
+                params = universe.output.get('parameters', {})
+                self.universe_list.setItem(row, 2, QtWidgets.QTableWidgetItem(params.get('ip', '')))
+                self.universe_list.setItem(row, 3, QtWidgets.QTableWidgetItem(params.get('port', '')))
+                self.universe_list.setItem(row, 4, QtWidgets.QTableWidgetItem(params.get('subnet', '')))
+                self.universe_list.setItem(row, 5, QtWidgets.QTableWidgetItem(params.get('universe', '')))
 
     def on_universe_item_changed(self, item):
         """Handle changes to universe table items"""
