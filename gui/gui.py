@@ -1102,38 +1102,42 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             shows_dir = os.path.join(self.project_root, "shows")
 
             # Scan for all show structure files
-            for show_dir in os.listdir(shows_dir):
-                show_path = os.path.join(shows_dir, show_dir)
-                if os.path.isdir(show_path):
-                    structure_file = os.path.join(show_path, f"{show_dir}_structure.csv")
-                    if os.path.exists(structure_file):
-                        # Create new Show object
-                        show = Show(name=show_dir)
+            for file in os.listdir(shows_dir):
+                if file.endswith('.csv'):
+                    show_name = os.path.splitext(file)[0]  # Remove .csv extension
+                    structure_file = os.path.join(shows_dir, file)
 
-                        with open(structure_file, 'r') as f:
-                            reader = csv.DictReader(f)
-                            for row in reader:
-                                # Create ShowPart with default white color
-                                show_part = ShowPart(
-                                    name=row['showpart'],
-                                    color="#FFFFFF"  # Default color, can be customized later
+                    # Create new Show object
+                    show = Show(name=show_name)
+
+                    with open(structure_file, 'r') as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            # Create ShowPart with default white color
+                            show_part = ShowPart(
+                                name=row['showpart'],
+                                color=row['color'],
+                                signature=row['signature'],
+                                bpm=row['bpm'],
+                                num_bars=row['num_bars'],
+                                transition=row['transition']
+                            )
+                            # Add part to show
+                            show.parts.append(show_part)
+
+                            # Create empty effects for each group
+                            for group_name in self.config.groups.keys():
+                                effect = ShowEffect(
+                                    show_part=show_part.name,
+                                    fixture_group=group_name,
+                                    effect="",
+                                    speed="1",
+                                    color=""
                                 )
-                                # Add part to show
-                                show.parts.append(show_part)
+                                show.effects.append(effect)
 
-                                # Create empty effects for each group
-                                for group_name in self.config.groups.keys():
-                                    effect = ShowEffect(
-                                        show_part=show_part.name,
-                                        fixture_group=group_name,
-                                        effect="",
-                                        speed="1",
-                                        color=""
-                                    )
-                                    show.effects.append(effect)
-
-                        # Add show to configuration
-                        self.config.shows[show_dir] = show
+                    # Add show to configuration
+                    self.config.shows[show_name] = show
 
             # Update combo box with available shows
             self.comboBox.clear()
