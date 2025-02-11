@@ -99,11 +99,9 @@ class Ui_MainWindow(object):
         self.pushButton.setText(_translate("MainWindow", "+"))
         self.pushButton_2.setToolTip(_translate("MainWindow", "<html><head/><body><p>Remove Fixture</p></body></html>"))
         self.pushButton_2.setText(_translate("MainWindow", "-"))
-        self.pushButton_4.setText(_translate("MainWindow", "Load Fixtures To Show"))
         self.label.setText(_translate("MainWindow", "Fixtures"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Fixtures"))
         self.pushButton_5.setText(_translate("MainWindow", "Load Shows"))
-        self.pushButton_6.setText(_translate("MainWindow", "Create Workspace"))
         self.pushButton_7.setText(_translate("MainWindow", "Save Show"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_stage), _translate("MainWindow", "Stage"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Shows"))
@@ -149,9 +147,6 @@ class Ui_MainWindow(object):
         self.pushButton_2.setText("-")
         self.pushButton_2.setToolTip("Remove Fixture")
 
-        self.pushButton_4 = QtWidgets.QPushButton("Load Fixtures To Show", parent=self.tab)
-        self.pushButton_4.setGeometry(QtCore.QRect(110, 14, 181, 31))
-
         # Fixtures table
         self.tableWidget = QtWidgets.QTableWidget(parent=self.tab)
         self.tableWidget.setGeometry(QtCore.QRect(10, 80, 1151, 640))
@@ -169,9 +164,6 @@ class Ui_MainWindow(object):
         # Shows buttons
         self.pushButton_5 = QtWidgets.QPushButton("Load Shows", parent=self.tab_2)
         self.pushButton_5.setGeometry(QtCore.QRect(10, 20, 171, 31))
-
-        self.pushButton_6 = QtWidgets.QPushButton("Create Workspace", parent=self.tab_2)
-        self.pushButton_6.setGeometry(QtCore.QRect(1020, 20, 141, 31))
 
         self.pushButton_7 = QtWidgets.QPushButton("Save Show", parent=self.tab_2)
         self.pushButton_7.setGeometry(QtCore.QRect(200, 20, 101, 31))
@@ -260,10 +252,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Connect existing buttons
         self.pushButton.clicked.connect(self.add_fixture)
         self.pushButton_2.clicked.connect(self.remove_fixture)
-        self.pushButton_4.clicked.connect(self.load_fixtures_to_show)
+
         self.pushButton_5.clicked.connect(self.import_show_structure)
         #self.pushButton_7.clicked.connect(self.save_show)
-        self.pushButton_6.clicked.connect(self.create_workspace)
 
         # Connect toolbar actions
         self.saveAction.triggered.connect(self.save_configuration)
@@ -1163,34 +1154,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             import traceback
             traceback.print_exc()
 
-    def load_fixtures_to_show(self):
-        """
-        This method is now optional since fixture information is already in the configuration.
-        It can be used to validate or update fixture definitions if needed.
-        """
-        try:
-            # All fixture information should already be in self.config.fixtures
-            # We can use this method to validate or update fixture definitions
-
-            # Get unique manufacturer/model combinations from configuration
-            models_in_config = {(fixture.manufacturer, fixture.model)
-                                for fixture in self.config.fixtures}
-
-            # Update fixture definitions if needed
-            fixture_definitions = self._scan_fixture_definitions(models_in_config)
-
-            # Save fixture definitions to JSON for reference
-            fixtures_json_path = os.path.join(self.setup_dir, "fixtures.json")
-            with open(fixtures_json_path, 'w') as f:
-                json.dump(fixture_definitions, f, indent=4)
-
-            print("Fixture definitions saved successfully to fixtures.json")
-
-        except Exception as e:
-            print(f"Error loading fixtures: {e}")
-            import traceback
-            traceback.print_exc()
-
     def _scan_fixture_definitions(self, required_models: set) -> dict:
         """Scan QLC+ fixture definitions for required models"""
         fixture_definitions = {}
@@ -1698,185 +1661,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         except Exception as e:
             print(f"Error importing show structure: {e}")
-            import traceback
-            traceback.print_exc()
-
-    def load_fixtures_to_show_old(self):
-        try:
-            # Get unique manufacturer/model combinations from the table
-            models_in_table = set()
-            for row in range(self.tableWidget.rowCount()):
-                manufacturer = self.tableWidget.item(row, 2).text()
-                model = self.tableWidget.item(row, 3).text()
-                models_in_table.add((manufacturer, model))
-
-            # Get QLC+ fixture directories
-            qlc_fixture_dirs = []
-            if sys.platform.startswith('linux'):
-                qlc_fixture_dirs.extend([
-                    '/usr/share/qlcplus/fixtures',
-                    os.path.expanduser('~/.qlcplus/')
-                ])
-            elif sys.platform == 'win32':
-                qlc_fixture_dirs.extend([
-                    os.path.join(os.path.expanduser('~'), 'QLC+'),  # User fixtures
-                    'C:\\QLC+\\Fixtures'  # System-wide fixtures
-                ])
-            elif sys.platform == 'darwin':
-                qlc_fixture_dirs.append(os.path.expanduser('~/Library/Application Support/QLC+/fixtures'))
-
-            # Dictionary to store fixture definitions
-            fixture_definitions = {}
-
-            # Scan all fixtures and store definitions
-            for dir_path in qlc_fixture_dirs:
-                if os.path.exists(dir_path):
-                    for manufacturer_dir in os.listdir(dir_path):
-                        manufacturer_path = os.path.join(dir_path, manufacturer_dir)
-                        if os.path.isdir(manufacturer_path):
-                            for fixture_file in os.listdir(manufacturer_path):
-                                if fixture_file.endswith('.qxf'):
-                                    fixture_path = os.path.join(manufacturer_path, fixture_file)
-                                    try:
-                                        tree = ET.parse(fixture_path)
-                                        root = tree.getroot()
-                                        ns = {'': 'http://www.qlcplus.org/FixtureDefinition'}
-
-                                        manufacturer = root.find('.//Manufacturer', ns).text
-                                        model = root.find('.//Model', ns).text
-
-                                        # Only process if this fixture is in our table
-                                        if (manufacturer, model) in models_in_table:
-                                            # Get channels information
-                                            channels_info = []
-                                            for channel in root.findall('.//Channel', ns):
-                                                channel_data = {
-                                                    'name': channel.get('Name'),
-                                                    'preset': channel.get('Preset'),
-                                                    'group': channel.find('Group', ns).text if channel.find('Group',
-                                                                                                            ns) is not None else None,
-                                                    'capabilities': []
-                                                }
-
-                                                # Get capabilities
-                                                for capability in channel.findall('Capability', ns):
-                                                    cap_data = {
-                                                        'min': int(capability.get('Min')),
-                                                        'max': int(capability.get('Max')),
-                                                        'preset': capability.get('Preset'),
-                                                        'name': capability.text
-                                                    }
-                                                    channel_data['capabilities'].append(cap_data)
-
-                                                channels_info.append(channel_data)
-
-                                            # Get modes information
-                                            modes_info = []
-                                            for mode in root.findall('.//Mode', ns):
-                                                mode_data = {
-                                                    'name': mode.get('Name'),
-                                                    'channels': []
-                                                }
-
-                                                # Get channels for this mode
-                                                for channel in mode.findall('Channel', ns):
-                                                    mode_data['channels'].append({
-                                                        'number': int(channel.get('Number')),
-                                                        'name': channel.text
-                                                    })
-
-                                                modes_info.append(mode_data)
-
-                                            # Store the fixture definition
-                                            key = f"{manufacturer}_{model}"
-                                            fixture_definitions[key] = {
-                                                'manufacturer': manufacturer,
-                                                'model': model,
-                                                'channels': channels_info,
-                                                'modes': modes_info
-                                            }
-
-                                    except Exception as e:
-                                        print(f"Error parsing fixture file {fixture_path}: {e}")
-
-            # Write fixture definitions to JSON
-            fixtures_json_path = os.path.join(self.setup_dir, "fixtures.json")
-            with open(fixtures_json_path, 'w') as f:
-                json.dump(fixture_definitions, f, indent=4)
-
-            # Save current fixture data to CSV
-            fixtures_csv_path = os.path.join(self.setup_dir, "fixtures.csv")
-            with open(fixtures_csv_path, 'w', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow(
-                    ['Universe', 'Address', 'Manufacturer', 'Model', 'Channels', 'Mode', 'Name', 'Group',
-                     'Direction'])
-
-                for row in range(self.tableWidget.rowCount()):
-                    universe = self.tableWidget.cellWidget(row, 0).value()
-                    address = self.tableWidget.cellWidget(row, 1).value()
-                    manufacturer = self.tableWidget.item(row, 2).text()
-                    model = self.tableWidget.item(row, 3).text()
-                    channels = self.tableWidget.item(row, 4).text()
-
-                    # Get mode without channel count
-                    mode_combo = self.tableWidget.cellWidget(row, 5)
-                    mode_text = mode_combo.currentText() if mode_combo else ""
-                    mode = mode_text.split(' (')[0] if ' (' in mode_text else mode_text
-
-                    #mode = self.tableWidget.cellWidget(row, 5).currentText()
-                    name = self.tableWidget.item(row, 6).text()
-                    group = self.tableWidget.cellWidget(row, 7).currentText()
-                    direction = self.tableWidget.cellWidget(row, 8).currentText()
-
-                    writer.writerow(
-                        [universe, address, manufacturer, model, channels, mode, name, group, direction])
-                print("Fixtures saved successfully to fixtures.csv")
-
-            # Save current fixture data to groups.csv
-            groups_csv_path = os.path.join(self.setup_dir, "groups.csv")
-            with open(groups_csv_path, 'w', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow(['id', 'category', 'Universe', 'Address', 'Manufacturer', 'Model', 'Channels', 'Mode'])
-
-                # Track unique groups for id assignment
-                group_ids = {}
-                current_id = 0
-
-                for row in range(self.tableWidget.rowCount()):
-                    # Get group from the group combobox
-                    group_combo = self.tableWidget.cellWidget(row, 7)
-                    if group_combo and group_combo.currentText():
-                        group = group_combo.currentText()
-
-                        # Get or assign group id
-                        if group not in group_ids:
-                            group_ids[group] = current_id
-                            current_id += 1
-
-                        # Get mode without channel count
-                        mode_combo = self.tableWidget.cellWidget(row, 5)
-                        mode_text = mode_combo.currentText() if mode_combo else ""
-                        mode = mode_text.split(' (')[0] if ' (' in mode_text else mode_text
-
-                        # Write row to CSV
-                        writer.writerow([
-                            row,  # id
-                            group,  # category
-                            self.tableWidget.cellWidget(row, 0).value(),  # Universe
-                            self.tableWidget.cellWidget(row, 1).value(),  # Address
-                            self.tableWidget.item(row, 2).text(),  # Manufacturer
-                            self.tableWidget.item(row, 3).text(),  # Model
-                            self.tableWidget.item(row, 4).text(),  # Channels
-                            mode  # Mode (without channel count)
-                        ])
-
-            print("Groups saved successfully to groups.csv")
-            print("Fixture definitions saved successfully to fixtures.json")
-
-
-        except Exception as e:
-            print(f"Error loading fixtures: {e}")
             import traceback
             traceback.print_exc()
 
