@@ -1,7 +1,7 @@
 import os
 import json
 import xml.etree.ElementTree as ET
-
+from config.models import Configuration
 import pandas as pd
 import importlib
 
@@ -238,7 +238,143 @@ def create_sequence(root, sequence_id, sequence_name, bound_scene_id, bpm=120):
     return sequence
 
 
-def create_tracks(function, root, effects, base_dir="../"):
+def create_tracks(show_function, engine, show, effects_by_group, config, fixture_id_map, function_id_counter, effects,
+                  fixture_definitions):
+    """
+    Creates Track elements, Scenes, and Sequences for each channel group category
+
+    Parameters:
+        show_function: The show Function element to add tracks to
+        engine: The engine element for adding scenes
+        show: Show object containing show data
+        effects_by_group: Dictionary of effects grouped by fixture group
+        config: Configuration object
+        fixture_id_map: Dictionary mapping fixture object IDs to their sequential IDs
+        function_id_counter: Current function ID counter
+        effects: dictionary containing effect names and link to module
+        fixture_definitions: Dictionary of fixture definitions loaded from QLC+
+    Returns:
+        int: Next available function ID
+    """
+    track_id = 0
+    fixture_start_id = 0
+
+    for group_name, group_effects in effects_by_group.items():
+        # Calculate number of fixtures in group
+        fixture_num = len(config.groups[group_name].fixtures)
+
+        # Create Track
+        track = ET.SubElement(show_function, "Track")
+        track.set("ID", str(track_id))
+        track.set("Name", group_name.upper())
+        track.set("SceneID", str(function_id_counter))
+        track.set("isMute", "0")
+
+        # Create Scene
+        scene = ET.SubElement(engine, "Function")
+        scene.set("ID", str(function_id_counter))
+        scene.set("Type", "Scene")
+        scene.set("Name", f"Scene for {show.name} - Track {track_id + 1}")
+        scene.set("Hidden", "True")
+
+        # Add Scene properties
+        speed = ET.SubElement(scene, "Speed")
+        speed.set("FadeIn", "0")
+        speed.set("FadeOut", "0")
+        speed.set("Duration", "0")
+
+        # Add ChannelGroupsVal
+        ET.SubElement(scene, "ChannelGroupsVal").text = f"{track_id},0"
+
+        # Add FixtureVal for fixtures in the group
+        for fixture in config.groups[group_name].fixtures:
+            fixture_val = ET.SubElement(scene, "FixtureVal")
+            fixture_val.set("ID", str(fixture_id_map[id(fixture)]))
+
+            # Get number of channels
+            num_channels = next((mode.channels for mode in fixture.available_modes
+                                 if mode.name == fixture.current_mode), 0)
+
+            # Create channel values string
+            channel_values = ",".join([f"{i},0" for i in range(num_channels)])
+            fixture_val.text = channel_values
+
+        function_id_counter += 1
+
+        # Create sequences for each show part
+        start_time = 0
+        previous_bpm = None
+
+        for part in show.parts:
+            # Find effect for this part and group
+            part_effect = next((effect for effect in group_effects
+                                if effect.show_part == part.name), None)
+
+            if part_effect:
+                # Create sequence
+                sequence_name = f"{show.name}_{group_name}_{part.name}"
+                sequence = create_sequence(engine, function_id_counter, sequence_name,
+                                           scene.get("ID"), part.bpm)
+
+                # Split effect name into module and function
+                if part_effect.effect != "":
+                    module_name, func_name = part_effect.effect.split('.')
+                    effect_module = effects.get(module_name)
+
+                    if effect_module and hasattr(effect_module, func_name):
+                        effect_func = getattr(effect_module, func_name)
+
+                        # Get fixture definition from the first fixture in the group
+                        # (assuming all fixtures in a group are the same type)
+                        first_fixture = config.groups[group_name].fixtures[0]
+                        fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
+                        fixture_def = fixture_definitions.get(fixture_key)
+
+                        if fixture_def and first_fixture.current_mode:
+                            print(f"Creating effect steps with mode: {first_fixture.current_mode}")
+                            steps = effect_func(
+                                start_step=start_time,
+                                fixture_def=fixture_def,
+                                mode_name=first_fixture.current_mode,
+                                start_bpm=previous_bpm,
+                                end_bpm=part.bpm,
+                                signature=part.signature,
+                                transition=part.transition,
+                                num_bars=part.num_bars,
+                                speed=part_effect.speed,
+                                color=part_effect.color,
+                                fixture_num=fixture_num,
+                                fixture_start_id=fixture_start_id
+                            )
+                            print(f"Steps created: {len(steps) if steps else 0}")
+                            add_steps_to_sequence(sequence, steps)
+
+                # Create ShowFunction
+                show_func = ET.SubElement(track, "ShowFunction")
+                show_func.set("ID", str(function_id_counter))
+                show_func.set("StartTime", str(start_time))
+                show_func.set("Color", part.color)
+
+                function_id_counter += 1
+
+            # Calculate next start time using existing function
+            start_time = calculate_start_time(
+                start_time,
+                part.signature,
+                part.bpm,
+                part.num_bars,
+                part.transition,
+                previous_bpm
+            )
+            previous_bpm = part.bpm
+
+        fixture_start_id += fixture_num
+        track_id += 1
+
+    return function_id_counter
+
+
+def create_tracks_old(function, root, effects, base_dir="../"):
     """
     Creates Track elements, Scenes, and Sequences for each channel group category
     Parameters:
@@ -395,75 +531,61 @@ def create_tracks(function, root, effects, base_dir="../"):
     return current_id
 
 
-def create_shows(root, shows_dir='../shows', base_dir='../'):
+def create_shows(engine, config: Configuration, fixture_id_map: dict, fixture_definitions: dict):
     """
-    Creates show function elements from show files in the shows folder
+    Creates show function elements from Configuration data
+
     Parameters:
-        root: The root XML element to add the show functions to
-        shows_dir: Directory containing show files
-        base_dir: Base directory path
+        engine: The engine XML element to add the show functions to
+        config: Configuration object containing show data
+        fixture_id_map: Dictionary mapping fixture object IDs to their sequential IDs
+        fixture_definitions: Dictionary of fixture definitions loaded from QLC+
     Returns:
-        int: Next available ID
+        int: Next available function ID
     """
-    show_id = 0  # Initialize show ID counter
+    function_id_counter = 0
 
-    # Convert relative paths to absolute paths
-    shows_dir = os.path.abspath(shows_dir)
-    base_dir = os.path.abspath(base_dir)
+    # Load effects modules from effects directory
+    effects_dir = os.path.join(os.path.dirname(__file__), "../../", "effects")
+    effects = load_effects(effects_dir)
 
-    # Get all show folders
-    for show_name in sorted(os.listdir(shows_dir)):
-        show_path = os.path.join(shows_dir, show_name)
+    # Process each show in the configuration
+    for show_name, show in config.shows.items():
+        # Create Function element for the show
+        show_function = ET.SubElement(engine, "Function")
+        show_function.set("ID", str(function_id_counter))
+        show_function.set("Type", "Show")
+        show_function.set("Name", show_name)
+        function_id_counter += 1
 
-        if os.path.isdir(show_path):
-            # Check if all required files exist
-            required_files = [
-                f"{show_name}_setup.json",
-                f"{show_name}_structure.csv",  # Added file extension
-                f"{show_name}_values.json"  # Added values file requirement
-            ]
+        # Create TimeDivision element
+        time_division = ET.SubElement(show_function, "TimeDivision")
+        time_division.set("Type", "Time")
+        # Use BPM from first show part, or default to 120
+        time_division.set("BPM", str(show.parts[0].bpm if show.parts else 120))
 
-            missing_files = [f for f in required_files
-                             if not os.path.exists(os.path.join(show_path, f))]
+        # Group effects by fixture group
+        effects_by_group = {}
+        for effect in show.effects:
+            if effect.fixture_group not in effects_by_group:
+                effects_by_group[effect.fixture_group] = []
+            effects_by_group[effect.fixture_group].append(effect)
 
-            if not missing_files:
-                try:
-                    # Create Function element for the show
-                    function = ET.SubElement(root, "Function")
-                    function.set("ID", str(show_id))
-                    function.set("Type", "Show")
-                    function.set("Name", show_name)
+        # Create tracks for this show
+        function_id_counter = create_tracks(
+            show_function,
+            engine,
+            show,
+            effects_by_group,
+            config,
+            fixture_id_map,
+            function_id_counter,
+            effects,
+            fixture_definitions
+        )
+        print(f"Successfully created show: {show_name}")
 
-                    # Read show setup file for configuration
-                    setup_file = os.path.join(show_path, f"{show_name}_setup.json")
-                    with open(setup_file, 'r') as f:
-                        setup_data = json.load(f)
-
-                    # Create TimeDivision element with data from setup
-                    time_division = ET.SubElement(function, "TimeDivision")
-                    time_division.set("Type", setup_data.get("TimeType", "Time"))
-                    time_division.set("BPM", str(setup_data.get("BPM", 120)))
-
-                    # Load effects modules
-                    effects_dir = os.path.join(base_dir, "effects")
-                    effects = load_effects(effects_dir)
-
-                    # Create tracks for this show and get next available ID
-                    next_id = create_tracks(function, root, effects, base_dir)
-                    show_id = next_id  # Update show_id for next iteration
-
-                    print(f"Successfully created show: {show_name}")
-
-                except json.JSONDecodeError as e:
-                    print(f"Error reading setup file for show {show_name}: {e}")
-                except Exception as e:
-                    print(f"Error processing show {show_name}: {str(e)}")
-                    import traceback
-                    traceback.print_exc()
-            else:
-                print(f"Show {show_name} is missing required files: {missing_files}")
-
-    return show_id
+    return function_id_counter
 
 
 

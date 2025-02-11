@@ -66,19 +66,15 @@ def get_channels_by_property(fixture_def, mode_name, properties):
     Extracts channels with specific properties from a fixture definition
     Parameters:
         fixture_def: Dictionary containing fixture definition
-        mode_name: Name of the mode to check ("8 Channel", "14 Channel", etc.)
-        properties: List of properties to look for (["IntensityDimmer", "Shutter", etc.])
+        mode_name: Name of the mode to check
+        properties: List of properties to look for
     Returns:
         dict: Dictionary of channel numbers by property
     """
     channels = {}
 
-    # Find the specified mode
-    mode = None
-    for m in fixture_def['modes']:
-        if m['name'] == mode_name:
-            mode = m
-            break
+    # Find the specified mode from modes list
+    mode = next((m for m in fixture_def['modes'] if m['name'] == mode_name), None)
 
     if not mode:
         return channels
@@ -89,11 +85,7 @@ def get_channels_by_property(fixture_def, mode_name, properties):
         channel_name = channel_mapping['name']
 
         # Find the channel definition
-        channel_def = None
-        for ch in fixture_def['channels']:
-            if ch['name'] == channel_name:
-                channel_def = ch
-                break
+        channel_def = next((ch for ch in fixture_def['channels'] if ch['name'] == channel_name), None)
 
         if not channel_def:
             continue
@@ -121,9 +113,11 @@ def get_channels_by_property(fixture_def, mode_name, properties):
                     channels[capability['preset']] = []
                 channels[capability['preset']].append({
                     'channel': channel_number,
-                    'min': capability['min'],
-                    'max': capability['max']
+                    'min': capability.get('min'),
+                    'max': capability.get('max')
                 })
 
     return channels
+
+
 
