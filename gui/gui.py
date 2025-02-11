@@ -1882,22 +1882,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def create_workspace(self):
         try:
-            # First save the current show to ensure all data is up to date
-            self.save_show()
-
-            # Get current show name
-            current_show = self.comboBox.currentText()
-            if not current_show:
-                print("No show selected")
-                return
-
-            # Create workspace using the imported function
-            # Pass the project root directory to ensure correct file paths
-            create_qlc_workspace()
+            create_qlc_workspace(self.config)
 
             print("Workspace created successfully")
-
-            # Show success message to the user
             QtWidgets.QMessageBox.information(
                 self,
                 "Success",
@@ -1910,7 +1897,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             import traceback
             traceback.print_exc()
 
-            # Show error message to the user
             QtWidgets.QMessageBox.critical(
                 self,
                 "Error",
