@@ -4,6 +4,7 @@ import csv
 import os
 import json
 import pandas as pd
+from config.models import Configuration
 
 
 def read_universes_from_csv():
@@ -26,87 +27,92 @@ def read_fixtures_from_csv(setup_fixtures_dir):
     return fixtures
 
 
-def create_universe_elements(root, universes_json_pth = '../setup/universes.json'):
+def create_universe_elements(input_output_map, config: Configuration):
     """
-    Creates universe elements from JSON data and adds them to the root
-    """
-    with open(universes_json_pth, 'r') as file:
-        config = json.load(file)
+    Creates universe elements from Configuration data and adds them to the InputOutputMap
 
-    for universe in config['universes']:
+    Parameters:
+        input_output_map: The InputOutputMap XML element to add universes to
+        config: Configuration object containing universe data
+    """
+    for universe_id, universe in config.universes.items():
         # Create Universe element
-        universe_elem = ET.SubElement(root, "Universe")
-        universe_elem.set("Name", universe['name'])
-        universe_elem.set("ID", str(universe['id']))
+        universe_elem = ET.SubElement(input_output_map, "Universe")
+        universe_elem.set("Name", universe.name)
+        universe_elem.set("ID", str(universe_id - 1))  # Convert to 0-based index
 
-        # Add Output if specified
-        if 'output' in universe:
-            output = ET.SubElement(universe_elem, "Output")
-            output.set("Plugin", universe['output']['plugin'])
-            output.set("Line", universe['output']['line'])
+        # Add Output
+        output = ET.SubElement(universe_elem, "Output")
+        output.set("Plugin", universe.output['plugin'])
+        output.set("Line", str(universe_id - 1))  # Line should match universe ID
 
-            # Add plugin parameters
+        # Add plugin parameters based on plugin type
+        if universe.output['plugin'] == 'ArtNet':
             plugin_params = ET.SubElement(output, "PluginParameters")
-            for param_name, param_value in universe['output']['parameters'].items():
+            for param_name, param_value in universe.output['parameters'].items():
                 plugin_params.set(param_name, str(param_value))
 
+    return input_output_map
 
-def create_fixture_elements(root, setup_fixtures_dir='../setup', id_start=0):
+
+def create_fixture_elements(engine, config: Configuration, id_start=0):
     """
-    Creates fixture elements from CSV data and adds them to the root
+    Creates fixture elements from Configuration data and adds them to the engine element
+
     Parameters:
-        root: The root XML element to add fixtures to
+        engine: The engine XML element to add fixtures to
+        config: Configuration object containing fixture data
         id_start: Starting ID number for fixtures (default 0)
-        :param id_start:
-        :param root:
-        :param setup_fixtures_dir:
     """
-    fixtures = read_fixtures_from_csv(setup_fixtures_dir)
+    fixture_id_map = {}  # To store mapping of fixture objects to their IDs
 
-    for index, fixture in enumerate(fixtures):
-        fixture_elem = ET.SubElement(root, "Fixture")
-        ET.SubElement(fixture_elem, "Manufacturer").text = fixture['Manufacturer']
-        ET.SubElement(fixture_elem, "Model").text = fixture['Model']
-        ET.SubElement(fixture_elem, "Mode").text = f"{fixture['Mode']}"
-        ET.SubElement(fixture_elem, "ID").text = str(index + id_start)  # Add ID element with incremental value
-        ET.SubElement(fixture_elem, "Name").text = f"{fixture['Name']}"  # Add Name element
-        ET.SubElement(fixture_elem, "Universe").text = str(int(fixture['Universe']) - 1)  # Convert to 0-based index
-        ET.SubElement(fixture_elem, "Address").text = str(int(fixture['Address']) - 1)  # Convert to 0-based index
-        ET.SubElement(fixture_elem, "Channels").text = str(int(fixture['Channels']))
+    for index, fixture in enumerate(config.fixtures):
+        fixture_elem = ET.SubElement(engine, "Fixture")
+        ET.SubElement(fixture_elem, "Manufacturer").text = fixture.manufacturer
+        ET.SubElement(fixture_elem, "Model").text = fixture.model
+        ET.SubElement(fixture_elem, "Mode").text = fixture.current_mode
+        ET.SubElement(fixture_elem, "ID").text = str(index + id_start)
+        ET.SubElement(fixture_elem, "Name").text = fixture.name
+        ET.SubElement(fixture_elem, "Universe").text = str(fixture.universe - 1)  # Convert to 0-based index
+        ET.SubElement(fixture_elem, "Address").text = str(fixture.address - 1)  # Convert to 0-based index
+
+        # Get channels from current mode
+        channels = next((mode.channels for mode in fixture.available_modes
+                         if mode.name == fixture.current_mode), 0)
+        ET.SubElement(fixture_elem, "Channels").text = str(channels)
+
+        # Store the mapping
+        fixture_id_map[id(fixture)] = index + id_start
+
+    return fixture_id_map
 
 
-def create_channels_groups(root):
+def create_channels_groups(engine, config: Configuration, fixture_id_map: dict):
     """
-    Creates ChannelsGroup elements from groups.csv
+    Creates ChannelsGroup elements from Configuration data
+
     Parameters:
-        root: The root XML element to add the ChannelsGroups to
+        engine: The engine XML element to add the ChannelsGroups to
+        config: Configuration object containing groups and fixtures data
+        fixture_id_map: Dictionary mapping fixture object IDs to their sequential IDs
     """
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    groups_file = os.path.join(base_dir, 'setup', 'groups.csv')
-
-    if not os.path.exists(groups_file):
-        print("Groups file not found in setup directory")
-        return
-
-    # Read groups data
-    groups_df = pd.read_csv(groups_file)
-
-    # Group fixtures by category
-    categories = groups_df.groupby('category')
-
-    # Create channel groups for each category
     group_id = 0
-    for category_name, group in categories:
-        # Skip None/empty categories
-        if pd.isna(category_name) or category_name == 'None':
-            continue
+    for group_name, group in config.groups.items():
+        # Create ChannelsGroup element
+        channels_group = ET.SubElement(engine, "ChannelsGroup")
+        channels_group.set("ID", str(group_id))
+        channels_group.set("Name", group_name)
+        channels_group.set("Value", "0")
 
+        # Create channel list for all fixtures in group
         channels_list = []
-        for _, fixture in group.iterrows():
-            # Get fixture ID and number of channels
-            fixture_id = fixture['id'] #wrong
-            #fixture_id =
-            num_channels = int(fixture['Channels'])
+        for fixture in group.fixtures:
+            # Get number of channels from fixture's current mode
+            num_channels = next((mode.channels for mode in fixture.available_modes
+                                 if mode.name == fixture.current_mode), 0)
+
+            # Get fixture ID from mapping
+            fixture_id = fixture_id_map[id(fixture)]
 
             # Add each channel to the list
             for channel in range(num_channels):
@@ -114,13 +120,7 @@ def create_channels_groups(root):
 
         # Only create group if there are channels
         if channels_list:
-            # Create ChannelsGroup element
-            channels_group = ET.SubElement(root, "ChannelsGroup")
-            channels_group.set("ID", str(group_id))
-            channels_group.set("Name", str(category_name))
-            channels_group.set("Value", "0")
             channels_group.text = ",".join(channels_list)
-
             group_id += 1
 
-    return root
+    return engine
