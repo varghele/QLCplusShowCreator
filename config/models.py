@@ -41,6 +41,7 @@ class ShowEffect:
     effect: str
     speed: str
     color: str
+    intensity: int
 
 @dataclass
 class ShowPart:
@@ -150,7 +151,8 @@ class Configuration:
                                         fixture_group=group_name,
                                         effect="",
                                         speed="1",
-                                        color=""  # Leave color blank for effects
+                                        color="",  # Leave color blank for effects
+                                        intensity=200 # Default intensity
                                     )
                                     show.effects.append(effect)
 
@@ -261,7 +263,8 @@ class Configuration:
                         fixture_group=effect_data['fixture_group'],
                         effect=effect_data['effect'],
                         speed=effect_data['speed'],
-                        color=effect_data['color']
+                        color=effect_data['color'],
+                        intensity=effect_data['intensity']
                     ))
 
                 # Create show

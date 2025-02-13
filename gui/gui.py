@@ -80,8 +80,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.pushButton.clicked.connect(self.add_fixture)
         self.pushButton_2.clicked.connect(self.remove_fixture)
 
-        self.pushButton_5.clicked.connect(self.import_show_structure)
-        #self.pushButton_7.clicked.connect(self.save_show)
+        self.pushButton_5.clicked.connect(self.save_show)
+        self.pushButton_7.clicked.connect(self.update_show_tab_from_config)
 
         # Connect toolbar actions
         self.saveAction.triggered.connect(self.save_configuration)
@@ -298,7 +298,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         show = self.config.shows[current_show]
 
         # Set up headers if not already done
-        headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color']
+        headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color', 'Intensity']
         if self.tableWidget_3.columnCount() != len(headers):
             self.tableWidget_3.setColumnCount(len(headers))
             self.tableWidget_3.setHorizontalHeaderLabels(headers)
@@ -347,7 +347,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                             self.update_show_effect(current_show, part_name, group,
                                                     effect or "",
                                                     self.get_speed(current_row),
-                                                    self.get_color(current_row))
+                                                    self.get_color(current_row),
+                                                    self.get_intensity(current_row))
 
                     return handle_effect
 
@@ -372,7 +373,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         group_name,
                         self.get_effect(r),
                         value,
-                        self.get_color(r)
+                        self.get_color(r),
+                        self.get_intensity(r)
                     )
                 )
                 self.tableWidget_3.setCellWidget(row, 3, speed_combo)
@@ -391,7 +393,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     def handle_color():
                         button = self.tableWidget_3.cellWidget(current_row, 4)
                         color = QtWidgets.QColorDialog.getColor(
-                            initial=QtGui.QColor(existing_effect.color if existing_effect else "#000000"),
+                            initial=QtGui.QColor(existing_effect.color if existing_effect.color is not None else "#000000"),
                             options=QtWidgets.QColorDialog.ColorDialogOption.ShowAlphaChannel
                         )
                         if color.isValid():
@@ -401,7 +403,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                             self.update_show_effect(current_show, part_name, group,
                                                     self.get_effect(current_row),
                                                     self.get_speed(current_row),
-                                                    hex_color)
+                                                    hex_color,
+                                                    self.get_intensity(current_row))
 
                     return handle_color
 
@@ -409,6 +412,60 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     create_color_handler(row, show_part.name, group_name)
                 )
                 self.tableWidget_3.setCellWidget(row, 4, color_button)
+
+                # Intensity control
+                intensity_widget = QtWidgets.QWidget()
+                intensity_layout = QtWidgets.QHBoxLayout(intensity_widget)
+                intensity_layout.setContentsMargins(2, 2, 2, 2)
+
+                # Create slider
+                intensity_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+                intensity_slider.setMinimum(0)
+                intensity_slider.setMaximum(255)
+                intensity_slider.setValue(200)  # Default value
+                intensity_slider.setFixedWidth(100)
+
+                # Create spinbox
+                intensity_spinbox = QtWidgets.QSpinBox()
+                intensity_spinbox.setMinimum(0)
+                intensity_spinbox.setMaximum(255)
+                intensity_spinbox.setValue(200)  # Default value
+                intensity_spinbox.setFixedWidth(50)
+
+                # Set initial values based on existing effect
+                if existing_effect and existing_effect.intensity is not None:
+                    intensity_slider.setValue(existing_effect.intensity)
+                    intensity_spinbox.setValue(existing_effect.intensity)
+                else:
+                    intensity_slider.setValue(200)  # Default value
+                    intensity_spinbox.setValue(200)  # Default value
+
+                intensity_layout.addWidget(intensity_slider)
+                intensity_layout.addWidget(intensity_spinbox)
+
+                def create_intensity_handler(current_row, part_name, group):
+                    def handle_intensity(value):
+                        self.update_show_effect(
+                            current_show,
+                            part_name,
+                            group,
+                            self.get_effect(current_row),
+                            self.get_speed(current_row),
+                            self.get_color(current_row),
+                            value
+                        )
+
+                    return handle_intensity
+
+                # Connect the controls to each other
+                intensity_slider.valueChanged.connect(intensity_spinbox.setValue)
+                intensity_spinbox.valueChanged.connect(intensity_slider.setValue)
+
+                # Connect to the effect handler
+                handler = create_intensity_handler(row, show_part.name, group_name)
+                intensity_slider.valueChanged.connect(handler)
+
+                self.tableWidget_3.setCellWidget(row, 5, intensity_widget)
 
                 # Set row background color based on show part
                 qcolor = QtGui.QColor(show_part.color)
@@ -423,7 +480,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def get_effect(self, row):
         """Get effect from table row"""
         button = self.tableWidget_3.cellWidget(row, 2)
-        return button.property("current_effect") if button else ""
+        if button:
+            text = button.text()
+            return text if text != "Select Effect" else ""
+        return ""
 
     def get_speed(self, row):
         """Get speed from table row"""
@@ -433,35 +493,66 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def get_color(self, row):
         """Get color from table row"""
         button = self.tableWidget_3.cellWidget(row, 4)
-        return button.property("current_color") if button else ""
+        if button:
+            stylesheet = button.styleSheet()
+            if "background-color:" in stylesheet:
+                color = stylesheet.split("background-color:")[1].strip("; ")
+                return color
+        return ""
 
-    def update_show_effect(self, show_name, show_part, fixture_group, effect, speed, color):
+    def get_intensity(self, row):
+        """Get intensity value from table row"""
+        intensity_widget = self.tableWidget_3.cellWidget(row, 5)
+        if intensity_widget:
+            # Get the spinbox from the layout (second widget)
+            layout = intensity_widget.layout()
+            if layout:
+                spinbox_item = layout.itemAt(1)
+                if spinbox_item:
+                    spinbox = spinbox_item.widget()
+                    if isinstance(spinbox, QtWidgets.QSpinBox):
+                        return spinbox.value()
+                    # Fallback to slider if spinbox not found
+                    slider_item = layout.itemAt(0)
+                    if slider_item:
+                        slider = slider_item.widget()
+                        if isinstance(slider, QtWidgets.QSlider):
+                            return slider.value()
+        return 200  # Default value if widget not found
+
+    def update_show_effect(self, show_name, show_part, fixture_group, effect, speed, color, intensity=200):
         """Update show effect in configuration"""
         if show_name not in self.config.shows:
             return
 
         show = self.config.shows[show_name]
+        updated = False
 
-        # Find existing effect or create new one
-        existing_effect = next(
-            (effect for effect in show.effects
-             if effect.show_part == show_part
-             and effect.fixture_group == fixture_group),
-            None
-        )
+        # Update existing effect if found
+        for effect_obj in show.effects:
+            if (effect_obj.show_part == show_part and
+                    effect_obj.fixture_group == fixture_group):
+                effect_obj.effect = effect
+                effect_obj.speed = speed
+                effect_obj.color = color
+                effect_obj.intensity = intensity
+                updated = True
+                break
 
-        if existing_effect:
-            existing_effect.effect = effect
-            existing_effect.speed = speed
-            existing_effect.color = color
-        else:
-            show.effects.append(ShowEffect(
+        # Create new effect if not found
+        if not updated:
+            new_effect = ShowEffect(
                 show_part=show_part,
                 fixture_group=fixture_group,
                 effect=effect,
                 speed=speed,
-                color=color
-            ))
+                color=color,
+                intensity=intensity
+            )
+            show.effects.append(new_effect)
+
+        # Update the show in the configuration
+        self.config.shows[show_name] = show
 
     def _setup_tables(self):
         # Setup Fixtures table
@@ -525,65 +616,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             table.setShowGrid(True)
             table.setAlternatingRowColors(True)
             table.horizontalHeader().setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
-
-    def save_cell_value(self, row, show_name):
-        try:
-            # Get the values from the row
-            show_part = self.tableWidget_3.item(row, 0).text()
-            fixture_group = self.tableWidget_3.item(row, 1).text()
-            effect = self.tableWidget_3.item(row, 2).text() if self.tableWidget_3.item(row, 2) else ""
-
-            # Safely get speed value
-            speed_widget = self.tableWidget_3.cellWidget(row, 3)
-            speed = speed_widget.currentText() if speed_widget else "1"  # Default to "1" if widget doesn't exist
-
-            # Safely get color value
-            color_button = self.tableWidget_3.cellWidget(row, 4)
-            color = color_button.property("current_color") if color_button else ""
-
-            # Create the show directory if it doesn't exist
-            show_dir = os.path.join(self.project_root, "shows", show_name)
-            os.makedirs(show_dir, exist_ok=True)
-
-            # Load existing data
-            values_file = os.path.join(show_dir, f"{show_name}_values.json")
-            show_data = []
-            if os.path.exists(values_file):
-                with open(values_file, 'r') as f:
-                    try:
-                        show_data = json.load(f)
-                    except:
-                        pass
-
-            # Update or add the value
-            found = False
-            for item in show_data:
-                if item['show_part'] == show_part and item['fixture_group'] == fixture_group:
-                    item.update({
-                        'effect': effect,
-                        'speed': speed,
-                        'color': color
-                    })
-                    found = True
-                    break
-
-            if not found:
-                show_data.append({
-                    'show_part': show_part,
-                    'fixture_group': fixture_group,
-                    'effect': effect,
-                    'speed': speed,
-                    'color': color
-                })
-
-            # Save the updated data
-            with open(values_file, 'w') as f:
-                json.dump(show_data, f, indent=2)
-
-        except Exception as e:
-            print(f"Error saving cell value: {e}")
-            import traceback
-            traceback.print_exc()
 
     def update_row_colors(self):
         for row in range(self.tableWidget.rowCount()):
@@ -962,7 +994,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                     fixture_group=group_name,
                                     effect="",
                                     speed="1",
-                                    color=""
+                                    color="",
+                                    intensity=200
                                 )
                                 show.effects.append(effect)
 
@@ -1093,6 +1126,43 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Handle tab changes"""
         if self.tabWidget.tabText(index) == "Shows":
             self.update_show_tab_from_config()
+
+    def save_show(self):
+        """Save all effects for the current show"""
+        current_show = self.comboBox.currentText()
+        if not current_show:
+            return
+
+        # Iterate through all rows in the table
+        for row in range(self.tableWidget_3.rowCount()):
+            # Get show part name from column 0
+            show_part = self.tableWidget_3.item(row, 0).text()
+
+            # Get fixture group from column 1
+            fixture_group = self.tableWidget_3.item(row, 1).text()
+
+            # Get effect from column 2
+            effect = self.get_effect(row)
+
+            # Get speed from column 3
+            speed = self.get_speed(row)
+
+            # Get color from column 4
+            color = self.get_color(row)
+
+            # Get intensity from column 5
+            intensity = self.get_intensity(row)
+
+            # Update the effect for this row
+            self.update_show_effect(
+                current_show,
+                show_part,
+                fixture_group,
+                effect,
+                speed,
+                color,
+                intensity
+            )
     # End of Show Tab ------------------------------------
 
     def save_configuration(self):
