@@ -224,15 +224,12 @@ class Ui_MainWindow(object):
         stage_view_container = QtWidgets.QWidget()
         stage_view_layout = QtWidgets.QVBoxLayout(stage_view_container)
 
-        # Initialize StageView
-        self.stage_view = StageView(self)
+        # Initialize StageView with configuration
+        self.stage_view = StageView(self)  # Initialize without config
         stage_view_layout.addWidget(self.stage_view)
 
-        # Connect controls to StageView
-        self.update_stage_btn.clicked.connect(lambda: self.stage_view.updateStageSize(
-            self.stage_width.value(),
-            self.stage_height.value()
-        ))
+        # Add update button connection
+        self.update_stage_btn.clicked.connect(self.update_stage)
 
         self.grid_toggle.stateChanged.connect(lambda state:
                                               self.stage_view.updateGrid(visible=bool(state))
@@ -245,6 +242,30 @@ class Ui_MainWindow(object):
         # Add both panels to main layout
         main_layout.addWidget(control_panel)
         main_layout.addWidget(stage_view_container, stretch=1)
+
+        # Add spot controls
+        spot_group = QtWidgets.QGroupBox("Stage Marks")
+        spot_layout = QtWidgets.QVBoxLayout(spot_group)
+
+        self.add_spot_btn = QtWidgets.QPushButton("Add Mark")
+        self.remove_item_btn = QtWidgets.QPushButton("Remove Selected")
+
+        spot_layout.addWidget(self.add_spot_btn)
+        spot_layout.addWidget(self.remove_item_btn)
+
+        control_layout.addWidget(spot_group)
+
+        # Connect the buttons
+        self.add_spot_btn.clicked.connect(lambda: self.stage_view.add_spot())
+        self.remove_item_btn.clicked.connect(self.stage_view.remove_selected_items)
+
+    def update_stage(self):
+        """Update stage view from current configuration"""
+        self.stage_view.updateStage(
+            self.stage_width.value(),
+            self.stage_height.value()
+        )
+        self.stage_view.update_from_config()
 
     def setupStatusAndMenu(self, MainWindow):
         self.statusbar = QtWidgets.QStatusBar(parent=MainWindow)
