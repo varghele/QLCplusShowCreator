@@ -1,6 +1,7 @@
-from PyQt6 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtWidgets, QtGui
 from PyQt6.QtWidgets import QToolBar
 from PyQt6.QtGui import QAction, QFont
+from gui.StageView import StageView
 
 
 class Ui_MainWindow(object):
@@ -161,8 +162,89 @@ class Ui_MainWindow(object):
         self.comboBox.setGeometry(QtCore.QRect(10, 60, 171, 25))
 
     def setupStageTab(self):
-        # Stage tab implementation here
-        pass
+        # Create main layout for the tab
+        main_layout = QtWidgets.QHBoxLayout(self.tab_stage)
+
+        # Left control panel
+        control_panel = QtWidgets.QWidget()
+        control_layout = QtWidgets.QVBoxLayout(control_panel)
+        control_panel.setFixedWidth(250)
+
+        # Stage dimensions group
+        dim_group = QtWidgets.QGroupBox("Stage Dimensions")
+        dim_layout = QtWidgets.QFormLayout(dim_group)
+
+        self.stage_width = QtWidgets.QSpinBox()
+        self.stage_width.setRange(1, 1000)
+        self.stage_width.setValue(10)  # Default 10 meters
+        self.stage_height = QtWidgets.QSpinBox()
+        self.stage_height.setRange(1, 1000)
+        self.stage_height.setValue(6)  # Default 6 meters
+
+        dim_layout.addRow("Width (m):", self.stage_width)
+        dim_layout.addRow("Depth (m):", self.stage_height)
+
+        # Update stage button
+        self.update_stage_btn = QtWidgets.QPushButton("Update Stage")
+        dim_layout.addRow(self.update_stage_btn)
+
+        # Grid controls group
+        grid_group = QtWidgets.QGroupBox("Grid Settings")
+        grid_layout = QtWidgets.QFormLayout(grid_group)
+
+        self.grid_toggle = QtWidgets.QCheckBox("Show Grid")
+        self.grid_toggle.setChecked(True)  # Grid visible by default
+
+        self.grid_size = QtWidgets.QDoubleSpinBox()
+        self.grid_size.setRange(0.1, 50)
+        self.grid_size.setValue(0.5)  # Default 0.5m grid
+        self.grid_size.setSingleStep(0.1)
+
+        self.snap_to_grid = QtWidgets.QCheckBox("Snap to Grid")
+
+        grid_layout.addRow(self.grid_toggle)
+        grid_layout.addRow("Grid Size (m):", self.grid_size)
+        grid_layout.addRow(self.snap_to_grid)
+
+        # Add groups to control panel
+        control_layout.addWidget(dim_group)
+        control_layout.addWidget(grid_group)
+
+        # Add Plot Stage button
+        plot_group = QtWidgets.QGroupBox("Stage Plot")
+        plot_layout = QtWidgets.QVBoxLayout(plot_group)
+
+        self.plot_stage_btn = QtWidgets.QPushButton("Plot Stage")
+        plot_layout.addWidget(self.plot_stage_btn)
+
+        control_layout.addWidget(plot_group)
+        control_layout.addStretch()
+
+        # Create stage view area (right side)
+        stage_view_container = QtWidgets.QWidget()
+        stage_view_layout = QtWidgets.QVBoxLayout(stage_view_container)
+
+        # Initialize StageView
+        self.stage_view = StageView(self)
+        stage_view_layout.addWidget(self.stage_view)
+
+        # Connect controls to StageView
+        self.update_stage_btn.clicked.connect(lambda: self.stage_view.updateStageSize(
+            self.stage_width.value(),
+            self.stage_height.value()
+        ))
+
+        self.grid_toggle.stateChanged.connect(lambda state:
+                                              self.stage_view.updateGrid(visible=bool(state))
+                                              )
+
+        self.grid_size.valueChanged.connect(lambda value:
+                                            self.stage_view.updateGrid(size_m=value)
+                                            )
+
+        # Add both panels to main layout
+        main_layout.addWidget(control_panel)
+        main_layout.addWidget(stage_view_container, stretch=1)
 
     def setupStatusAndMenu(self, MainWindow):
         self.statusbar = QtWidgets.QStatusBar(parent=MainWindow)

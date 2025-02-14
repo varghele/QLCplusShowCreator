@@ -18,8 +18,8 @@ from gui.Ui_MainWindow import Ui_MainWindow
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
-        self.setupUi(self)
         self.config = Configuration()
+        self.setupUi(self)
 
         # Initialize paths and data
         self.initialize_paths()
@@ -89,6 +89,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.loadShowsAction.triggered.connect(self.import_show_structure)
         self.importWorkspaceAction.triggered.connect(self.import_workspace)
         self.createWorkspaceAction.triggered.connect(self.create_workspace)
+
+        # Connect stage plot button #TODO: write the plot_stage function
+        #self.plot_stage_btn.clicked.connect(self.plot_stage)
 
     def update_config_from_table(self, item):
         """Update configuration when table items change"""
