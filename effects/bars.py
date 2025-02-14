@@ -95,6 +95,7 @@ def static_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
 
     return steps
 
+
 def fadein_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
                 num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
     """
@@ -1465,5 +1466,3 @@ def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         current_step += 1
 
     return steps
-
-
