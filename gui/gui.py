@@ -27,6 +27,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Set up tables
         self._setup_tables()
 
+        # Set the configuration for StageView
+        self.stage_view.set_config(self.config)
+
         # Connect signals
         self.connect_signals()
 
@@ -928,6 +931,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.update_fixture_tab_from_config()
             self.update_show_tab_from_config()
 
+            # Update stage view with new configuration
+            self.stage_view.set_config(self.config)
+
             # Initialize universes if none exist in the loaded configuration
             if not hasattr(self.config, 'universes') or not self.config.universes:
                 self.config.universes = {}
@@ -1210,6 +1216,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 # Update other UI elements
                 self.update_fixture_tab_from_config()
                 self.update_show_tab_from_config()
+
+                # Update stage view with new configuration
+                self.stage_view.set_config(self.config)
 
                 # Update combo box with shows if they exist
                 if hasattr(self.config, 'shows') and self.config.shows:

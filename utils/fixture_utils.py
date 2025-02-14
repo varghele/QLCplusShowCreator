@@ -1,6 +1,7 @@
 import os
 import sys
 import xml.etree.ElementTree as ET
+from utils.effects_utils import get_channels_by_property
 
 def load_fixture_definitions(models_in_config):
     """
@@ -106,3 +107,56 @@ def load_fixture_definitions(models_in_config):
                     print(f"Error parsing fixture file {fixture_path}: {e}")
 
     return fixture_definitions
+
+
+def determine_fixture_type(fixture_def):
+    """
+    Determine fixture type based on its channels across all modes
+    Parameters:
+        fixture_def: The fixture definition root element
+    """
+    ns = {'': 'http://www.qlcplus.org/FixtureDefinition'}
+
+    # Initialize sets for channel types
+    movement_channels = set()
+    color_channels = set()
+    dimmer_channels = set()
+
+    # Get all channels and their properties
+    for channel in fixture_def.findall('.//Channel', ns):
+        channel_name = channel.get('Name', '')
+
+        # Check for movement channels
+        if 'Pan' in channel_name or 'Tilt' in channel_name:
+            movement_channels.add(channel_name)
+
+        # Check for color channels
+        if any(color in channel_name for color in ['Red', 'Green', 'Blue', 'White']):
+            color_channels.add(channel_name)
+
+        # Check for dimmer
+        if 'Dimmer' in channel_name:
+            dimmer_channels.add(channel_name)
+
+    # Determine fixture type based on capabilities
+    has_movement = len(movement_channels) > 0
+    has_rgbw = all(any(color in ch for ch in color_channels)
+                   for color in ['Red', 'Green', 'Blue', 'White'])
+    has_rgb = all(any(color in ch for ch in color_channels)
+                  for color in ['Red', 'Green', 'Blue'])
+    has_dimmer = len(dimmer_channels) > 0
+
+    # Return fixture type
+    if has_movement:
+        return "MH"  # Moving Head
+    elif has_rgbw or has_rgb:
+        if has_dimmer:
+            return "WASH"
+        else:
+            return "BAR"
+    else:
+        return "PAR"  # Default type
+
+
+
+

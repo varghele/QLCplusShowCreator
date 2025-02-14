@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 import os
 import sys
 import csv
+from utils.fixture_utils import determine_fixture_type
 
 
 @dataclass
@@ -26,12 +27,14 @@ class Fixture:
     direction: str
     current_mode: str
     available_modes: List[FixtureMode]
+    type: str = "PAR"  # Default type if none specified
 
 
 @dataclass
 class FixtureGroup:
     name: str
     fixtures: List[Fixture]
+    color: str = '#808080'  # Default color for the group
 
 
 @dataclass
@@ -93,6 +96,20 @@ class Configuration:
         config = cls(fixtures=[], groups={}, workspace_path=workspace_path)
 
         for fixture_data in fixtures_data:
+            # Get fixture definition and current mode
+            fixture_def = fixture_definitions.get(
+                (fixture_data['Manufacturer'], fixture_data['Model']))
+
+            # Create FixtureMode objects without the 'type' field
+            modes = []
+            if fixture_data['AvailableModes']:
+                for mode in fixture_data['AvailableModes']:
+                    modes.append(FixtureMode(
+                        name=mode['name'],
+                        channels=mode['channels']
+                    ))
+
+        for fixture_data in fixtures_data:
             fixture = Fixture(
                 universe=fixture_data['Universe'],
                 address=fixture_data['Address'],
@@ -102,8 +119,8 @@ class Configuration:
                 group=fixture_data['Group'],
                 direction=fixture_data['Direction'],
                 current_mode=fixture_data['CurrentMode'],
-                available_modes=[FixtureMode(**mode) for mode in fixture_data['AvailableModes']]
-                if fixture_data['AvailableModes'] else []
+                available_modes=modes,
+                type=fixture_def['type'] if fixture_def else "PAR"  # Default to PAR if no definition found
             )
             config.fixtures.append(fixture)
 
@@ -340,6 +357,9 @@ class Configuration:
                                     manufacturer = root.find('.//Manufacturer', ns).text
                                     model = root.find('.//Model', ns).text
 
+                                    # Determine fixture type once for all modes
+                                    fixture_type = determine_fixture_type(root)
+
                                     # Get all available modes
                                     modes = []
                                     for mode in root.findall('.//Mode', ns):
@@ -347,12 +367,14 @@ class Configuration:
                                         channels = mode.findall('Channel', ns)
                                         modes.append({
                                             'name': mode_name,
-                                            'channels': len(channels)
+                                            'channels': len(channels),
+                                            'type': fixture_type  # Same type for all modes
                                         })
 
                                     fixture_definitions[(manufacturer, model)] = {
                                         'path': fixture_path,
-                                        'modes': modes
+                                        'modes': modes,
+                                        'type': fixture_type  # Store type at fixture level
                                     }
                                 except Exception as e:
                                     print(f"Error parsing fixture file {fixture_path}: {e}")
@@ -365,6 +387,9 @@ class Configuration:
                             manufacturer = root.find('.//Manufacturer', ns).text
                             model = root.find('.//Model', ns).text
 
+                            # Determine fixture type once for all modes
+                            fixture_type = determine_fixture_type(root)
+
                             # Get all available modes
                             modes = []
                             for mode in root.findall('.//Mode', ns):
@@ -372,12 +397,14 @@ class Configuration:
                                 channels = mode.findall('Channel', ns)
                                 modes.append({
                                     'name': mode_name,
-                                    'channels': len(channels)
+                                    'channels': len(channels),
+                                    'type': fixture_type  # Same type for all modes
                                 })
 
                             fixture_definitions[(manufacturer, model)] = {
                                 'path': manufacturer_path,
-                                'modes': modes
+                                'modes': modes,
+                                'type': fixture_type  # Store type at fixture level
                             }
                         except Exception as e:
                             print(f"Error parsing fixture file {manufacturer_path}: {e}")
