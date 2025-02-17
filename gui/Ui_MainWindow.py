@@ -187,6 +187,8 @@ class Ui_MainWindow(object):
         # Update stage button
         self.update_stage_btn = QtWidgets.QPushButton("Update Stage")
         dim_layout.addRow(self.update_stage_btn)
+        self.save_stage_btn = QtWidgets.QPushButton("Save Stage")
+        dim_layout.addRow(self.save_stage_btn)
 
         # Grid controls group
         grid_group = QtWidgets.QGroupBox("Grid Settings")
@@ -230,6 +232,7 @@ class Ui_MainWindow(object):
 
         # Add update button connection
         self.update_stage_btn.clicked.connect(self.update_stage)
+        self.save_stage_btn.clicked.connect(self.save_stage)
 
         self.grid_toggle.stateChanged.connect(lambda state:
                                               self.stage_view.updateGrid(visible=bool(state))
@@ -266,6 +269,10 @@ class Ui_MainWindow(object):
             self.stage_height.value()
         )
         self.stage_view.update_from_config()
+
+    def save_stage(self):
+        """Saves stage parameters to config"""
+        self.stage_view.save_positions_to_config()
 
     def setupStatusAndMenu(self, MainWindow):
         self.statusbar = QtWidgets.QStatusBar(parent=MainWindow)
