@@ -32,6 +32,32 @@ class FixtureItem(QGraphicsItem):
         # Include the main fixture symbol plus text area
         return QRectF(-self.size / 2, -self.size / 2, self.size, self.size + self.text_height)
 
+    def mouseMoveEvent(self, event):
+        """Handle mouse movement for dragging fixtures"""
+        if Qt.MouseButton.LeftButton & event.buttons():
+            # Get the view
+            view = self.scene().views()[0]
+
+            # Get the new position
+            new_pos = event.scenePos()
+
+            # If view has snapping enabled, snap to grid during movement
+            if hasattr(view, 'snap_enabled') and view.snap_enabled:
+                # Calculate the snapped position
+                snapped_pos = view.snap_to_grid_position(new_pos)
+                self.setPos(snapped_pos)
+            else:
+                self.setPos(new_pos)
+
+            # Update the configuration through the view
+            if hasattr(view, 'save_positions_to_config'):
+                view.save_positions_to_config()
+
+            event.accept()
+            return
+
+        super().mouseMoveEvent(event)
+
     def paint(self, painter, option, widget):
         painter.save()  # Save the current painter state
 
