@@ -152,14 +152,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def update_groups(self):
         """Update groups in configuration"""
+        # Store existing group colors before clearing
+        existing_colors = {
+            name: group.color
+            for name, group in self.config.groups.items()
+            if hasattr(group, 'color')
+        }
+
         # Clear existing groups
         self.config.groups = {}
 
-        # Rebuild groups from fixtures
+        # Rebuild groups from fixtures, preserving colors
         for fixture in self.config.fixtures:
             if fixture.group:
                 if fixture.group not in self.config.groups:
-                    self.config.groups[fixture.group] = FixtureGroup(fixture.group, [])
+                    color = existing_colors.get(fixture.group, '#808080')  # Use existing color or default
+                    self.config.groups[fixture.group] = FixtureGroup(
+                        fixture.group,
+                        [],
+                        color=color
+                    )
                 self.config.groups[fixture.group].fixtures.append(fixture)
 
     def handle_new_group(self, group_combo):

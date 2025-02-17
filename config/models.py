@@ -200,6 +200,7 @@ class Configuration:
             'groups': {
                 name: {
                     'name': group.name,
+                    'color': group.color,
                     'fixtures': [asdict(f) for f in group.fixtures]
                 }
                 for name, group in self.groups.items()
@@ -244,7 +245,7 @@ class Configuration:
                 f_data['available_modes'] = modes
             fixtures.append(Fixture(**f_data))
 
-        # Handle groups
+        # Handle groups with colors
         groups = {}
         for name, group_data in data.get('groups', {}).items():
             group_fixtures = []
@@ -262,7 +263,8 @@ class Configuration:
 
             groups[name] = FixtureGroup(
                 name=name,
-                fixtures=group_fixtures
+                fixtures=group_fixtures,
+                color=group_data.get('color', '#808080')  # Add default color if none specified
             )
 
         # Handle shows
