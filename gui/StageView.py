@@ -12,6 +12,9 @@ class StageView(QtWidgets.QGraphicsView):
         # Enable drag and drop
         self.setAcceptDrops(True)
 
+        # Globally track if snapping is enabled
+        self.snap_enabled = False
+
         # Stage properties (in meters)
         self.stage_width_m = 10.0  # Default 10m
         self.stage_depth_m = 6.0  # Default 6m
@@ -101,6 +104,43 @@ class StageView(QtWidgets.QGraphicsView):
                 config_fixture.y = (pos.y() - self.padding) / self.pixels_per_meter
                 config_fixture.z = fixture_item.z_height
                 config_fixture.rotation = fixture_item.rotation_angle
+
+    def set_snap_to_grid(self, enabled):
+        """Enable or disable snap to grid"""
+        self.snap_enabled = enabled
+        if enabled:
+            self.snap_all_fixtures_to_grid()
+
+    def snap_to_grid_position(self, pos):
+        """Convert a position to the nearest grid point if snapping is enabled"""
+        if not self.snap_enabled:
+            return pos
+
+        # Convert position to meters (accounting for padding)
+        x_m = (pos.x() - self.padding) / self.pixels_per_meter
+        y_m = (pos.y() - self.padding) / self.pixels_per_meter
+
+        # Snap to nearest grid point
+        x_m = round(x_m / self.grid_size_m) * self.grid_size_m
+        y_m = round(y_m / self.grid_size_m) * self.grid_size_m
+
+        # Convert back to pixels and add padding
+        return QtCore.QPointF(
+            x_m * self.pixels_per_meter + self.padding,
+            y_m * self.pixels_per_meter + self.padding
+        )
+
+    def snap_all_fixtures_to_grid(self):
+        """Snap all existing fixtures to the grid"""
+        if not self.snap_enabled:
+            return
+
+        for fixture in self.fixtures.values():
+            current_pos = fixture.pos()
+            snapped_pos = self.snap_to_grid_position(current_pos)
+            fixture.setPos(snapped_pos)
+
+        self.save_positions_to_config()
 
     def add_spot(self, x=100, y=100):
         spot = SpotItem()

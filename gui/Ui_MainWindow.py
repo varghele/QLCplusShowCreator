@@ -204,6 +204,9 @@ class Ui_MainWindow(object):
 
         self.snap_to_grid = QtWidgets.QCheckBox("Snap to Grid")
 
+        # Connect the snap to grid checkbox
+        self.snap_to_grid.stateChanged.connect(lambda state: self.stage_view.set_snap_to_grid(bool(state)))
+
         grid_layout.addRow(self.grid_toggle)
         grid_layout.addRow("Grid Size (m):", self.grid_size)
         grid_layout.addRow(self.snap_to_grid)
