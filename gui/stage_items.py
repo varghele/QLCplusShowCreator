@@ -63,7 +63,7 @@ class FixtureItem(QGraphicsItem):
 
         # Apply rotation transformation
         painter.translate(0, 0)  # Translate to center point
-        painter.rotate(self.rotation_angle)  # Rotate by current angle
+        painter.rotate(self.rotation_angle + 90)  # Rotate by current angle, Add 90 degrees to make 0 point downwards
 
         # Set smaller font size
         font = painter.font()
@@ -89,30 +89,51 @@ class FixtureItem(QGraphicsItem):
             painter.drawRoundedRect(QRectF(-self.size / 2, -self.size / 2, self.size, self.size),
                                     self.size / 4, self.size / 4)
         elif self.fixture_type == "MH":
+            # Draw the base circle
             painter.drawEllipse(QRectF(-self.size / 2, -self.size / 2, self.size, self.size))
+
+            # Draw triangle pointing in the same direction as rotation handle
             triangle = [
-                QPointF(0, -self.size / 2),
-                QPointF(-self.size / 4, -self.size / 2 - self.size / 4),
-                QPointF(self.size / 4, -self.size / 2 - self.size / 4)
+                QPointF(self.size / 2, 0),  # Bot point
+                QPointF(0, -self.size / 4),  # Left point
+                QPointF(0, self.size / 4)  # Right point
             ]
             painter.drawPolygon(triangle)
 
         # Reset transformation for rotation handle and text
         painter.restore()  # Restore the original painter state
+        painter.save()
 
-        # Draw rotation handle when hovered
+        # Draw rotation handle and angle text when hovered
         if self.show_rotation_handle:
             painter.setPen(QPen(Qt.GlobalColor.blue, 1))
             painter.setBrush(Qt.BrushStyle.NoBrush)
+
+            # Draw rotation circle
             painter.drawEllipse(QRectF(-self.rotation_handle_radius / 2,
                                        -self.rotation_handle_radius / 2,
                                        self.rotation_handle_radius,
                                        self.rotation_handle_radius))
 
-            angle_rad = self.rotation_angle * 3.14159 / 180
+            # Draw rotation line
+            angle_rad = (self.rotation_angle + 90) * 3.14159 / 180
             end_x = self.rotation_handle_radius / 2 * cos(angle_rad)
             end_y = self.rotation_handle_radius / 2 * sin(angle_rad)
             painter.drawLine(QPointF(0, 0), QPointF(end_x, end_y))
+
+            # Draw angle text
+            angle_text = f"{int(self.rotation_angle)}°"
+            font = painter.font()
+            font.setPointSize(8)
+            painter.setFont(font)
+
+            # Position the angle text above the fixture
+            text_width = QFontMetrics(font).horizontalAdvance(angle_text)
+            angle_text_rect = QRectF(-text_width / 2, -self.rotation_handle_radius - 20,
+                                     text_width, 20)
+            painter.drawText(angle_text_rect, Qt.AlignmentFlag.AlignCenter, angle_text)
+
+        painter.restore()
 
         # Draw text (not rotated)
         text = f"{self.fixture_name}\nZ:{self.z_height:.1f}"
@@ -146,36 +167,35 @@ class FixtureItem(QGraphicsItem):
 
     def wheelEvent(self, event):
         """Handle mouse wheel events for rotating the fixture or changing z-height"""
-        # For Qt6 compatibility
         if hasattr(event, 'angleDelta'):
             delta = event.angleDelta().y()
         else:
             delta = event.delta()
 
-        # Normalize delta
         delta = delta / 120.0
 
-        # Check if Shift key is pressed
         modifiers = event.modifiers()
         if modifiers & Qt.KeyboardModifier.ShiftModifier:
-            # Adjust z-height when Shift is pressed
-            z_step = 0.1  # Height adjustment in meters
+            # Z-height adjustment remains the same
+            z_step = 0.1
             if delta > 0:
-                self.z_height = max(0, self.z_height + z_step)  # Don't go below 0
+                self.z_height = max(0, self.z_height + z_step)
             else:
                 self.z_height = max(0, self.z_height - z_step)
         else:
-            # Regular rotation behavior
+            # Modified rotation behavior for -180 to 180 range
             rotation_step = 5
-            if delta > 0:
-                self.rotation_angle = (self.rotation_angle + rotation_step) % 360
-            else:
-                self.rotation_angle = (self.rotation_angle - rotation_step) % 360
+            new_angle = self.rotation_angle + (rotation_step if delta > 0 else -rotation_step)
 
-        # Update the fixture
+            # Convert to -180 to 180 range
+            if new_angle > 180:
+                new_angle -= 360
+            elif new_angle < -180:
+                new_angle += 360
+
+            self.rotation_angle = new_angle
+
         self.update()
-
-        # Accept the event
         event.accept()
 
 
