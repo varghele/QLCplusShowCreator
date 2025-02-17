@@ -9,7 +9,8 @@ from PyQt6.QtWidgets import (QMainWindow, QDialog, QFileDialog, QLineEdit, QMess
 from PyQt6.QtGui import QAction, QFont
 from .effect_selection import EffectSelectionDialog
 from utils.create_workspace import create_qlc_workspace
-from config.models import Configuration, FixtureGroup, ShowEffect, Show, ShowPart, Universe
+from utils.fixture_utils import determine_fixture_type
+from config.models import Configuration, Fixture, FixtureGroup, FixtureMode, ShowEffect, Show, ShowPart, Universe
 from typing import Dict, List, Optional
 
 from gui.Ui_MainWindow import Ui_MainWindow
@@ -628,21 +629,37 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             group_combo = self.tableWidget.cellWidget(row, 7)  # Group column
             if group_combo:
                 group_name = group_combo.currentText()
-                if group_name:
+                if group_name and group_name != "Add New...":
+                    # Get or create color for group
                     if group_name not in self.group_colors:
                         self.group_colors[group_name] = self.predefined_colors[
                             self.color_index % len(self.predefined_colors)]
                         self.color_index += 1
+
                     color = self.group_colors[group_name]
+
+                    # Ensure items exist for all columns before setting background
                     for col in range(self.tableWidget.columnCount()):
                         item = self.tableWidget.item(row, col)
+                        if not item and not self.tableWidget.cellWidget(row, col):
+                            # Create item if neither item nor widget exists
+                            self.tableWidget.setItem(row, col, QtWidgets.QTableWidgetItem(""))
+
+                        # Update item background if it exists
                         if item:
                             item.setBackground(color)
+
+                        # Update widget background if it exists
                         cell_widget = self.tableWidget.cellWidget(row, col)
                         if cell_widget:
                             cell_widget.setStyleSheet(f"background-color: {color.name()};")
+
+                    # Update the group color in configuration
+                    if group_name in self.config.groups:
+                        self.config.groups[group_name].color = color.name()
+
                 else:
-                    # Reset color if no group is selected
+                    # Reset color if no group is selected or "Add New..." is selected
                     for col in range(self.tableWidget.columnCount()):
                         item = self.tableWidget.item(row, col)
                         if item:
@@ -739,116 +756,108 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     selected_fixture = selected_items[0]
                     fixture_path = selected_fixture.data(QtCore.Qt.ItemDataRole.UserRole)
 
-                    # Parse the fixture file
+                    # Parse fixture file and get basic info
                     tree = ET.parse(fixture_path)
                     root = tree.getroot()
                     ns = {'': 'http://www.qlcplus.org/FixtureDefinition'}
 
-                    # Extract basic fixture information
                     manufacturer = root.find('.//Manufacturer', ns).text
                     model = root.find('.//Model', ns).text
-                    fixture_type = root.find('.//Type', ns).text
+                    fixture_type = determine_fixture_type(root)
 
-                    # Get all available modes
+                    # Get modes
                     modes = root.findall('.//Mode', ns)
-                    mode_data = []
-                    for mode in modes:
-                        mode_name = mode.get('Name')
-                        channels = mode.findall('Channel', ns)
-                        mode_data.append({
-                            'name': mode_name,
-                            'channels': len(channels)
-                        })
+                    mode_data = [{'name': mode.get('Name'), 'channels': len(mode.findall('Channel', ns))}
+                                 for mode in modes]
 
-                    # Create mode selection combobox for fixtures table
+                    # Create new row
+                    row = self.tableWidget.rowCount()
+                    self.tableWidget.insertRow(row)
+
+                    def update_fixture_configuration():
+                        """Update fixture and group configuration when any property changes"""
+                        fixture = self.config.fixtures[row]
+                        old_group = fixture.group
+
+                        # Update fixture properties
+                        fixture.universe = universe_spin.value()
+                        fixture.address = address_spin.value()
+                        fixture.name = self.tableWidget.item(row, 6).text() or model
+                        fixture.group = group_combo.currentText() if group_combo.currentText() not in ["",
+                                                                                                       "Add New..."] else ""
+                        fixture.direction = direction_combo.currentText()
+                        fixture.current_mode = mode_data[mode_combo.currentIndex()]['name']
+
+                        # Handle group changes
+                        if old_group != fixture.group:
+                            # Remove from old group
+                            if old_group and old_group in self.config.groups:
+                                old_group_fixtures = self.config.groups[old_group].fixtures
+                                old_group_fixtures[:] = [f for f in old_group_fixtures if f != fixture]
+
+                            # Add to new group
+                            if fixture.group and fixture.group in self.config.groups:
+                                group = self.config.groups[fixture.group]
+                                group.fixtures.append(fixture)
+
+                                # The color is already set in the group configuration when the group was created
+                                # No need to try to get it from the table items
+
+                        self.update_row_colors()
+
+                    # Create spinboxes and comboboxes
+                    universe_spin = QtWidgets.QSpinBox()
+                    universe_spin.setRange(1, 16)
+                    universe_spin.setValue(1)
+
+                    address_spin = QtWidgets.QSpinBox()
+                    address_spin.setRange(1, 512)
+                    address_spin.setValue(1)
+
+                    # Create mode combo
                     mode_combo = QtWidgets.QComboBox()
                     for mode in mode_data:
                         mode_combo.addItem(f"{mode['name']} ({mode['channels']}ch)")
 
-                    # Update fixtures table
-                    row = self.tableWidget.rowCount()
-                    self.tableWidget.insertRow(row)
-
-                    # Create universe spinbox for fixtures table
-                    universe_spin = QtWidgets.QSpinBox()
-                    universe_spin.setRange(1, 16)
-                    universe_spin.setValue(1)
-                    self.tableWidget.setCellWidget(row, 0, universe_spin)  # Use setCellWidget instead of setItem
-
-                    self.tableWidget.setItem(row, 2, QtWidgets.QTableWidgetItem(manufacturer))
-                    self.tableWidget.setItem(row, 3, QtWidgets.QTableWidgetItem(model))
-                    self.tableWidget.setItem(row, 4, QtWidgets.QTableWidgetItem(str(mode_data[0]['channels'])))
-                    self.tableWidget.setCellWidget(row, 5, mode_combo)
-                    self.tableWidget.setItem(row, 6, QtWidgets.QTableWidgetItem(""))  # Name
-                    self.tableWidget.setItem(row, 7, QtWidgets.QTableWidgetItem("None"))  # Group
-
-                    # Create universe spinbox for fixture groups table
-                    universe_spin_groups = QtWidgets.QSpinBox()
-                    universe_spin_groups.setRange(1, 16)
-                    universe_spin_groups.setValue(1)
-
-                    # Create address spinboxes
-                    address_spin = QtWidgets.QSpinBox()
-                    address_spin.setRange(1, 512)  # DMX address range
-                    address_spin.setValue(1)
-                    self.tableWidget.setCellWidget(row, 1, address_spin)  # Address column
-
-                    address_spin_groups = QtWidgets.QSpinBox()
-                    address_spin_groups.setRange(1, 512)
-                    address_spin_groups.setValue(1)
-
-                    # Create mode selection combobox for fixture groups table
-                    mode_combo_groups = QtWidgets.QComboBox()
-                    for mode in mode_data:
-                        mode_combo_groups.addItem(f"{mode['name']} ({mode['channels']}ch)")
-
                     def update_channels(index):
-                        # Update channels in fixtures table
                         channels_item = QtWidgets.QTableWidgetItem(str(mode_data[index]['channels']))
                         self.tableWidget.setItem(row, 4, channels_item)
+                        update_fixture_configuration()
 
                     def sync_universe(value):
                         if universe_spin.value() != value:
                             universe_spin.setValue(value)
-                        if universe_spin_groups.value() != value:
-                            universe_spin_groups.setValue(value)
+                        update_fixture_configuration()
 
-                    # Add address sync function
                     def sync_address(value):
                         if address_spin.value() != value:
                             address_spin.setValue(value)
-                        if address_spin_groups.value() != value:
-                            address_spin_groups.setValue(value)
+                        update_fixture_configuration()
 
-                    # Connect universe change handlers
+                    # Connect change handlers
                     universe_spin.valueChanged.connect(sync_universe)
-                    universe_spin_groups.valueChanged.connect(sync_universe)
-
-                    # Connect mode change handlers
-                    mode_combo.currentIndexChanged.connect(update_channels)
-                    mode_combo_groups.currentIndexChanged.connect(update_channels)
-
-                    # Sync the two comboboxes
-                    def sync_modes(index):
-                        if mode_combo.currentIndex() != index:
-                            mode_combo.setCurrentIndex(index)
-                        if mode_combo_groups.currentIndex() != index:
-                            mode_combo_groups.setCurrentIndex(index)
-
-                    mode_combo.currentIndexChanged.connect(sync_modes)
-                    mode_combo_groups.currentIndexChanged.connect(sync_modes)
-
-                    # Connect address change handlers
                     address_spin.valueChanged.connect(sync_address)
-                    address_spin_groups.valueChanged.connect(sync_address)
+                    mode_combo.currentIndexChanged.connect(update_channels)
 
-                    # Create group selection combobox
+                    # Set up table widgets
+                    self.tableWidget.setCellWidget(row, 0, universe_spin)
+                    self.tableWidget.setCellWidget(row, 1, address_spin)
+                    self.tableWidget.setItem(row, 2, QtWidgets.QTableWidgetItem(manufacturer))
+                    self.tableWidget.setItem(row, 3, QtWidgets.QTableWidgetItem(model))
+                    self.tableWidget.setItem(row, 4, QtWidgets.QTableWidgetItem(str(mode_data[0]['channels'])))
+                    self.tableWidget.setCellWidget(row, 5, mode_combo)
+
+                    # Name field
+                    name_item = QtWidgets.QTableWidgetItem("")
+                    self.tableWidget.setItem(row, 6, name_item)
+                    name_item.setFlags(name_item.flags() | QtCore.Qt.ItemFlag.ItemIsEditable)
+
+                    # Group combo
                     group_combo = QtWidgets.QComboBox()
-                    group_combo.addItem("")  # Empty option
+                    group_combo.addItem("")
                     for group in sorted(self.existing_groups):
                         group_combo.addItem(group)
                     group_combo.addItem("Add New...")
-                    self.tableWidget.setCellWidget(row, 7, group_combo)
 
                     def handle_group_selection(index):
                         if group_combo.currentText() == "Add New...":
@@ -865,32 +874,69 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                             button_box.accepted.connect(dialog.accept)
                             button_box.rejected.connect(dialog.reject)
                             layout.addWidget(button_box)
-
                             dialog.setLayout(layout)
 
                             if dialog.exec() == QDialog.DialogCode.Accepted:
                                 new_group = new_group_input.text().strip()
                                 if new_group:
+                                    color = self.predefined_colors[self.color_index % len(self.predefined_colors)]
+                                    self.color_index += 1
+
+                                    fixture_group = FixtureGroup(
+                                        name=new_group,
+                                        color=color.name(),
+                                        fixtures=[]
+                                    )
+
+                                    self.config.groups[new_group] = fixture_group
                                     self.existing_groups.add(new_group)
+
+                                    # Update UI
                                     current_index = group_combo.findText("Add New...")
                                     group_combo.removeItem(current_index)
                                     group_combo.addItem(new_group)
                                     group_combo.addItem("Add New...")
                                     group_combo.setCurrentText(new_group)
-                                    self.update_row_colors()
-                        else:
-                            self.update_row_colors()
+
+                        update_fixture_configuration()
 
                     group_combo.currentIndexChanged.connect(handle_group_selection)
                     self.tableWidget.setCellWidget(row, 7, group_combo)
 
-                    # Create direction combobox
+                    # Direction combo
                     direction_combo = QtWidgets.QComboBox()
-                    direction_combo.addItems(["", "↑", "↓"])  # Using Unicode arrows
-                    self.tableWidget.setCellWidget(row, 8, direction_combo)  # Direction column
+                    direction_combo.addItems(["", "↑", "↓"])
+                    direction_combo.currentIndexChanged.connect(update_fixture_configuration)
+                    self.tableWidget.setCellWidget(row, 8, direction_combo)
 
-                    # Add empty Group cell
-                    self.tableWidget.setItem(row, 7, QtWidgets.QTableWidgetItem(""))  # Group
+                    # Create initial fixture object
+                    new_fixture = Fixture(
+                        universe=universe_spin.value(),
+                        address=address_spin.value(),
+                        manufacturer=manufacturer,
+                        model=model,
+                        name=model,
+                        group="",
+                        direction="",
+                        current_mode=mode_data[0]['name'],
+                        available_modes=[FixtureMode(name=mode['name'], channels=mode['channels'])
+                                         for mode in mode_data],
+                        type=fixture_type,
+                        x=0.0,
+                        y=0.0,
+                        z=0.0,
+                        rotation=0.0
+                    )
+
+                    # Add to configuration
+                    self.config.fixtures.append(new_fixture)
+
+                    # Connect name changes
+                    def handle_name_change(item):
+                        if item.column() == 6 and item.row() == row:
+                            update_fixture_configuration()
+
+                    self.tableWidget.itemChanged.connect(handle_name_change)
 
                     print(f"Added fixture to table: {manufacturer} {model}")
 

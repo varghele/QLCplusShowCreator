@@ -43,75 +43,64 @@ class StageView(QtWidgets.QGraphicsView):
 
     def update_from_config(self):
         """Update all fixtures from current configuration"""
-        if not self.config:  # Skip if no config is set
+        if not self.config:
             return
 
-        # Clear existing fixtures
         for fixture in self.fixtures.values():
             self.scene.removeItem(fixture)
         self.fixtures.clear()
 
-        # Add fixtures from configuration
         if hasattr(self.config, 'fixtures'):
             for fixture in self.config.fixtures:
-                fixture_name = fixture.name  # Access name attribute directly
-                # Use getattr to provide a default type if not present
-                fixture_type = getattr(fixture, 'type', 'PAR')
-
-                # Get fixture group color
-                group_name = fixture.group
-                group_color = '#808080'  # Default color
-
-                # Try to get color from fixture group if it exists
-                if group_name and hasattr(self.config, 'groups'):
-                    group = self.config.groups.get(group_name)
+                group_color = '#808080'
+                if fixture.group and hasattr(self.config, 'groups'):
+                    group = self.config.groups.get(fixture.group)
                     if group:
-                        # You might want to add a color attribute to FixtureGroup
-                        # For now, using a default color
-                        group_color = getattr(group, 'color', '#808080')
+                        group_color = group.color
 
-                # Create new fixture
-                fixture_item = FixtureItem(fixture_name, fixture_type, group_color)
+                fixture_item = FixtureItem(
+                    fixture_name=fixture.name,
+                    fixture_type=fixture.type,
+                    channel_color=group_color
+                )
 
-                # Set position if available
-                if hasattr(fixture, 'position'):
-                    pos = fixture.position
-                    fixture_item.setPos(
-                        self.padding + pos.get('x', 0) * self.pixels_per_meter,
-                        self.padding + pos.get('y', 0) * self.pixels_per_meter
-                    )
-                else:
-                    # Position new fixture in center of view
-                    center = self.mapToScene(self.viewport().rect().center())
-                    fixture_item.setPos(center)
+                # Set position directly from fixture properties
+                fixture_item.setPos(
+                    self.padding + fixture.x * self.pixels_per_meter,
+                    self.padding + fixture.y * self.pixels_per_meter
+                )
 
-                # Set z-height if available
-                if hasattr(fixture, 'z'):
-                    fixture_item.z_height = fixture.z
+                # Set z-height and rotation directly from fixture properties
+                fixture_item.z_height = fixture.z
+                fixture_item.rotation_angle = fixture.rotation
 
-                # Set rotation if available
-                if hasattr(fixture, 'rotation'):
-                    fixture_item.rotation_angle = fixture.rotation
+                # Store additional properties
+                fixture_item.universe = fixture.universe
+                fixture_item.address = fixture.address
+                fixture_item.manufacturer = fixture.manufacturer
+                fixture_item.model = fixture.model
+                fixture_item.group = fixture.group
+                fixture_item.direction = fixture.direction
+                fixture_item.current_mode = fixture.current_mode
+                fixture_item.available_modes = fixture.available_modes
 
                 self.scene.addItem(fixture_item)
-                self.fixtures[fixture_name] = fixture_item
+                self.fixtures[fixture.name] = fixture_item
 
     def save_positions_to_config(self):
         """Save current fixture positions back to configuration"""
-        for fixture_name, fixture in self.fixtures.items():
-            if fixture_name in self.config.fixtures:
+        for fixture_name, fixture_item in self.fixtures.items():
+            # Find the corresponding fixture in config
+            config_fixture = next((f for f in self.config.fixtures if f.name == fixture_name), None)
+            if config_fixture:
                 # Convert position from pixels to meters
-                pos = fixture.pos()
-                x = (pos.x() - self.padding) / self.pixels_per_meter
-                y = (pos.y() - self.padding) / self.pixels_per_meter
+                pos = fixture_item.pos()
 
-                # Update configuration
-                self.config.fixtures[fixture_name]['position'] = {
-                    'x': x,
-                    'y': y,
-                    'z': fixture.z_height
-                }
-                self.config.fixtures[fixture_name]['rotation'] = fixture.rotation_angle
+                # Update fixture properties directly
+                config_fixture.x = (pos.x() - self.padding) / self.pixels_per_meter
+                config_fixture.y = (pos.y() - self.padding) / self.pixels_per_meter
+                config_fixture.z = fixture_item.z_height
+                config_fixture.rotation = fixture_item.rotation_angle
 
     def add_spot(self, x=100, y=100):
         spot = SpotItem()

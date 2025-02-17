@@ -28,6 +28,11 @@ class Fixture:
     current_mode: str
     available_modes: List[FixtureMode]
     type: str = "PAR"  # Default type if none specified
+    x: float = 0.0     # X position in meters
+    y: float = 0.0     # Y position in meters
+    z: float = 0.0     # Z height in meters
+    rotation: float = 0.0  # Rotation angle in degrees (0-359)
+
 
 
 @dataclass
@@ -120,7 +125,11 @@ class Configuration:
                 direction=fixture_data['Direction'],
                 current_mode=fixture_data['CurrentMode'],
                 available_modes=modes,
-                type=fixture_def['type'] if fixture_def else "PAR"  # Default to PAR if no definition found
+                type=fixture_def['type'] if fixture_def else "PAR",  # Default to PAR if no definition found
+                x = fixture_data.get('X', 0.0),
+                y = fixture_data.get('Y', 0.0),
+                z = fixture_data.get('Z', 0.0),
+                rotation = fixture_data.get('Rotation', 0.0)
             )
             config.fixtures.append(fixture)
 
