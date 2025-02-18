@@ -151,10 +151,10 @@ class Ui_MainWindow(object):
         self.tableWidget_3.setGeometry(QtCore.QRect(10, 90, 1151, 701))
 
         # Shows buttons
-        self.pushButton_5 = QtWidgets.QPushButton("Load Shows", parent=self.tab_2)
+        self.pushButton_5 = QtWidgets.QPushButton("Save Shows", parent=self.tab_2)
         self.pushButton_5.setGeometry(QtCore.QRect(10, 20, 171, 31))
 
-        self.pushButton_7 = QtWidgets.QPushButton("Save Show", parent=self.tab_2)
+        self.pushButton_7 = QtWidgets.QPushButton("Update", parent=self.tab_2)
         self.pushButton_7.setGeometry(QtCore.QRect(200, 20, 101, 31))
 
         # Shows combo box
