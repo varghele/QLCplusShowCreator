@@ -34,6 +34,12 @@ class Fixture:
     rotation: float = 0.0  # Rotation angle in degrees (0-359)
 
 
+@dataclass
+class Spot:
+    name: str
+    x: float = 0.0     # X position in meters
+    y: float = 0.0     # Y position in meters
+
 
 @dataclass
 class FixtureGroup:
@@ -90,6 +96,7 @@ class Configuration:
     groups: Dict[str, FixtureGroup] = field(default_factory=dict)
     shows: Dict[str, Show] = field(default_factory=dict)
     universes: Dict[int, Universe] = field(default_factory=dict)
+    spots: Dict[str, Spot] = field(default_factory=dict)
     workspace_path: Optional[str] = None
 
     @classmethod
@@ -219,6 +226,10 @@ class Configuration:
                 }
                 for show in self.shows.values()
             },
+            'spots': {
+                name: asdict(spot)
+                for name, spot in self.spots.items()
+            },
             'workspace_path': self.workspace_path
         }
 
@@ -322,11 +333,18 @@ class Configuration:
                     name=universe_data.get('name', f"Universe {universe_id}")
                 )
 
+        # Handle spots
+        spots = {}
+        if 'spots' in data:
+            for spot_name, spot_data in data['spots'].items():
+                spots[spot_name] = Spot(**spot_data)
+
         config = cls(
             fixtures=fixtures,
             groups=groups,
             universes=universes,
             shows=shows,
+            spots=spots,
             workspace_path=data.get('workspace_path')
         )
 

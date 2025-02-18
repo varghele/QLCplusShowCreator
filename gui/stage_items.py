@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsEllipseItem, QGraphicsView
 from PyQt6.QtCore import Qt, QRectF, QPointF
-from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QFontMetrics
+from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QFontMetrics, QFont
 from math import sin, cos
 
 
@@ -200,25 +200,46 @@ class FixtureItem(QGraphicsItem):
 
 
 class SpotItem(QGraphicsItem):
-    def __init__(self, parent=None):
+    def __init__(self, name: str, parent=None):
         super().__init__(parent)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
         self.size = 20  # Size of the X
+        self.name = name
+        self.last_pos = self.pos()  # Store last position for snapping
 
     def boundingRect(self):
-        # Make bounding rect slightly larger to accommodate selection indicator
-        return QRectF(-self.size/2 - 2, -self.size/2 - 2, self.size + 4, self.size + 4)
+        text_width = len(self.name) * 8  # Approximate width of text
+        return QRectF(-self.size/2 - 2, -self.size/2 - 2,
+                     max(self.size + 4, text_width), self.size + 20)
+
+    def mouseMoveEvent(self, event):
+        view = self.scene().views()[0]  # Get the main view
+        if view.snap_enabled:
+            # Get current position in scene coordinates
+            new_pos = event.scenePos()
+
+            # Calculate grid size in pixels
+            grid_size_pixels = view.grid_size_m * view.pixels_per_meter
+
+            # Snap to grid
+            x = round((new_pos.x() - view.padding) / grid_size_pixels) * grid_size_pixels + view.padding
+            y = round((new_pos.y() - view.padding) / grid_size_pixels) * grid_size_pixels + view.padding
+
+            # Set new position
+            self.setPos(x, y)
+        else:
+            super().mouseMoveEvent(event)
+
+        # Store new position
+        self.last_pos = self.pos()
 
     def paint(self, painter, option, widget):
-        # Set up pens based on selection state
         if self.isSelected():
-            # Draw selection indicator (circle)
             painter.setPen(QPen(Qt.GlobalColor.blue, 2))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawEllipse(QRectF(-self.size/2 - 2, -self.size/2 - 2,
                                      self.size + 4, self.size + 4))
-            # Draw X with blue color when selected
             painter.setPen(QPen(Qt.GlobalColor.blue, 5))
         else:
             painter.setPen(QPen(Qt.GlobalColor.black, 5))
@@ -228,4 +249,9 @@ class SpotItem(QGraphicsItem):
                         QPointF(self.size/2, self.size/2))
         painter.drawLine(QPointF(-self.size/2, self.size/2),
                         QPointF(self.size/2, -self.size/2))
+
+        # Draw name below the X
+        painter.setPen(QPen(Qt.GlobalColor.black, 1))
+        painter.setFont(QFont("Arial", 10))
+        painter.drawText(QPointF(-self.size/2, self.size + 5), self.name)
 
