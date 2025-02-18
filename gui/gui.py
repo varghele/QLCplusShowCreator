@@ -317,10 +317,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         show = self.config.shows[current_show]
 
         # Set up headers if not already done
-        headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color', 'Intensity']
+        headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color', 'Intensity', 'Spot']
         if self.tableWidget_3.columnCount() != len(headers):
             self.tableWidget_3.setColumnCount(len(headers))
             self.tableWidget_3.setHorizontalHeaderLabels(headers)
+        # Set column widths for shows table
+        self.tableWidget_3.setColumnWidth(0, 250)  # Show Part
+        self.tableWidget_3.setColumnWidth(1, 250)  # Fixture Group
+        self.tableWidget_3.setColumnWidth(2, 200)  # Effect
+        self.tableWidget_3.setColumnWidth(3, 50)  # Speed
+        self.tableWidget_3.setColumnWidth(4, 100)  # Color
+        self.tableWidget_3.setColumnWidth(5, 200)  # Intensity
+        self.tableWidget_3.setColumnWidth(6, 75)  # Spot
 
         # Add rows for each show part and fixture group combination
         row = 0
@@ -486,6 +494,37 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                 self.tableWidget_3.setCellWidget(row, 5, intensity_widget)
 
+                # Add Spot combo box
+                spot_combo = QtWidgets.QComboBox()
+                spot_combo.addItem("")  # Empty option
+                if hasattr(self.config, 'spots'):
+                    for spot_name in sorted(self.config.spots.keys()):
+                        spot_combo.addItem(spot_name)
+
+                # Set existing spot if any
+                if existing_effect and hasattr(existing_effect, 'spot'):
+                    spot_combo.setCurrentText(existing_effect.spot)
+
+                def create_spot_handler(current_row, part_name, group):
+                    def handle_spot_change(spot_name):
+                        self.update_show_effect(
+                            current_show,
+                            part_name,
+                            group,
+                            self.get_effect(current_row),
+                            self.get_speed(current_row),
+                            self.get_color(current_row),
+                            self.get_intensity(current_row),
+                            spot_name
+                        )
+
+                    return handle_spot_change
+
+                spot_combo.currentTextChanged.connect(
+                    create_spot_handler(row, show_part.name, group_name)
+                )
+                self.tableWidget_3.setCellWidget(row, 6, spot_combo)
+
                 # Set row background color based on show part
                 qcolor = QtGui.QColor(show_part.color)
                 qcolor.setAlpha(40)
@@ -539,7 +578,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                             return slider.value()
         return 200  # Default value if widget not found
 
-    def update_show_effect(self, show_name, show_part, fixture_group, effect, speed, color, intensity=200):
+    def get_spot(self, row):
+        """Get spot from table row"""
+        spot_combo = self.tableWidget_3.cellWidget(row, 6)
+        return spot_combo.currentText() if spot_combo else ""
+
+    def update_show_effect(self, show_name, show_part, fixture_group, effect, speed, color, intensity=200, spot=""):
         """Update show effect in configuration"""
         if show_name not in self.config.shows:
             return
@@ -555,6 +599,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 effect_obj.speed = speed
                 effect_obj.color = color
                 effect_obj.intensity = intensity
+                effect_obj.spot = spot
                 updated = True
                 break
 
@@ -566,7 +611,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 effect=effect,
                 speed=speed,
                 color=color,
-                intensity=intensity
+                intensity=intensity,
+                spot=spot
             )
             show.effects.append(new_effect)
 
@@ -599,7 +645,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.tableWidget.horizontalHeader().setStretchLastSection(True)
 
         # Setup Shows table
-        show_headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color', 'Intensity']
+        show_headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color', 'Intensity', 'Spot']
         self.tableWidget_3.setColumnCount(len(show_headers))
         self.tableWidget_3.setHorizontalHeaderLabels(show_headers)
 
@@ -609,7 +655,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.tableWidget_3.setColumnWidth(2, 200)  # Effect
         self.tableWidget_3.setColumnWidth(3, 50)  # Speed
         self.tableWidget_3.setColumnWidth(4, 100)  # Color
-        self.tableWidget_3.horizontalHeader().setStretchLastSection(True)  # Intensity stretches
+        self.tableWidget_3.setColumnWidth(5, 200)  # Intensity
+        self.tableWidget_3.setColumnWidth(6, 75)  # Spot
+        #self.tableWidget_3.horizontalHeader().setStretchLastSection(True)  # Intensity stretches
 
         # Make tableWidget_3 stretch to fill parent
         self.tableWidget_3.setGeometry(QtCore.QRect(10, 90, self.tab_2.width() - 20, self.tab_2.height() - 100))
