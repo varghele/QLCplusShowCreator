@@ -344,7 +344,9 @@ def create_tracks(show_function, engine, show, effects_by_group, config, fixture
                                 speed=part_effect.speed,
                                 color=part_effect.color,
                                 fixture_num=fixture_num,
-                                fixture_start_id=fixture_start_id
+                                fixture_start_id=fixture_start_id,
+                                intensity=part_effect.intensity,
+                                spot=part_effect.spot,
                             )
                             print(f"Steps created: {len(steps) if steps else 0}")
                             add_steps_to_sequence(sequence, steps)

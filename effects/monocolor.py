@@ -5,10 +5,25 @@ from utils.to_xml.shows_to_xml import calculate_step_timing
 import math
 
 
-def fadein_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
+def fade_in(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+            num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a fade-in color effect for LED bars with a single step
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityMasterDimmer", "IntensityDimmer", "IntensityRed", "IntensityGreen",
@@ -22,9 +37,11 @@ def fadein_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    r, g, b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+    r, g, b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
+    # Calculate white value as average of RGB and scale by intensity
+    w = int((r + g + b) / 3)
 
     # Get step timings
     step_timings, total_steps = calculate_step_timing(
@@ -51,13 +68,13 @@ def fadein_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
     for i in range(fixture_num):
         channel_values = []
 
-        # Set dimmer intensity to full
+        # Set dimmer intensity
         if 'IntensityMasterDimmer' in channels_dict:
             for channel in channels_dict['IntensityMasterDimmer']:
-                channel_values.extend([str(channel['channel']), "255"])
+                channel_values.extend([str(channel['channel']), str(intensity)])
         if 'IntensityDimmer' in channels_dict:
             for channel in channels_dict['IntensityDimmer']:
-                channel_values.extend([str(channel['channel']), "255"])
+                channel_values.extend([str(channel['channel']), str(intensity)])
 
         # Add color channels
         if 'IntensityRed' in channels_dict:
@@ -73,10 +90,8 @@ def fadein_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
                 channel_values.extend([str(channel['channel']), str(b)])
 
         if 'IntensityWhite' in channels_dict:
-            # Calculate white value as average of RGB
-            white_value = min(255, max(0, int((r + g + b) / 3)))
             for channel in channels_dict['IntensityWhite']:
-                channel_values.extend([str(channel['channel']), str(white_value)])
+                channel_values.extend([str(channel['channel']), str(w)])
 
         values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 

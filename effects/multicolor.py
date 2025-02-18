@@ -6,9 +6,24 @@ import math
 
 
 def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-            num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0):
+            num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a rainbow effect that cycles through RGB colors with smooth transitions
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Color value (not used for rainbow effect)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityMasterDimmer","IntensityDimmer", "IntensityRed", "IntensityGreen", "IntensityBlue"])
@@ -21,15 +36,15 @@ def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Define rainbow color sequence
+    # Define rainbow color sequence and scale by intensity
     rainbow_colors = [
-        (255, 0, 0),    # Red
-        (255, 127, 0),  # Orange
-        (255, 255, 0),  # Yellow
-        (0, 255, 0),    # Green
-        (0, 0, 255),    # Blue
-        (75, 0, 130),   # Indigo
-        (148, 0, 211)   # Violet
+        (int(255 * intensity / 255), 0, 0),    # Red
+        (int(255 * intensity / 255), int(127 * intensity / 255), 0),  # Orange
+        (int(255 * intensity / 255), int(255 * intensity / 255), 0),  # Yellow
+        (0, int(255 * intensity / 255), 0),    # Green
+        (0, 0, int(255 * intensity / 255)),    # Blue
+        (int(75 * intensity / 255), 0, int(130 * intensity / 255)),   # Indigo
+        (int(148 * intensity / 255), 0, int(211 * intensity / 255))   # Violet
     ]
 
     # Get step timings
@@ -67,13 +82,13 @@ def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
         for i in range(fixture_num):
             channel_values = []
 
-            # Set dimmer intensity to full
+            # Set dimmer intensity
             if 'IntensityMasterDimmer' in channels_dict:
                 for channel in channels_dict['IntensityMasterDimmer']:
-                    channel_values.extend([str(channel['channel']), "255"])
+                    channel_values.extend([str(channel['channel']), str(intensity)])
             if 'IntensityDimmer' in channels_dict:
                 for channel in channels_dict['IntensityDimmer']:
-                    channel_values.extend([str(channel['channel']), "255"])
+                    channel_values.extend([str(channel['channel']), str(intensity)])
 
             if 'IntensityRed' in channels_dict:
                 for channel in channels_dict['IntensityRed']:
@@ -95,10 +110,26 @@ def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
 
     return steps
 
+
 def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                num_bars=1, speed="1", color="None", fixture_num=1, fixture_start_id=0):
+                num_bars=1, speed="1", color="None", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a rainbow effect that cycles through RGBW colors with smooth transitions
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Color value (not used for rainbow effect)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityMasterDimmer", "IntensityDimmer", "IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
@@ -111,17 +142,17 @@ def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Define rainbow color sequence with RGBW values (R, G, B, W)
+    # Define rainbow color sequence with RGBW values (R, G, B, W) and scale by intensity
     rainbow_colors = [
-        (255, 0, 0, 0),      # Red
-        (255, 127, 0, 0),    # Orange
-        (255, 255, 0, 0),    # Yellow
-        (0, 255, 0, 0),      # Green
-        (0, 255, 255, 0),    # Cyan
-        (0, 0, 255, 0),      # Blue
-        (75, 0, 130, 0),     # Indigo
-        (148, 0, 211, 0),    # Violet
-        (255, 255, 255, 255) # White
+        (int(255 * intensity / 255), 0, 0, 0),      # Red
+        (int(255 * intensity / 255), int(127 * intensity / 255), 0, 0),    # Orange
+        (int(255 * intensity / 255), int(255 * intensity / 255), 0, 0),    # Yellow
+        (0, int(255 * intensity / 255), 0, 0),      # Green
+        (0, int(255 * intensity / 255), int(255 * intensity / 255), 0),    # Cyan
+        (0, 0, int(255 * intensity / 255), 0),      # Blue
+        (int(75 * intensity / 255), 0, int(130 * intensity / 255), 0),     # Indigo
+        (int(148 * intensity / 255), 0, int(211 * intensity / 255), 0),    # Violet
+        (int(255 * intensity / 255), int(255 * intensity / 255), int(255 * intensity / 255), int(255 * intensity / 255))  # White
     ]
 
     # Get step timings
@@ -158,13 +189,13 @@ def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         for i in range(fixture_num):
             channel_values = []
 
-            # Set dimmer intensity to full
+            # Set dimmer intensity
             if 'IntensityMasterDimmer' in channels_dict:
                 for channel in channels_dict['IntensityMasterDimmer']:
-                    channel_values.extend([str(channel['channel']), "255"])
+                    channel_values.extend([str(channel['channel']), str(intensity)])
             if 'IntensityDimmer' in channels_dict:
                 for channel in channels_dict['IntensityDimmer']:
-                    channel_values.extend([str(channel['channel']), "255"])
+                    channel_values.extend([str(channel['channel']), str(intensity)])
 
             if 'IntensityRed' in channels_dict:
                 for channel in channels_dict['IntensityRed']:
@@ -190,11 +221,27 @@ def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
 
     return steps
 
-def plasma_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0):
+
+def plasma(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+           num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a plasma effect with smooth color transitions for LED bars
     with frequency and phase shift coupled to speed and BPM
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Color value (not used for plasma effect)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityMasterDimmer", "IntensityDimmer", "IntensityRed", "IntensityGreen",
@@ -247,22 +294,23 @@ def plasma_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         for i in range(fixture_num):
             channel_values = []
 
-            # Set dimmer intensity to full
+            # Set dimmer intensity
             if 'IntensityMasterDimmer' in channels_dict:
                 for channel in channels_dict['IntensityMasterDimmer']:
-                    channel_values.extend([str(channel['channel']), "255"])
+                    channel_values.extend([str(channel['channel']), str(intensity)])
             if 'IntensityDimmer' in channels_dict:
                 for channel in channels_dict['IntensityDimmer']:
-                    channel_values.extend([str(channel['channel']), "255"])
+                    channel_values.extend([str(channel['channel']), str(intensity)])
 
             # Calculate plasma values using sine waves with BPM-based timing
             time = step_idx / frequency
             space = i * phase_shift
 
             # Create smooth color transitions using sine waves with different phases
-            r = int(127.5 + 127.5 * math.sin(time + space))
-            g = int(127.5 + 127.5 * math.sin(time + space + 2 * math.pi / 3))
-            b = int(127.5 + 127.5 * math.sin(time + space + 4 * math.pi / 3))
+            # Scale the color values by intensity
+            r = int((127.5 + 127.5 * math.sin(time + space)) * intensity / 255)
+            g = int((127.5 + 127.5 * math.sin(time + space + 2 * math.pi / 3)) * intensity / 255)
+            b = int((127.5 + 127.5 * math.sin(time + space + 4 * math.pi / 3)) * intensity / 255)
 
             # Add color channels
             if 'IntensityRed' in channels_dict:
@@ -279,8 +327,8 @@ def plasma_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
 
             if 'IntensityWhite' in channels_dict:
                 for channel in channels_dict['IntensityWhite']:
-                    white_value = min(255, max(0, int((r + g + b) / 3)))
-                    channel_values.extend([str(channel['channel']), str(white_value)])
+                    w = int((r + g + b) / 3)  # Calculate white as average of RGB
+                    channel_values.extend([str(channel['channel']), str(w)])
 
             values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 

@@ -5,8 +5,8 @@ from utils.to_xml.shows_to_xml import calculate_step_timing
 import math
 
 
-def static_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                 num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
+def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+           num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a static color effect for LED bars
     Parameters:
@@ -22,12 +22,14 @@ def static_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         color: Hex color code (e.g. "#FF0000" for red)
         fixture_num: Number of fixtures of this type
         fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     Returns:
         list: List of XML Step elements
     """
     # Get RGBW channels
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -37,9 +39,9 @@ def static_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    r, g, b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+    r, g, b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
 
     # Get step timings
     step_timings, total_steps = calculate_step_timing(
@@ -83,8 +85,8 @@ def static_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
 
         if 'IntensityWhite' in channels_dict:
             for channel in channels_dict['IntensityWhite']:
-                # Calculate white value as average of RGB
-                white_value = min(255, max(0, int((r + g + b) / 3)))
+                # Calculate white value as average of RGB, scaled by intensity
+                white_value = min(255, max(0, int((r + g + b) / 3 * intensity / 255)))
                 channel_values.extend([str(channel['channel']), str(white_value)])
 
         values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
@@ -96,8 +98,8 @@ def static_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
     return steps
 
 
-def fadein_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
+def fade_in(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+            num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a fade-in color effect for LED bars with a single step
     Parameters:
@@ -113,6 +115,8 @@ def fadein_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         color: Hex color code (e.g. "#FF0000" for red)
         fixture_num: Number of fixtures of this type
         fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     Returns:
         list: List of XML Step elements
     """
@@ -128,9 +132,9 @@ def fadein_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    r, g, b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+    r, g, b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
 
     # Get step timings
     step_timings, total_steps = calculate_step_timing(
@@ -172,8 +176,8 @@ def fadein_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
 
         if 'IntensityWhite' in channels_dict:
             for channel in channels_dict['IntensityWhite']:
-                # Calculate white value as average of RGB
-                white_value = min(255, max(0, int((r + g + b) / 3)))
+                # Calculate white value as average of RGB and scale by intensity
+                white_value = min(255, max(0, int((r + g + b) / 3 * intensity / 255)))
                 channel_values.extend([str(channel['channel']), str(white_value)])
 
         values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
@@ -182,8 +186,8 @@ def fadein_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
     return [step]
 
 
-def pulse_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
+def pulse(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+          num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a pulsing color effect that fades in and out for LED bars
     Parameters:
@@ -199,6 +203,8 @@ def pulse_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
         color: Hex color code (e.g. "#FF0000" for red)
         fixture_num: Number of fixtures of this type
         fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     Returns:
         list: List of XML Step elements
     """
@@ -213,9 +219,9 @@ def pulse_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    r, g, b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+    r, g, b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
 
     # Get step timings
     step_timings, total_steps = calculate_step_timing(
@@ -255,7 +261,7 @@ def pulse_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
                     channel_values.extend([str(channel['channel']), str(b)])
             if 'IntensityWhite' in channels_dict:
                 for channel in channels_dict['IntensityWhite']:
-                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    white_value = min(255, max(0, int((r + g + b) / 3 * intensity / 255)))
                     channel_values.extend([str(channel['channel']), str(white_value)])
             values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 
@@ -288,8 +294,9 @@ def pulse_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
     return steps
 
 
-def noise_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                num_bars=1, speed="1", color="#FF0000", noise_intensity=0.1, fixture_num=1, fixture_start_id=0):
+def noise(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+          num_bars=1, speed="1", color="#FF0000", noise_intensity=0.1, fixture_num=1, fixture_start_id=0,
+          intensity=200, spot=None):
     """
     Creates a color effect with Gaussian noise around a base color for LED bars
     Parameters:
@@ -306,12 +313,14 @@ def noise_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
         noise_intensity: Standard deviation for Gaussian noise (0-1)
         fixture_num: Number of fixtures of this type
         fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     Returns:
         list: List of XML Step elements
     """
     # Get RGBW channels
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -321,9 +330,9 @@ def noise_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    r, g, b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+    r, g, b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
 
     # Get step timings
     step_timings, total_steps = calculate_step_timing(
@@ -350,10 +359,10 @@ def noise_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
         for i in range(fixture_num):
             channel_values = []
 
-            # Add noise to RGB values
-            noisy_r = min(255, max(0, int(r + np.random.normal(0, noise_intensity * 255))))
-            noisy_g = min(255, max(0, int(g + np.random.normal(0, noise_intensity * 255))))
-            noisy_b = min(255, max(0, int(b + np.random.normal(0, noise_intensity * 255))))
+            # Add noise to RGB values, scaled by intensity
+            noisy_r = min(255, max(0, int(r + np.random.normal(0, noise_intensity * intensity))))
+            noisy_g = min(255, max(0, int(g + np.random.normal(0, noise_intensity * intensity))))
+            noisy_b = min(255, max(0, int(b + np.random.normal(0, noise_intensity * intensity))))
 
             # Add channels in order: R, G, B, W
             if 'IntensityRed' in channels_dict:
@@ -370,13 +379,12 @@ def noise_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
 
             if 'IntensityWhite' in channels_dict:
                 for channel in channels_dict['IntensityWhite']:
-                    # Calculate white value as average of RGB
-                    white_value = min(255, max(0, int((noisy_r + noisy_g + noisy_b) / 3)))
+                    # Calculate white value as average of RGB and scale by intensity
+                    white_value = min(255, max(0, int((noisy_r + noisy_g + noisy_b) / 3 * intensity / 255)))
                     channel_values.extend([str(channel['channel']), str(white_value)])
 
             values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 
-        #step.set("Values", ":".join(values))
         step.set("Values", str(total_channels * fixture_num))
         step.text = ":".join(values)
         steps.append(step)
@@ -385,14 +393,29 @@ def noise_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
     return steps
 
 
-def plasma_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                 num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0):
+def plasma(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+          num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a plasma effect with smooth color transitions for LED bars
     with frequency and phase shift coupled to speed and BPM
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (unused in this effect)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -446,9 +469,10 @@ def plasma_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
             space = i * phase_shift
 
             # Create smooth color transitions using sine waves with different phases
-            r = int(127.5 + 127.5 * math.sin(time + space))
-            g = int(127.5 + 127.5 * math.sin(time + space + 2 * math.pi / 3))
-            b = int(127.5 + 127.5 * math.sin(time + space + 4 * math.pi / 3))
+            # Scale the values by intensity
+            r = int((127.5 + 127.5 * math.sin(time + space)) * intensity / 255)
+            g = int((127.5 + 127.5 * math.sin(time + space + 2 * math.pi / 3)) * intensity / 255)
+            b = int((127.5 + 127.5 * math.sin(time + space + 4 * math.pi / 3)) * intensity / 255)
 
             # Add channels in order: R, G, B, W
             if 'IntensityRed' in channels_dict:
@@ -465,7 +489,8 @@ def plasma_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
 
             if 'IntensityWhite' in channels_dict:
                 for channel in channels_dict['IntensityWhite']:
-                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    # Calculate white value as average of RGB and scale by intensity
+                    white_value = min(255, max(0, int((r + g + b) / 3 * intensity / 255)))
                     channel_values.extend([str(channel['channel']), str(white_value)])
 
             values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
@@ -477,15 +502,30 @@ def plasma_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
     return steps
 
 
-def wave_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-               num_bars=1, speed="1", color="#FF0000", wave_length=2.0, fixture_num=1, fixture_start_id=0):
+def wave(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+         num_bars=1, speed="1", color="#FF0000", wave_length=2.0, fixture_num=1, fixture_start_id=0,
+         intensity=200, spot=None):
     """
     Creates a wave effect that travels across fixtures with a single color
     Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
         wave_length: Length of the wave relative to fixture count (2.0 means wave spans 2 fixtures)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -495,9 +535,9 @@ def wave_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    base_r, base_g, base_b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+    base_r, base_g, base_b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
 
     # Calculate wave parameters based on BPM
     avg_bpm = (start_bpm + end_bpm) / 2
@@ -530,12 +570,12 @@ def wave_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature
         for i in range(fixture_num):
             # Calculate wave position for this fixture
             wave_pos = (step_idx / wave_frequency) - (i / wave_length)
-            intensity = 0.5 + 0.5 * math.sin(2 * math.pi * wave_pos)
+            wave_intensity = 0.5 + 0.5 * math.sin(2 * math.pi * wave_pos)
 
-            # Apply intensity to base color
-            r = int(base_r * intensity)
-            g = int(base_g * intensity)
-            b = int(base_b * intensity)
+            # Apply wave intensity to base color
+            r = int(base_r * wave_intensity)
+            g = int(base_g * wave_intensity)
+            b = int(base_b * wave_intensity)
 
             channel_values = []
 
@@ -553,7 +593,8 @@ def wave_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature
 
             if 'IntensityWhite' in channels_dict:
                 for channel in channels_dict['IntensityWhite']:
-                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    # Calculate white value as average of RGB and scale by intensity
+                    white_value = min(255, max(0, int((r + g + b) / 3 * intensity / 255)))
                     channel_values.extend([str(channel['channel']), str(white_value)])
 
             values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
@@ -565,15 +606,30 @@ def wave_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature
     return steps
 
 
-def breathing_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                    num_bars=1, speed="1", color="#FF0000", inhale_ratio=0.4, fixture_num=1, fixture_start_id=0):
+def breathing(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+             num_bars=1, speed="1", color="#FF0000", inhale_ratio=0.4, fixture_num=1, fixture_start_id=0,
+             intensity=200, spot=None):
     """
     Creates a breathing effect that mimics natural breathing pattern
     Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
         inhale_ratio: Ratio of inhale time to total breath cycle (0.4 = 40% inhale, 60% exhale)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -583,9 +639,9 @@ def breathing_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, sign
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    base_r, base_g, base_b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+    base_r, base_g, base_b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
 
     # Calculate breathing parameters based on BPM
     avg_bpm = (start_bpm + end_bpm) / 2
@@ -619,16 +675,16 @@ def breathing_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, sign
         # Create asymmetric breathing curve
         if phase < inhale_ratio:
             # Inhale (faster, using sine curve)
-            intensity = math.sin((phase / inhale_ratio) * math.pi / 2)
+            breath_intensity = math.sin((phase / inhale_ratio) * math.pi / 2)
         else:
             # Exhale (slower, using cosine curve)
             exhale_phase = (phase - inhale_ratio) / (1 - inhale_ratio)
-            intensity = math.cos(exhale_phase * math.pi / 2)
+            breath_intensity = math.cos(exhale_phase * math.pi / 2)
 
         # Apply intensity to base color
-        r = int(base_r * intensity)
-        g = int(base_g * intensity)
-        b = int(base_b * intensity)
+        r = int(base_r * breath_intensity)
+        g = int(base_g * breath_intensity)
+        b = int(base_b * breath_intensity)
 
         # Build values string for all fixtures
         values = []
@@ -649,7 +705,8 @@ def breathing_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, sign
 
             if 'IntensityWhite' in channels_dict:
                 for channel in channels_dict['IntensityWhite']:
-                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    # Calculate white value as average of RGB and scale by intensity
+                    white_value = min(255, max(0, int((r + g + b) / 3 * intensity / 255)))
                     channel_values.extend([str(channel['channel']), str(white_value)])
 
             values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
@@ -661,17 +718,31 @@ def breathing_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, sign
     return steps
 
 
-def flicker_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                  num_bars=1, speed="1", color="#FF0000", flicker_intensity=0.3, min_brightness=0.2,
-                  fixture_num=1, fixture_start_id=0):
+def flicker(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+            num_bars=1, speed="1", color="#FF0000", flicker_intensity=0.3, min_brightness=0.2,
+            fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a flickering effect with random intensity variations
     Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
         flicker_intensity: Amount of random variation (0-1)
         min_brightness: Minimum brightness level (0-1)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -681,9 +752,9 @@ def flicker_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    base_r, base_g, base_b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+    base_r, base_g, base_b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
 
     # Calculate flicker parameters based on BPM
     avg_bpm = (start_bpm + end_bpm) / 2
@@ -743,7 +814,8 @@ def flicker_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
 
             if 'IntensityWhite' in channels_dict:
                 for channel in channels_dict['IntensityWhite']:
-                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    # Calculate white value as average of RGB and scale by intensity
+                    white_value = min(255, max(0, int((r + g + b) / 3 * intensity / 255)))
                     channel_values.extend([str(channel['channel']), str(white_value)])
 
             values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
@@ -755,12 +827,27 @@ def flicker_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
     return steps
 
 
-def heartbeat_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                   num_bars=1, speed="1", color="#FF0000", beat_intensity=0.8, fixture_num=1, fixture_start_id=0):
+def heartbeat(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+             num_bars=1, speed="1", color="#FF0000", beat_intensity=0.8, fixture_num=1, fixture_start_id=0,
+             intensity=200, spot=None):
     """
     Creates a heartbeat effect with a characteristic double-beat pattern
     Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
         beat_intensity: Maximum intensity of the heartbeat (0-1)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
@@ -773,9 +860,9 @@ def heartbeat_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, sign
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    base_r, base_g, base_b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+    base_r, base_g, base_b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
 
     # Calculate heartbeat parameters based on BPM
     avg_bpm = (start_bpm + end_bpm) / 2
@@ -809,18 +896,18 @@ def heartbeat_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, sign
 
         # Create double-beat pattern
         if phase < 0.15:
-            intensity = beat_intensity
+            beat_level = beat_intensity
         elif phase < 0.25:
-            intensity = beat_intensity * 0.3
+            beat_level = beat_intensity * 0.3
         elif phase < 0.35:
-            intensity = beat_intensity * 0.7
+            beat_level = beat_intensity * 0.7
         else:
-            intensity = beat_intensity * 0.2
+            beat_level = beat_intensity * 0.2
 
         # Apply intensity to base color
-        r = int(base_r * intensity)
-        g = int(base_g * intensity)
-        b = int(base_b * intensity)
+        r = int(base_r * beat_level)
+        g = int(base_g * beat_level)
+        b = int(base_b * beat_level)
 
         # Build values string for peak
         values = []
@@ -841,7 +928,8 @@ def heartbeat_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, sign
 
             if 'IntensityWhite' in channels_dict:
                 for channel in channels_dict['IntensityWhite']:
-                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    # Calculate white value as average of RGB and scale by intensity
+                    white_value = min(255, max(0, int((r + g + b) / 3 * intensity / 255)))
                     channel_values.extend([str(channel['channel']), str(white_value)])
 
             values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
@@ -875,13 +963,28 @@ def heartbeat_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, sign
     return steps
 
 
-def strobe_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                 num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
+def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+           num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a strobe effect with consistent color for LED bars
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -891,11 +994,11 @@ def strobe_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    r, g, b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
-    # Calculate white as average of RGB
-    w = int((r + g + b) / 3)
+    r, g, b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
+    # Calculate white as average of RGB and scale by intensity
+    w = int((r + g + b) / 3 * intensity / 255)
 
     # Get step timings
     step_timings, total_steps = calculate_step_timing(
@@ -979,13 +1082,28 @@ def strobe_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
     return steps
 
 
-def random_strobe_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                        num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
+def random_strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+                 num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a strobe effect where only one random fixture strobes per step
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -995,10 +1113,11 @@ def random_strobe_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, 
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    r, g, b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
-    w = int((r + g + b) / 3)
+    r, g, b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
+    # Calculate white as average of RGB and scale by intensity
+    w = int((r + g + b) / 3 * intensity / 255)
 
     # Get step timings
     step_timings, total_steps = calculate_step_timing(
@@ -1092,12 +1211,27 @@ def random_strobe_color(start_step, fixture_def, mode_name, start_bpm, end_bpm, 
 
 
 def ping_pong(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-              num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
+              num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a ping-pong effect that strobes one bar from left to right and back
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -1107,10 +1241,11 @@ def ping_pong(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    r, g, b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
-    w = int((r + g + b) / 3)
+    r, g, b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
+    # Calculate white as average of RGB and scale by intensity
+    w = int((r + g + b) / 3 * intensity / 255)
 
     # Get step timings
     step_timings, total_steps = calculate_step_timing(
@@ -1207,13 +1342,28 @@ def ping_pong(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
 
 
 def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                     num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0):
+                    num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a smooth ping-pong effect that moves one bar from left to right and back
     with smooth transitions using fade-in
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -1223,10 +1373,11 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Convert hex to RGB
+    # Convert hex to RGB and scale by intensity
     color = color.lstrip('#')
-    r, g, b = tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
-    w = int((r + g + b) / 3)
+    r, g, b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
+    # Calculate white as average of RGB and scale by intensity
+    w = int((r + g + b) / 3 * intensity / 255)
 
     # Get step timings
     step_timings, total_steps = calculate_step_timing(
@@ -1298,12 +1449,27 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
 
 
 def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-            num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0):
+                num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a rainbow effect that cycles through RGB colors with smooth transitions
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (unused in this effect)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue"])
     if not channels_dict:
         return []
 
@@ -1313,15 +1479,15 @@ def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Define rainbow color sequence
+    # Define rainbow color sequence and scale by intensity
     rainbow_colors = [
-        (255, 0, 0),  # Red
-        (255, 127, 0),  # Orange
-        (255, 255, 0),  # Yellow
-        (0, 255, 0),  # Green
-        (0, 0, 255),  # Blue
-        (75, 0, 130),  # Indigo
-        (148, 0, 211)  # Violet
+        (int(255 * intensity / 255), 0, 0),  # Red
+        (int(255 * intensity / 255), int(127 * intensity / 255), 0),  # Orange
+        (int(255 * intensity / 255), int(255 * intensity / 255), 0),  # Yellow
+        (0, int(255 * intensity / 255), 0),  # Green
+        (0, 0, int(255 * intensity / 255)),  # Blue
+        (int(75 * intensity / 255), 0, int(130 * intensity / 255)),  # Indigo
+        (int(148 * intensity / 255), 0, int(211 * intensity / 255))  # Violet
     ]
 
     # Get step timings
@@ -1381,12 +1547,27 @@ def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
 
 
 def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                 num_bars=1, speed="1", color="None", fixture_num=1, fixture_start_id=0):
+                 num_bars=1, speed="1", color="None", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a rainbow effect that cycles through RGBW colors with smooth transitions
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (unused in this effect)
+        fixture_num: Number of fixtures of this type
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
     """
     channels_dict = get_channels_by_property(fixture_def, mode_name,
-                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
 
@@ -1396,17 +1577,17 @@ def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         if isinstance(channels, list):
             total_channels += len(channels)
 
-    # Define rainbow color sequence with RGBW values (R, G, B, W)
+    # Define rainbow color sequence with RGBW values (R, G, B, W) and scale by intensity
     rainbow_colors = [
-        (255, 0, 0, 0),  # Red
-        (255, 127, 0, 0),  # Orange
-        (255, 255, 0, 0),  # Yellow
-        (0, 255, 0, 0),  # Green
-        (0, 255, 255, 0),  # Cyan
-        (0, 0, 255, 0),  # Blue
-        (75, 0, 130, 0),  # Indigo
-        (148, 0, 211, 0),  # Violet
-        (255, 255, 255, 255)  # White
+        (int(255 * intensity / 255), 0, 0, 0),  # Red
+        (int(255 * intensity / 255), int(127 * intensity / 255), 0, 0),  # Orange
+        (int(255 * intensity / 255), int(255 * intensity / 255), 0, 0),  # Yellow
+        (0, int(255 * intensity / 255), 0, 0),  # Green
+        (0, int(255 * intensity / 255), int(255 * intensity / 255), 0),  # Cyan
+        (0, 0, int(255 * intensity / 255), 0),  # Blue
+        (int(75 * intensity / 255), 0, int(130 * intensity / 255), 0),  # Indigo
+        (int(148 * intensity / 255), 0, int(211 * intensity / 255), 0),  # Violet
+        (int(255 * intensity / 255), int(255 * intensity / 255), int(255 * intensity / 255), int(255 * intensity / 255))  # White
     ]
 
     # Get step timings
