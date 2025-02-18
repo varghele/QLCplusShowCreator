@@ -55,7 +55,8 @@ class ShowEffect:
     effect: str
     speed: str
     color: str
-    intensity: int
+    intensity: int = 200
+    spot: str = ""
 
 @dataclass
 class ShowPart:

@@ -7,7 +7,7 @@ from gui.StageView import StageView
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("QLCAutoShow")
-        MainWindow.resize(1200, 900)
+        MainWindow.resize(1250, 900)
 
         # Create central widget
         self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
