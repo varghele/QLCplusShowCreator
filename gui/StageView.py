@@ -1,5 +1,7 @@
 from PyQt6 import QtWidgets, QtGui, QtCore
 from gui.stage_items import FixtureItem, SpotItem
+from config.models import Spot
+
 
 class StageView(QtWidgets.QGraphicsView):
     def __init__(self, parent=None):
@@ -34,7 +36,8 @@ class StageView(QtWidgets.QGraphicsView):
 
         # List to store fixture items
         self.fixtures = {}
-        self.spots = []
+        self.spots = {}  # name: SpotItem
+        self.spot_counter = 1  # Counter for generating unique spot names
 
         # Initial update
         self.updateStage()
@@ -49,10 +52,20 @@ class StageView(QtWidgets.QGraphicsView):
         if not self.config:
             return
 
+        # Clear and update fixtures
         for fixture in self.fixtures.values():
             self.scene.removeItem(fixture)
         self.fixtures.clear()
 
+        # Clear and update spots
+        for spot in self.spots.values():
+            self.scene.removeItem(spot)
+        self.spots.clear()
+
+        # Reset spot counter
+        self.spot_counter = 1
+
+        # Update fixtures
         if hasattr(self.config, 'fixtures'):
             for fixture in self.config.fixtures:
                 group_color = '#808080'
@@ -90,8 +103,28 @@ class StageView(QtWidgets.QGraphicsView):
                 self.scene.addItem(fixture_item)
                 self.fixtures[fixture.name] = fixture_item
 
+        # Update spots
+        if hasattr(self.config, 'spots'):
+            for spot_name, spot_data in self.config.spots.items():
+                spot_item = SpotItem(name=spot_name)
+                spot_item.setPos(
+                    self.padding + spot_data.x * self.pixels_per_meter,
+                    self.padding + spot_data.y * self.pixels_per_meter
+                )
+
+                self.scene.addItem(spot_item)
+                self.spots[spot_name] = spot_item
+
+                # Update spot counter
+                try:
+                    spot_number = int(spot_name.replace('Spot', ''))
+                    self.spot_counter = max(self.spot_counter, spot_number + 1)
+                except ValueError:
+                    pass
+
     def save_positions_to_config(self):
-        """Save current fixture positions back to configuration"""
+        """Save current fixture positions and spot positions back to configuration"""
+        # Save fixture positions
         for fixture_name, fixture_item in self.fixtures.items():
             # Find the corresponding fixture in config
             config_fixture = next((f for f in self.config.fixtures if f.name == fixture_name), None)
@@ -104,6 +137,13 @@ class StageView(QtWidgets.QGraphicsView):
                 config_fixture.y = (pos.y() - self.padding) / self.pixels_per_meter
                 config_fixture.z = fixture_item.z_height
                 config_fixture.rotation = fixture_item.rotation_angle
+
+        # Save spot positions
+        for spot_name, spot_item in self.spots.items():
+            if spot_name in self.config.spots:
+                pos = spot_item.pos()
+                self.config.spots[spot_name].x = (pos.x() - self.padding) / self.pixels_per_meter
+                self.config.spots[spot_name].y = (pos.y() - self.padding) / self.pixels_per_meter
 
     def set_snap_to_grid(self, enabled):
         """Enable or disable snap to grid"""
@@ -143,20 +183,45 @@ class StageView(QtWidgets.QGraphicsView):
         self.save_positions_to_config()
 
     def add_spot(self, x=100, y=100):
-        spot = SpotItem()
+        """Add a new spot to the stage"""
+        spot_name = f"Spot{self.spot_counter}"
+        spot = SpotItem(name=spot_name)
         spot.setPos(x, y)
         self.scene.addItem(spot)
-        self.spots.append(spot)
+        self.spots[spot_name] = spot
+        self.spot_counter += 1
+
+        # Add to configuration
+        if self.config:
+            self.config.spots[spot_name] = Spot(
+                name=spot_name,
+                x=x / self.pixels_per_meter,  # Convert to meters
+                y=y / self.pixels_per_meter
+            )
         return spot
 
     def remove_selected_items(self):
+        """Remove selected items from the stage"""
         for item in self.scene.selectedItems():
-            if isinstance(item, (FixtureItem, SpotItem)):
+            if isinstance(item, FixtureItem):
                 self.scene.removeItem(item)
-                if item in self.fixtures:
-                    self.fixtures.remove(item)
-                if item in self.spots:
-                    self.spots.remove(item)
+                if item.fixture_name in self.fixtures:
+                    del self.fixtures[item.fixture_name]
+            elif isinstance(item, SpotItem):
+                self.scene.removeItem(item)
+                if item.name in self.spots:
+                    del self.spots[item.name]
+                    if self.config:
+                        del self.config.spots[item.name]
+
+                    # Update spot counter if necessary
+                    try:
+                        removed_number = int(item.name.replace('Spot', ''))
+                        if removed_number == self.spot_counter - 1:
+                            # If we removed the last spot, decrease the counter
+                            self.spot_counter = removed_number
+                    except ValueError:
+                        pass  # If the name doesn't follow the SpotX format, ignore
 
     def updateStage(self, width_m=None, depth_m=None):
         """Update stage dimensions"""
