@@ -375,7 +375,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                                     effect or "",
                                                     self.get_speed(current_row),
                                                     self.get_color(current_row),
-                                                    self.get_intensity(current_row))
+                                                    self.get_intensity(current_row),
+                                                    self.get_spot(current_row))
 
                     return handle_effect
 
@@ -401,7 +402,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                         self.get_effect(r),
                         value,
                         self.get_color(r),
-                        self.get_intensity(r)
+                        self.get_intensity(r),
+                        self.get_spot(r)
                     )
                 )
                 self.tableWidget_3.setCellWidget(row, 3, speed_combo)
@@ -431,7 +433,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                                     self.get_effect(current_row),
                                                     self.get_speed(current_row),
                                                     hex_color,
-                                                    self.get_intensity(current_row))
+                                                    self.get_intensity(current_row),
+                                                    self.get_spot(current_row))
 
                     return handle_color
 
@@ -479,7 +482,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                             self.get_effect(current_row),
                             self.get_speed(current_row),
                             self.get_color(current_row),
-                            value
+                            value,
+                            self.get_spot(current_row)
                         )
 
                     return handle_intensity
@@ -1071,7 +1075,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def import_show_structure(self):
         try:
             # Set up fixed columns
-            headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color']
+            headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color', 'Intensity', 'Spot']
             self.tableWidget_3.setColumnCount(len(headers))
             self.tableWidget_3.setHorizontalHeaderLabels(headers)
 
@@ -1110,7 +1114,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                     effect="",
                                     speed="1",
                                     color="",
-                                    intensity=200
+                                    intensity=200,
+                                    spot=""
                                 )
                                 show.effects.append(effect)
 
@@ -1268,6 +1273,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Get intensity from column 5
             intensity = self.get_intensity(row)
 
+            # Get spot from column 6
+            spot = self.get_spot(row)
+
             # Update the effect for this row
             self.update_show_effect(
                 current_show,
@@ -1276,7 +1284,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 effect,
                 speed,
                 color,
-                intensity
+                intensity,
+                spot
             )
     # End of Show Tab ------------------------------------
 
@@ -1424,267 +1433,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.config.universes[universe_id].output['plugin'] = output_type
     # End of Universe Tab----------------------------------
 
-    def update_show_table_old(self, show_name):
-        if show_name in self.show_structures:  # Note: make show_structures a class attribute
-            show_parts = self.show_structures[show_name]
-
-            # Clear existing table
-            self.tableWidget_3.setRowCount(0)
-
-            # Set up fixed columns
-            headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color']
-            self.tableWidget_3.setColumnCount(len(headers))
-            self.tableWidget_3.setHorizontalHeaderLabels(headers)
-
-            # Read structure file to get colors
-            structure_file = os.path.join(self.project_root, "shows", show_name, f"{show_name}_structure.csv")
-            part_colors = {}
-            with open(structure_file, 'r') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    part_colors[row['showpart']] = row['color']
-
-            # Load existing values from JSON if it exists
-            values_file = os.path.join(self.project_root, "shows", show_name, f"{show_name}_values.json")
-            existing_values = {}
-            if os.path.exists(values_file):
-                try:
-                    with open(values_file, 'r') as f:
-                        values_data = json.load(f)
-                        for item in values_data:
-                            key = (item['show_part'], item['fixture_group'])
-                            existing_values[key] = item
-                except Exception as e:
-                    print(f"Error loading values file: {e}")
-
-            # Read fixture groups from groups.csv
-            groups_file = os.path.join(self.setup_dir, "groups.csv")
-            fixture_groups = set()
-            with open(groups_file, 'r') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    fixture_groups.add(row['category'])
-
-            # Add rows for each show part and fixture group combination
-            row = 0
-            for show_part in show_parts:
-                for group in sorted(fixture_groups):
-                    self.tableWidget_3.insertRow(row)
-
-                    # Show Part (read-only)
-                    show_part_item = QtWidgets.QTableWidgetItem(show_part)
-                    show_part_item.setFlags(show_part_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-                    self.tableWidget_3.setItem(row, 0, show_part_item)
-
-                    # Fixture Group (read-only)
-                    group_item = QtWidgets.QTableWidgetItem(group)
-                    group_item.setFlags(group_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-                    self.tableWidget_3.setItem(row, 1, group_item)
-
-                    # Speed (combo box)
-                    speed_combo = QtWidgets.QComboBox()
-                    speed_values = ['1/32', '1/16', '1/8', '1/4', '1/2', '1', '2', '4', '8', '16', '32']
-                    speed_combo.addItems(speed_values)
-
-                    # Set default speed or load existing value
-                    key = (show_part, group)
-                    if key in existing_values and existing_values[key].get('speed'):
-                        speed_combo.setCurrentText(existing_values[key]['speed'])
-                    else:
-                        speed_combo.setCurrentText('1')
-
-                    self.tableWidget_3.setCellWidget(row, 3, speed_combo)
-
-                    # Effect (button to open selection dialog)
-                    effect_button = QtWidgets.QPushButton("Select Effect")
-                    if key in existing_values and existing_values[key].get('effect'):
-                        effect_button.setText(existing_values[key]['effect'])
-                        effect_button.setProperty("current_effect", existing_values[key]['effect'])
-                    else:
-                        effect_button.setText("Select Effect")
-                        effect_button.setProperty("current_effect", "")
-
-                    def create_effect_selector(target_row):
-                        def show_effect_dialog():
-                            # Get the button from the correct row
-                            button = self.tableWidget_3.cellWidget(target_row, 2)
-                            if not button:
-                                return
-
-                            dialog = EffectSelectionDialog(self.effects_dir, self)
-                            if dialog.exec() == QDialog.DialogCode.Accepted:
-                                selected_effect = dialog.get_selected_effect()
-                                if selected_effect == "CLEAR":
-                                    button.setText("Select Effect")
-                                    button.setProperty("current_effect", "")
-                                elif selected_effect:
-                                    button.setText(selected_effect)
-                                    button.setProperty("current_effect", selected_effect)
-
-                        return show_effect_dialog
-
-                    # Connect the button with explicit row reference
-                    effect_button.clicked.connect(create_effect_selector(row))
-                    self.tableWidget_3.setCellWidget(row, 2, effect_button)
-
-                    # Color picker button
-                    color_button = QtWidgets.QPushButton()
-                    color_button.setFixedHeight(25)
-
-                    # Load existing color values if available
-                    if key in existing_values:
-                        values = existing_values[key]
-                        if values.get('color'):
-                            color_button.setStyleSheet(f"background-color: {values['color']};")
-                            color_button.setText(values['color'])
-                            color_button.setProperty("current_color", values['color'])
-                    else:
-                        color_button.setText("Pick Color")
-
-                    def create_color_picker(button, row_num):
-                        def show_color_picker():
-                            color = QtWidgets.QColorDialog.getColor(
-                                initial=QtGui.QColor(button.property("current_color") or "#000000"),
-                                options=QtWidgets.QColorDialog.ColorDialogOption.ShowAlphaChannel
-                            )
-                            if color.isValid():
-                                hex_color = color.name().upper()
-                                button.setStyleSheet(f"background-color: {hex_color};")
-                                button.setText(hex_color)
-                                button.setProperty("current_color", hex_color)
-                                #self.save_cell_value(row_num, show_name)
-
-                        return show_color_picker
-
-                    color_button.clicked.connect(create_color_picker(color_button, row))
-                    self.tableWidget_3.setCellWidget(row, 4, color_button)
-
-                    # Connect speed combo box changes
-                    #speed_combo.currentTextChanged.connect(lambda _, r=row: self.save_cell_value(r, show_name))
-
-                    # Set row background color
-                    if show_part in part_colors:
-                        color = part_colors[show_part]
-                        qcolor = QtGui.QColor(color)
-                        qcolor.setAlpha(40)
-                        for col in range(5):
-                            item = self.tableWidget_3.item(row, col)
-                            if item:
-                                item.setBackground(qcolor)
-
-                    row += 1
-
-            # Connect table item changed signal (for Effect column)
-            def on_item_changed(item):
-                if item.column() == 2:  # Effect column
-                    #self.save_cell_value(item.row(), show_name)
-                    pass
-
-            # Disconnect existing signals if any
-            try:
-                self.tableWidget_3.itemChanged.disconnect()
-            except:
-                pass
-
-            self.tableWidget_3.itemChanged.connect(on_item_changed)
-
-            # Make columns stretch to fill table width
-            header = self.tableWidget_3.horizontalHeader()
-            for i in range(5):
-                if i == 4:
-                    header.setStretchLastSection(True)
-                else:
-                    header.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.Stretch)
-
-            print("Show structure updated successfully")
-
-    def save_show_old(self):
-        try:
-            current_show = self.comboBox.currentText()
-            if not current_show:
-                return
-
-            show_data = []
-            row_count = self.tableWidget_3.rowCount()
-
-            for row in range(row_count):
-                show_part = self.tableWidget_3.item(row, 0).text()
-                fixture_group = self.tableWidget_3.item(row, 1).text()
-                # Save effects from button
-                effect_button = self.tableWidget_3.cellWidget(row, 2)
-                effect = effect_button.property("current_effect") if effect_button else ""
-                # Save speed from speed widget
-                speed_widget = self.tableWidget_3.cellWidget(row, 3)
-                speed = speed_widget.currentText() if speed_widget else "1"
-                # Save colors
-                color_button = self.tableWidget_3.cellWidget(row, 4)
-                color = color_button.property("current_color") if color_button else ""
-
-                show_data.append({
-                    'show_part': show_part,
-                    'fixture_group': fixture_group,
-                    'effect': effect,
-                    'speed': speed,
-                    'color': color
-                })
-
-            # Save to JSON file
-            show_dir = os.path.join(self.project_root, "shows", current_show)
-            os.makedirs(show_dir, exist_ok=True)
-            values_file = os.path.join(show_dir, f"{current_show}_values.json")
-
-            with open(values_file, 'w') as f:
-                json.dump(show_data, f, indent=2)
-
-            print(f"Show {current_show} saved successfully")
-
-        except Exception as e:
-            print(f"Error saving show: {e}")
-            import traceback
-            traceback.print_exc()
-
-    def import_show_structure_old(self):
-        try:
-            # Set up fixed columns
-            headers = ['Show Part', 'Fixture Group', 'Effect', 'Speed', 'Color']
-            self.tableWidget_3.setColumnCount(len(headers))
-            self.tableWidget_3.setHorizontalHeaderLabels(headers)
-
-            # Get all show directories
-            shows_dir = os.path.join(self.project_root, "shows")
-            self.show_structures = {}  # Make this a class attribute
-
-            # Scan for all show structure files
-            for show_dir in os.listdir(shows_dir):
-                show_path = os.path.join(shows_dir, show_dir)
-                if os.path.isdir(show_path):
-                    structure_file = os.path.join(show_path, f"{show_dir}_structure.csv")
-                    if os.path.exists(structure_file):
-                        show_parts = []
-                        with open(structure_file, 'r') as f:
-                            reader = csv.DictReader(f)
-                            for row in reader:
-                                show_parts.append(row['showpart'])
-                        self.show_structures[show_dir] = show_parts
-
-            # Update combo box with available shows
-            self.comboBox.clear()
-            self.comboBox.addItems(sorted(self.show_structures.keys()))
-
-            # Connect combo box selection to table update
-            self.comboBox.currentTextChanged.connect(self.update_show_table)
-
-            # Initialize table with first show if available
-            if self.comboBox.count() > 0:
-                first_show = self.comboBox.itemText(0)
-                self.update_show_table(first_show)
-
-            print("Show structure imported successfully")
-
-        except Exception as e:
-            print(f"Error importing show structure: {e}")
-            import traceback
-            traceback.print_exc()
 
     def create_workspace(self):
         try:

@@ -304,7 +304,8 @@ class Configuration:
                         effect=effect_data['effect'],
                         speed=effect_data['speed'],
                         color=effect_data['color'],
-                        intensity=effect_data['intensity']
+                        intensity=effect_data['intensity'],
+                        spot=effect_data['spot']
                     ))
 
                 # Create show
