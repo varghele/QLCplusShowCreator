@@ -109,13 +109,13 @@ def calculate_start_time(previous_time, signature, bpm, num_bars, transition, pr
 
     if transition == "instant" or previous_bpm is None:
         milliseconds_per_bar = (60000 / bpm) * beats_per_bar
-        return previous_time + int(milliseconds_per_bar * num_bars)
+        return previous_time + int(milliseconds_per_bar * int(num_bars))
 
     elif transition == "gradual":
         total_time = 0
-        for bar in range(num_bars):
+        for bar in range(int(num_bars)):
             # Using a slightly curved interpolation instead of linear
-            progress = (bar / num_bars) ** 0.52  # Adding slight curve to the transition
+            progress = (bar / int(num_bars)) ** 0.52  # Adding slight curve to the transition
             current_bpm = previous_bpm + (bpm - previous_bpm) * progress
             milliseconds_per_bar = (60000 / current_bpm) * beats_per_bar
             total_time += milliseconds_per_bar
@@ -217,7 +217,7 @@ def create_sequence(root, sequence_id, sequence_name, bound_scene_id, bpm=120):
     sequence.set("BoundScene", str(bound_scene_id))
 
     # Calculate default timing based on BPM
-    ms_per_beat = 60000 / bpm
+    ms_per_beat = 60000 / float(bpm)
 
     speed = ET.SubElement(sequence, "Speed")
     speed.set("FadeIn", str(int(ms_per_beat * 0.1)))  # 10% of beat time
@@ -363,12 +363,12 @@ def create_tracks(show_function, engine, show, effects_by_group, config, fixture
             start_time = calculate_start_time(
                 start_time,
                 part.signature,
-                part.bpm,
+                float(part.bpm),
                 part.num_bars,
                 part.transition,
                 previous_bpm
             )
-            previous_bpm = part.bpm
+            previous_bpm = float(part.bpm)
 
         fixture_start_id += fixture_num
         track_id += 1

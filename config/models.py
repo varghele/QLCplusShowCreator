@@ -63,7 +63,7 @@ class ShowPart:
     name: str
     color: str
     signature: str
-    bpm: int
+    bpm: float
     num_bars: int
     transition: str
 
