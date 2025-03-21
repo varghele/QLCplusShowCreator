@@ -85,6 +85,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.updateFixturesButton.clicked.connect(self.update_config_from_table)
         self.pushButton.clicked.connect(self.add_fixture)
         self.pushButton_2.clicked.connect(self.remove_fixture)
+        self.duplicateFixtureButton.clicked.connect(self.duplicate_fixture)
 
         # Connect Show Tab buttons
         self.pushButton_5.clicked.connect(self.save_show)
@@ -117,6 +118,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
                 fixture = self.config.fixtures[row]
 
+                # Update universe and address
+                universe_spin = self.tableWidget.cellWidget(row, 0)
+                if universe_spin and isinstance(universe_spin, QtWidgets.QSpinBox):
+                    fixture.universe = universe_spin.value()
+
+                address_spin = self.tableWidget.cellWidget(row, 1)
+                if address_spin and isinstance(address_spin, QtWidgets.QSpinBox):
+                    fixture.address = address_spin.value()
+
                 # Update manufacturer
                 manufacturer_item = self.tableWidget.item(row, 2)
                 if manufacturer_item and manufacturer_item.text():
@@ -127,10 +137,28 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 if model_item and model_item.text():
                     fixture.model = model_item.text()
 
+                # Update fixture mode (column 5)
+                mode_combo = self.tableWidget.cellWidget(row, 5)
+                if mode_combo and isinstance(mode_combo, QtWidgets.QComboBox):
+                    mode_text = mode_combo.currentText()
+                    # Extract mode name from combined text (like "Mode1 (16ch)")
+                    if " (" in mode_text:
+                        mode_name = mode_text.split(" (")[0]
+                        fixture.current_mode = mode_name
+
                 # Update name
                 name_item = self.tableWidget.item(row, 6)
                 if name_item and name_item.text():
                     fixture.name = name_item.text()
+
+                # Update group
+                group_combo = self.tableWidget.cellWidget(row, 7)
+                if group_combo and isinstance(group_combo, QtWidgets.QComboBox):
+                    group_name = group_combo.currentText()
+                    if group_name and group_name != "Add New...":
+                        fixture.group = group_name
+                    else:
+                        fixture.group = ""
 
                 # Update direction (column 8)
                 direction_combo = self.tableWidget.cellWidget(row, 8)
@@ -1161,6 +1189,68 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             # Update row colors to reflect any group changes
             self.update_row_colors()
+
+    def duplicate_fixture(self):
+        """Duplicate the selected fixture"""
+        selected_rows = self.tableWidget.selectedItems()
+        if not selected_rows:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Selection",
+                "Please select a fixture to duplicate.",
+                QtWidgets.QMessageBox.StandardButton.Ok
+            )
+            return
+
+        # Get the row of the first selected item
+        row = selected_rows[0].row()
+
+        # Check if the row is valid
+        if row >= len(self.config.fixtures):
+            return
+
+        # Get the original fixture
+        original_fixture = self.config.fixtures[row]
+
+        # Get the channel count from the fixture's current mode
+        channel_count = 0
+        for mode in original_fixture.available_modes:
+            if mode.name == original_fixture.current_mode:
+                channel_count = mode.channels
+                break
+
+        # Create a deep copy of the fixture
+        new_fixture = Fixture(
+            universe=original_fixture.universe,
+            address=original_fixture.address + channel_count,  # Offset address to avoid conflicts
+            manufacturer=original_fixture.manufacturer,
+            model=original_fixture.model,
+            name=f"{original_fixture.name} (Copy)",  # Append "(Copy)" to the name
+            group=original_fixture.group,
+            direction=original_fixture.direction,
+            current_mode=original_fixture.current_mode,
+            available_modes=[
+                FixtureMode(name=mode.name, channels=mode.channels)
+                for mode in original_fixture.available_modes
+            ],
+            type=original_fixture.type,
+            x=original_fixture.x,
+            y=original_fixture.y,
+            z=original_fixture.z,
+            rotation=original_fixture.rotation
+        )
+
+        # Add to configuration
+        self.config.fixtures.append(new_fixture)
+
+        # Add to group if applicable
+        if new_fixture.group and new_fixture.group in self.config.groups:
+            self.config.groups[new_fixture.group].fixtures.append(new_fixture)
+
+        # Refresh the table to show the new fixture
+        self.update_fixture_tab_from_config()
+
+        print(f"Duplicated fixture: {original_fixture.manufacturer} {original_fixture.model}")
 
     def import_workspace(self):
         file_path, _ = QFileDialog.getOpenFileName(

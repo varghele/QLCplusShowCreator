@@ -143,9 +143,15 @@ class Ui_MainWindow(object):
         self.pushButton_2.setText("-")
         self.pushButton_2.setToolTip("Remove Fixture")
 
+        # Add Duplicate Fixture button next to Remove button
+        self.duplicateFixtureButton = QtWidgets.QPushButton(parent=self.tab)
+        self.duplicateFixtureButton.setGeometry(QtCore.QRect(90, 14, 31, 31))
+        self.duplicateFixtureButton.setText("⎘")  # Unicode duplicate symbol
+        self.duplicateFixtureButton.setToolTip("Duplicate Fixture")
+
         # Update Fixtures button
         self.updateFixturesButton = QtWidgets.QPushButton(parent=self.tab)
-        self.updateFixturesButton.setGeometry(QtCore.QRect(90, 14, 115, 31))
+        self.updateFixturesButton.setGeometry(QtCore.QRect(130, 14, 115, 31))
         self.updateFixturesButton.setText("Update Fixtures")
         self.updateFixturesButton.setToolTip("Update Fixtures in Config")
 
