@@ -6,7 +6,7 @@ import math
 
 
 def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                  num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+                  num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a focus effect that points moving heads towards a specific spot
     Parameters:
@@ -20,13 +20,17 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Color value (not used for focus effect)
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_num: Number of fixtures of this type
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
-        spot: Dictionary containing target spot coordinates (x, y)
+        spot: Class containing target spot coordinates (x, y)
     """
     if not spot:
         return []
+
+    # Convert num_bars to integer (adding the fix you requested)
+    num_bars = int(num_bars)
 
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["PositionPan", "PositionTilt"])
     if not channels_dict:
@@ -55,25 +59,30 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
     step.set("FadeIn", str(total_duration))
     step.set("Hold", "0")
     step.set("FadeOut", "0")
+
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
     step.set("Values", str(total_channels * fixture_num))
 
     # Build values string for all fixtures
     values = []
     for i in range(fixture_num):
         channel_values = []
-        fixture = fixture_def.get('fixtures', [])[i] if i < len(fixture_def.get('fixtures', [])) else None
+
+        # Get fixture from fixture_conf instead of fixture_def
+        fixture = fixture_conf[i] if i < len(fixture_conf) else None
 
         if fixture:
-            # Get fixture position and direction
-            fx = fixture.get('x', 0)
-            fy = fixture.get('y', 0)
-            fz = fixture.get('z', 0)
-            rotation = fixture.get('rotation', 0)
-            direction = fixture.get('direction', 'up')
+            # Get fixture position and direction from fixture object attributes
+            fx = fixture.x
+            fy = fixture.y
+            fz = fixture.z
+            rotation = fixture.rotation
+            direction = fixture.direction
 
-            # Calculate angles to spot
-            dx = spot['x'] - fx
-            dy = spot['y'] - fy
+            # Calculate angles to spot (using spot's attributes)
+            dx = spot.x - fx
+            dy = spot.y - fy
             dz = -fz  # Spot's z is 0
 
             # Calculate pan angle (horizontal rotation)
@@ -85,7 +94,7 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
             distance_xy = math.sqrt(dx * dx + dy * dy)
             tilt_angle = math.degrees(math.atan2(dz, distance_xy))
             # Invert tilt angle if fixture is hanging (direction == 'down')
-            if direction == 'down':
+            if direction.upper() == 'DOWN':
                 tilt_angle = -tilt_angle
 
             # Convert angles to DMX values (assuming 540° pan and 270° tilt range)
@@ -109,3 +118,4 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
 
     step.text = ":".join(values)
     return [step]
+

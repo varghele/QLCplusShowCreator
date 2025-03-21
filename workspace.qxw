@@ -11,13 +11,19 @@
       <Universe Name="Universe 1" ID="0">
         <Output Plugin="E1.31" Line="0"/>
       </Universe>
+      <Universe Name="Universe 2" ID="1">
+        <Output Plugin="E1.31" Line="1"/>
+      </Universe>
+      <Universe Name="Universe 3" ID="2">
+        <Output Plugin="E1.31" Line="2"/>
+      </Universe>
     </InputOutputMap>
     <Fixture>
       <Manufacturer>Varghele</Manufacturer>
       <Model>LED BAR</Model>
       <Mode>40 Channels Mode</Mode>
       <ID>0</ID>
-      <Name>LED BAR</Name>
+      <Name>B</Name>
       <Universe>0</Universe>
       <Address>0</Address>
       <Channels>40</Channels>
@@ -27,119 +33,243 @@
       <Model>LED BAR</Model>
       <Mode>40 Channels Mode</Mode>
       <ID>1</ID>
-      <Name>LED BAR (Copy)</Name>
+      <Name>B (Copy)</Name>
       <Universe>0</Universe>
       <Address>40</Address>
       <Channels>40</Channels>
     </Fixture>
-    <ChannelsGroup ID="0" Name="BARS" Value="0">0,0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,1,0,1,1,1,2,1,3,1,4,1,5,1,6,1,7,1,8,1,9,1,10,1,11,1,12,1,13,1,14,1,15,1,16,1,17,1,18,1,19,1,20,1,21,1,22,1,23,1,24,1,25,1,26,1,27,1,28,1,29,1,30,1,31,1,32,1,33,1,34,1,35,1,36,1,37,1,38,1,39</ChannelsGroup>
-    <Function ID="0" Type="Show" Name="show_1">
-      <TimeDivision Type="Time" BPM="190.0"/>
-      <Track ID="0" Name="BARS" SceneID="1" isMute="0">
-        <ShowFunction ID="2" StartTime="0" Color="#00ffff"/>
-        <ShowFunction ID="3" StartTime="20210" Color="#ff8000"/>
-        <ShowFunction ID="4" StartTime="34979" Color="#ff0080"/>
-      </Track>
-    </Function>
-    <Function ID="1" Type="Scene" Name="Scene for show_1 - Track 1" Hidden="True">
-      <Speed FadeIn="0" FadeOut="0" Duration="0"/>
-      <ChannelGroupsVal>0,0</ChannelGroupsVal>
-      <FixtureVal ID="0">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
-      <FixtureVal ID="1">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
-    </Function>
-    <Function ID="2" Type="Sequence" Name="show_1_BARS_vers" BoundScene="1">
-      <Speed FadeIn="31" FadeOut="0" Duration="315"/>
-      <Direction>Forward</Direction>
-      <RunOrder>SingleShot</RunOrder>
-      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
-    </Function>
-    <Function ID="3" Type="Sequence" Name="show_1_BARS_interlude" BoundScene="1">
-      <Speed FadeIn="60" FadeOut="0" Duration="600"/>
-      <Direction>Forward</Direction>
-      <RunOrder>SingleShot</RunOrder>
-      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
-    </Function>
-    <Function ID="4" Type="Sequence" Name="show_1_BARS_chorus" BoundScene="1">
-      <Speed FadeIn="37" FadeOut="0" Duration="375"/>
-      <Direction>Forward</Direction>
-      <RunOrder>SingleShot</RunOrder>
-      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
-    </Function>
-    <Function ID="5" Type="Show" Name="show_2">
-      <TimeDivision Type="Time" BPM="190.0"/>
-      <Track ID="0" Name="BARS" SceneID="6" isMute="0">
-        <ShowFunction ID="7" StartTime="0" Color="#00ffff"/>
-        <ShowFunction ID="8" StartTime="10105" Color="#ff8000"/>
-        <ShowFunction ID="9" StartTime="48505" Color="#ff0080"/>
-      </Track>
-    </Function>
-    <Function ID="6" Type="Scene" Name="Scene for show_2 - Track 1" Hidden="True">
-      <Speed FadeIn="0" FadeOut="0" Duration="0"/>
-      <ChannelGroupsVal>0,0</ChannelGroupsVal>
-      <FixtureVal ID="0">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
-      <FixtureVal ID="1">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
-    </Function>
-    <Function ID="7" Type="Sequence" Name="show_2_BARS_intro" BoundScene="6">
-      <Speed FadeIn="31" FadeOut="0" Duration="315"/>
-      <Direction>Forward</Direction>
-      <RunOrder>SingleShot</RunOrder>
-      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
-    </Function>
-    <Function ID="8" Type="Sequence" Name="show_2_BARS_vers" BoundScene="6">
-      <Speed FadeIn="60" FadeOut="0" Duration="600"/>
-      <Direction>Forward</Direction>
-      <RunOrder>SingleShot</RunOrder>
-      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
-    </Function>
-    <Function ID="9" Type="Sequence" Name="show_2_BARS_chorus" BoundScene="6">
-      <Speed FadeIn="37" FadeOut="0" Duration="375"/>
-      <Direction>Forward</Direction>
-      <RunOrder>SingleShot</RunOrder>
-      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
-    </Function>
-    <Function ID="10" Type="Show" Name="SBD_hit_the_road_jack">
+    <Fixture>
+      <Manufacturer>Varghele</Manufacturer>
+      <Model>LED BAR</Model>
+      <Mode>40 Channels Mode</Mode>
+      <ID>2</ID>
+      <Name>B (Copy) (Copy)</Name>
+      <Universe>0</Universe>
+      <Address>80</Address>
+      <Channels>40</Channels>
+    </Fixture>
+    <Fixture>
+      <Manufacturer>Varytec</Manufacturer>
+      <Model>Hero Spot 60</Model>
+      <Mode>14 Channel</Mode>
+      <ID>3</ID>
+      <Name>M1</Name>
+      <Universe>2</Universe>
+      <Address>0</Address>
+      <Channels>14</Channels>
+    </Fixture>
+    <Fixture>
+      <Manufacturer>Varytec</Manufacturer>
+      <Model>Hero Spot 60</Model>
+      <Mode>14 Channel</Mode>
+      <ID>4</ID>
+      <Name>M2</Name>
+      <Universe>2</Universe>
+      <Address>14</Address>
+      <Channels>14</Channels>
+    </Fixture>
+    <ChannelsGroup ID="0" Name="B1" Value="0">0,0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,1,0,1,1,1,2,1,3,1,4,1,5,1,6,1,7,1,8,1,9,1,10,1,11,1,12,1,13,1,14,1,15,1,16,1,17,1,18,1,19,1,20,1,21,1,22,1,23,1,24,1,25,1,26,1,27,1,28,1,29,1,30,1,31,1,32,1,33,1,34,1,35,1,36,1,37,1,38,1,39,2,0,2,1,2,2,2,3,2,4,2,5,2,6,2,7,2,8,2,9,2,10,2,11,2,12,2,13,2,14,2,15,2,16,2,17,2,18,2,19,2,20,2,21,2,22,2,23,2,24,2,25,2,26,2,27,2,28,2,29,2,30,2,31,2,32,2,33,2,34,2,35,2,36,2,37,2,38,2,39</ChannelsGroup>
+    <ChannelsGroup ID="1" Name="MH" Value="0">3,0,3,1,3,2,3,3,3,4,3,5,3,6,3,7,3,8,3,9,3,10,3,11,3,12,3,13,4,0,4,1,4,2,4,3,4,4,4,5,4,6,4,7,4,8,4,9,4,10,4,11,4,12,4,13</ChannelsGroup>
+    <Function ID="0" Type="Show" Name="SBD_cycle_of_a_pscho">
       <TimeDivision Type="Time" BPM="95.0"/>
-      <Track ID="0" Name="BARS" SceneID="11" isMute="0">
-        <ShowFunction ID="12" StartTime="0" Color="#ffffff"/>
+      <Track ID="0" Name="B1" SceneID="1" isMute="0">
+        <ShowFunction ID="2" StartTime="0" Color="#ffffff"/>
+      </Track>
+      <Track ID="1" Name="MH" SceneID="3" isMute="0">
+        <ShowFunction ID="4" StartTime="0" Color="#ffffff"/>
       </Track>
     </Function>
-    <Function ID="11" Type="Scene" Name="Scene for SBD_hit_the_road_jack - Track 1" Hidden="True">
+    <Function ID="1" Type="Scene" Name="Scene for SBD_cycle_of_a_pscho - Track 1" Hidden="True">
       <Speed FadeIn="0" FadeOut="0" Duration="0"/>
       <ChannelGroupsVal>0,0</ChannelGroupsVal>
       <FixtureVal ID="0">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
       <FixtureVal ID="1">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
+      <FixtureVal ID="2">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
     </Function>
-    <Function ID="12" Type="Sequence" Name="SBD_hit_the_road_jack_BARS_klickintro" BoundScene="11">
+    <Function ID="2" Type="Sequence" Name="SBD_cycle_of_a_pscho_B1_klickintro" BoundScene="1">
+      <Speed FadeIn="63" FadeOut="0" Duration="631"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+      <Step Number="0" FadeIn="631" Hold="0" FadeOut="0" Values="120">0:0,209,4,209,8,209,12,209,16,209,20,209,24,209,28,209,32,209,36,209,1,45,5,45,9,45,13,45,17,45,21,45,25,45,29,45,33,45,37,45,2,52,6,52,10,52,14,52,18,52,22,52,26,52,30,52,34,52,38,52,3,80,7,80,11,80,15,80,19,80,23,80,27,80,31,80,35,80,39,80:1:0,209,4,209,8,209,12,209,16,209,20,209,24,209,28,209,32,209,36,209,1,45,5,45,9,45,13,45,17,45,21,45,25,45,29,45,33,45,37,45,2,52,6,52,10,52,14,52,18,52,22,52,26,52,30,52,34,52,38,52,3,80,7,80,11,80,15,80,19,80,23,80,27,80,31,80,35,80,39,80:2:0,209,4,209,8,209,12,209,16,209,20,209,24,209,28,209,32,209,36,209,1,45,5,45,9,45,13,45,17,45,21,45,25,45,29,45,33,45,37,45,2,52,6,52,10,52,14,52,18,52,22,52,26,52,30,52,34,52,38,52,3,80,7,80,11,80,15,80,19,80,23,80,27,80,31,80,35,80,39,80</Step>
+      <Step Number="1" FadeIn="631" Hold="0" FadeOut="0" Values="120">0:0,179,4,179,8,179,12,179,16,179,20,179,24,179,28,179,32,179,36,179,1,38,5,38,9,38,13,38,17,38,21,38,25,38,29,38,33,38,37,38,2,44,6,44,10,44,14,44,18,44,22,44,26,44,30,44,34,44,38,44,3,68,7,68,11,68,15,68,19,68,23,68,27,68,31,68,35,68,39,68:1:0,179,4,179,8,179,12,179,16,179,20,179,24,179,28,179,32,179,36,179,1,38,5,38,9,38,13,38,17,38,21,38,25,38,29,38,33,38,37,38,2,44,6,44,10,44,14,44,18,44,22,44,26,44,30,44,34,44,38,44,3,68,7,68,11,68,15,68,19,68,23,68,27,68,31,68,35,68,39,68:2:0,179,4,179,8,179,12,179,16,179,20,179,24,179,28,179,32,179,36,179,1,38,5,38,9,38,13,38,17,38,21,38,25,38,29,38,33,38,37,38,2,44,6,44,10,44,14,44,18,44,22,44,26,44,30,44,34,44,38,44,3,68,7,68,11,68,15,68,19,68,23,68,27,68,31,68,35,68,39,68</Step>
+      <Step Number="2" FadeIn="631" Hold="0" FadeOut="0" Values="120">0:0,216,4,216,8,216,12,216,16,216,20,216,24,216,28,216,32,216,36,216,1,46,5,46,9,46,13,46,17,46,21,46,25,46,29,46,33,46,37,46,2,53,6,53,10,53,14,53,18,53,22,53,26,53,30,53,34,53,38,53,3,82,7,82,11,82,15,82,19,82,23,82,27,82,31,82,35,82,39,82:1:0,216,4,216,8,216,12,216,16,216,20,216,24,216,28,216,32,216,36,216,1,46,5,46,9,46,13,46,17,46,21,46,25,46,29,46,33,46,37,46,2,53,6,53,10,53,14,53,18,53,22,53,26,53,30,53,34,53,38,53,3,82,7,82,11,82,15,82,19,82,23,82,27,82,31,82,35,82,39,82:2:0,216,4,216,8,216,12,216,16,216,20,216,24,216,28,216,32,216,36,216,1,46,5,46,9,46,13,46,17,46,21,46,25,46,29,46,33,46,37,46,2,53,6,53,10,53,14,53,18,53,22,53,26,53,30,53,34,53,38,53,3,82,7,82,11,82,15,82,19,82,23,82,27,82,31,82,35,82,39,82</Step>
+      <Step Number="3" FadeIn="631" Hold="0" FadeOut="0" Values="120">0:0,202,4,202,8,202,12,202,16,202,20,202,24,202,28,202,32,202,36,202,1,43,5,43,9,43,13,43,17,43,21,43,25,43,29,43,33,43,37,43,2,50,6,50,10,50,14,50,18,50,22,50,26,50,30,50,34,50,38,50,3,77,7,77,11,77,15,77,19,77,23,77,27,77,31,77,35,77,39,77:1:0,202,4,202,8,202,12,202,16,202,20,202,24,202,28,202,32,202,36,202,1,43,5,43,9,43,13,43,17,43,21,43,25,43,29,43,33,43,37,43,2,50,6,50,10,50,14,50,18,50,22,50,26,50,30,50,34,50,38,50,3,77,7,77,11,77,15,77,19,77,23,77,27,77,31,77,35,77,39,77:2:0,202,4,202,8,202,12,202,16,202,20,202,24,202,28,202,32,202,36,202,1,43,5,43,9,43,13,43,17,43,21,43,25,43,29,43,33,43,37,43,2,50,6,50,10,50,14,50,18,50,22,50,26,50,30,50,34,50,38,50,3,77,7,77,11,77,15,77,19,77,23,77,27,77,31,77,35,77,39,77</Step>
+      <Step Number="4" FadeIn="631" Hold="0" FadeOut="0" Values="120">0:0,148,4,148,8,148,12,148,16,148,20,148,24,148,28,148,32,148,36,148,1,32,5,32,9,32,13,32,17,32,21,32,25,32,29,32,33,32,37,32,2,37,6,37,10,37,14,37,18,37,22,37,26,37,30,37,34,37,38,37,3,56,7,56,11,56,15,56,19,56,23,56,27,56,31,56,35,56,39,56:1:0,148,4,148,8,148,12,148,16,148,20,148,24,148,28,148,32,148,36,148,1,32,5,32,9,32,13,32,17,32,21,32,25,32,29,32,33,32,37,32,2,37,6,37,10,37,14,37,18,37,22,37,26,37,30,37,34,37,38,37,3,56,7,56,11,56,15,56,19,56,23,56,27,56,31,56,35,56,39,56:2:0,148,4,148,8,148,12,148,16,148,20,148,24,148,28,148,32,148,36,148,1,32,5,32,9,32,13,32,17,32,21,32,25,32,29,32,33,32,37,32,2,37,6,37,10,37,14,37,18,37,22,37,26,37,30,37,34,37,38,37,3,56,7,56,11,56,15,56,19,56,23,56,27,56,31,56,35,56,39,56</Step>
+      <Step Number="5" FadeIn="631" Hold="0" FadeOut="0" Values="120">0:0,227,4,227,8,227,12,227,16,227,20,227,24,227,28,227,32,227,36,227,1,49,5,49,9,49,13,49,17,49,21,49,25,49,29,49,33,49,37,49,2,56,6,56,10,56,14,56,18,56,22,56,26,56,30,56,34,56,38,56,3,86,7,86,11,86,15,86,19,86,23,86,27,86,31,86,35,86,39,86:1:0,227,4,227,8,227,12,227,16,227,20,227,24,227,28,227,32,227,36,227,1,49,5,49,9,49,13,49,17,49,21,49,25,49,29,49,33,49,37,49,2,56,6,56,10,56,14,56,18,56,22,56,26,56,30,56,34,56,38,56,3,86,7,86,11,86,15,86,19,86,23,86,27,86,31,86,35,86,39,86:2:0,227,4,227,8,227,12,227,16,227,20,227,24,227,28,227,32,227,36,227,1,49,5,49,9,49,13,49,17,49,21,49,25,49,29,49,33,49,37,49,2,56,6,56,10,56,14,56,18,56,22,56,26,56,30,56,34,56,38,56,3,86,7,86,11,86,15,86,19,86,23,86,27,86,31,86,35,86,39,86</Step>
+      <Step Number="6" FadeIn="631" Hold="0" FadeOut="0" Values="120">0:0,208,4,208,8,208,12,208,16,208,20,208,24,208,28,208,32,208,36,208,1,45,5,45,9,45,13,45,17,45,21,45,25,45,29,45,33,45,37,45,2,51,6,51,10,51,14,51,18,51,22,51,26,51,30,51,34,51,38,51,3,79,7,79,11,79,15,79,19,79,23,79,27,79,31,79,35,79,39,79:1:0,208,4,208,8,208,12,208,16,208,20,208,24,208,28,208,32,208,36,208,1,45,5,45,9,45,13,45,17,45,21,45,25,45,29,45,33,45,37,45,2,51,6,51,10,51,14,51,18,51,22,51,26,51,30,51,34,51,38,51,3,79,7,79,11,79,15,79,19,79,23,79,27,79,31,79,35,79,39,79:2:0,208,4,208,8,208,12,208,16,208,20,208,24,208,28,208,32,208,36,208,1,45,5,45,9,45,13,45,17,45,21,45,25,45,29,45,33,45,37,45,2,51,6,51,10,51,14,51,18,51,22,51,26,51,30,51,34,51,38,51,3,79,7,79,11,79,15,79,19,79,23,79,27,79,31,79,35,79,39,79</Step>
+      <Step Number="7" FadeIn="631" Hold="0" FadeOut="0" Values="120">0:0,210,4,210,8,210,12,210,16,210,20,210,24,210,28,210,32,210,36,210,1,45,5,45,9,45,13,45,17,45,21,45,25,45,29,45,33,45,37,45,2,52,6,52,10,52,14,52,18,52,22,52,26,52,30,52,34,52,38,52,3,80,7,80,11,80,15,80,19,80,23,80,27,80,31,80,35,80,39,80:1:0,210,4,210,8,210,12,210,16,210,20,210,24,210,28,210,32,210,36,210,1,45,5,45,9,45,13,45,17,45,21,45,25,45,29,45,33,45,37,45,2,52,6,52,10,52,14,52,18,52,22,52,26,52,30,52,34,52,38,52,3,80,7,80,11,80,15,80,19,80,23,80,27,80,31,80,35,80,39,80:2:0,210,4,210,8,210,12,210,16,210,20,210,24,210,28,210,32,210,36,210,1,45,5,45,9,45,13,45,17,45,21,45,25,45,29,45,33,45,37,45,2,52,6,52,10,52,14,52,18,52,22,52,26,52,30,52,34,52,38,52,3,80,7,80,11,80,15,80,19,80,23,80,27,80,31,80,35,80,39,80</Step>
+    </Function>
+    <Function ID="3" Type="Scene" Name="Scene for SBD_cycle_of_a_pscho - Track 2" Hidden="True">
+      <Speed FadeIn="0" FadeOut="0" Duration="0"/>
+      <ChannelGroupsVal>1,0</ChannelGroupsVal>
+      <FixtureVal ID="3">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0</FixtureVal>
+      <FixtureVal ID="4">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0</FixtureVal>
+    </Function>
+    <Function ID="4" Type="Sequence" Name="SBD_cycle_of_a_pscho_MH_klickintro" BoundScene="3">
+      <Speed FadeIn="63" FadeOut="0" Duration="631"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+      <Step Number="0" FadeIn="5048" Hold="0" FadeOut="0" Values="4">3:0,152,2,127:4:0,185,2,127</Step>
+    </Function>
+    <Function ID="5" Type="Show" Name="SBD_hit_the_road_jack">
+      <TimeDivision Type="Time" BPM="95.0"/>
+      <Track ID="0" Name="B1" SceneID="6" isMute="0">
+        <ShowFunction ID="7" StartTime="0" Color="#ffffff"/>
+      </Track>
+      <Track ID="1" Name="MH" SceneID="8" isMute="0">
+        <ShowFunction ID="9" StartTime="0" Color="#ffffff"/>
+      </Track>
+    </Function>
+    <Function ID="6" Type="Scene" Name="Scene for SBD_hit_the_road_jack - Track 1" Hidden="True">
+      <Speed FadeIn="0" FadeOut="0" Duration="0"/>
+      <ChannelGroupsVal>0,0</ChannelGroupsVal>
+      <FixtureVal ID="0">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
+      <FixtureVal ID="1">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
+      <FixtureVal ID="2">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
+    </Function>
+    <Function ID="7" Type="Sequence" Name="SBD_hit_the_road_jack_B1_klickintro" BoundScene="6">
       <Speed FadeIn="63" FadeOut="0" Duration="631"/>
       <Direction>Forward</Direction>
       <RunOrder>SingleShot</RunOrder>
       <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
     </Function>
-    <Function ID="13" Type="Show" Name="SBD_cycle_of_a_pscho">
-      <TimeDivision Type="Time" BPM="95.0"/>
-      <Track ID="0" Name="BARS" SceneID="14" isMute="0">
-        <ShowFunction ID="15" StartTime="0" Color="#ffffff"/>
-      </Track>
-    </Function>
-    <Function ID="14" Type="Scene" Name="Scene for SBD_cycle_of_a_pscho - Track 1" Hidden="True">
+    <Function ID="8" Type="Scene" Name="Scene for SBD_hit_the_road_jack - Track 2" Hidden="True">
       <Speed FadeIn="0" FadeOut="0" Duration="0"/>
-      <ChannelGroupsVal>0,0</ChannelGroupsVal>
-      <FixtureVal ID="0">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
-      <FixtureVal ID="1">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
+      <ChannelGroupsVal>1,0</ChannelGroupsVal>
+      <FixtureVal ID="3">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0</FixtureVal>
+      <FixtureVal ID="4">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0</FixtureVal>
     </Function>
-    <Function ID="15" Type="Sequence" Name="SBD_cycle_of_a_pscho_BARS_klickintro" BoundScene="14">
+    <Function ID="9" Type="Sequence" Name="SBD_hit_the_road_jack_MH_klickintro" BoundScene="8">
       <Speed FadeIn="63" FadeOut="0" Duration="631"/>
       <Direction>Forward</Direction>
       <RunOrder>SingleShot</RunOrder>
       <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
-      <Step Number="0" FadeIn="631" Hold="0" FadeOut="0" Values="80">0:0,200,4,200,8,200,12,200,16,200,20,200,24,200,28,200,32,200,36,200,1,99,5,99,9,99,13,99,17,99,21,99,25,99,29,99,33,99,37,99,2,0,6,0,10,0,14,0,18,0,22,0,26,0,30,0,34,0,38,0,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0:1:0,200,4,200,8,200,12,200,16,200,20,200,24,200,28,200,32,200,36,200,1,99,5,99,9,99,13,99,17,99,21,99,25,99,29,99,33,99,37,99,2,0,6,0,10,0,14,0,18,0,22,0,26,0,30,0,34,0,38,0,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0</Step>
-      <Step Number="1" FadeIn="631" Hold="0" FadeOut="0" Values="80">0:0,200,4,200,8,200,12,200,16,200,20,200,24,200,28,200,32,200,36,200,1,200,5,200,9,200,13,200,17,200,21,200,25,200,29,200,33,200,37,200,2,0,6,0,10,0,14,0,18,0,22,0,26,0,30,0,34,0,38,0,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0:1:0,200,4,200,8,200,12,200,16,200,20,200,24,200,28,200,32,200,36,200,1,200,5,200,9,200,13,200,17,200,21,200,25,200,29,200,33,200,37,200,2,0,6,0,10,0,14,0,18,0,22,0,26,0,30,0,34,0,38,0,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0</Step>
-      <Step Number="2" FadeIn="631" Hold="0" FadeOut="0" Values="80">0:0,0,4,0,8,0,12,0,16,0,20,0,24,0,28,0,32,0,36,0,1,200,5,200,9,200,13,200,17,200,21,200,25,200,29,200,33,200,37,200,2,0,6,0,10,0,14,0,18,0,22,0,26,0,30,0,34,0,38,0,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0:1:0,0,4,0,8,0,12,0,16,0,20,0,24,0,28,0,32,0,36,0,1,200,5,200,9,200,13,200,17,200,21,200,25,200,29,200,33,200,37,200,2,0,6,0,10,0,14,0,18,0,22,0,26,0,30,0,34,0,38,0,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0</Step>
-      <Step Number="3" FadeIn="631" Hold="0" FadeOut="0" Values="80">0:0,0,4,0,8,0,12,0,16,0,20,0,24,0,28,0,32,0,36,0,1,200,5,200,9,200,13,200,17,200,21,200,25,200,29,200,33,200,37,200,2,200,6,200,10,200,14,200,18,200,22,200,26,200,30,200,34,200,38,200,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0:1:0,0,4,0,8,0,12,0,16,0,20,0,24,0,28,0,32,0,36,0,1,200,5,200,9,200,13,200,17,200,21,200,25,200,29,200,33,200,37,200,2,200,6,200,10,200,14,200,18,200,22,200,26,200,30,200,34,200,38,200,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0</Step>
-      <Step Number="4" FadeIn="631" Hold="0" FadeOut="0" Values="80">0:0,0,4,0,8,0,12,0,16,0,20,0,24,0,28,0,32,0,36,0,1,0,5,0,9,0,13,0,17,0,21,0,25,0,29,0,33,0,37,0,2,200,6,200,10,200,14,200,18,200,22,200,26,200,30,200,34,200,38,200,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0:1:0,0,4,0,8,0,12,0,16,0,20,0,24,0,28,0,32,0,36,0,1,0,5,0,9,0,13,0,17,0,21,0,25,0,29,0,33,0,37,0,2,200,6,200,10,200,14,200,18,200,22,200,26,200,30,200,34,200,38,200,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0</Step>
-      <Step Number="5" FadeIn="631" Hold="0" FadeOut="0" Values="80">0:0,58,4,58,8,58,12,58,16,58,20,58,24,58,28,58,32,58,36,58,1,0,5,0,9,0,13,0,17,0,21,0,25,0,29,0,33,0,37,0,2,101,6,101,10,101,14,101,18,101,22,101,26,101,30,101,34,101,38,101,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0:1:0,58,4,58,8,58,12,58,16,58,20,58,24,58,28,58,32,58,36,58,1,0,5,0,9,0,13,0,17,0,21,0,25,0,29,0,33,0,37,0,2,101,6,101,10,101,14,101,18,101,22,101,26,101,30,101,34,101,38,101,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0</Step>
-      <Step Number="6" FadeIn="631" Hold="0" FadeOut="0" Values="80">0:0,116,4,116,8,116,12,116,16,116,20,116,24,116,28,116,32,116,36,116,1,0,5,0,9,0,13,0,17,0,21,0,25,0,29,0,33,0,37,0,2,165,6,165,10,165,14,165,18,165,22,165,26,165,30,165,34,165,38,165,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0:1:0,116,4,116,8,116,12,116,16,116,20,116,24,116,28,116,32,116,36,116,1,0,5,0,9,0,13,0,17,0,21,0,25,0,29,0,33,0,37,0,2,165,6,165,10,165,14,165,18,165,22,165,26,165,30,165,34,165,38,165,3,0,7,0,11,0,15,0,19,0,23,0,27,0,31,0,35,0,39,0</Step>
-      <Step Number="7" FadeIn="631" Hold="0" FadeOut="0" Values="80">0:0,200,4,200,8,200,12,200,16,200,20,200,24,200,28,200,32,200,36,200,1,200,5,200,9,200,13,200,17,200,21,200,25,200,29,200,33,200,37,200,2,200,6,200,10,200,14,200,18,200,22,200,26,200,30,200,34,200,38,200,3,200,7,200,11,200,15,200,19,200,23,200,27,200,31,200,35,200,39,200:1:0,200,4,200,8,200,12,200,16,200,20,200,24,200,28,200,32,200,36,200,1,200,5,200,9,200,13,200,17,200,21,200,25,200,29,200,33,200,37,200,2,200,6,200,10,200,14,200,18,200,22,200,26,200,30,200,34,200,38,200,3,200,7,200,11,200,15,200,19,200,23,200,27,200,31,200,35,200,39,200</Step>
+    </Function>
+    <Function ID="10" Type="Show" Name="show_1">
+      <TimeDivision Type="Time" BPM="190.0"/>
+      <Track ID="0" Name="B1" SceneID="11" isMute="0">
+        <ShowFunction ID="12" StartTime="0" Color="#00ffff"/>
+        <ShowFunction ID="13" StartTime="20210" Color="#ff8000"/>
+        <ShowFunction ID="14" StartTime="34979" Color="#ff0080"/>
+      </Track>
+      <Track ID="1" Name="MH" SceneID="15" isMute="0">
+        <ShowFunction ID="16" StartTime="0" Color="#00ffff"/>
+        <ShowFunction ID="17" StartTime="20210" Color="#ff8000"/>
+        <ShowFunction ID="18" StartTime="34979" Color="#ff0080"/>
+      </Track>
+    </Function>
+    <Function ID="11" Type="Scene" Name="Scene for show_1 - Track 1" Hidden="True">
+      <Speed FadeIn="0" FadeOut="0" Duration="0"/>
+      <ChannelGroupsVal>0,0</ChannelGroupsVal>
+      <FixtureVal ID="0">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
+      <FixtureVal ID="1">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
+      <FixtureVal ID="2">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
+    </Function>
+    <Function ID="12" Type="Sequence" Name="show_1_B1_vers" BoundScene="11">
+      <Speed FadeIn="31" FadeOut="0" Duration="315"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+    </Function>
+    <Function ID="13" Type="Sequence" Name="show_1_B1_interlude" BoundScene="11">
+      <Speed FadeIn="60" FadeOut="0" Duration="600"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+    </Function>
+    <Function ID="14" Type="Sequence" Name="show_1_B1_chorus" BoundScene="11">
+      <Speed FadeIn="37" FadeOut="0" Duration="375"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+    </Function>
+    <Function ID="15" Type="Scene" Name="Scene for show_1 - Track 2" Hidden="True">
+      <Speed FadeIn="0" FadeOut="0" Duration="0"/>
+      <ChannelGroupsVal>1,0</ChannelGroupsVal>
+      <FixtureVal ID="3">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0</FixtureVal>
+      <FixtureVal ID="4">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0</FixtureVal>
+    </Function>
+    <Function ID="16" Type="Sequence" Name="show_1_MH_vers" BoundScene="15">
+      <Speed FadeIn="31" FadeOut="0" Duration="315"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+    </Function>
+    <Function ID="17" Type="Sequence" Name="show_1_MH_interlude" BoundScene="15">
+      <Speed FadeIn="60" FadeOut="0" Duration="600"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+    </Function>
+    <Function ID="18" Type="Sequence" Name="show_1_MH_chorus" BoundScene="15">
+      <Speed FadeIn="37" FadeOut="0" Duration="375"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+    </Function>
+    <Function ID="19" Type="Show" Name="show_2">
+      <TimeDivision Type="Time" BPM="190.0"/>
+      <Track ID="0" Name="B1" SceneID="20" isMute="0">
+        <ShowFunction ID="21" StartTime="0" Color="#00ffff"/>
+        <ShowFunction ID="22" StartTime="10105" Color="#ff8000"/>
+        <ShowFunction ID="23" StartTime="48505" Color="#ff0080"/>
+      </Track>
+      <Track ID="1" Name="MH" SceneID="24" isMute="0">
+        <ShowFunction ID="25" StartTime="0" Color="#00ffff"/>
+        <ShowFunction ID="26" StartTime="10105" Color="#ff8000"/>
+        <ShowFunction ID="27" StartTime="48505" Color="#ff0080"/>
+      </Track>
+    </Function>
+    <Function ID="20" Type="Scene" Name="Scene for show_2 - Track 1" Hidden="True">
+      <Speed FadeIn="0" FadeOut="0" Duration="0"/>
+      <ChannelGroupsVal>0,0</ChannelGroupsVal>
+      <FixtureVal ID="0">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
+      <FixtureVal ID="1">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
+      <FixtureVal ID="2">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0,14,0,15,0,16,0,17,0,18,0,19,0,20,0,21,0,22,0,23,0,24,0,25,0,26,0,27,0,28,0,29,0,30,0,31,0,32,0,33,0,34,0,35,0,36,0,37,0,38,0,39,0</FixtureVal>
+    </Function>
+    <Function ID="21" Type="Sequence" Name="show_2_B1_intro" BoundScene="20">
+      <Speed FadeIn="31" FadeOut="0" Duration="315"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+    </Function>
+    <Function ID="22" Type="Sequence" Name="show_2_B1_vers" BoundScene="20">
+      <Speed FadeIn="60" FadeOut="0" Duration="600"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+    </Function>
+    <Function ID="23" Type="Sequence" Name="show_2_B1_chorus" BoundScene="20">
+      <Speed FadeIn="37" FadeOut="0" Duration="375"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+    </Function>
+    <Function ID="24" Type="Scene" Name="Scene for show_2 - Track 2" Hidden="True">
+      <Speed FadeIn="0" FadeOut="0" Duration="0"/>
+      <ChannelGroupsVal>1,0</ChannelGroupsVal>
+      <FixtureVal ID="3">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0</FixtureVal>
+      <FixtureVal ID="4">0,0,1,0,2,0,3,0,4,0,5,0,6,0,7,0,8,0,9,0,10,0,11,0,12,0,13,0</FixtureVal>
+    </Function>
+    <Function ID="25" Type="Sequence" Name="show_2_MH_intro" BoundScene="24">
+      <Speed FadeIn="31" FadeOut="0" Duration="315"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+    </Function>
+    <Function ID="26" Type="Sequence" Name="show_2_MH_vers" BoundScene="24">
+      <Speed FadeIn="60" FadeOut="0" Duration="600"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
+    </Function>
+    <Function ID="27" Type="Sequence" Name="show_2_MH_chorus" BoundScene="24">
+      <Speed FadeIn="37" FadeOut="0" Duration="375"/>
+      <Direction>Forward</Direction>
+      <RunOrder>SingleShot</RunOrder>
+      <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
     </Function>
     <SimpleDesk>
       <Engine/>
