@@ -98,11 +98,30 @@ class Ui_MainWindow(object):
         self.loadAction.setText(_translate("MainWindow", "Load Configuration"))
 
     def setupConfigTab(self):
-        # Main layout for the configuration tab
-        layout = QtWidgets.QVBoxLayout(self.tab_config)
+        # Add buttons directly to the tab
+        self.add_universe_btn = QtWidgets.QPushButton(parent=self.tab_config)
+        self.add_universe_btn.setGeometry(QtCore.QRect(10, 14, 31, 31))
+        self.add_universe_btn.setText("+")
+        self.add_universe_btn.setToolTip("Add Universe")
 
-        # Universe list
-        self.universe_list = QtWidgets.QTableWidget()
+        self.remove_universe_btn = QtWidgets.QPushButton(parent=self.tab_config)
+        self.remove_universe_btn.setGeometry(QtCore.QRect(50, 14, 31, 31))
+        self.remove_universe_btn.setText("-")
+        self.remove_universe_btn.setToolTip("Remove Universe")
+
+        self.update_config_btn = QtWidgets.QPushButton(parent=self.tab_config)
+        self.update_config_btn.setGeometry(QtCore.QRect(90, 14, 115, 31))
+        self.update_config_btn.setText("Update Config")
+        self.update_config_btn.setToolTip("Update Configuration")
+
+        # Universe list label
+        self.config_label = QtWidgets.QLabel("Config", parent=self.tab_config)
+        self.config_label.setGeometry(QtCore.QRect(10, 60, 81, 17))
+        self.config_label.setFont(QFont("", 14, QFont.Weight.Bold))
+
+        # Universe list table
+        self.universe_list = QtWidgets.QTableWidget(parent=self.tab_config)
+        self.universe_list.setGeometry(QtCore.QRect(10, 80, 1151, 640))
         self.universe_list.setColumnCount(6)
         self.universe_list.setHorizontalHeaderLabels([
             "Universe", "Output Type", "IP Address", "Port", "Subnet", "Universe"
@@ -111,18 +130,6 @@ class Ui_MainWindow(object):
         # Set table properties
         self.universe_list.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.universe_list.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-
-        # Add/Remove buttons
-        button_layout = QtWidgets.QHBoxLayout()
-        self.add_universe_btn = QtWidgets.QPushButton("+")
-        self.remove_universe_btn = QtWidgets.QPushButton("-")
-        button_layout.addWidget(self.add_universe_btn)
-        button_layout.addWidget(self.remove_universe_btn)
-        button_layout.addStretch()
-
-        # Add widgets to main layout
-        layout.addLayout(button_layout)
-        layout.addWidget(self.universe_list)
 
     def setupFixturesTab(self):
         # Add Fixture buttons
@@ -135,6 +142,12 @@ class Ui_MainWindow(object):
         self.pushButton_2.setGeometry(QtCore.QRect(50, 14, 31, 31))
         self.pushButton_2.setText("-")
         self.pushButton_2.setToolTip("Remove Fixture")
+
+        # Update Fixtures button
+        self.updateFixturesButton = QtWidgets.QPushButton(parent=self.tab)
+        self.updateFixturesButton.setGeometry(QtCore.QRect(90, 14, 115, 31))
+        self.updateFixturesButton.setText("Update Fixtures")
+        self.updateFixturesButton.setToolTip("Update Fixtures in Config")
 
         # Fixtures table
         self.tableWidget = QtWidgets.QTableWidget(parent=self.tab)
