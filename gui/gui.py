@@ -132,6 +132,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 if name_item and name_item.text():
                     fixture.name = name_item.text()
 
+                # Update direction (column 8)
+                direction_combo = self.tableWidget.cellWidget(row, 8)
+                if direction_combo and isinstance(direction_combo, QtWidgets.QComboBox):
+                    display_value = direction_combo.currentText()
+                    if display_value == "↑":
+                        fixture.direction = "UP"
+                    elif display_value == "↓":
+                        fixture.direction = "DOWN"
+                    else:
+                        fixture.direction = "NONE"
+
             self.update_groups()
 
             # Refresh the table to show any changes
@@ -188,7 +199,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.config.groups[new_group].fixtures.append(fixture)
 
         elif col == 8:  # Direction
-            fixture.direction = widget.currentText()
+            # Convert display arrows to standardized text values
+            display_value = widget.currentText()
+            if display_value == "↑":
+                fixture.direction = "UP"
+            elif display_value == "↓":
+                fixture.direction = "DOWN"
+            else:
+                fixture.direction = "NONE"
 
     def update_groups(self):
         """Update groups in configuration"""
@@ -379,7 +397,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Direction
             direction_combo = QtWidgets.QComboBox()
             direction_combo.addItems(["", "↑", "↓"])
-            direction_combo.setCurrentText(fixture.direction)
+            # Map the stored direction value to the correct display value
+            display_value = ""
+            if fixture.direction == "UP":
+                display_value = "↑"
+            elif fixture.direction == "DOWN":
+                display_value = "↓"
+
+            direction_combo.setCurrentText(display_value)
             self.tableWidget.setCellWidget(row, 8, direction_combo)
 
         self.update_row_colors()
@@ -1050,7 +1075,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     # Direction combo
                     direction_combo = QtWidgets.QComboBox()
                     direction_combo.addItems(["", "↑", "↓"])
-                    direction_combo.currentIndexChanged.connect(update_fixture_configuration)
+
+                    def update_direction(index):
+                        # Convert display value to standardized value
+                        display_value = direction_combo.currentText()
+                        if display_value == "↑":
+                            self.config.fixtures[row].direction = "UP"
+                        elif display_value == "↓":
+                            self.config.fixtures[row].direction = "DOWN"
+                        else:
+                            self.config.fixtures[row].direction = "NONE"
+                        update_fixture_configuration()
+
+                    direction_combo.currentIndexChanged.connect(update_direction)
                     self.tableWidget.setCellWidget(row, 8, direction_combo)
 
                     # Create initial fixture object
@@ -1094,9 +1131,36 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         selected_rows = self.tableWidget.selectedItems()
         if selected_rows:
             row = selected_rows[0].row()
+
+            # Remove the fixture from the configuration
+            if row < len(self.config.fixtures):
+                # Get the fixture that's being deleted
+                fixture = self.config.fixtures[row]
+
+                # If it belongs to a group, remove it from the group
+                if fixture.group and fixture.group in self.config.groups:
+                    group = self.config.groups[fixture.group]
+                    group.fixtures = [f for f in group.fixtures if f != fixture]
+
+                    # If the group is now empty, remove it
+                    if not group.fixtures:
+                        del self.config.groups[fixture.group]
+
+                # Remove the fixture from the configuration
+                self.config.fixtures.pop(row)
+
+            # Remove the row from the table
             self.tableWidget.removeRow(row)
+
+            # Clean up fixture paths if needed
             if row < len(self.fixture_paths):
                 self.fixture_paths.pop(row)
+
+            # Update the groups to ensure consistency
+            self.update_groups()
+
+            # Update row colors to reflect any group changes
+            self.update_row_colors()
 
     def import_workspace(self):
         file_path, _ = QFileDialog.getOpenFileName(
