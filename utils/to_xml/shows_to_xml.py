@@ -109,13 +109,13 @@ def calculate_start_time(previous_time, signature, bpm, num_bars, transition, pr
 
     if transition == "instant" or previous_bpm is None:
         milliseconds_per_bar = (60000 / bpm) * beats_per_bar
-        return previous_time + int(milliseconds_per_bar * num_bars)
+        return previous_time + int(milliseconds_per_bar * int(num_bars))
 
     elif transition == "gradual":
         total_time = 0
-        for bar in range(num_bars):
+        for bar in range(int(num_bars)):
             # Using a slightly curved interpolation instead of linear
-            progress = (bar / num_bars) ** 0.52  # Adding slight curve to the transition
+            progress = (bar / int(num_bars)) ** 0.52  # Adding slight curve to the transition
             current_bpm = previous_bpm + (bpm - previous_bpm) * progress
             milliseconds_per_bar = (60000 / current_bpm) * beats_per_bar
             total_time += milliseconds_per_bar
@@ -147,6 +147,15 @@ def calculate_step_timing(signature, start_bpm, end_bpm, num_bars, speed="1", tr
         speed_multiplier = num / denom
     else:
         speed_multiplier = float(speed)
+
+    # Make sure num_bars is integer
+    num_bars = int(num_bars)
+    try:
+        start_bpm = float(start_bpm)
+    except TypeError:
+        # Start_bpm can be None Type object
+        pass
+    end_bpm = float(end_bpm)
 
     numerator, denominator = map(int, signature.split('/'))
     beats_per_bar = (numerator * 4) / denominator
@@ -217,7 +226,7 @@ def create_sequence(root, sequence_id, sequence_name, bound_scene_id, bpm=120):
     sequence.set("BoundScene", str(bound_scene_id))
 
     # Calculate default timing based on BPM
-    ms_per_beat = 60000 / bpm
+    ms_per_beat = 60000 / float(bpm)
 
     speed = ET.SubElement(sequence, "Speed")
     speed.set("FadeIn", str(int(ms_per_beat * 0.1)))  # 10% of beat time
@@ -363,12 +372,12 @@ def create_tracks(show_function, engine, show, effects_by_group, config, fixture
             start_time = calculate_start_time(
                 start_time,
                 part.signature,
-                part.bpm,
+                float(part.bpm),
                 part.num_bars,
                 part.transition,
                 previous_bpm
             )
-            previous_bpm = part.bpm
+            previous_bpm = float(part.bpm)
 
         fixture_start_id += fixture_num
         track_id += 1
@@ -548,7 +557,8 @@ def create_shows(engine, config: Configuration, fixture_id_map: dict, fixture_de
     function_id_counter = 0
 
     # Load effects modules from effects directory
-    effects_dir = os.path.join(os.path.dirname(__file__), "../../", "effects")
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    effects_dir = os.path.join(project_root, "effects")
     effects = load_effects(effects_dir)
 
     # Process each show in the configuration

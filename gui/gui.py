@@ -78,12 +78,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Add universe management signals
         self.add_universe_btn.clicked.connect(self.add_universe_config)
         self.remove_universe_btn.clicked.connect(self.remove_universe_config)
+        self.update_config_btn.clicked.connect(self.update_universe_config_from_table)
         self.universe_list.itemChanged.connect(self.on_universe_item_changed)
 
-        # Connect existing buttons
+        # Connect Fixture Tab buttons
+        self.updateFixturesButton.clicked.connect(self.update_config_from_table)
         self.pushButton.clicked.connect(self.add_fixture)
         self.pushButton_2.clicked.connect(self.remove_fixture)
+        self.duplicateFixtureButton.clicked.connect(self.duplicate_fixture)
 
+        # Connect Show Tab buttons
         self.pushButton_5.clicked.connect(self.save_show)
         self.pushButton_7.clicked.connect(self.update_show_tab_from_config)
 
@@ -97,8 +101,83 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Connect stage plot button #TODO: write the plot_stage function
         #self.plot_stage_btn.clicked.connect(self.plot_stage)
 
-    def update_config_from_table(self, item):
-        """Update configuration when table items change"""
+    def update_config_from_table(self, item=None):
+        """Update configuration when table items change
+
+        Args:
+            item: When called from itemChanged signal, this is the QTableWidgetItem
+                  When called from a button click, this is ignored
+        """
+        # If called from button click, item will be a boolean True
+        # In this case, we should update all items
+        if isinstance(item, bool) or item is None:
+            # Update all fixtures
+            for row in range(self.tableWidget.rowCount()):
+                if row >= len(self.config.fixtures):
+                    continue
+
+                fixture = self.config.fixtures[row]
+
+                # Update universe and address
+                universe_spin = self.tableWidget.cellWidget(row, 0)
+                if universe_spin and isinstance(universe_spin, QtWidgets.QSpinBox):
+                    fixture.universe = universe_spin.value()
+
+                address_spin = self.tableWidget.cellWidget(row, 1)
+                if address_spin and isinstance(address_spin, QtWidgets.QSpinBox):
+                    fixture.address = address_spin.value()
+
+                # Update manufacturer
+                manufacturer_item = self.tableWidget.item(row, 2)
+                if manufacturer_item and manufacturer_item.text():
+                    fixture.manufacturer = manufacturer_item.text()
+
+                # Update model
+                model_item = self.tableWidget.item(row, 3)
+                if model_item and model_item.text():
+                    fixture.model = model_item.text()
+
+                # Update fixture mode (column 5)
+                mode_combo = self.tableWidget.cellWidget(row, 5)
+                if mode_combo and isinstance(mode_combo, QtWidgets.QComboBox):
+                    mode_text = mode_combo.currentText()
+                    # Extract mode name from combined text (like "Mode1 (16ch)")
+                    if " (" in mode_text:
+                        mode_name = mode_text.split(" (")[0]
+                        fixture.current_mode = mode_name
+
+                # Update name
+                name_item = self.tableWidget.item(row, 6)
+                if name_item and name_item.text():
+                    fixture.name = name_item.text()
+
+                # Update group
+                group_combo = self.tableWidget.cellWidget(row, 7)
+                if group_combo and isinstance(group_combo, QtWidgets.QComboBox):
+                    group_name = group_combo.currentText()
+                    if group_name and group_name != "Add New...":
+                        fixture.group = group_name
+                    else:
+                        fixture.group = ""
+
+                # Update direction (column 8)
+                direction_combo = self.tableWidget.cellWidget(row, 8)
+                if direction_combo and isinstance(direction_combo, QtWidgets.QComboBox):
+                    display_value = direction_combo.currentText()
+                    if display_value == "↑":
+                        fixture.direction = "UP"
+                    elif display_value == "↓":
+                        fixture.direction = "DOWN"
+                    else:
+                        fixture.direction = "NONE"
+
+            self.update_groups()
+
+            # Refresh the table to show any changes
+            self.update_fixture_tab_from_config()
+            return
+
+        # Original functionality for when an individual item changes
         row = item.row()
         col = item.column()
 
@@ -148,7 +227,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.config.groups[new_group].fixtures.append(fixture)
 
         elif col == 8:  # Direction
-            fixture.direction = widget.currentText()
+            # Convert display arrows to standardized text values
+            display_value = widget.currentText()
+            if display_value == "↑":
+                fixture.direction = "UP"
+            elif display_value == "↓":
+                fixture.direction = "DOWN"
+            else:
+                fixture.direction = "NONE"
 
     def update_groups(self):
         """Update groups in configuration"""
@@ -200,6 +286,46 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 group_combo.addItem(new_group)
                 group_combo.addItem("Add New...")
                 group_combo.setCurrentText(new_group)
+
+    def update_universe_config_from_table(self):
+        """Update universe configuration values from the universe table"""
+        for row in range(self.universe_list.rowCount()):
+            # Check if we have a valid universe ID in the first column
+            universe_id_item = self.universe_list.item(row, 0)
+            if universe_id_item is None or not universe_id_item.text():
+                continue
+
+            try:
+                universe_id = int(universe_id_item.text())
+
+                # Skip if this universe doesn't exist in config
+                if universe_id not in self.config.universes:
+                    continue
+
+                # Update IP Address
+                ip_item = self.universe_list.item(row, 2)
+                if ip_item and ip_item.text():
+                    self.config.universes[universe_id].output['parameters']['ip'] = ip_item.text()
+
+                # Update Port
+                port_item = self.universe_list.item(row, 3)
+                if port_item and port_item.text():
+                    self.config.universes[universe_id].output['parameters']['port'] = port_item.text()
+
+                # Update Subnet
+                subnet_item = self.universe_list.item(row, 4)
+                if subnet_item and subnet_item.text():
+                    self.config.universes[universe_id].output['parameters']['subnet'] = subnet_item.text()
+
+                # Update Universe
+                uni_item = self.universe_list.item(row, 5)
+                if uni_item and uni_item.text():
+                    self.config.universes[universe_id].output['parameters']['universe'] = uni_item.text()
+
+            except (ValueError, AttributeError) as e:
+                print(f"Error updating universe {row}: {e}")
+
+        print("Universe configuration updated from table")
 
     def update_fixture_tab_from_config(self):
         """Update fixture tab UI from configuration"""
@@ -299,7 +425,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             # Direction
             direction_combo = QtWidgets.QComboBox()
             direction_combo.addItems(["", "↑", "↓"])
-            direction_combo.setCurrentText(fixture.direction)
+            # Map the stored direction value to the correct display value
+            display_value = ""
+            if fixture.direction == "UP":
+                display_value = "↑"
+            elif fixture.direction == "DOWN":
+                display_value = "↓"
+
+            direction_combo.setCurrentText(display_value)
             self.tableWidget.setCellWidget(row, 8, direction_combo)
 
         self.update_row_colors()
@@ -970,7 +1103,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     # Direction combo
                     direction_combo = QtWidgets.QComboBox()
                     direction_combo.addItems(["", "↑", "↓"])
-                    direction_combo.currentIndexChanged.connect(update_fixture_configuration)
+
+                    def update_direction(index):
+                        # Convert display value to standardized value
+                        display_value = direction_combo.currentText()
+                        if display_value == "↑":
+                            self.config.fixtures[row].direction = "UP"
+                        elif display_value == "↓":
+                            self.config.fixtures[row].direction = "DOWN"
+                        else:
+                            self.config.fixtures[row].direction = "NONE"
+                        update_fixture_configuration()
+
+                    direction_combo.currentIndexChanged.connect(update_direction)
                     self.tableWidget.setCellWidget(row, 8, direction_combo)
 
                     # Create initial fixture object
@@ -996,11 +1141,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self.config.fixtures.append(new_fixture)
 
                     # Connect name changes
-                    def handle_name_change(item):
-                        if item.column() == 6 and item.row() == row:
-                            update_fixture_configuration()
-
-                    self.tableWidget.itemChanged.connect(handle_name_change)
+                    #def handle_name_change(item):
+                    #    if item.column() == 6 and item.row() == row:
+                    #        update_fixture_configuration()
+                    #
+                    #self.tableWidget.itemChanged.connect(handle_name_change)
 
                     print(f"Added fixture to table: {manufacturer} {model}")
 
@@ -1014,9 +1159,98 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         selected_rows = self.tableWidget.selectedItems()
         if selected_rows:
             row = selected_rows[0].row()
+
+            # Remove the fixture from the configuration
+            if row < len(self.config.fixtures):
+                # Get the fixture that's being deleted
+                fixture = self.config.fixtures[row]
+
+                # If it belongs to a group, remove it from the group
+                if fixture.group and fixture.group in self.config.groups:
+                    group = self.config.groups[fixture.group]
+                    group.fixtures = [f for f in group.fixtures if f != fixture]
+
+                    # If the group is now empty, remove it
+                    if not group.fixtures:
+                        del self.config.groups[fixture.group]
+
+                # Remove the fixture from the configuration
+                self.config.fixtures.pop(row)
+
+            # Remove the row from the table
             self.tableWidget.removeRow(row)
+
+            # Clean up fixture paths if needed
             if row < len(self.fixture_paths):
                 self.fixture_paths.pop(row)
+
+            # Update the groups to ensure consistency
+            self.update_groups()
+
+            # Update row colors to reflect any group changes
+            self.update_row_colors()
+
+    def duplicate_fixture(self):
+        """Duplicate the selected fixture"""
+        selected_rows = self.tableWidget.selectedItems()
+        if not selected_rows:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "No Selection",
+                "Please select a fixture to duplicate.",
+                QtWidgets.QMessageBox.StandardButton.Ok
+            )
+            return
+
+        # Get the row of the first selected item
+        row = selected_rows[0].row()
+
+        # Check if the row is valid
+        if row >= len(self.config.fixtures):
+            return
+
+        # Get the original fixture
+        original_fixture = self.config.fixtures[row]
+
+        # Get the channel count from the fixture's current mode
+        channel_count = 0
+        for mode in original_fixture.available_modes:
+            if mode.name == original_fixture.current_mode:
+                channel_count = mode.channels
+                break
+
+        # Create a deep copy of the fixture
+        new_fixture = Fixture(
+            universe=original_fixture.universe,
+            address=original_fixture.address + channel_count,  # Offset address to avoid conflicts
+            manufacturer=original_fixture.manufacturer,
+            model=original_fixture.model,
+            name=f"{original_fixture.name} (Copy)",  # Append "(Copy)" to the name
+            group=original_fixture.group,
+            direction=original_fixture.direction,
+            current_mode=original_fixture.current_mode,
+            available_modes=[
+                FixtureMode(name=mode.name, channels=mode.channels)
+                for mode in original_fixture.available_modes
+            ],
+            type=original_fixture.type,
+            x=original_fixture.x,
+            y=original_fixture.y,
+            z=original_fixture.z,
+            rotation=original_fixture.rotation
+        )
+
+        # Add to configuration
+        self.config.fixtures.append(new_fixture)
+
+        # Add to group if applicable
+        if new_fixture.group and new_fixture.group in self.config.groups:
+            self.config.groups[new_fixture.group].fixtures.append(new_fixture)
+
+        # Refresh the table to show the new fixture
+        self.update_fixture_tab_from_config()
+
+        print(f"Duplicated fixture: {original_fixture.manufacturer} {original_fixture.model}")
 
     def import_workspace(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -1099,8 +1333,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                 name=row['showpart'],
                                 color=row['color'],
                                 signature=row['signature'],
-                                bpm=row['bpm'],
-                                num_bars=row['num_bars'],
+                                bpm=float(row['bpm']),
+                                num_bars=int(row['num_bars']),
                                 transition=row['transition']
                             )
                             # Add part to show
