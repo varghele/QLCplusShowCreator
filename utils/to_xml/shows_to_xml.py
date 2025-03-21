@@ -148,6 +148,15 @@ def calculate_step_timing(signature, start_bpm, end_bpm, num_bars, speed="1", tr
     else:
         speed_multiplier = float(speed)
 
+    # Make sure num_bars is integer
+    num_bars = int(num_bars)
+    try:
+        start_bpm = float(start_bpm)
+    except TypeError:
+        # Start_bpm can be None Type object
+        pass
+    end_bpm = float(end_bpm)
+
     numerator, denominator = map(int, signature.split('/'))
     beats_per_bar = (numerator * 4) / denominator
     total_beats = num_bars * beats_per_bar
@@ -548,7 +557,8 @@ def create_shows(engine, config: Configuration, fixture_id_map: dict, fixture_de
     function_id_counter = 0
 
     # Load effects modules from effects directory
-    effects_dir = os.path.join(os.path.dirname(__file__), "../../", "effects")
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    effects_dir = os.path.join(project_root, "effects")
     effects = load_effects(effects_dir)
 
     # Process each show in the configuration

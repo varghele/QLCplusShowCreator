@@ -1333,8 +1333,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                 name=row['showpart'],
                                 color=row['color'],
                                 signature=row['signature'],
-                                bpm=row['bpm'],
-                                num_bars=row['num_bars'],
+                                bpm=float(row['bpm']),
+                                num_bars=int(row['num_bars']),
                                 transition=row['transition']
                             )
                             # Add part to show
