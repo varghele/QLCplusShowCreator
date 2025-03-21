@@ -3,10 +3,13 @@ Effects package for light show sequences.
 This package contains different effect modules organized by fixture type.
 """
 
-from . import blinders  # Import the blinders module
+#from . import bars  # Import the blinders module
+#from . import dimmers
+#from . import monocolor
+
 
 # List available effect modules
-available_effects = ['blinders']
+available_effects = ['bars', 'dimmers', 'monocolor', 'moving_heads', 'multicolor']
 
 # You could also define some common constants or utility functions used across effects
 DEFAULT_FADE_IN = 0
