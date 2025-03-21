@@ -78,12 +78,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Add universe management signals
         self.add_universe_btn.clicked.connect(self.add_universe_config)
         self.remove_universe_btn.clicked.connect(self.remove_universe_config)
+        self.update_config_btn.clicked.connect(self.update_universe_config_from_table)
         self.universe_list.itemChanged.connect(self.on_universe_item_changed)
 
-        # Connect existing buttons
+        # Connect Fixture Tab buttons
+        self.updateFixturesButton.clicked.connect(self.update_config_from_table)
         self.pushButton.clicked.connect(self.add_fixture)
         self.pushButton_2.clicked.connect(self.remove_fixture)
 
+        # Connect Show Tab buttons
         self.pushButton_5.clicked.connect(self.save_show)
         self.pushButton_7.clicked.connect(self.update_show_tab_from_config)
 
@@ -97,8 +100,45 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Connect stage plot button #TODO: write the plot_stage function
         #self.plot_stage_btn.clicked.connect(self.plot_stage)
 
-    def update_config_from_table(self, item):
-        """Update configuration when table items change"""
+    def update_config_from_table(self, item=None):
+        """Update configuration when table items change
+
+        Args:
+            item: When called from itemChanged signal, this is the QTableWidgetItem
+                  When called from a button click, this is ignored
+        """
+        # If called from button click, item will be a boolean True
+        # In this case, we should update all items
+        if isinstance(item, bool) or item is None:
+            # Update all fixtures
+            for row in range(self.tableWidget.rowCount()):
+                if row >= len(self.config.fixtures):
+                    continue
+
+                fixture = self.config.fixtures[row]
+
+                # Update manufacturer
+                manufacturer_item = self.tableWidget.item(row, 2)
+                if manufacturer_item and manufacturer_item.text():
+                    fixture.manufacturer = manufacturer_item.text()
+
+                # Update model
+                model_item = self.tableWidget.item(row, 3)
+                if model_item and model_item.text():
+                    fixture.model = model_item.text()
+
+                # Update name
+                name_item = self.tableWidget.item(row, 6)
+                if name_item and name_item.text():
+                    fixture.name = name_item.text()
+
+            self.update_groups()
+
+            # Refresh the table to show any changes
+            self.update_fixture_tab_from_config()
+            return
+
+        # Original functionality for when an individual item changes
         row = item.row()
         col = item.column()
 
@@ -200,6 +240,46 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 group_combo.addItem(new_group)
                 group_combo.addItem("Add New...")
                 group_combo.setCurrentText(new_group)
+
+    def update_universe_config_from_table(self):
+        """Update universe configuration values from the universe table"""
+        for row in range(self.universe_list.rowCount()):
+            # Check if we have a valid universe ID in the first column
+            universe_id_item = self.universe_list.item(row, 0)
+            if universe_id_item is None or not universe_id_item.text():
+                continue
+
+            try:
+                universe_id = int(universe_id_item.text())
+
+                # Skip if this universe doesn't exist in config
+                if universe_id not in self.config.universes:
+                    continue
+
+                # Update IP Address
+                ip_item = self.universe_list.item(row, 2)
+                if ip_item and ip_item.text():
+                    self.config.universes[universe_id].output['parameters']['ip'] = ip_item.text()
+
+                # Update Port
+                port_item = self.universe_list.item(row, 3)
+                if port_item and port_item.text():
+                    self.config.universes[universe_id].output['parameters']['port'] = port_item.text()
+
+                # Update Subnet
+                subnet_item = self.universe_list.item(row, 4)
+                if subnet_item and subnet_item.text():
+                    self.config.universes[universe_id].output['parameters']['subnet'] = subnet_item.text()
+
+                # Update Universe
+                uni_item = self.universe_list.item(row, 5)
+                if uni_item and uni_item.text():
+                    self.config.universes[universe_id].output['parameters']['universe'] = uni_item.text()
+
+            except (ValueError, AttributeError) as e:
+                print(f"Error updating universe {row}: {e}")
+
+        print("Universe configuration updated from table")
 
     def update_fixture_tab_from_config(self):
         """Update fixture tab UI from configuration"""
@@ -996,11 +1076,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     self.config.fixtures.append(new_fixture)
 
                     # Connect name changes
-                    def handle_name_change(item):
-                        if item.column() == 6 and item.row() == row:
-                            update_fixture_configuration()
-
-                    self.tableWidget.itemChanged.connect(handle_name_change)
+                    #def handle_name_change(item):
+                    #    if item.column() == 6 and item.row() == row:
+                    #        update_fixture_configuration()
+                    #
+                    #self.tableWidget.itemChanged.connect(handle_name_change)
 
                     print(f"Added fixture to table: {manufacturer} {model}")
 
