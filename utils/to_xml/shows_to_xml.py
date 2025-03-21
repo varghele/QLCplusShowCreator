@@ -339,6 +339,11 @@ def create_tracks(show_function, engine, show, effects_by_group, config, fixture
                         fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
                         fixture_def = fixture_definitions.get(fixture_key)
 
+                        # Make sure that start_bpm is a float.
+                        # If it is None, simply assume it is the same as the next bpm
+                        if previous_bpm is None:
+                            previous_bpm = part.bpm
+
                         if fixture_def and first_fixture.current_mode:
                             print(f"Creating effect steps with mode: {first_fixture.current_mode}")
                             steps = effect_func(
@@ -352,10 +357,10 @@ def create_tracks(show_function, engine, show, effects_by_group, config, fixture
                                 num_bars=part.num_bars,
                                 speed=part_effect.speed,
                                 color=part_effect.color,
-                                fixture_num=fixture_num,
+                                fixture_conf=config.fixtures[fixture_start_id:fixture_start_id + fixture_num], # TODO: implement for all effects
                                 fixture_start_id=fixture_start_id,
                                 intensity=part_effect.intensity,
-                                spot=part_effect.spot,
+                                spot=None if part_effect.spot=='' else config.spots[part_effect.spot],
                             )
                             print(f"Steps created: {len(steps) if steps else 0}")
                             add_steps_to_sequence(sequence, steps)

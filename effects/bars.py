@@ -720,7 +720,7 @@ def breathing(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
 
 def flicker(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
             num_bars=1, speed="1", color="#FF0000", flicker_intensity=0.3, min_brightness=0.2,
-            fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+            fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a flickering effect with random intensity variations
     Parameters:
@@ -736,7 +736,7 @@ def flicker(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
         color: Hex color code (e.g. "#FF0000" for red)
         flicker_intensity: Amount of random variation (0-1)
         min_brightness: Minimum brightness level (0-1)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
@@ -745,6 +745,9 @@ def flicker(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
         return []
+
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
 
     # Count total channels
     total_channels = 0
