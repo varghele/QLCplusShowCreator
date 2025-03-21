@@ -21,7 +21,6 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Color value (not used for focus effect)
         fixture_conf: List of fixture configurations with fixture coordinates
-        fixture_num: Number of fixtures of this type
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Class containing target spot coordinates (x, y)
@@ -29,7 +28,7 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
     if not spot:
         return []
 
-    # Convert num_bars to integer (adding the fix you requested)
+    # Convert num_bars to integer
     num_bars = int(num_bars)
 
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["PositionPan", "PositionTilt"])
@@ -69,7 +68,7 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
     for i in range(fixture_num):
         channel_values = []
 
-        # Get fixture from fixture_conf instead of fixture_def
+        # Get fixture from fixture_conf
         fixture = fixture_conf[i] if i < len(fixture_conf) else None
 
         if fixture:
@@ -78,32 +77,61 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
             fy = fixture.y
             fz = fixture.z
             rotation = fixture.rotation
-            direction = fixture.direction
+            direction = fixture.direction.upper()
 
-            # Calculate angles to spot (using spot's attributes)
+            # Calculate vector from fixture to spot
             dx = spot.x - fx
             dy = spot.y - fy
-            dz = -fz  # Spot's z is 0
+            dz = 0 - fz  # Stage level is typically at z=0
 
-            # Calculate pan angle (horizontal rotation)
-            pan_angle = math.degrees(math.atan2(dy, dx))
-            # Adjust pan angle based on fixture rotation
-            pan_angle = (pan_angle - rotation) % 360
+            # Calculate the horizontal angle in the XY plane (pan)
+            pan_angle_rad = math.atan2(dy, dx)
+            pan_angle_deg = math.degrees(pan_angle_rad)
+
+            # Adjust for fixture rotation (orientation on stage)
+            # Subtract the fixture's rotation to get the correct pan angle
+            pan_angle_deg = (pan_angle_deg - rotation) % 360
+
+            # Calculate distance in XY plane
+            distance_xy = math.sqrt(dx * dx + dy * dy)
 
             # Calculate tilt angle (vertical angle)
-            distance_xy = math.sqrt(dx * dx + dy * dy)
-            tilt_angle = math.degrees(math.atan2(dz, distance_xy))
-            # Invert tilt angle if fixture is hanging (direction == 'down')
-            if direction.upper() == 'DOWN':
-                tilt_angle = -tilt_angle
+            tilt_angle_rad = math.atan2(dz, distance_xy)
+            tilt_angle_deg = math.degrees(tilt_angle_rad)
 
-            # Convert angles to DMX values (assuming 540° pan and 270° tilt range)
-            pan_dmx = int((pan_angle + 270) * 255 / 540)  # Center at 270°
-            tilt_dmx = int((tilt_angle + 135) * 255 / 270)  # Center at 135°
+            # Adjust tilt angle based on fixture mounting direction
+            # With UP fixtures, 0° points straight up, 90° points forward
+            # With DOWN fixtures, 0° points straight down, 90° points forward
+            if direction == 'UP':
+                # Convert from our coordinate system to the fixture's system
+                # For UP fixtures, 90° - tilt_angle gives us the desired angle
+                # where 0° is straight up and 90° is horizontal
+                tilt_dmx_angle = 90 - tilt_angle_deg
+            else:  # DOWN or any other direction
+                # For DOWN fixtures, 90° + tilt_angle gives us the desired angle
+                # where 0° is straight down and 90° is horizontal
+                tilt_dmx_angle = 90 + tilt_angle_deg
+
+            # Convert angles to DMX values
+            # Pan: Assuming 540° range mapped to 0-255 DMX
+            pan_dmx = int((pan_angle_deg % 540) * 255 / 540)
+
+            # Tilt: For your fixture with 190° range
+            # Map the fixture-specific angle (0-190°) to DMX (0-255)
+            # Clamp tilt angle to the fixture's range
+            tilt_dmx_angle = max(0, min(190, tilt_dmx_angle))
+            tilt_dmx = int(tilt_dmx_angle * 255 / 190)
 
             # Ensure values are within DMX range
             pan_dmx = max(0, min(255, pan_dmx))
             tilt_dmx = max(0, min(255, tilt_dmx))
+
+            # Add diagnostic info
+            print(f"Fixture at ({fx},{fy},{fz}), spot at ({spot.x},{spot.y},0)")
+            print(f"Direction: {direction}, Rotation: {rotation}°")
+            print(f"Pan angle: {pan_angle_deg}°, Raw tilt angle: {tilt_angle_deg}°")
+            print(f"Adjusted tilt angle for fixture: {tilt_dmx_angle}°")
+            print(f"DMX values: Pan={pan_dmx}, Tilt={tilt_dmx}")
 
             # Add pan/tilt values to channels
             if 'PositionPan' in channels_dict:
@@ -118,4 +146,5 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
 
     step.text = ":".join(values)
     return [step]
+
 

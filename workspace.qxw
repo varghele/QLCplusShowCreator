@@ -111,7 +111,7 @@
       <Direction>Forward</Direction>
       <RunOrder>SingleShot</RunOrder>
       <SpeedModes FadeIn="PerStep" FadeOut="PerStep" Duration="PerStep"/>
-      <Step Number="0" FadeIn="5048" Hold="0" FadeOut="0" Values="4">3:0,152,2,127:4:0,185,2,127</Step>
+      <Step Number="0" FadeIn="5048" Hold="0" FadeOut="0" Values="4">3:0,24,2,120:4:0,58,2,120</Step>
     </Function>
     <Function ID="5" Type="Show" Name="SBD_hit_the_road_jack">
       <TimeDivision Type="Time" BPM="95.0"/>
