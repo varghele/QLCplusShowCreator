@@ -78,7 +78,6 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
 
             # Derive half-ranges for calculations
             half_pan_range = pan_range / 2
-            half_tilt_range = tilt_range / 2
 
             # Get fixture position and direction from fixture object attributes
             fx = fixture.x
@@ -114,25 +113,41 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
             tilt_angle_rad = math.atan2(dz, distance_xy)
             tilt_angle_deg = math.degrees(tilt_angle_rad)
 
-            # Adjust tilt angle based on fixture mounting direction
+            # Print raw calculated angles for debugging
+            print(f"Raw calculated tilt angle: {tilt_angle_deg}°")
+
+            # CORRECTED TILT CALCULATION
+            # For moving heads:
+            # 0 DMX = beam points horizontal
+            # 50% DMX (127/128) = beam points up (for UP fixtures) or down (for DOWN fixtures)
+            # 100% DMX (255) = beam at maximum tilt position
             if direction == 'UP':
-                tilt_dmx_angle = 90 - tilt_angle_deg
+                # For UP fixtures:
+                # Map the tilt angle where 0° = horizontal, positive = up
+                # to DMX where 0 = horizontal, 127/128 = 90° up
+                if tilt_angle_deg >= 0:
+                    # Positive angles (pointing up)
+                    tilt_dmx = int(tilt_angle_deg * 127 / 90)  # Map 0-90° to 0-127
+                else:
+                    # Negative angles (pointing down)
+                    tilt_dmx = 0  # Keep at horizontal for negative angles
             else:  # DOWN fixtures
-                tilt_dmx_angle = 90 + tilt_angle_deg
+                # For DOWN fixtures:
+                # Map the tilt angle where 0° = horizontal, positive = up
+                # to DMX where 0 = horizontal, 127/128 = 90° down
+                if tilt_angle_deg <= 0:
+                    # Negative angles (pointing down from horizontal)
+                    tilt_dmx = int(abs(tilt_angle_deg) * 127 / 90)  # Map 0-90° to 0-127
+                else:
+                    # Positive angles (pointing up)
+                    tilt_dmx = 0  # Keep at horizontal for positive angles
 
             # Pan angle optimization - center the range around middle DMX value
-            # Normalize the angle to be between -half_pan_range and +half_pan_range (centered around 0°)
             if pan_angle_deg > half_pan_range:
                 pan_angle_deg -= 360
 
             # Map the range from -half_pan_range to +half_pan_range to DMX 0-255
-            # Where DMX 127/128 corresponds to 0°
             pan_dmx = int((pan_angle_deg + half_pan_range) * 255 / pan_range)
-
-            # Tilt DMX calculation
-            # Map the fixture-specific angle (0-tilt_range) to DMX (0-255)
-            tilt_dmx_angle = max(0, min(tilt_range, tilt_dmx_angle))
-            tilt_dmx = int(tilt_dmx_angle * 255 / tilt_range)
 
             # Ensure values are within DMX range
             pan_dmx = max(0, min(255, pan_dmx))
@@ -142,7 +157,6 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
             print(f"Fixture at ({fx},{fy},{fz}), spot at ({spot.x},{spot.y},0)")
             print(f"Direction: {direction}, Rotation: {rotation}°")
             print(f"Pan angle: {pan_angle_deg}°, Raw tilt angle: {tilt_angle_deg}°")
-            print(f"Adjusted tilt angle for fixture: {tilt_dmx_angle}°")
             print(f"DMX values: Pan={pan_dmx}, Tilt={tilt_dmx}")
 
             # Add pan/tilt values to channels
