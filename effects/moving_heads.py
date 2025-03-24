@@ -83,7 +83,7 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
             fx = fixture.x
             fy = fixture.y
             fz = fixture.z
-            rotation = fixture.rotation
+            rotation = fixture.rotation + 90 # Fix, since code seemingly has rotated the fixtures by 90 deg
             direction = fixture.direction.upper()
 
             # Calculate vector from fixture to spot
