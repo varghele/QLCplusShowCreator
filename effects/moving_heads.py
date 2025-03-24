@@ -85,12 +85,22 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
             dz = 0 - fz  # Stage level is typically at z=0
 
             # Calculate the horizontal angle in the XY plane (pan)
+            # atan2 gives angles where 0° is along positive x-axis, 90° is along positive y-axis
             pan_angle_rad = math.atan2(dy, dx)
             pan_angle_deg = math.degrees(pan_angle_rad)
+
+            # Convert mathematical angle to stage orientation where 0° is forward (facing positive y)
+            # This shifts the angle by 90 degrees counterclockwise
+            pan_angle_deg = (pan_angle_deg - 90) % 360
 
             # Adjust for fixture rotation (orientation on stage)
             # Subtract the fixture's rotation to get the correct pan angle
             pan_angle_deg = (pan_angle_deg - rotation) % 360
+
+            # Adjust pan direction based on fixture mounting
+            if direction == 'DOWN':
+                # Invert pan direction for DOWN fixtures
+                pan_angle_deg = (360 - pan_angle_deg) % 360
 
             # Calculate distance in XY plane
             distance_xy = math.sqrt(dx * dx + dy * dy)
@@ -100,16 +110,18 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
             tilt_angle_deg = math.degrees(tilt_angle_rad)
 
             # Adjust tilt angle based on fixture mounting direction
-            # With UP fixtures, 0° points straight up, 90° points forward
-            # With DOWN fixtures, 0° points straight down, 90° points forward
+            # For standard fixture orientation:
+            # 0° points forward (horizontally)
+            # 90° points up (for UP fixtures) or down (for DOWN fixtures)
             if direction == 'UP':
-                # Convert from our coordinate system to the fixture's system
-                # For UP fixtures, 90° - tilt_angle gives us the desired angle
-                # where 0° is straight up and 90° is horizontal
+                # For UP fixtures, convert raw angle to fixture coordinates
+                # When tilt_angle_deg is 0, fixture should point horizontally (90° in fixture's system)
+                # When tilt_angle_deg is -90, fixture should point straight up (0° in fixture's system)
                 tilt_dmx_angle = 90 - tilt_angle_deg
-            else:  # DOWN or any other direction
-                # For DOWN fixtures, 90° + tilt_angle gives us the desired angle
-                # where 0° is straight down and 90° is horizontal
+            else:  # DOWN fixtures
+                # For DOWN fixtures, convert raw angle to fixture coordinates
+                # When tilt_angle_deg is 0, fixture should point horizontally (90° in fixture's system)
+                # When tilt_angle_deg is 90, fixture should point straight down (0° in fixture's system)
                 tilt_dmx_angle = 90 + tilt_angle_deg
 
             # Convert angles to DMX values
