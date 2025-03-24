@@ -72,6 +72,14 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
         fixture = fixture_conf[i] if i < len(fixture_conf) else None
 
         if fixture:
+            # Configuration for fixture movement ranges
+            pan_range = 540  # Total pan range in degrees (typical moving head)
+            tilt_range = 190  # Total tilt range in degrees (as specified in your code)
+
+            # Derive half-ranges for calculations
+            half_pan_range = pan_range / 2
+            half_tilt_range = tilt_range / 2
+
             # Get fixture position and direction from fixture object attributes
             fx = fixture.x
             fy = fixture.y
@@ -85,16 +93,13 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
             dz = 0 - fz  # Stage level is typically at z=0
 
             # Calculate the horizontal angle in the XY plane (pan)
-            # atan2 gives angles where 0° is along positive x-axis, 90° is along positive y-axis
             pan_angle_rad = math.atan2(dy, dx)
             pan_angle_deg = math.degrees(pan_angle_rad)
 
             # Convert mathematical angle to stage orientation where 0° is forward (facing positive y)
-            # This shifts the angle by 90 degrees counterclockwise
             pan_angle_deg = (pan_angle_deg - 90) % 360
 
             # Adjust for fixture rotation (orientation on stage)
-            # Subtract the fixture's rotation to get the correct pan angle
             pan_angle_deg = (pan_angle_deg - rotation) % 360
 
             # Adjust pan direction based on fixture mounting
@@ -110,29 +115,24 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
             tilt_angle_deg = math.degrees(tilt_angle_rad)
 
             # Adjust tilt angle based on fixture mounting direction
-            # For standard fixture orientation:
-            # 0° points forward (horizontally)
-            # 90° points up (for UP fixtures) or down (for DOWN fixtures)
             if direction == 'UP':
-                # For UP fixtures, convert raw angle to fixture coordinates
-                # When tilt_angle_deg is 0, fixture should point horizontally (90° in fixture's system)
-                # When tilt_angle_deg is -90, fixture should point straight up (0° in fixture's system)
                 tilt_dmx_angle = 90 - tilt_angle_deg
             else:  # DOWN fixtures
-                # For DOWN fixtures, convert raw angle to fixture coordinates
-                # When tilt_angle_deg is 0, fixture should point horizontally (90° in fixture's system)
-                # When tilt_angle_deg is 90, fixture should point straight down (0° in fixture's system)
                 tilt_dmx_angle = 90 + tilt_angle_deg
 
-            # Convert angles to DMX values
-            # Pan: Assuming 540° range mapped to 0-255 DMX
-            pan_dmx = int((pan_angle_deg % 540) * 255 / 540)
+            # Pan angle optimization - center the range around middle DMX value
+            # Normalize the angle to be between -half_pan_range and +half_pan_range (centered around 0°)
+            if pan_angle_deg > half_pan_range:
+                pan_angle_deg -= 360
 
-            # Tilt: For your fixture with 190° range
-            # Map the fixture-specific angle (0-190°) to DMX (0-255)
-            # Clamp tilt angle to the fixture's range
-            tilt_dmx_angle = max(0, min(190, tilt_dmx_angle))
-            tilt_dmx = int(tilt_dmx_angle * 255 / 190)
+            # Map the range from -half_pan_range to +half_pan_range to DMX 0-255
+            # Where DMX 127/128 corresponds to 0°
+            pan_dmx = int((pan_angle_deg + half_pan_range) * 255 / pan_range)
+
+            # Tilt DMX calculation
+            # Map the fixture-specific angle (0-tilt_range) to DMX (0-255)
+            tilt_dmx_angle = max(0, min(tilt_range, tilt_dmx_angle))
+            tilt_dmx = int(tilt_dmx_angle * 255 / tilt_range)
 
             # Ensure values are within DMX range
             pan_dmx = max(0, min(255, pan_dmx))
