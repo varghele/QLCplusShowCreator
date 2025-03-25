@@ -20,7 +20,7 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
         transition: Type of transition ("instant" or "gradual")
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
-        color: Color value (not used for focus effect)
+        color: Hex color code (e.g. "#FF0000" for red)
         fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)

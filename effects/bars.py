@@ -6,7 +6,7 @@ import math
 
 
 def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-           num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+           num_bars=1, speed="1", color="#FF0000", fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a static color effect for LED bars
     Parameters:
@@ -20,13 +20,16 @@ def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (e.g. "#FF0000" for red)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     Returns:
         list: List of XML Step elements
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     # Get RGBW channels
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
@@ -99,7 +102,7 @@ def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
 
 
 def fade_in(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-            num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+            num_bars=1, speed="1", color="#FF0000", fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a fade-in color effect for LED bars with a single step
     Parameters:
@@ -113,13 +116,16 @@ def fade_in(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (e.g. "#FF0000" for red)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     Returns:
         list: List of XML Step elements
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     # Get RGBW channels
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
@@ -187,7 +193,7 @@ def fade_in(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
 
 
 def pulse(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-          num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+          num_bars=1, speed="1", color="#FF0000", fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a pulsing color effect that fades in and out for LED bars
     Parameters:
@@ -201,13 +207,16 @@ def pulse(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (e.g. "#FF0000" for red)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     Returns:
         list: List of XML Step elements
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
@@ -295,7 +304,7 @@ def pulse(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4
 
 
 def noise(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-          num_bars=1, speed="1", color="#FF0000", noise_intensity=0.1, fixture_num=1, fixture_start_id=0,
+          num_bars=1, speed="1", color="#FF0000", noise_intensity=0.1, fixture_conf=None, fixture_start_id=0,
           intensity=200, spot=None):
     """
     Creates a color effect with Gaussian noise around a base color for LED bars
@@ -311,13 +320,16 @@ def noise(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (e.g. "#FF0000" for red)
         noise_intensity: Standard deviation for Gaussian noise (0-1)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     Returns:
         list: List of XML Step elements
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     # Get RGBW channels
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
@@ -394,7 +406,7 @@ def noise(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4
 
 
 def plasma(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-          num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+          num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a plasma effect with smooth color transitions for LED bars
     with frequency and phase shift coupled to speed and BPM
@@ -409,11 +421,14 @@ def plasma(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (unused in this effect)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
@@ -503,7 +518,7 @@ def plasma(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
 
 
 def wave(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-         num_bars=1, speed="1", color="#FF0000", wave_length=2.0, fixture_num=1, fixture_start_id=0,
+         num_bars=1, speed="1", color="#FF0000", wave_length=2.0, fixture_conf=None, fixture_start_id=0,
          intensity=200, spot=None):
     """
     Creates a wave effect that travels across fixtures with a single color
@@ -519,11 +534,14 @@ def wave(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4"
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (e.g. "#FF0000" for red)
         wave_length: Length of the wave relative to fixture count (2.0 means wave spans 2 fixtures)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
@@ -607,7 +625,7 @@ def wave(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4"
 
 
 def breathing(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-             num_bars=1, speed="1", color="#FF0000", inhale_ratio=0.4, fixture_num=1, fixture_start_id=0,
+             num_bars=1, speed="1", color="#FF0000", inhale_ratio=0.4, fixture_conf=None, fixture_start_id=0,
              intensity=200, spot=None):
     """
     Creates a breathing effect that mimics natural breathing pattern
@@ -623,11 +641,14 @@ def breathing(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (e.g. "#FF0000" for red)
         inhale_ratio: Ratio of inhale time to total breath cycle (0.4 = 40% inhale, 60% exhale)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
@@ -741,6 +762,9 @@ def flicker(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
@@ -831,7 +855,7 @@ def flicker(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
 
 
 def heartbeat(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-             num_bars=1, speed="1", color="#FF0000", beat_intensity=0.8, fixture_num=1, fixture_start_id=0,
+             num_bars=1, speed="1", color="#FF0000", beat_intensity=0.8, fixture_conf=None, fixture_start_id=0,
              intensity=200, spot=None):
     """
     Creates a heartbeat effect with a characteristic double-beat pattern
@@ -847,11 +871,14 @@ def heartbeat(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (e.g. "#FF0000" for red)
         beat_intensity: Maximum intensity of the heartbeat (0-1)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
@@ -967,7 +994,7 @@ def heartbeat(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
 
 
 def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-           num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+           num_bars=1, speed="1", color="#FF0000", fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a strobe effect with consistent color for LED bars
     Parameters:
@@ -981,11 +1008,14 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (e.g. "#FF0000" for red)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
@@ -1086,7 +1116,7 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
 
 
 def random_strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                 num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+                 num_bars=1, speed="1", color="#FF0000", fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a strobe effect where only one random fixture strobes per step
     Parameters:
@@ -1100,11 +1130,14 @@ def random_strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (e.g. "#FF0000" for red)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
@@ -1214,7 +1247,7 @@ def random_strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
 
 
 def ping_pong(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-              num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+              num_bars=1, speed="1", color="#FF0000", fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a ping-pong effect that strobes one bar from left to right and back
     Parameters:
@@ -1228,11 +1261,14 @@ def ping_pong(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (e.g. "#FF0000" for red)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
@@ -1345,7 +1381,7 @@ def ping_pong(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
 
 
 def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                    num_bars=1, speed="1", color="#FF0000", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+                    num_bars=1, speed="1", color="#FF0000", fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a smooth ping-pong effect that moves one bar from left to right and back
     with smooth transitions using fade-in
@@ -1360,11 +1396,14 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (e.g. "#FF0000" for red)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
@@ -1452,7 +1491,7 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
 
 
 def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+                num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a rainbow effect that cycles through RGB colors with smooth transitions
     Parameters:
@@ -1466,11 +1505,14 @@ def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (unused in this effect)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue"])
     if not channels_dict:
@@ -1550,7 +1592,7 @@ def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
 
 
 def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                 num_bars=1, speed="1", color="None", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+                 num_bars=1, speed="1", color="None", fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a rainbow effect that cycles through RGBW colors with smooth transitions
     Parameters:
@@ -1564,11 +1606,14 @@ def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Hex color code (unused in this effect)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
