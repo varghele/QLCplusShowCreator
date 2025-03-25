@@ -1,5 +1,6 @@
 import os
 import ast
+import xml.etree.ElementTree as ET
 
 
 def list_effects_in_directory(directory):
@@ -118,6 +119,55 @@ def get_channels_by_property(fixture_def, mode_name, properties):
                 })
 
     return channels
+
+
+def add_reset_step(fixture_def, mode_name, fixture_conf, fixture_start_id, step_number):
+    """
+    Creates a step that resets all channels to 0 to prevent "latest takes priority" behavior
+
+    Parameters:
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        fixture_conf: List of fixture configurations with fixture coordinates
+        fixture_start_id: Starting ID for the fixture to properly assign values
+        step_number: Step number for the reset step
+
+    Returns:
+        Element: Reset step that sets all channels to 0
+    """
+    # Find the mode in the fixture definition to get all channels
+    all_channels = []
+    for mode in fixture_def.get('modes', []):
+        if mode.get('name') == mode_name:
+            for channel in mode.get('channels', []):
+                all_channels.append(channel.get('channel'))
+            break
+
+    # If no channels found, return None
+    if not all_channels:
+        return None
+
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
+    # Create reset step
+    reset_step = ET.Element("Step")
+    reset_step.set("Number", str(step_number))
+    reset_step.set("FadeIn", "0")
+    reset_step.set("Hold", "1")  # 1ms hold
+    reset_step.set("FadeOut", "0")
+    reset_step.set("Values", str(len(all_channels) * fixture_num))
+
+    # Build values string for all fixtures - all channels to 0
+    reset_values = []
+    for i in range(fixture_num):
+        reset_channel_values = []
+        for channel in all_channels:
+            reset_channel_values.extend([str(channel), "0"])
+        reset_values.append(f"{fixture_start_id + i}:{','.join(reset_channel_values)}")
+
+    reset_step.text = ":".join(reset_values)
+    return reset_step
 
 
 def find_closest_color_dmx(channels_dict, hex_color, fixture_def=None):

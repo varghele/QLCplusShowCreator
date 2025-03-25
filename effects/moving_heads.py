@@ -3,7 +3,7 @@ from utils.effects_utils import get_channels_by_property
 import xml.etree.ElementTree as ET
 from utils.to_xml.shows_to_xml import calculate_step_timing
 import math
-from utils.effects_utils import find_closest_color_dmx, find_gobo_dmx_value, find_gobo_rotation_value
+from utils.effects_utils import find_closest_color_dmx, find_gobo_dmx_value, find_gobo_rotation_value, add_reset_step
 
 
 def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
@@ -57,8 +57,8 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
     total_duration = sum(step_timings)
     step = ET.Element("Step")
     step.set("Number", str(start_step))
-    step.set("FadeIn", str(total_duration))
-    step.set("Hold", "0")
+    step.set("FadeIn", "0")
+    step.set("Hold", str(total_duration - 1)) # -1 because of the rest step
     step.set("FadeOut", "0")
 
     # Get the fixture count from fixture_conf if available
@@ -188,7 +188,18 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
         values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 
     step.text = ":".join(values)
-    return [step]
+    # Add a reset step because of LTP behaviour of MHs
+    steps = [step]
+    reset_step = add_reset_step(
+        fixture_def,
+        mode_name,
+        fixture_conf,
+        fixture_start_id,
+        start_step + 1  # Next step number
+    )
+    if reset_step is not None:
+        steps.append(reset_step)
+    return steps
 
 
 def whirl(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, signature="4/4",
@@ -252,7 +263,7 @@ def whirl(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, signature
     step = ET.Element("Step")
     step.set("Number", str(start_step))
     step.set("FadeIn", "0")
-    step.set("Hold", str(total_duration))
+    step.set("Hold", str(total_duration - 1)) # -1 because of the reset step
     step.set("FadeOut", "0")
 
     # Get the fixture count from fixture_conf if available
@@ -352,7 +363,18 @@ def whirl(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, signature
         values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 
     step.text = ":".join(values)
-    return [step]
+    # Add a reset step because of LTP behaviour of MHs
+    steps=[step]
+    reset_step = add_reset_step(
+        fixture_def,
+        mode_name,
+        fixture_conf,
+        fixture_start_id,
+        start_step + 1  # Next step number
+    )
+    if reset_step is not None:
+        steps.append(reset_step)
+    return steps
 
 
 
