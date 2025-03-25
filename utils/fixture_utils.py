@@ -1,7 +1,6 @@
 import os
 import sys
 import xml.etree.ElementTree as ET
-from utils.effects_utils import get_channels_by_property
 
 def load_fixture_definitions(models_in_config):
     """
