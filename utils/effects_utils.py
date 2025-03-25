@@ -120,4 +120,202 @@ def get_channels_by_property(fixture_def, mode_name, properties):
     return channels
 
 
+def find_closest_color_dmx(channels_dict, hex_color, fixture_def=None):
+    """
+    Find the closest color match in the fixture's ColorMacro channel
 
+    Parameters:
+        channels_dict: Dictionary of channels by property
+        hex_color: Target color as hex string (e.g. "#FF0000")
+        fixture_def: Full fixture definition to search if colors not in channels_dict
+    Returns:
+        int: DMX value for the closest matching color
+    """
+    if not hex_color:
+        return None
+
+    # Remove '#' if present and normalize
+    if hex_color.startswith('#'):
+        hex_color = hex_color[1:]
+    hex_color = hex_color.upper()
+
+    # Convert the target hex color to RGB
+    try:
+        r = int(hex_color[0:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:6], 16)
+    except (ValueError, IndexError):
+        return None
+
+    # Find all color capabilities across all relevant channels
+    color_capabilities = []
+
+    # First check ColorMacro channels from channels_dict
+    if 'ColorMacro' in channels_dict:
+        for channel in channels_dict['ColorMacro']:
+            for capability in channel.get('capabilities', []):
+                if 'color' in capability and capability['color']:
+                    color_capabilities.append(capability)
+
+    # If no colors found in ColorMacro, search through all channels in fixture_def
+    if not color_capabilities and fixture_def:
+        for channel in fixture_def.get('channels', []):
+            # Look for any channel in the Color group or with color capabilities
+            if channel.get('group') == 'Colour' or channel.get('name') == 'Color':
+                for capability in channel.get('capabilities', []):
+                    if 'color' in capability:
+                        color_capabilities.append(capability)
+
+    # If still no colors found, try searching all channels for any color information
+    if not color_capabilities and fixture_def:
+        for channel in fixture_def.get('channels', []):
+            for capability in channel.get('capabilities', []):
+                if 'color' in capability:
+                    color_capabilities.append(capability)
+
+    # Find the closest color match
+    best_match = None
+    min_distance = float('inf')
+
+    for capability in color_capabilities:
+        color_val = capability.get('color', '')
+
+        # Skip SVG files and non-hex values
+        if color_val.endswith('.svg') or not color_val.startswith('#'):
+            continue
+
+        # Remove '#' if present
+        if color_val.startswith('#'):
+            color_val = color_val[1:]
+
+        # Convert fixture color to RGB
+        try:
+            c_r = int(color_val[0:2], 16)
+            c_g = int(color_val[2:4], 16)
+            c_b = int(color_val[4:6], 16)
+        except (ValueError, IndexError):
+            continue
+
+        # Calculate color distance (Euclidean distance in RGB space)
+        distance = ((r - c_r) ** 2 + (g - c_g) ** 2 + (b - c_b) ** 2) ** 0.5
+
+        if distance < min_distance:
+            min_distance = distance
+            # Get the middle of the DMX range for this color
+            dmx_value = (int(capability['min']) + int(capability['max'])) // 2
+            best_match = dmx_value
+            print(f"Found color match: {capability.get('name')} (distance: {distance:.2f}) - DMX: {dmx_value}")
+
+    return best_match
+
+
+def find_gobo_dmx_value(channels_dict, gobo_index, fixture_def=None):
+    """
+    Find the DMX value for the specified gobo index
+
+    Parameters:
+        channels_dict: Dictionary of channels by property
+        gobo_index: Index of the gobo to use (typically 1-5)
+        fixture_def: Full fixture definition to search if gobos not in channels_dict
+    Returns:
+        int: DMX value for the selected gobo
+    """
+    # Look for gobo channel in channels_dict
+    for channel_type in ['GoboMacro', 'GoboWheel']:
+        if channel_type in channels_dict:
+            for channel in channels_dict[channel_type]:
+                # Find non-rotating gobos (skip "Rainbow" or "shake" capabilities)
+                static_gobos = []
+                for capability in channel.get('capabilities', []):
+                    if ('name' in capability and
+                            'gobo' in capability['name'].lower() and
+                            'shake' not in capability['name'].lower() and
+                            'rainbow' not in capability['name'].lower()):
+                        static_gobos.append(capability)
+
+                # Select the requested gobo by index
+                if static_gobos and gobo_index <= len(static_gobos):
+                    selected_gobo = static_gobos[gobo_index - 1]  # -1 because indices start at 1
+                    return (selected_gobo['min'] + selected_gobo['max']) // 2
+
+    # If we haven't found a gobo yet, search through the full fixture definition
+    if fixture_def:
+        for channel in fixture_def.get('channels', []):
+            if channel.get('name') == 'Gobo':
+                # Find non-rotating gobos
+                static_gobos = []
+                for capability in channel.get('capabilities', []):
+                    name = capability.get('name', '').lower()
+                    if ('gobo' in name and
+                            'shake' not in name and
+                            'rainbow' not in name and
+                            'open' not in name):
+                        static_gobos.append(capability)
+
+                # Select the requested gobo by index
+                if static_gobos and gobo_index <= len(static_gobos):
+                    selected_gobo = static_gobos[gobo_index - 1]  # -1 because indices start at 1
+                    return (int(selected_gobo['min']) + int(selected_gobo['max'])) // 2
+
+    # Default gobo DMX value if no matching gobo found
+    return 20  # Common value for first gobo pattern
+
+
+def find_gobo_rotation_value(fixture_def, direction="cw", speed="fast"):
+    """
+    Find the DMX channel and value for gobo rotation
+
+    Parameters:
+        fixture_def: Full fixture definition
+        direction: "cw" for clockwise or "ccw" for counterclockwise
+        speed: "slow", "medium", or "fast"
+    Returns:
+        tuple: (channel_number, dmx_value) for gobo rotation
+    """
+    rotation_channel = None
+    rotation_value = None
+
+    # Find the Gobo Rotation channel
+    for channel in fixture_def.get('channels', []):
+        if channel.get('name') == 'Gobo Rotation':
+            rotation_channel = channel
+            break
+
+    if not rotation_channel:
+        return None
+
+    # Find the appropriate preset based on direction
+    rotation_preset = None
+    if direction.lower() == "cw":
+        rotation_preset = "RotationClockwiseFastToSlow"
+    else:  # counterclockwise
+        rotation_preset = "RotationCounterClockwiseSlowToFast"
+
+    # Find capability with matching preset
+    for capability in rotation_channel.get('capabilities', []):
+        if capability.get('preset') == rotation_preset:
+            min_val = int(capability['min'])
+            max_val = int(capability['max'])
+
+            # Calculate value based on speed
+            range_size = max_val - min_val
+            if speed.lower() == "fast":
+                if direction.lower() == "cw":
+                    rotation_value = min_val + int(range_size * 0.2)  # Fast is closer to min for CW
+                else:
+                    rotation_value = max_val - int(range_size * 0.2)  # Fast is closer to max for CCW
+            elif speed.lower() == "medium":
+                rotation_value = (min_val + max_val) // 2  # Medium speed is middle of range
+            else:  # slow
+                if direction.lower() == "cw":
+                    rotation_value = max_val - int(range_size * 0.2)  # Slow is closer to max for CW
+                else:
+                    rotation_value = min_val + int(range_size * 0.2)  # Slow is closer to min for CCW
+
+            # Find the channel number for this mode
+            for mode in fixture_def.get('modes', []):
+                for channel_entry in mode.get('channels', []):
+                    if channel_entry.get('name') == 'Gobo Rotation':
+                        return (channel_entry.get('number'), rotation_value)
+
+    return None
