@@ -3,7 +3,7 @@ from utils.effects_utils import get_channels_by_property
 import xml.etree.ElementTree as ET
 from utils.to_xml.shows_to_xml import calculate_step_timing
 import math
-from utils.fixture_utils import find_closest_color_dmx
+from utils.effects_utils import find_closest_color_dmx, find_gobo_dmx_value, find_gobo_rotation_value
 
 
 def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
@@ -189,5 +189,171 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
 
     step.text = ":".join(values)
     return [step]
+
+
+def whirl(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, signature="4/4",
+                        transition="gradual",
+                        num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200,
+                        gobo_index=1, rotation_speed="fast", rotation_direction="cw", tilt_angle=-10, spot=None):
+    """
+    Creates a whirl effect that makes moving heads display a rotating gobo pointed toward the audience
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM (defaults to start_bpm if None)
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
+        fixture_conf: List of fixture configurations with fixture coordinates
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        gobo_index: Index of gobo to use (typically 1-8)
+        rotation_speed: "slow", "medium", or "fast"
+        rotation_direction: "cw" for clockwise or "ccw" for counterclockwise
+        tilt_angle: Slight downward angle for the beam in degrees
+        spot: Spot object (unused in this effect)
+    """
+    # Set end_bpm to start_bpm if not provided
+    if end_bpm is None:
+        end_bpm = start_bpm
+
+    # Convert num_bars to integer
+    num_bars = int(num_bars)
+
+    # Get channels for pan/tilt, color, intensity, gobo selection and gobo rotation
+    channels_dict = get_channels_by_property(fixture_def, mode_name,
+                                             ["PositionPan", "PositionTilt", "IntensityMasterDimmer",
+                                              "ColorMacro", "GoboMacro", "GoboWheel"])
+    if not channels_dict:
+        return []
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Create single step with full duration
+    total_duration = sum(step_timings)
+    step = ET.Element("Step")
+    step.set("Number", str(start_step))
+    step.set("FadeIn", "0")
+    step.set("Hold", str(total_duration))
+    step.set("FadeOut", "0")
+
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+    step.set("Values", str(total_channels * fixture_num))
+
+    # Find closest color DMX value if a color is provided
+    color_dmx_value = find_closest_color_dmx(channels_dict, color, fixture_def) if color else None
+
+    # Find the right DMX value for the selected gobo
+    gobo_dmx_value = find_gobo_dmx_value(channels_dict, gobo_index, fixture_def)
+
+    # Find gobo rotation channel and suitable value based on direction and speed
+    rotation_dmx_value = find_gobo_rotation_value(fixture_def, rotation_direction, rotation_speed)
+
+    # Build values string for all fixtures
+    values = []
+    for i in range(fixture_num):
+        channel_values = []
+
+        # Get fixture from fixture_conf
+        fixture = fixture_conf[i] if i < len(fixture_conf) else None
+
+        if fixture:
+            # Get fixture position and direction from fixture object attributes
+            fx = fixture.x
+            fy = fixture.y
+            fz = fixture.z
+            rotation = fixture.rotation + 90  # Fix, since code seemingly has rotated the fixtures by 90 deg
+            direction = fixture.direction.upper()
+
+            # For whirl effect, we'll set pan to aim at the audience
+            # This means pointing fixtures toward the front of the stage
+
+            # Calculate pan angle to point toward audience (front of stage)
+            pan_dmx = 128  # Center position (assuming 0-255 DMX range)
+
+            # Set a slight downward tilt so audience can see the gobo effect
+            tilt_raw = tilt_angle  # This is a slight downward angle
+
+            # Apply the tilt angle based on fixture direction
+            if direction == 'UP':
+                # For UP fixtures, negative angles point down
+                if tilt_raw < 0:
+                    # Map negative angles (pointing down) to DMX values
+                    tilt_dmx = int(abs(tilt_raw) * 127 / 90)  # Map angle to DMX
+                else:
+                    # We don't want to point up for whirl effect
+                    tilt_dmx = 0
+            else:  # DOWN fixtures
+                # For DOWN fixtures, positive angles point up
+                if tilt_raw < 0:
+                    # Convert to positive angle for DOWN fixtures
+                    tilt_dmx = int(abs(tilt_raw) * 127 / 90)  # Map angle to DMX
+                else:
+                    # We don't want to point up for whirl effect
+                    tilt_dmx = 0
+
+            # Ensure values are within DMX range
+            pan_dmx = max(0, min(255, pan_dmx))
+            tilt_dmx = max(0, min(255, tilt_dmx))
+
+            # Add pan/tilt values to channels
+            if 'PositionPan' in channels_dict:
+                for channel in channels_dict['PositionPan']:
+                    channel_values.extend([str(channel['channel']), str(pan_dmx)])
+
+            if 'PositionTilt' in channels_dict:
+                for channel in channels_dict['PositionTilt']:
+                    channel_values.extend([str(channel['channel']), str(tilt_dmx)])
+
+            # Add intensity values to master dimmer channel
+            if 'IntensityMasterDimmer' in channels_dict:
+                for channel in channels_dict['IntensityMasterDimmer']:
+                    intensity_val = min(255, max(0, intensity))  # Ensure within DMX range
+                    channel_values.extend([str(channel['channel']), str(intensity_val)])
+
+            # Add color values if available
+            if color_dmx_value is not None and 'ColorMacro' in channels_dict:
+                for channel in channels_dict['ColorMacro']:
+                    channel_values.extend([str(channel['channel']), str(color_dmx_value)])
+
+            # Add gobo selection if available
+            if gobo_dmx_value is not None:
+                # Find the right channel for gobos
+                for channel_type in ['GoboMacro', 'GoboWheel']:
+                    if channel_type in channels_dict:
+                        for channel in channels_dict[channel_type]:
+                            channel_values.extend([str(channel['channel']), str(gobo_dmx_value)])
+                            break
+
+            # Add gobo rotation if available
+            if rotation_dmx_value:
+                channel_num, dmx_value = rotation_dmx_value
+                channel_values.extend([str(channel_num), str(dmx_value)])
+
+        values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+    step.text = ":".join(values)
+    return [step]
+
+
 
 
