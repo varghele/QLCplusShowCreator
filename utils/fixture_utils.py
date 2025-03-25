@@ -30,6 +30,23 @@ def load_fixture_definitions(models_in_config):
     elif sys.platform == 'darwin':
         qlc_fixture_dirs.append(os.path.expanduser('~/Library/Application Support/QLC+/fixtures'))
 
+    # Color name to RGB mapping for standard colors
+    color_name_to_rgb = {
+        "White": "#FFFFFF",
+        "Red": "#FF0000",
+        "Green": "#00FF00",
+        "Blue": "#0000FF",
+        "Cyan": "#00FFFF",
+        "Magenta": "#FF00FF",
+        "Yellow": "#FFFF00",
+        "Amber": "#FFBF00",
+        "Orange": "#FF7F00",
+        "Purple": "#7F00FF",
+        "Pink": "#FF007F",
+        "UV": "#8000FF",
+        "Lime": "#BFFF00"
+    }
+
     for dir_path in qlc_fixture_dirs:
         if not os.path.exists(dir_path):
             continue
@@ -73,6 +90,21 @@ def load_fixture_definitions(models_in_config):
                                 'preset': capability.get('Preset'),
                                 'name': capability.text
                             }
+
+                            # Extract color information if present
+                            if capability.get('Color1') or capability.get('Color2'):
+                                # Some newer QLC+ fixtures have direct color attributes
+                                cap_data['color'] = capability.get('Color1')
+                            elif capability.get('Res1'):
+                                # Some fixtures store color information in Res1
+                                cap_data['color'] = capability.get('Res1')
+                            elif capability.text and any(color in capability.text for color in color_name_to_rgb):
+                                # Extract color from capability text if it mentions a standard color
+                                for color_name, hex_value in color_name_to_rgb.items():
+                                    if color_name.lower() in capability.text.lower():
+                                        cap_data['color'] = hex_value
+                                        break
+
                             channel_data['capabilities'].append(cap_data)
 
                         channels_info.append(channel_data)
