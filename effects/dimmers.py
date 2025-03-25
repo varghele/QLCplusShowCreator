@@ -4,7 +4,7 @@ from utils.to_xml.shows_to_xml import calculate_step_timing
 
 
 def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-           num_bars=1, speed="1", intensity=200, fixture_num=1, fixture_start_id=0, spot=None):
+           num_bars=1, speed="1", intensity=200, fixture_conf=None, fixture_start_id=0, spot=None):
     """
     Creates a static effect for fixtures with intensity channels
     Parameters:
@@ -18,12 +18,15 @@ def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         intensity: Maximum intensity value for channels (0-255)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         spot: Spot object (unused in this effect)
     Returns:
         list: List of XML Step elements
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
     if not channels_dict:
         return []
@@ -69,7 +72,7 @@ def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
 
 
 def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-           num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+           num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a strobe effect for fixtures with intensity channels
     Parameters:
@@ -83,13 +86,16 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Color value (not used for basic strobe)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     Returns:
         list: List of XML Step elements
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
     if not channels_dict:
         return []
@@ -165,7 +171,7 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
 
 
 def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-            num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+            num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a twinkling effect with curved BPM transition
     Parameters:
@@ -179,13 +185,16 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Color value (not used for basic twinkle)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     Returns:
         list: List of XML Step elements
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
     if not channels_dict:
         return []
@@ -237,7 +246,7 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
 
 
 def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4",
-                    transition="gradual", num_bars=1, speed="1", color=None, fixture_num=1,
+                    transition="gradual", num_bars=1, speed="1", color=None, fixture_conf=None,
                     fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a smooth ping-pong effect that moves one bar from left to right and back
@@ -253,11 +262,14 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Color value (not used for basic ping-pong)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
     if not channels_dict:
         return []

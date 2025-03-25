@@ -6,7 +6,7 @@ import math
 
 
 def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-            num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+            num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a rainbow effect that cycles through RGB colors with smooth transitions
     Parameters:
@@ -20,11 +20,14 @@ def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Color value (not used for rainbow effect)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityMasterDimmer","IntensityDimmer", "IntensityRed", "IntensityGreen", "IntensityBlue"])
     if not channels_dict:
@@ -112,7 +115,7 @@ def rainbow_rgb(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatur
 
 
 def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-                num_bars=1, speed="1", color="None", fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+                num_bars=1, speed="1", color="None", fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a rainbow effect that cycles through RGBW colors with smooth transitions
     Parameters:
@@ -126,11 +129,14 @@ def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Color value (not used for rainbow effect)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityMasterDimmer", "IntensityDimmer", "IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
     if not channels_dict:
@@ -223,7 +229,7 @@ def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
 
 
 def plasma(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-           num_bars=1, speed="1", color=None, fixture_num=1, fixture_start_id=0, intensity=200, spot=None):
+           num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
     """
     Creates a plasma effect with smooth color transitions for LED bars
     with frequency and phase shift coupled to speed and BPM
@@ -238,11 +244,14 @@ def plasma(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
         color: Color value (not used for plasma effect)
-        fixture_num: Number of fixtures of this type
+        fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
     """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
     channels_dict = get_channels_by_property(fixture_def, mode_name,
                                            ["IntensityMasterDimmer", "IntensityDimmer", "IntensityRed", "IntensityGreen",
                                             "IntensityBlue", "IntensityWhite"])
