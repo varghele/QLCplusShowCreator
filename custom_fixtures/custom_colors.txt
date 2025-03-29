@@ -1,0 +1,9 @@
+intro,#00ffff
+vers,#00ffff
+interlude,#ff8000
+prechorus,#ffff00
+chorus,#ff0080
+bridge,#00ff00
+solo,#ff8000
+outro,#ff0000
+blau,#0040ff
