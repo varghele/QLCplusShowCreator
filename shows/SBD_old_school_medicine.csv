@@ -1,0 +1,16 @@
+showpart,signature,bpm,num_bars,transition,color
+klickintro,4/4,190,2,instant,#ffffff
+intro,4/4,190,1,instant,#00ffff
+riff1,4/4,190,8,instant,#0040ff
+vers1,4/4,190,32,instant,#00ffff
+chorus1,4/4,190,16,instant,#ff0080
+riff2,4/4,190,8,instant,#0040ff
+vers2,4/4,190,32,instant,#00ffff
+chorus2,4/4,190,16,instant,#ff0080
+solo1,4/4,190,8,instant,#ff8000
+solo2,4/4,190,8,instant,#ff8000
+bridge,4/4,190,16,instant,#00ff00
+interlude,4/4,190,8,instant,#ff8000
+aufstieg,4/4,190,16,instant,#0040ff
+chorus,4/4,190,16,instant,#ff0080
+outro,4/4,190,16,instant,#ff0000

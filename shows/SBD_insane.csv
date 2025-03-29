@@ -1,0 +1,11 @@
+showpart,signature,bpm,num_bars,transition,color
+klickintro,4/4,210,4,instant,#ffffff
+intro,4/4,210,8,instant,#00ffff
+vers1,4/4,210,16,instant,#00ffff
+chorus1,4/4,210,16,instant,#ff0080
+drop,4/4,210,16,instant,#0040ff
+vers2,4/4,210,18,instant,#00ffff
+chorus2,4/4,210,16,instant,#ff0080
+drop,4/4,210,16,instant,#0040ff
+chorus3,4/4,210,16,instant,#ff0080
+outro,4/4,210,10,instant,#ff0000
