@@ -4,7 +4,7 @@ from utils.to_xml.shows_to_xml import calculate_step_timing
 
 
 def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
-           num_bars=1, speed="1", intensity=200, fixture_conf=None, fixture_start_id=0, spot=None):
+           num_bars=1, speed="1", color=None, intensity=200, fixture_conf=None, fixture_start_id=0, spot=None):
     """
     Creates a static effect for fixtures with intensity channels
     Parameters:
@@ -17,6 +17,7 @@ def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
         transition: Type of transition ("instant" or "gradual")
         num_bars: Number of bars to fill
         speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Color value (not used for static effect)
         intensity: Maximum intensity value for channels (0-255)
         fixture_conf: List of fixture configurations with fixture coordinates
         fixture_start_id: starting ID for the fixture to properly assign values
@@ -52,8 +53,8 @@ def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
 
     step = ET.Element("Step")
     step.set("Number", str(start_step))
-    step.set("FadeIn", str(int(total_duration)))
-    step.set("Hold", "0")
+    step.set("FadeIn", "0")
+    step.set("Hold", str(int(total_duration)))
     step.set("FadeOut", "0")
     step.set("Values", str(total_channels * fixture_num))
 
