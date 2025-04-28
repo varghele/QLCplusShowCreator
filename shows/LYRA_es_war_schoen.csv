@@ -1,0 +1,15 @@
+showpart,signature,bpm,num_bars,transition,color
+klickintro,4/4,93,2,instant,#ffffff
+intro,4/4,93,2,instant,#00ffff
+vers1,4/4,93,10,instant,#00ffff
+chorus1,4/4,93,8,instant,#ff0080
+interlude,4/4,93,4,instant,#ff8000
+vers2,4/4,93,10,instant,#00ffff
+chorus2,4/4,93,8,instant,#ff0080
+interlude2,4/4,93,10,instant,#ff8000
+bridge,4/4,93,5,instant,#00ff00
+chorus3,4/4,93,8,instant,#ff0080
+chorus4,4/4,93,8,instant,#ff0080
+choruslast,4/4,93,1,instant,#ff0080
+outro1,4/4,93,4,instant,#ff0000
+outro2,4/4,93,2,instant,#ff0000
