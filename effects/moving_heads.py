@@ -209,7 +209,7 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
 def whirl(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, signature="4/4",
                         transition="gradual",
                         num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200,
-                        gobo_index=1, rotation_speed="fast", rotation_direction="cw", tilt_angle=-10, spot=None,
+                        gobo_index=1, rotation_speed="slow", rotation_direction="cw", tilt_angle=-10, spot=None,
                         auto_reset=True):
     """
     Creates a whirl effect that makes moving heads display a rotating gobo pointed toward the audience
@@ -733,6 +733,193 @@ def wave_sweep(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, sign
             steps.append(reset_step)
 
     return steps
+
+
+def wave_sweep_fig8(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, signature="4/4",
+                    transition="gradual", num_bars=1, speed="1", color=None, fixture_conf=None,
+                    fixture_start_id=0, intensity=200, spot=None, gobo_index=1, tilt_angle=-10, base_pan_angle=0,
+                    wave_size=20, wave_offset=0.25, auto_reset=True):
+    """
+    Creates a wave sweep effect with moving heads performing figure-8 patterns in the air
+
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM (defaults to start_bpm if None)
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
+        fixture_conf: List of fixture configurations with fixture coordinates
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
+        gobo_index: Index of gobo to use (typically 1-8)
+        tilt_angle: Base downward angle for the beam in degrees
+        base_pan_angle: Center pan angle (0 = front, -20 = slight left, 20 = slight right)
+        wave_size: Size of the figure-8 pattern (higher = bigger movement)
+        wave_offset: Offset between fixtures (0-1, higher = more asynchronous)
+        auto_reset: Automatically add a reset step at the end
+    """
+    # Set end_bpm to start_bpm if not provided
+    if end_bpm is None:
+        end_bpm = start_bpm
+
+    # Convert num_bars to integer
+    num_bars = int(num_bars)
+
+    # Get channels for pan/tilt, color, intensity, gobo selection
+    channels_dict = get_channels_by_property(fixture_def, mode_name,
+                                             ["PositionPan", "PositionTilt", "IntensityMasterDimmer",
+                                              "ColorMacro", "GoboMacro", "GoboWheel"])
+    if not channels_dict:
+        return []
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Find closest color DMX value if a color is provided
+    color_dmx_value = find_closest_color_dmx(channels_dict, color, fixture_def) if color else None
+
+    # Find the right DMX value for the selected gobo
+    gobo_dmx_value = find_gobo_dmx_value(channels_dict, gobo_index, fixture_def)
+
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
+    # Create steps for the wave sweep animation
+    steps = []
+    current_step = start_step
+
+    # Create one step per step timing to match other effects
+    for step_idx, step_duration in enumerate(step_timings):
+        # Calculate animation progress for this step (0.0 to 1.0)
+        progress = step_idx / max(1, len(step_timings) - 1)
+
+        # Create new step
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(step_duration))  # Use full step duration
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+        step.set("Values", str(total_channels * fixture_num))
+
+        # Build values string for all fixtures
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            # Get fixture from fixture_conf
+            fixture = fixture_conf[i] if i < len(fixture_conf) else None
+
+            if fixture:
+                # Get fixture position and direction from fixture object attributes
+                fx = fixture.x
+                fy = fixture.y
+                fz = fixture.z
+                rotation = fixture.rotation + 90  # Rotation adjustment
+                direction = fixture.direction.upper()
+
+                # Create unique phase offset for each fixture to make them asynchronous
+                fixture_offset = (i * wave_offset) % 1.0
+
+                # Calculate the figure-8 pattern
+                # Basic figure-8 uses sin(t) for horizontal and sin(2t) for vertical
+                phase = 2 * math.pi * (progress + fixture_offset)
+
+                # Calculate pan and tilt offsets using Lissajous figure (figure-8)
+                pan_offset = math.sin(phase) * wave_size
+                tilt_offset = math.sin(2 * phase) * (wave_size * 0.5)  # Half amplitude for tilt
+
+                # Base pan angle (center position with offset)
+                base_pan = 128 + base_pan_angle  # 128 is center, adjust as needed
+
+                # Apply the offsets to create the wave pattern
+                pan_dmx = int(base_pan + pan_offset)
+
+                # Base tilt value (slight downward angle)
+                base_tilt = tilt_angle  # Negative = downward
+
+                # Apply the tilt angle based on fixture direction
+                if direction == 'UP':
+                    # For UP fixtures, negative angles point down
+                    tilt_base_dmx = int(abs(base_tilt) * 127 / 90)  # Map angle to DMX
+                    tilt_dmx = tilt_base_dmx + int(tilt_offset)
+                else:  # DOWN fixtures
+                    # For DOWN fixtures, positive angles point up
+                    tilt_base_dmx = int(abs(base_tilt) * 127 / 90)
+                    tilt_dmx = tilt_base_dmx + int(tilt_offset)
+
+                # Ensure values are within DMX range
+                pan_dmx = max(0, min(255, pan_dmx))
+                tilt_dmx = max(0, min(255, tilt_dmx))
+
+                # Add pan/tilt values to channels
+                if 'PositionPan' in channels_dict:
+                    for channel in channels_dict['PositionPan']:
+                        channel_values.extend([str(channel['channel']), str(pan_dmx)])
+
+                if 'PositionTilt' in channels_dict:
+                    for channel in channels_dict['PositionTilt']:
+                        channel_values.extend([str(channel['channel']), str(tilt_dmx)])
+
+                # Add intensity values to master dimmer channel
+                if 'IntensityMasterDimmer' in channels_dict:
+                    for channel in channels_dict['IntensityMasterDimmer']:
+                        intensity_val = min(255, max(0, intensity))  # Ensure within DMX range
+                        channel_values.extend([str(channel['channel']), str(intensity_val)])
+
+                # Add color values if available
+                if color_dmx_value is not None and 'ColorMacro' in channels_dict:
+                    for channel in channels_dict['ColorMacro']:
+                        channel_values.extend([str(channel['channel']), str(color_dmx_value)])
+
+                # Add gobo selection if available
+                if gobo_dmx_value is not None:
+                    # Find the right channel for gobos
+                    for channel_type in ['GoboMacro', 'GoboWheel']:
+                        if channel_type in channels_dict:
+                            for channel in channels_dict[channel_type]:
+                                channel_values.extend([str(channel['channel']), str(gobo_dmx_value)])
+                                break
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+    # Add a reset step if auto_reset is enabled
+    if auto_reset:
+        reset_step = add_reset_step(
+            fixture_def,
+            mode_name,
+            fixture_conf,
+            fixture_start_id,
+            current_step  # Next step number after all animation steps
+        )
+        if reset_step is not None:
+            steps.append(reset_step)
+
+    return steps
+
+
 
 
 
