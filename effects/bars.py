@@ -3,6 +3,7 @@ from utils.effects_utils import get_channels_by_property
 import xml.etree.ElementTree as ET
 from utils.to_xml.shows_to_xml import calculate_step_timing
 import math
+import random
 
 
 def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
@@ -160,6 +161,96 @@ def fade_in(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
     step.set("FadeIn", str(total_duration))
     step.set("Hold", "0")
     step.set("FadeOut", "0")
+    step.set("Values", str(total_channels * fixture_num))
+
+    # Build values string for all fixtures
+    values = []
+    for i in range(fixture_num):
+        channel_values = []
+
+        # Add channels in order: R, G, B, W
+        if 'IntensityRed' in channels_dict:
+            for channel in channels_dict['IntensityRed']:
+                channel_values.extend([str(channel['channel']), str(r)])
+
+        if 'IntensityGreen' in channels_dict:
+            for channel in channels_dict['IntensityGreen']:
+                channel_values.extend([str(channel['channel']), str(g)])
+
+        if 'IntensityBlue' in channels_dict:
+            for channel in channels_dict['IntensityBlue']:
+                channel_values.extend([str(channel['channel']), str(b)])
+
+        if 'IntensityWhite' in channels_dict:
+            for channel in channels_dict['IntensityWhite']:
+                # Calculate white value as average of RGB and scale by intensity
+                white_value = min(255, max(0, int((r + g + b) / 3 * intensity / 255)))
+                channel_values.extend([str(channel['channel']), str(white_value)])
+
+        values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+    step.text = ":".join(values)
+    return [step]
+
+def fade_out(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+            num_bars=1, speed="1", color="#FF0000", fixture_conf=None, fixture_start_id=0, intensity=200, spot=None):
+    """
+    Creates a fade-out color effect for LED bars with a single step
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
+        fixture_conf: List of fixture configurations with fixture coordinates
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
+    Returns:
+        list: List of XML Step elements
+    """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
+    # Get RGBW channels
+    channels_dict = get_channels_by_property(fixture_def, mode_name,
+                                           ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+    if not channels_dict:
+        return []
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Convert hex to RGB and scale by intensity
+    color = color.lstrip('#')
+    r, g, b = tuple(int(int(color[i:i + 2], 16) * intensity / 255) for i in (0, 2, 4))
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    # Create single step with full duration fade-out
+    total_duration = sum(step_timings)
+
+    step = ET.Element("Step")
+    step.set("Number", str(start_step))
+    step.set("FadeIn", "0")
+    step.set("Hold", "0")
+    step.set("FadeOut", str(total_duration))
     step.set("Values", str(total_channels * fixture_num))
 
     # Build values string for all fixtures
@@ -1687,6 +1778,193 @@ def rainbow_rgbw(start_step, fixture_def, mode_name, start_bpm, end_bpm, signatu
             if 'IntensityWhite' in channels_dict:
                 for channel in channels_dict['IntensityWhite']:
                     channel_values.extend([str(channel['channel']), str(w)])
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+    return steps
+
+
+def starfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+             num_bars=1, speed="1", color="#FFFFFF", fixture_conf=None, fixture_start_id=0, intensity=200, spot=None,
+             trail_length=5, density=0.7, direction="down"):
+    """
+    Creates a falling stars effect for LED bar fixtures
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code for the star color (e.g. "#FFFFFF" for white)
+        fixture_conf: List of fixture configurations with fixture coordinates
+        fixture_start_id: starting ID for the fixture to properly assign values
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
+        trail_length: Length of star trails (1-10)
+        density: Probability of stars appearing (0.1-1.0)
+        direction: Direction of movement ("down", "up")
+    """
+    # Get the fixture count from fixture_conf if available
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
+    # Get all RGB channels
+    channels_dict = get_channels_by_property(fixture_def, mode_name,
+                                             ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"])
+    if not channels_dict:
+        return []
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Parse the star color
+    if color.startswith('#'):
+        color = color[1:]
+    try:
+        star_r = int(color[0:2], 16)
+        star_g = int(color[2:4], 16)
+        star_b = int(color[4:6], 16)
+    except (ValueError, IndexError):
+        # Default to white if invalid color
+        star_r, star_g, star_b = 255, 255, 255
+
+    # Convert speed to multiplier
+    speed_multiplier = float(eval(speed))
+
+    # Calculate animation speed from BPM
+    avg_bpm = (start_bpm + end_bpm) / 2
+    base_frequency = avg_bpm / 60.0  # Beats per second
+
+    # Adjust frequency based on speed multiplier
+    frequency = base_frequency * speed_multiplier
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    # Create animation steps
+    steps = []
+    current_step = start_step
+
+    # Number of pixels per fixture - get from the RGB channel count
+    pixel_count = 0
+    if 'IntensityRed' in channels_dict:
+        pixel_count = len(channels_dict['IntensityRed'])
+
+    # If not individual pixels, treat as one unit
+    if pixel_count <= 1:
+        pixel_count = 10  # Default for visualization
+
+    # Create a random phase offset for each fixture to ensure they're not synchronized
+    fixture_offsets = [random.random() * pixel_count for _ in range(fixture_num)]
+
+    # Normalize trail_length
+    trail_length = max(1, min(10, trail_length))
+
+    # Create animation frames
+    for step_idx, step_duration in enumerate(step_timings):
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(step_duration))
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+        step.set("Values", str(total_channels * fixture_num))
+
+        # Animation progress (0.0 to 1.0) for this step
+        animation_progress = step_idx / max(1, len(step_timings) - 1)
+
+        # Build values string for all fixtures
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            # Get this fixture's unique offset
+            fixture_offset = fixture_offsets[i]
+
+            # For each pixel in the LED bar
+            star_positions = []
+
+            # Determine how many stars should appear in this fixture
+            # Based on density parameter and fixture size
+            max_stars = max(1, int(pixel_count * density / 4))
+
+            # Calculate star positions based on step and offsets
+            for star in range(max_stars):
+                # Each star has a different starting position
+                star_seed = i * 1000 + star * 100 + step_idx
+                random.seed(star_seed)
+
+                # Calculate position based on animation progress and offset
+                position = (fixture_offset + star * 2.7 + animation_progress * frequency * pixel_count) % (
+                            pixel_count * 2)
+
+                # Only show stars that are within the fixture's pixel range
+                if position < pixel_count:
+                    star_positions.append(int(position))
+
+            # Create array of pixel colors for this fixture
+            pixel_colors = [(0, 0, 0) for _ in range(pixel_count)]
+
+            # Set star colors with trails
+            for pos in star_positions:
+                # Create a trail that fades out
+                for trail in range(trail_length):
+                    if direction == "down":
+                        # For downward motion, trail goes upward (lower pixel indices)
+                        trail_pos = pos - trail
+                    else:  # up
+                        # For upward motion, trail goes downward (higher pixel indices)
+                        trail_pos = pos + trail
+
+                    # Check if trail position is within range
+                    if 0 <= trail_pos < pixel_count:
+                        # Calculate trail fade factor (1.0 at head, fading to 0.0)
+                        fade = 1.0 - (trail / trail_length)
+
+                        # Set pixel color with trail fade
+                        pixel_colors[trail_pos] = (
+                            int(star_r * fade),
+                            int(star_g * fade),
+                            int(star_b * fade)
+                        )
+
+            # Add RGB values for each pixel
+            for pixel_idx, (r, g, b) in enumerate(pixel_colors):
+                # Scale by intensity parameter
+                r = int(r * intensity / 255)
+                g = int(g * intensity / 255)
+                b = int(b * intensity / 255)
+
+                # Add color channels for this pixel
+                if 'IntensityRed' in channels_dict and pixel_idx < len(channels_dict['IntensityRed']):
+                    channel_values.extend([str(channels_dict['IntensityRed'][pixel_idx]['channel']), str(r)])
+
+                if 'IntensityGreen' in channels_dict and pixel_idx < len(channels_dict['IntensityGreen']):
+                    channel_values.extend([str(channels_dict['IntensityGreen'][pixel_idx]['channel']), str(g)])
+
+                if 'IntensityBlue' in channels_dict and pixel_idx < len(channels_dict['IntensityBlue']):
+                    channel_values.extend([str(channels_dict['IntensityBlue'][pixel_idx]['channel']), str(b)])
+
+                if 'IntensityWhite' in channels_dict and pixel_idx < len(channels_dict['IntensityWhite']):
+                    # Calculate white as the average of RGB
+                    w = int((r + g + b) / 3)
+                    channel_values.extend([str(channels_dict['IntensityWhite'][pixel_idx]['channel']), str(w)])
 
             values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
 
