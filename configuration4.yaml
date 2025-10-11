@@ -1,0 +1,304 @@
+fixtures:
+- address: 1
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  direction: DOWN
+  group: MH
+  manufacturer: Varytec
+  model: Hero Spot 60
+  name: M1
+  rotation: -90.0
+  type: MH
+  universe: 3
+  x: 3.0
+  y: 0.0
+  z: 2.3000000000000007
+- address: 15
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  direction: DOWN
+  group: MH
+  manufacturer: Varytec
+  model: Hero Spot 60
+  name: M2
+  rotation: -90.0
+  type: MH
+  universe: 3
+  x: 4.0
+  y: 0.0
+  z: 2.3000000000000007
+- address: 1
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  direction: DOWN
+  group: MH
+  manufacturer: Varytec
+  model: Hero Spot 60
+  name: M3
+  rotation: -90.0
+  type: MH
+  universe: 4
+  x: 6.0
+  y: 0.0
+  z: 2.3000000000000007
+- address: 15
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  direction: DOWN
+  group: MH
+  manufacturer: Varytec
+  model: Hero Spot 60
+  name: M4
+  rotation: -90.0
+  type: MH
+  universe: 4
+  x: 7.0
+  y: 0.0
+  z: 2.3000000000000007
+groups:
+  MH:
+    color: '#ffb6c1'
+    fixtures:
+    - address: 1
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      direction: DOWN
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      name: M1
+      rotation: -90.0
+      type: MH
+      universe: 3
+      x: 3.0
+      y: 0.0
+      z: 2.3000000000000007
+    - address: 15
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      direction: DOWN
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      name: M2
+      rotation: -90.0
+      type: MH
+      universe: 3
+      x: 4.0
+      y: 0.0
+      z: 2.3000000000000007
+    - address: 1
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      direction: DOWN
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      name: M3
+      rotation: -90.0
+      type: MH
+      universe: 4
+      x: 6.0
+      y: 0.0
+      z: 2.3000000000000007
+    - address: 15
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      direction: DOWN
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      name: M4
+      rotation: -90.0
+      type: MH
+      universe: 4
+      x: 7.0
+      y: 0.0
+      z: 2.3000000000000007
+    name: MH
+shows:
+  SBD_cycle_of_a_pscho:
+    effects:
+    - color: '#FF0000'
+      effect: moving_heads.twinkle
+      fixture_group: MH
+      intensity: 200
+      show_part: klickintro
+      speed: '1'
+      spot: Spot1
+    parts:
+    - bpm: 95.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+  SBD_hit_the_road_jack:
+    effects:
+    - color: ''
+      effect: ''
+      fixture_group: MH
+      intensity: 200
+      show_part: klickintro
+      speed: '1'
+      spot: ''
+    parts:
+    - bpm: 95.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+  show_1:
+    effects:
+    - color: ''
+      effect: ''
+      fixture_group: MH
+      intensity: 200
+      show_part: vers
+      speed: '1'
+      spot: ''
+    - color: ''
+      effect: ''
+      fixture_group: MH
+      intensity: 200
+      show_part: interlude
+      speed: '1'
+      spot: ''
+    - color: ''
+      effect: ''
+      fixture_group: MH
+      intensity: 200
+      show_part: chorus
+      speed: '1'
+      spot: ''
+    parts:
+    - bpm: 190.0
+      color: '#00ffff'
+      name: vers
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 100.0
+      color: '#ff8000'
+      name: interlude
+      num_bars: 16
+      signature: 2/4
+      transition: gradual
+    - bpm: 160.0
+      color: '#ff0080'
+      name: chorus
+      num_bars: 16
+      signature: 4/8
+      transition: instant
+  show_2:
+    effects:
+    - color: ''
+      effect: ''
+      fixture_group: MH
+      intensity: 200
+      show_part: intro
+      speed: '1'
+      spot: ''
+    - color: ''
+      effect: ''
+      fixture_group: MH
+      intensity: 200
+      show_part: vers
+      speed: '1'
+      spot: ''
+    - color: ''
+      effect: ''
+      fixture_group: MH
+      intensity: 200
+      show_part: chorus
+      speed: '1'
+      spot: ''
+    parts:
+    - bpm: 190.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 100.0
+      color: '#ff8000'
+      name: vers
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 160.0
+      color: '#ff0080'
+      name: chorus
+      num_bars: 16
+      signature: 4/8
+      transition: instant
+spots:
+  Spot1:
+    name: Spot1
+    x: 5.0
+    y: 3.0
+universes:
+  '1':
+    name: Universe 1
+    output:
+      line: '0'
+      parameters:
+        ip: 192.168.1.1
+        port: '6454'
+        subnet: '0'
+        universe: '1'
+      plugin: E1.31
+  '2':
+    name: Universe 2
+    output:
+      line: '0'
+      parameters:
+        ip: 192.168.1.2
+        port: '6454'
+        subnet: '0'
+        universe: '2'
+      plugin: E1.31
+  '3':
+    name: Universe 3
+    output:
+      line: '0'
+      parameters:
+        ip: 192.168.1.3
+        port: '6454'
+        subnet: '0'
+        universe: '3'
+      plugin: E1.31
+workspace_path: null
