@@ -160,8 +160,15 @@ class Configuration:
                 if os.path.isdir(show_path):
                     structure_file = os.path.join(show_path, f"{show_dir}_structure.csv")
                     if os.path.exists(structure_file):
-                        # Create new Show object
-                        show = Show(name=show_dir)
+                        # Check if show already exists in configuration
+                        if show_dir in config.shows:
+                            show = config.shows[show_dir]
+                            # Clear existing parts to reload from CSV
+                            show.parts.clear()
+                        else:
+                            # Create new Show object
+                            show = Show(name=show_dir)
+                            config.shows[show_dir] = show
 
                         with open(structure_file, 'r') as f:
                             reader = csv.DictReader(f)
@@ -178,22 +185,45 @@ class Configuration:
                                 # Add part to show
                                 show.parts.append(show_part)
 
-                                # Create empty effects for each group
+                                # Create empty effects for each group, but only if they don't already exist
                                 for group_name in config.groups.keys():
-                                    effect = ShowEffect(
-                                        show_part=show_part.name,
-                                        fixture_group=group_name,
-                                        effect="",
-                                        speed="1",
-                                        color="",  # Leave color blank for effects
-                                        intensity=200 # Default intensity
-                                    )
-                                    show.effects.append(effect)
+                                    # Check if an effect already exists for this show part and group
+                                    existing_effect = None
+                                    for effect in show.effects:
+                                        if (effect.show_part == show_part.name and
+                                                effect.fixture_group == group_name):
+                                            existing_effect = effect
+                                            break
 
-                        # Add show to configuration
-                        config.shows[show_dir] = show
+                                    # Only create new effect if none exists or if existing effect is empty
+                                    if existing_effect is None:
+                                        # No existing effect found, create a new empty one
+                                        effect = ShowEffect(
+                                            show_part=show_part.name,
+                                            fixture_group=group_name,
+                                            effect="",
+                                            speed="1",
+                                            color="",  # Leave color blank for effects
+                                            intensity=200  # Default intensity
+                                        )
+                                        show.effects.append(effect)
+                                    elif (existing_effect.effect == "" and
+                                          existing_effect.color == "" and
+                                          existing_effect.speed == "1" and
+                                          existing_effect.intensity == 200):
+                                        # Existing effect is empty (default values), keep it as is
+                                        pass
+                                    else:
+                                        # Existing effect has non-empty values, preserve it
+                                        print(f"Preserving existing effect for {show_part.name} - {group_name}: "
+                                              f"effect='{existing_effect.effect}', color='{existing_effect.color}'")
 
             return config
+
+        except Exception as e:
+            print(f"Error importing show structure: {e}")
+            return config
+
 
         except Exception as e:
             print(f"Error importing show structure: {e}")
