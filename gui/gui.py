@@ -1322,8 +1322,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     show_name = os.path.splitext(file)[0]  # Remove .csv extension
                     structure_file = os.path.join(shows_dir, file)
 
-                    # Create new Show object
-                    show = Show(name=show_name)
+                    # Check if show already exists in configuration
+                    if show_name in self.config.shows:
+                        show = self.config.shows[show_name]
+                        # Clear existing parts to reload from CSV
+                        show.parts.clear()
+                    else:
+                        # Create new Show object
+                        show = Show(name=show_name)
+                        self.config.shows[show_name] = show
 
                     with open(structure_file, 'r') as f:
                         reader = csv.DictReader(f)
@@ -1340,21 +1347,42 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                             # Add part to show
                             show.parts.append(show_part)
 
-                            # Create empty effects for each group
+                            # Create empty effects for each group, but only if they don't already exist
                             for group_name in self.config.groups.keys():
-                                effect = ShowEffect(
-                                    show_part=show_part.name,
-                                    fixture_group=group_name,
-                                    effect="",
-                                    speed="1",
-                                    color="",
-                                    intensity=200,
-                                    spot=""
-                                )
-                                show.effects.append(effect)
+                                # Check if an effect already exists for this show part and group
+                                existing_effect = None
+                                for effect in show.effects:
+                                    if (effect.show_part == show_part.name and
+                                            effect.fixture_group == group_name):
+                                        existing_effect = effect
+                                        break
 
-                    # Add show to configuration
-                    self.config.shows[show_name] = show
+                                # Only create new effect if none exists or if existing effect is empty
+                                if existing_effect is None:
+                                    # No existing effect found, create a new empty one
+                                    effect = ShowEffect(
+                                        show_part=show_part.name,
+                                        fixture_group=group_name,
+                                        effect="",
+                                        speed="1",
+                                        color="",
+                                        intensity=200,
+                                        spot=""
+                                    )
+                                    show.effects.append(effect)
+                                elif (existing_effect.effect == "" and
+                                      existing_effect.color == "" and
+                                      existing_effect.speed == "1" and
+                                      existing_effect.intensity == 200 and
+                                      existing_effect.spot == ""):
+                                    # Existing effect is empty (default values), keep it as is
+                                    pass
+                                else:
+                                    # Existing effect has non-empty values, preserve it
+                                    print(f"Preserving existing effect for {show_part.name} - {group_name}: "
+                                          f"effect='{existing_effect.effect}', color='{existing_effect.color}', "
+                                          f"speed='{existing_effect.speed}', intensity={existing_effect.intensity}, "
+                                          f"spot='{existing_effect.spot}'")
 
             # Update combo box with available shows
             self.comboBox.clear()
