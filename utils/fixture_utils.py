@@ -2,7 +2,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
-def load_fixture_definitions(models_in_config):
+def load_fixture_definitions_from_qlc(models_in_config):
     """
     Loads fixture definitions from QLC+ fixture directories
 

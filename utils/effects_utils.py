@@ -30,38 +30,6 @@ def list_effects_in_directory(directory):
     return effects_dict
 
 
-# To load and use the effects later:
-def load_effect(module_name, effect_name):
-    try:
-        # Import the module dynamically
-        import importlib
-        module = importlib.import_module(f"effects.{module_name}")
-
-        # Get the function from the module
-        if hasattr(module, effect_name):
-            return getattr(module, effect_name)
-        else:
-            print(f"Effect {effect_name} not found in {module_name}")
-            return None
-
-    except ImportError as e:
-        print(f"Error importing module {module_name}: {e}")
-        return None
-
-
-# Set up effects combo box for GUI:
-def setup_effects_combo(self, combo_box):
-    effects = list_effects_in_directory("path/to/effects/directory")
-
-    # Add empty option first
-    combo_box.addItem("")
-
-    # Add effects organized by module
-    for module, functions in effects.items():
-        for func in functions:
-            combo_box.addItem(f"{module}.{func}")
-
-
 def get_channels_by_property(fixture_def, mode_name, properties):
     """
     Extracts channels with specific properties from a fixture definition
