@@ -31,7 +31,7 @@ def load_show_values(values_file):
             print(f"Error loading values file: {e}")
     return show_values
 
-def load_fixture_definitions(json_path):
+def load_fixture_definitions_from_json(json_path):
     """
     Load fixture definitions from JSON file
     Parameters:
@@ -418,7 +418,7 @@ def create_tracks_old(function, root, effects, base_dir="../"):
 
     # Load show values and fixture definitions
     show_values = load_show_values(values_file)
-    fixture_definitions = load_fixture_definitions(fixtures_file)
+    fixture_definitions = load_fixture_definitions_from_json(fixtures_file)
 
     # Read the CSV files
     groups_df = pd.read_csv(groups_file)
