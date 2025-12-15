@@ -95,7 +95,39 @@ class Ui_MainWindow(object):
 
         self.menubar = QtWidgets.QMenuBar(parent=MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 1200, 22))
-        self.menuQLCAutoShow = QtWidgets.QMenu(parent=self.menubar)
+
+        # File menu
+        self.menuFile = QtWidgets.QMenu("File", parent=self.menubar)
+        self.actionSaveConfig = QAction("Save Configuration", MainWindow)
+        self.actionSaveConfig.setShortcut("Ctrl+S")
+        self.actionLoadConfig = QAction("Load Configuration", MainWindow)
+        self.actionLoadConfig.setShortcut("Ctrl+O")
+        self.actionImportWorkspace = QAction("Import QLC+ Workspace...", MainWindow)
+        self.actionCreateWorkspace = QAction("Create QLC+ Workspace", MainWindow)
+        self.actionExit = QAction("Exit", MainWindow)
+        self.actionExit.setShortcut("Ctrl+Q")
+
+        self.menuFile.addAction(self.actionSaveConfig)
+        self.menuFile.addAction(self.actionLoadConfig)
+        self.menuFile.addSeparator()
+        self.menuFile.addAction(self.actionImportWorkspace)
+        self.menuFile.addAction(self.actionCreateWorkspace)
+        self.menuFile.addSeparator()
+        self.menuFile.addAction(self.actionExit)
+
+        # Settings menu
+        self.menuSettings = QtWidgets.QMenu("Settings", parent=self.menubar)
+        self.actionAudioSettings = QAction("Audio Settings...", MainWindow)
+        self.actionAudioSettings.setShortcut("Ctrl+,")
+        self.menuSettings.addAction(self.actionAudioSettings)
+
+        # Help menu
+        self.menuHelp = QtWidgets.QMenu("Help", parent=self.menubar)
+        self.actionAbout = QAction("About", MainWindow)
+        self.menuHelp.addAction(self.actionAbout)
+
+        # Add menus to menubar
         MainWindow.setMenuBar(self.menubar)
-        self.menuQLCAutoShow.addSeparator()
-        self.menubar.addAction(self.menuQLCAutoShow.menuAction())
+        self.menubar.addAction(self.menuFile.menuAction())
+        self.menubar.addAction(self.menuSettings.menuAction())
+        self.menubar.addAction(self.menuHelp.menuAction())

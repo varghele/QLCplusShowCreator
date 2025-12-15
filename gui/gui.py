@@ -1,4 +1,4 @@
-# gui/gui_new.py
+# gui/gui.py
 # Refactored MainWindow using tab components
 
 import os
@@ -9,6 +9,7 @@ from config.models import Configuration
 from utils.create_workspace import create_qlc_workspace
 from gui.Ui_MainWindow import Ui_MainWindow
 from gui.tabs import ConfigurationTab, FixturesTab, ShowsTab, StageTab
+from gui.audio_settings_dialog import AudioSettingsDialog
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -120,6 +121,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.loadShowsAction.triggered.connect(self.import_show_structure)
         self.importWorkspaceAction.triggered.connect(self.import_workspace)
         self.createWorkspaceAction.triggered.connect(self.create_workspace)
+
+        # File menu actions
+        self.actionSaveConfig.triggered.connect(self.save_configuration)
+        self.actionLoadConfig.triggered.connect(self.load_configuration)
+        self.actionImportWorkspace.triggered.connect(self.import_workspace)
+        self.actionCreateWorkspace.triggered.connect(self.create_workspace)
+        self.actionExit.triggered.connect(self.close)
+
+        # Settings menu actions
+        self.actionAudioSettings.triggered.connect(self.open_audio_settings)
+
+        # Help menu actions
+        self.actionAbout.triggered.connect(self.show_about)
 
     def on_groups_changed(self):
         """Coordinate updates when fixture groups change
@@ -309,3 +323,63 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print(f"Error creating workspace: {e}")
             import traceback
             traceback.print_exc()
+
+    def open_audio_settings(self):
+        """Open audio settings dialog"""
+        try:
+            # Get audio engine and device manager from shows tab if available
+            audio_engine = getattr(self.shows_tab, 'audio_engine', None)
+            device_manager = getattr(self.shows_tab, 'device_manager', None)
+
+            dialog = AudioSettingsDialog(
+                device_manager=device_manager,
+                audio_engine=audio_engine,
+                parent=self
+            )
+
+            if dialog.exec():
+                # Settings were applied
+                settings = dialog.get_settings()
+                if settings:
+                    # Store settings for shows tab to use
+                    self.audio_settings = settings
+
+                    # If shows tab has audio components, update them
+                    if hasattr(self.shows_tab, 'apply_audio_settings'):
+                        self.shows_tab.apply_audio_settings(settings)
+
+                    print(f"Audio settings applied: device={settings['device_index']}, "
+                          f"rate={settings['sample_rate']}, buffer={settings['buffer_size']}")
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to open audio settings: {str(e)}"
+            )
+            print(f"Error opening audio settings: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def show_about(self):
+        """Show about dialog"""
+        QMessageBox.about(
+            self,
+            "About QLCAutoShow",
+            "QLCAutoShow\n\n"
+            "A tool for creating QLC+ light shows with timeline-based editing.\n\n"
+            "Features:\n"
+            "- Fixture management and grouping\n"
+            "- Stage layout visualization\n"
+            "- Timeline-based show editing\n"
+            "- Audio playback with waveform display\n"
+            "- QLC+ workspace export"
+        )
+
+    def closeEvent(self, event):
+        """Handle application close"""
+        # Clean up shows tab audio resources
+        if hasattr(self.shows_tab, 'cleanup'):
+            self.shows_tab.cleanup()
+
+        event.accept()
