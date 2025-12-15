@@ -6,6 +6,7 @@ from .master_timeline_widget import MasterTimelineWidget, MasterTimelineContaine
 from .light_lane_widget import LightLaneWidget
 from .light_block_widget import LightBlockWidget
 from .effect_block_dialog import EffectBlockDialog
+from .audio_lane_widget import AudioLaneWidget, AudioTimelineWidget
 
 __all__ = [
     'TimelineWidget',
@@ -13,5 +14,7 @@ __all__ = [
     'MasterTimelineContainer',
     'LightLaneWidget',
     'LightBlockWidget',
-    'EffectBlockDialog'
+    'EffectBlockDialog',
+    'AudioLaneWidget',
+    'AudioTimelineWidget'
 ]

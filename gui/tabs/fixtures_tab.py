@@ -45,37 +45,54 @@ class FixturesTab(BaseTab):
 
     def setup_ui(self):
         """Set up fixture management UI"""
+        # Main layout
+        main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
+
+        # Button toolbar
+        toolbar = QtWidgets.QHBoxLayout()
+        toolbar.setSpacing(8)
+
         # Add Fixture button
-        self.add_btn = QtWidgets.QPushButton("+", parent=self)
-        self.add_btn.setGeometry(QtCore.QRect(10, 14, 31, 31))
+        self.add_btn = QtWidgets.QPushButton("+")
+        self.add_btn.setFixedSize(31, 31)
         self.add_btn.setToolTip("Add Fixture")
+        toolbar.addWidget(self.add_btn)
 
         # Remove Fixture button
-        self.remove_btn = QtWidgets.QPushButton("-", parent=self)
-        self.remove_btn.setGeometry(QtCore.QRect(50, 14, 31, 31))
+        self.remove_btn = QtWidgets.QPushButton("-")
+        self.remove_btn.setFixedSize(31, 31)
         self.remove_btn.setToolTip("Remove Fixture")
+        toolbar.addWidget(self.remove_btn)
 
         # Duplicate Fixture button
-        self.duplicate_btn = QtWidgets.QPushButton("⎘", parent=self)
-        self.duplicate_btn.setGeometry(QtCore.QRect(90, 14, 31, 31))
+        self.duplicate_btn = QtWidgets.QPushButton("⎘")
+        self.duplicate_btn.setFixedSize(31, 31)
         self.duplicate_btn.setToolTip("Duplicate Fixture")
+        toolbar.addWidget(self.duplicate_btn)
 
         # Update Fixtures button
-        self.update_btn = QtWidgets.QPushButton("Update Fixtures", parent=self)
-        self.update_btn.setGeometry(QtCore.QRect(130, 14, 115, 31))
+        self.update_btn = QtWidgets.QPushButton("Update Fixtures")
+        self.update_btn.setFixedWidth(115)
         self.update_btn.setToolTip("Update Fixtures in Config")
+        toolbar.addWidget(self.update_btn)
+
+        toolbar.addStretch()
+        main_layout.addLayout(toolbar)
 
         # Fixtures label
-        self.label = QtWidgets.QLabel("Fixtures", parent=self)
-        self.label.setGeometry(QtCore.QRect(10, 60, 81, 17))
+        self.label = QtWidgets.QLabel("Fixtures")
         self.label.setFont(QFont("", 14, QFont.Weight.Bold))
+        main_layout.addWidget(self.label)
 
         # Fixtures table
-        self.table = QtWidgets.QTableWidget(parent=self)
-        self.table.setGeometry(QtCore.QRect(10, 80, 1151, 640))
+        self.table = QtWidgets.QTableWidget()
 
         # Setup table structure
         self._setup_table()
+
+        main_layout.addWidget(self.table)
 
         # Load initial data
         self.update_from_config()
@@ -87,21 +104,28 @@ class FixturesTab(BaseTab):
         self.table.setColumnCount(len(headers))
         self.table.setHorizontalHeaderLabels(headers)
 
-        # Set column widths
+        # Make table stretch to fill available space
+        self.table.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Expanding,
+            QtWidgets.QSizePolicy.Policy.Expanding
+        )
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeMode.Interactive
+        )
+
+        # Set initial column widths (these are now resizable)
         self.table.setColumnWidth(0, 70)   # Universe
         self.table.setColumnWidth(1, 70)   # Address
-        self.table.setColumnWidth(2, 200)  # Manufacturer
-        self.table.setColumnWidth(3, 200)  # Model
+        self.table.setColumnWidth(2, 180)  # Manufacturer
+        self.table.setColumnWidth(3, 180)  # Model
         self.table.setColumnWidth(4, 70)   # Channels
-        self.table.setColumnWidth(5, 150)  # Mode
-        self.table.setColumnWidth(6, 150)  # Name
-        self.table.setColumnWidth(7, 150)  # Group
+        self.table.setColumnWidth(5, 140)  # Mode
+        self.table.setColumnWidth(6, 140)  # Name
+        self.table.setColumnWidth(7, 140)  # Group
         self.table.setColumnWidth(8, 80)   # Direction
 
         # Table properties
-        self.table.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
-                                QtWidgets.QSizePolicy.Policy.Expanding)
-        self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setSortingEnabled(True)
         self.table.setShowGrid(True)
         self.table.setAlternatingRowColors(True)
