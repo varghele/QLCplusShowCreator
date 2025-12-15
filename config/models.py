@@ -66,12 +66,96 @@ class ShowPart:
     bpm: float
     num_bars: int
     transition: str
+    # Runtime fields (calculated, not stored)
+    start_time: float = 0.0
+    duration: float = 0.0
+
+
+@dataclass
+class LightBlock:
+    """Represents an effect block on a light lane timeline"""
+    start_time: float      # In seconds
+    duration: float        # In seconds
+    effect_name: str       # "module.function" e.g., "bars.static"
+    parameters: Dict[str, any] = field(default_factory=dict)  # {speed, color, intensity, spot}
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_time": self.start_time,
+            "duration": self.duration,
+            "effect_name": self.effect_name,
+            "parameters": self.parameters
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'LightBlock':
+        return cls(
+            start_time=data.get("start_time", 0.0),
+            duration=data.get("duration", 4.0),
+            effect_name=data.get("effect_name", ""),
+            parameters=data.get("parameters", {})
+        )
+
+
+@dataclass
+class LightLane:
+    """Represents a lane controlling a fixture group on the timeline"""
+    name: str
+    fixture_group: str
+    muted: bool = False
+    solo: bool = False
+    light_blocks: List[LightBlock] = field(default_factory=list)
+
+    def to_dict(self) -> Dict:
+        return {
+            "name": self.name,
+            "fixture_group": self.fixture_group,
+            "muted": self.muted,
+            "solo": self.solo,
+            "light_blocks": [block.to_dict() for block in self.light_blocks]
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'LightLane':
+        lane = cls(
+            name=data.get("name", ""),
+            fixture_group=data.get("fixture_group", ""),
+            muted=data.get("muted", False),
+            solo=data.get("solo", False)
+        )
+        for block_data in data.get("light_blocks", []):
+            lane.light_blocks.append(LightBlock.from_dict(block_data))
+        return lane
+
+
+@dataclass
+class TimelineData:
+    """Timeline-specific data for a show"""
+    lanes: List[LightLane] = field(default_factory=list)
+    audio_file_path: Optional[str] = None
+
+    def to_dict(self) -> Dict:
+        return {
+            "lanes": [lane.to_dict() for lane in self.lanes],
+            "audio_file_path": self.audio_file_path
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'TimelineData':
+        timeline = cls(
+            audio_file_path=data.get("audio_file_path")
+        )
+        for lane_data in data.get("lanes", []):
+            timeline.lanes.append(LightLane.from_dict(lane_data))
+        return timeline
+
 
 @dataclass
 class Show:
     name: str
     parts: List[ShowPart] = field(default_factory=list)
-    effects: List[ShowEffect] = field(default_factory=list)
+    effects: List[ShowEffect] = field(default_factory=list)  # Keep for backwards compatibility
+    timeline_data: Optional[TimelineData] = None  # NEW: Timeline representation
 
 @dataclass
 class Universe:
@@ -252,8 +336,9 @@ class Configuration:
             },
             'shows': {
                 show.name: {
-                    'parts': [asdict(part) for part in show.parts],
-                    'effects': [asdict(effect) for effect in show.effects]
+                    'parts': [{k: v for k, v in asdict(part).items() if k not in ('start_time', 'duration')} for part in show.parts],
+                    'effects': [asdict(effect) for effect in show.effects],
+                    'timeline_data': show.timeline_data.to_dict() if show.timeline_data else None
                 }
                 for show in self.shows.values()
             },
@@ -338,11 +423,17 @@ class Configuration:
                         spot=effect_data['spot']
                     ))
 
+                # Load timeline data if present
+                timeline_data = None
+                if show_data.get('timeline_data'):
+                    timeline_data = TimelineData.from_dict(show_data['timeline_data'])
+
                 # Create show
                 shows[show_name] = Show(
                     name=show_name,
                     parts=parts,
-                    effects=effects
+                    effects=effects,
+                    timeline_data=timeline_data
                 )
 
         # Handle universes

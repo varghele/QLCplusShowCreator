@@ -547,6 +547,162 @@ def create_tracks_old(function, root, effects, base_dir="../"):
     return current_id
 
 
+def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_map,
+                                function_id_counter, effects, fixture_definitions):
+    """
+    Creates Track elements from timeline_data (new timeline-based format).
+
+    Parameters:
+        show_function: The show Function element to add tracks to
+        engine: The engine element for adding scenes
+        show: Show object containing show data with timeline_data
+        config: Configuration object
+        fixture_id_map: Dictionary mapping fixture object IDs to their sequential IDs
+        function_id_counter: Current function ID counter
+        effects: dictionary containing effect names and link to module
+        fixture_definitions: Dictionary of fixture definitions loaded from QLC+
+    Returns:
+        int: Next available function ID
+    """
+    from timeline.song_structure import SongStructure
+
+    # Build song structure for timing calculations
+    song_structure = SongStructure()
+    song_structure.load_from_show_parts(show.parts)
+
+    track_id = 0
+    fixture_start_id = 0
+
+    for lane in show.timeline_data.lanes:
+        group_name = lane.fixture_group
+
+        if group_name not in config.groups:
+            print(f"Warning: Fixture group '{group_name}' not found, skipping lane")
+            continue
+
+        # Calculate number of fixtures in group
+        fixture_num = len(config.groups[group_name].fixtures)
+
+        # Create Track
+        track = ET.SubElement(show_function, "Track")
+        track.set("ID", str(track_id))
+        track.set("Name", group_name.upper())
+        track.set("SceneID", str(function_id_counter))
+        track.set("isMute", "1" if lane.muted else "0")
+
+        # Create Scene
+        scene = ET.SubElement(engine, "Function")
+        scene.set("ID", str(function_id_counter))
+        scene.set("Type", "Scene")
+        scene.set("Name", f"Scene for {show.name} - {group_name}")
+        scene.set("Hidden", "True")
+
+        # Add Scene properties
+        speed = ET.SubElement(scene, "Speed")
+        speed.set("FadeIn", "0")
+        speed.set("FadeOut", "0")
+        speed.set("Duration", "0")
+
+        # Add ChannelGroupsVal
+        ET.SubElement(scene, "ChannelGroupsVal").text = f"{track_id},0"
+
+        # Add FixtureVal for fixtures in the group
+        for fixture in config.groups[group_name].fixtures:
+            fixture_val = ET.SubElement(scene, "FixtureVal")
+            fixture_val.set("ID", str(fixture_id_map[id(fixture)]))
+
+            num_channels = next((mode.channels for mode in fixture.available_modes
+                                if mode.name == fixture.current_mode), 0)
+            channel_values = ",".join([f"{i},0" for i in range(num_channels)])
+            fixture_val.text = channel_values
+
+        function_id_counter += 1
+
+        # Create sequences for each light block
+        for block in lane.light_blocks:
+            if not block.effect_name:
+                continue
+
+            # Convert start_time from seconds to milliseconds
+            start_time_ms = int(block.start_time * 1000)
+
+            # Create sequence
+            sequence_name = f"{show.name}_{group_name}_{start_time_ms}"
+
+            # Find BPM at block start
+            part_at_block = song_structure.get_part_at_time(block.start_time)
+            block_bpm = part_at_block.bpm if part_at_block else 120
+
+            sequence = create_sequence(engine, function_id_counter, sequence_name,
+                                       scene.get("ID"), block_bpm)
+
+            # Split effect name into module and function
+            try:
+                module_name, func_name = block.effect_name.split('.')
+            except ValueError:
+                print(f"Invalid effect name format: {block.effect_name}")
+                continue
+
+            effect_module = effects.get(module_name)
+
+            if effect_module and hasattr(effect_module, func_name):
+                effect_func = getattr(effect_module, func_name)
+
+                # Get fixture definition from the first fixture in the group
+                first_fixture = config.groups[group_name].fixtures[0]
+                fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
+                fixture_def = fixture_definitions.get(fixture_key)
+
+                if fixture_def and first_fixture.current_mode and part_at_block:
+                    # Calculate number of bars from block duration
+                    numerator, denominator = map(int, part_at_block.signature.split('/'))
+                    beats_per_bar = (numerator * 4) / denominator
+                    seconds_per_bar = beats_per_bar * (60.0 / block_bpm)
+                    num_bars = max(1, int(block.duration / seconds_per_bar))
+
+                    # Get parameters
+                    params = block.parameters or {}
+
+                    try:
+                        steps = effect_func(
+                            start_step=0,
+                            fixture_def=fixture_def,
+                            mode_name=first_fixture.current_mode,
+                            start_bpm=block_bpm,
+                            end_bpm=block_bpm,
+                            signature=part_at_block.signature,
+                            transition="instant",
+                            num_bars=num_bars,
+                            speed=params.get('speed', '1'),
+                            color=params.get('color', ''),
+                            fixture_conf=config.groups[group_name].fixtures,
+                            fixture_start_id=fixture_start_id,
+                            intensity=params.get('intensity', 200),
+                            spot=config.spots.get(params.get('spot')) if params.get('spot') else None,
+                        )
+                        add_steps_to_sequence(sequence, steps)
+                    except Exception as e:
+                        print(f"Error creating effect steps: {e}")
+                        import traceback
+                        traceback.print_exc()
+
+            # Create ShowFunction
+            show_func = ET.SubElement(track, "ShowFunction")
+            show_func.set("ID", str(function_id_counter))
+            show_func.set("StartTime", str(start_time_ms))
+
+            # Use color from parameters or default
+            color = block.parameters.get('color', '#808080') if block.parameters else '#808080'
+            show_func.set("Color", color)
+
+            function_id_counter += 1
+
+        fixture_start_id += fixture_num
+        track_id += 1
+
+    return function_id_counter
+
+
 def create_shows(engine, config: Configuration, fixture_id_map: dict, fixture_definitions: dict):
     """
     Creates show function elements from Configuration data
@@ -581,26 +737,42 @@ def create_shows(engine, config: Configuration, fixture_id_map: dict, fixture_de
         # Use BPM from first show part, or default to 120
         time_division.set("BPM", str(show.parts[0].bpm if show.parts else 120))
 
-        # Group effects by fixture group
-        effects_by_group = {}
-        for effect in show.effects:
-            if effect.fixture_group not in effects_by_group:
-                effects_by_group[effect.fixture_group] = []
-            effects_by_group[effect.fixture_group].append(effect)
+        # Check if show has timeline_data (new format) or effects (legacy format)
+        if show.timeline_data and show.timeline_data.lanes:
+            # Use new timeline-based export
+            function_id_counter = create_tracks_from_timeline(
+                show_function,
+                engine,
+                show,
+                config,
+                fixture_id_map,
+                function_id_counter,
+                effects,
+                fixture_definitions
+            )
+            print(f"Successfully created show from timeline: {show_name}")
+        else:
+            # Use legacy effects-based export
+            # Group effects by fixture group
+            effects_by_group = {}
+            for effect in show.effects:
+                if effect.fixture_group not in effects_by_group:
+                    effects_by_group[effect.fixture_group] = []
+                effects_by_group[effect.fixture_group].append(effect)
 
-        # Create tracks for this show
-        function_id_counter = create_tracks(
-            show_function,
-            engine,
-            show,
-            effects_by_group,
-            config,
-            fixture_id_map,
-            function_id_counter,
-            effects,
-            fixture_definitions
-        )
-        print(f"Successfully created show: {show_name}")
+            # Create tracks for this show
+            function_id_counter = create_tracks(
+                show_function,
+                engine,
+                show,
+                effects_by_group,
+                config,
+                fixture_id_map,
+                function_id_counter,
+                effects,
+                fixture_definitions
+            )
+            print(f"Successfully created show from effects: {show_name}")
 
     return function_id_counter
 
