@@ -29,29 +29,43 @@ class ConfigurationTab(BaseTab):
 
     def setup_ui(self):
         """Set up universe configuration UI"""
+        # Main layout
+        main_layout = QtWidgets.QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
+
+        # Button toolbar
+        toolbar = QtWidgets.QHBoxLayout()
+        toolbar.setSpacing(8)
+
         # Add Universe button
-        self.add_universe_btn = QtWidgets.QPushButton("+", parent=self)
-        self.add_universe_btn.setGeometry(QtCore.QRect(10, 14, 31, 31))
+        self.add_universe_btn = QtWidgets.QPushButton("+")
+        self.add_universe_btn.setFixedSize(31, 31)
         self.add_universe_btn.setToolTip("Add Universe")
+        toolbar.addWidget(self.add_universe_btn)
 
         # Remove Universe button
-        self.remove_universe_btn = QtWidgets.QPushButton("-", parent=self)
-        self.remove_universe_btn.setGeometry(QtCore.QRect(50, 14, 31, 31))
+        self.remove_universe_btn = QtWidgets.QPushButton("-")
+        self.remove_universe_btn.setFixedSize(31, 31)
         self.remove_universe_btn.setToolTip("Remove Universe")
+        toolbar.addWidget(self.remove_universe_btn)
 
         # Update Config button
-        self.update_config_btn = QtWidgets.QPushButton("Update Config", parent=self)
-        self.update_config_btn.setGeometry(QtCore.QRect(90, 14, 115, 31))
+        self.update_config_btn = QtWidgets.QPushButton("Update Config")
+        self.update_config_btn.setFixedWidth(115)
         self.update_config_btn.setToolTip("Update Configuration")
+        toolbar.addWidget(self.update_config_btn)
+
+        toolbar.addStretch()
+        main_layout.addLayout(toolbar)
 
         # Config label
-        self.config_label = QtWidgets.QLabel("Config", parent=self)
-        self.config_label.setGeometry(QtCore.QRect(10, 60, 81, 17))
+        self.config_label = QtWidgets.QLabel("Config")
         self.config_label.setFont(QFont("", 14, QFont.Weight.Bold))
+        main_layout.addWidget(self.config_label)
 
         # Universe list table
-        self.universe_list = QtWidgets.QTableWidget(parent=self)
-        self.universe_list.setGeometry(QtCore.QRect(10, 80, 1151, 640))
+        self.universe_list = QtWidgets.QTableWidget()
         self.universe_list.setColumnCount(6)
         self.universe_list.setHorizontalHeaderLabels([
             "Universe", "Output Type", "IP Address", "Port", "Subnet", "Universe"
@@ -64,6 +78,26 @@ class ConfigurationTab(BaseTab):
         self.universe_list.setSelectionMode(
             QtWidgets.QAbstractItemView.SelectionMode.SingleSelection
         )
+
+        # Make table stretch to fill available space
+        self.universe_list.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Expanding,
+            QtWidgets.QSizePolicy.Policy.Expanding
+        )
+        self.universe_list.horizontalHeader().setStretchLastSection(True)
+        self.universe_list.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeMode.Interactive
+        )
+
+        # Set initial column widths (these are now resizable)
+        self.universe_list.setColumnWidth(0, 80)   # Universe
+        self.universe_list.setColumnWidth(1, 120)  # Output Type
+        self.universe_list.setColumnWidth(2, 150)  # IP Address
+        self.universe_list.setColumnWidth(3, 80)   # Port
+        self.universe_list.setColumnWidth(4, 80)   # Subnet
+        self.universe_list.setColumnWidth(5, 80)   # Universe
+
+        main_layout.addWidget(self.universe_list)
 
         # Load initial data
         self.update_from_config()
