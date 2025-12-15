@@ -4,9 +4,9 @@
 import os
 from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QComboBox, QPushButton,
                              QLabel, QSlider, QScrollArea, QWidget, QFrame,
-                             QSplitter, QSizePolicy)
+                             QSplitter, QSizePolicy, QInputDialog, QMessageBox)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from config.models import Configuration, Show, TimelineData, LightBlock
+from config.models import Configuration, Show, ShowPart, TimelineData, LightBlock
 from timeline.song_structure import SongStructure
 from timeline.light_lane import LightLane
 from timeline_ui import (MasterTimelineContainer, LightLaneWidget, AudioLaneWidget)
@@ -110,6 +110,23 @@ class ShowsTab(BaseTab):
         self.show_combo = QComboBox()
         self.show_combo.setMinimumWidth(150)
         toolbar.addWidget(self.show_combo)
+
+        # New show button
+        self.new_show_btn = QPushButton("+ New")
+        self.new_show_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9C27B0;
+                color: white;
+                font-weight: bold;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #AB47BC;
+            }
+        """)
+        toolbar.addWidget(self.new_show_btn)
 
         toolbar.addSpacing(20)
 
@@ -242,6 +259,7 @@ class ShowsTab(BaseTab):
         """Connect widget signals to handlers."""
         # Toolbar
         self.show_combo.currentTextChanged.connect(self._on_show_changed)
+        self.new_show_btn.clicked.connect(self._create_new_show)
         self.add_lane_btn.clicked.connect(self._add_new_lane)
         self.zoom_slider.valueChanged.connect(self._on_zoom_changed)
         self.save_btn.clicked.connect(self.save_to_config)
@@ -369,6 +387,12 @@ class ShowsTab(BaseTab):
     def _add_new_lane(self):
         """Add a new empty light lane."""
         if not self.current_show_name:
+            QMessageBox.warning(
+                self,
+                "No Show Selected",
+                "Please select or create a show first before adding lanes.",
+                QMessageBox.StandardButton.Ok
+            )
             return
 
         # Create new lane with default name
@@ -378,6 +402,55 @@ class ShowsTab(BaseTab):
 
         lane = LightLane(f"Lane {lane_num}", default_group)
         self._add_lane_widget(lane)
+
+    def _create_new_show(self):
+        """Create a new show with a dialog."""
+        name, ok = QInputDialog.getText(
+            self,
+            "Create New Show",
+            "Enter show name:",
+            text="New Show"
+        )
+
+        if ok and name:
+            # Check if name already exists
+            if name in self.config.shows:
+                QMessageBox.warning(
+                    self,
+                    "Name Exists",
+                    f"A show named '{name}' already exists. Please choose a different name.",
+                    QMessageBox.StandardButton.Ok
+                )
+                return
+
+            # Create new show with default part
+            new_show = Show(
+                name=name,
+                parts=[
+                    ShowPart(
+                        name="Intro",
+                        color="#4CAF50",
+                        signature="4/4",
+                        bpm=120.0,
+                        num_bars=8,
+                        transition="instant"
+                    )
+                ],
+                effects=[],
+                timeline_data=TimelineData()
+            )
+
+            # Add to config
+            self.config.shows[name] = new_show
+
+            # Update combo and select new show
+            self.show_combo.blockSignals(True)
+            self.show_combo.addItem(name)
+            self.show_combo.setCurrentText(name)
+            self.show_combo.blockSignals(False)
+
+            # Load the new show
+            self._load_show(name)
 
     def _remove_lane_widget(self, lane_widget: LightLaneWidget):
         """Remove a lane widget."""
