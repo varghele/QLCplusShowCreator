@@ -699,6 +699,19 @@ class ShowsTab(BaseTab):
                 self.device_manager = DeviceManager()
                 self.audio_engine = AudioEngine()
                 self.audio_mixer = AudioMixer()
+
+                # Apply stored audio settings if available
+                device_index = None
+                if hasattr(self, 'audio_settings') and self.audio_settings:
+                    device_index = self.audio_settings.get('device_index')
+                    sample_rate = self.audio_settings.get('sample_rate', 44100)
+                    buffer_size = self.audio_settings.get('buffer_size', 1024)
+                    self.audio_engine.sample_rate = sample_rate
+                    self.audio_engine.buffer_size = buffer_size
+
+                # Initialize audio engine with device
+                self.audio_engine.initialize(device_index=device_index)
+
                 self.playback_sync = PlaybackSynchronizer(
                     self.audio_engine, self.audio_mixer
                 )
@@ -720,6 +733,35 @@ class ShowsTab(BaseTab):
                 print(f"Failed to initialize audio engine: {e}")
                 self.audio_engine = None
                 self.playback_sync = None
+
+    def apply_audio_settings(self, settings: dict):
+        """Apply audio settings from settings dialog.
+
+        Args:
+            settings: Dict with device_index, sample_rate, buffer_size
+        """
+        self.audio_settings = settings
+
+        # If audio engine exists, reinitialize with new settings
+        if self.audio_engine:
+            was_playing = self.is_playing
+            if was_playing:
+                self._pause_playback()
+
+            # Cleanup and reinitialize
+            try:
+                self.audio_engine.cleanup()
+            except Exception:
+                pass
+
+            self.audio_engine = None
+            self.playback_sync = None
+
+            # Reinitialize with new settings
+            self._init_audio_engine()
+
+            if was_playing:
+                self._start_playback()
 
     def cleanup(self):
         """Clean up audio resources."""
