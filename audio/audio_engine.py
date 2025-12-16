@@ -1,5 +1,5 @@
 """
-PyAudio-based audio playback engine for QuickMIDI.
+PyAudio-based audio playback engine for QLCAutoShow.
 Manages audio stream and provides sample-accurate playback.
 """
 

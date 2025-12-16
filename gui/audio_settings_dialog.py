@@ -1,23 +1,44 @@
-"""
-Audio Settings Dialog for QuickMIDI
-Allows users to select audio output device and configure audio parameters
-"""
+# gui/audio_settings_dialog.py
+# Audio Settings Dialog for QLCAutoShow
+# Allows users to select audio output device and configure audio parameters
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QComboBox, QPushButton, QGroupBox, QSpinBox,
                              QMessageBox)
 from PyQt6.QtCore import Qt
-from audio.device_manager import DeviceManager
-from audio.audio_engine import AudioEngine
+
+# Try to import audio components
+try:
+    from audio.device_manager import DeviceManager
+    from audio.audio_engine import AudioEngine
+    AUDIO_AVAILABLE = True
+except ImportError:
+    AUDIO_AVAILABLE = False
+    DeviceManager = None
+    AudioEngine = None
 
 
 class AudioSettingsDialog(QDialog):
-    """Dialog for configuring audio output settings"""
+    """Dialog for configuring audio output settings."""
 
-    def __init__(self, device_manager: DeviceManager, audio_engine: AudioEngine, parent=None):
+    def __init__(self, device_manager=None, audio_engine=None, parent=None):
+        """Initialize audio settings dialog.
+
+        Args:
+            device_manager: DeviceManager instance (optional, will create if not provided)
+            audio_engine: AudioEngine instance (optional)
+            parent: Parent widget
+        """
         super().__init__(parent)
+
         self.device_manager = device_manager
         self.audio_engine = audio_engine
+        self._owns_device_manager = False
+
+        # Create device manager if not provided
+        if self.device_manager is None and AUDIO_AVAILABLE:
+            self.device_manager = DeviceManager()
+            self._owns_device_manager = True
 
         self.setWindowTitle("Audio Settings")
         self.setModal(True)
@@ -27,8 +48,27 @@ class AudioSettingsDialog(QDialog):
         self.load_current_settings()
 
     def setup_ui(self):
-        """Setup the dialog UI"""
+        """Setup the dialog UI."""
         layout = QVBoxLayout(self)
+
+        if not AUDIO_AVAILABLE:
+            # Show error message if audio not available
+            error_label = QLabel(
+                "Audio support is not available.\n\n"
+                "Please ensure the following packages are installed:\n"
+                "- pyaudio\n"
+                "- soundfile\n"
+                "- librosa"
+            )
+            error_label.setStyleSheet("color: red; font-weight: bold;")
+            error_label.setWordWrap(True)
+            layout.addWidget(error_label)
+
+            # Close button
+            close_button = QPushButton("Close")
+            close_button.clicked.connect(self.reject)
+            layout.addWidget(close_button)
+            return
 
         # Device Selection Group
         device_group = QGroupBox("Audio Output Device")
@@ -112,7 +152,10 @@ class AudioSettingsDialog(QDialog):
         layout.addLayout(button_layout)
 
     def load_current_settings(self):
-        """Load current audio settings into the UI"""
+        """Load current audio settings into the UI."""
+        if not AUDIO_AVAILABLE or not self.device_manager:
+            return
+
         try:
             # Enumerate devices
             devices = self.device_manager.enumerate_devices()
@@ -127,6 +170,7 @@ class AudioSettingsDialog(QDialog):
             for device in devices:
                 display_text = f"{device.name} ({device.host_api})"
                 self.device_combo.addItem(display_text, device.index)
+
         except Exception as e:
             print(f"Error loading devices: {e}")
             self.device_combo.clear()
@@ -142,14 +186,21 @@ class AudioSettingsDialog(QDialog):
                         self.device_combo.setCurrentIndex(i)
                         break
 
-            # Set current sample rate and buffer size
-            self.sample_rate_combo.setCurrentText(str(self.audio_engine.sample_rate))
-            self.buffer_size_spinbox.setValue(self.audio_engine.buffer_size)
+            # Set current sample rate and buffer size from engine if available
+            if self.audio_engine:
+                if hasattr(self.audio_engine, 'sample_rate'):
+                    self.sample_rate_combo.setCurrentText(str(self.audio_engine.sample_rate))
+                if hasattr(self.audio_engine, 'buffer_size'):
+                    self.buffer_size_spinbox.setValue(self.audio_engine.buffer_size)
+
         except Exception as e:
             print(f"Error setting current device: {e}")
 
     def refresh_devices(self):
-        """Refresh the list of available devices"""
+        """Refresh the list of available devices."""
+        if not AUDIO_AVAILABLE or not self.device_manager:
+            return
+
         try:
             devices = self.device_manager.enumerate_devices(force_refresh=True)
 
@@ -175,7 +226,10 @@ class AudioSettingsDialog(QDialog):
             QMessageBox.critical(self, "Error", f"Failed to refresh devices: {str(e)}")
 
     def test_device(self):
-        """Test the selected audio device"""
+        """Test the selected audio device."""
+        if not AUDIO_AVAILABLE or not self.device_manager:
+            return
+
         device_index = self.device_combo.currentData()
 
         if device_index is None:
@@ -195,7 +249,11 @@ class AudioSettingsDialog(QDialog):
             QMessageBox.critical(self, "Error", f"Device test failed: {str(e)}")
 
     def apply_settings(self):
-        """Apply the selected settings"""
+        """Apply the selected settings."""
+        if not AUDIO_AVAILABLE:
+            self.reject()
+            return
+
         device_index = self.device_combo.currentData()
         sample_rate = int(self.sample_rate_combo.currentText())
         buffer_size = self.buffer_size_spinbox.value()
@@ -204,31 +262,61 @@ class AudioSettingsDialog(QDialog):
             QMessageBox.warning(self, "Warning", "Please select a device")
             return
 
-        try:
-            # Stop current playback if running
-            if self.audio_engine.is_playing():
-                self.audio_engine.stop_playback()
+        # Store settings for retrieval
+        self.selected_device_index = device_index
+        self.selected_sample_rate = sample_rate
+        self.selected_buffer_size = buffer_size
 
-            # Cleanup old engine
-            self.audio_engine.cleanup()
+        # If we have an audio engine, apply directly
+        if self.audio_engine:
+            try:
+                # Stop current playback if running
+                if hasattr(self.audio_engine, 'is_playing') and self.audio_engine.is_playing():
+                    self.audio_engine.stop_playback()
 
-            # Update engine parameters
-            self.audio_engine.sample_rate = sample_rate
-            self.audio_engine.buffer_size = buffer_size
+                # Cleanup old engine
+                if hasattr(self.audio_engine, 'cleanup'):
+                    self.audio_engine.cleanup()
 
-            # Re-initialize with new device
-            if self.audio_engine.initialize(device_index=device_index):
-                # Re-connect mixer to engine (in case parent has one)
-                if hasattr(self.parent(), 'audio_mixer'):
-                    self.audio_engine.set_mixer(self.parent().audio_mixer)
+                # Update engine parameters
+                self.audio_engine.sample_rate = sample_rate
+                self.audio_engine.buffer_size = buffer_size
 
-                QMessageBox.information(self, "Success",
-                                        "Audio settings applied successfully")
-                self.accept()
-            else:
+                # Re-initialize with new device
+                if self.audio_engine.initialize(device_index=device_index):
+                    QMessageBox.information(self, "Success",
+                                            "Audio settings applied successfully")
+                    self.accept()
+                else:
+                    QMessageBox.critical(self, "Error",
+                                         "Failed to initialize audio with selected device")
+
+            except Exception as e:
                 QMessageBox.critical(self, "Error",
-                                     "Failed to initialize audio with selected device")
+                                     f"Failed to apply audio settings: {str(e)}")
+        else:
+            # No engine provided, just store settings and accept
+            QMessageBox.information(self, "Success",
+                                    "Audio settings saved. They will be applied when playback starts.")
+            self.accept()
 
-        except Exception as e:
-            QMessageBox.critical(self, "Error",
-                                 f"Failed to apply audio settings: {str(e)}")
+    def get_settings(self):
+        """Get the selected settings.
+
+        Returns:
+            dict with device_index, sample_rate, buffer_size or None if cancelled
+        """
+        if hasattr(self, 'selected_device_index'):
+            return {
+                'device_index': self.selected_device_index,
+                'sample_rate': self.selected_sample_rate,
+                'buffer_size': self.selected_buffer_size
+            }
+        return None
+
+    def closeEvent(self, event):
+        """Handle dialog close."""
+        # Clean up device manager if we created it
+        if self._owns_device_manager and self.device_manager:
+            self.device_manager.cleanup()
+        super().closeEvent(event)

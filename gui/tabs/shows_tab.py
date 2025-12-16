@@ -14,11 +14,11 @@ from .base_tab import BaseTab
 
 # Try to import audio components - may not be available
 try:
-    from midimaker_and_show_structure.audio.audio_file import AudioFile
-    from midimaker_and_show_structure.audio.audio_engine import AudioEngine
-    from midimaker_and_show_structure.audio.audio_mixer import AudioMixer
-    from midimaker_and_show_structure.audio.playback_synchronizer import PlaybackSynchronizer
-    from midimaker_and_show_structure.audio.device_manager import DeviceManager
+    from audio.audio_file import AudioFile
+    from audio.audio_engine import AudioEngine
+    from audio.audio_mixer import AudioMixer
+    from audio.playback_synchronizer import PlaybackSynchronizer
+    from audio.device_manager import DeviceManager
     AUDIO_AVAILABLE = True
 except ImportError:
     AUDIO_AVAILABLE = False

@@ -10,8 +10,8 @@ from .timeline_widget import TimelineWidget
 
 # Try to import audio components - may not be available in all installations
 try:
-    from midimaker_and_show_structure.audio.audio_file import AudioFile
-    from midimaker_and_show_structure.ui.audio_waveform_widget import AudioWaveformWidget
+    from audio.audio_file import AudioFile
+    from audio.audio_waveform_widget import AudioWaveformWidget
     AUDIO_AVAILABLE = True
 except ImportError:
     AUDIO_AVAILABLE = False
