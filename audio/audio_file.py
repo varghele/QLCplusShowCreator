@@ -1,5 +1,5 @@
 """
-Audio file loading and management for QuickMIDI.
+Audio file loading and management for QLCAutoShow.
 Supports WAV, MP3, FLAC, and OGG formats.
 """
 

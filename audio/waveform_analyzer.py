@@ -83,7 +83,7 @@ class WaveformAnalyzer:
         Args:
             cache_dir: Directory to store cached waveform data
         """
-        self.cache_dir = cache_dir or os.path.join(os.path.expanduser("~"), ".quickmidi", "waveform_cache")
+        self.cache_dir = cache_dir or os.path.join(os.path.expanduser("~"), ".qlcautoshow", "waveform_cache")
         os.makedirs(self.cache_dir, exist_ok=True)
 
     def analyze_file(self, audio_file: AudioFile, force_regenerate: bool = False) -> Optional[WaveformData]:

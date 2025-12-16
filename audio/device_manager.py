@@ -1,5 +1,5 @@
 """
-Audio device management for QuickMIDI.
+Audio device management for QLCAutoShow.
 Handles device enumeration, selection, and configuration.
 """
 

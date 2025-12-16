@@ -1,5 +1,5 @@
 """
-Real-time audio mixing for multiple lanes in QuickMIDI.
+Real-time audio mixing for multiple lanes in QLCAutoShow.
 Handles volume, mute, and solo processing.
 """
 

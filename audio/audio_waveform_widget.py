@@ -9,8 +9,8 @@ from PyQt6.QtCore import Qt, QPointF, QThread, pyqtSignal
 from typing import Optional
 import numpy as np
 
-from audio.audio_file import AudioFile
-from audio.waveform_analyzer import WaveformAnalyzer, WaveformData
+from .audio_file import AudioFile
+from .waveform_analyzer import WaveformAnalyzer, WaveformData
 
 
 class WaveformGeneratorThread(QThread):
