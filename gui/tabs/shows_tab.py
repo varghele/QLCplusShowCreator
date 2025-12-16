@@ -280,6 +280,7 @@ class ShowsTab(BaseTab):
         self.audio_lane.scroll_position_changed.connect(self._sync_scroll)
         self.audio_lane.zoom_changed.connect(self._on_external_zoom_changed)
         self.audio_lane.playhead_moved.connect(self._on_playhead_moved)
+        self.audio_lane.audio_file_changed.connect(self._on_audio_file_loaded)
 
     def update_from_config(self):
         """Refresh timeline from configuration."""
@@ -304,6 +305,85 @@ class ShowsTab(BaseTab):
             self.save_to_config()
 
         self._load_show(show_name)
+
+    def _on_audio_file_loaded(self, file_path: str):
+        """Handle audio file loaded - check if show needs to be extended."""
+        if not self.current_show_name or not self.song_structure:
+            return
+
+        audio_file = self.audio_lane.get_audio_file()
+        if not audio_file:
+            return
+
+        audio_duration = audio_file.duration
+        show_duration = self.song_structure.get_total_duration()
+
+        if audio_duration > show_duration:
+            self._prompt_extend_show(audio_duration, show_duration)
+
+    def _prompt_extend_show(self, audio_duration: float, show_duration: float):
+        """Show dialog asking user if they want to extend the show."""
+        # Format durations for display
+        audio_time = self._format_time(audio_duration)
+        show_time = self._format_time(show_duration)
+
+        result = QMessageBox.question(
+            self,
+            "Audio Longer Than Show",
+            f"The loaded audio file ({audio_time}) is longer than the current show ({show_time}).\n\n"
+            f"Would you like to extend the show to fit the audio?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes
+        )
+
+        if result == QMessageBox.StandardButton.Yes:
+            self._extend_show_to_duration(audio_duration)
+
+    def _extend_show_to_duration(self, target_duration: float):
+        """Extend the show to match the target duration."""
+        if not self.current_show_name or self.current_show_name not in self.config.shows:
+            return
+
+        show = self.config.shows[self.current_show_name]
+
+        if not show.parts:
+            return
+
+        # Use the last part's BPM and signature for calculation
+        last_part = show.parts[-1]
+        bpm = last_part.bpm
+        signature = last_part.signature
+
+        # Calculate beats per bar from signature
+        try:
+            numerator, denominator = map(int, signature.split('/'))
+            beats_per_bar = (numerator * 4) / denominator
+        except (ValueError, ZeroDivisionError):
+            beats_per_bar = 4.0
+
+        # Calculate additional bars needed
+        current_duration = self.song_structure.get_total_duration()
+        extra_duration = target_duration - current_duration
+
+        # bars = (duration * bpm) / (60 * beats_per_bar)
+        extra_bars = (extra_duration * bpm) / (60.0 * beats_per_bar)
+        extra_bars = int(extra_bars) + 1  # Round up to ensure audio fits
+
+        # Extend the last part
+        last_part.num_bars += extra_bars
+
+        # Recalculate song structure
+        self.song_structure.load_from_show_parts(show.parts)
+
+        # Update all timeline widgets
+        self.master_timeline.timeline_widget.set_song_structure(self.song_structure)
+        self.audio_lane.set_song_structure(self.song_structure)
+        for lane_widget in self.lane_widgets:
+            lane_widget.set_song_structure(self.song_structure)
+
+        # Update total time display
+        total_duration = self.song_structure.get_total_duration()
+        self.total_time_label.setText(f"/ {self._format_time(total_duration)}")
 
     def _load_show(self, show_name: str):
         """Load show into timeline."""
