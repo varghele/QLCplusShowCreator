@@ -247,12 +247,16 @@ class FixturesTab(BaseTab):
 
             # Direction combo box
             direction_combo = QtWidgets.QComboBox()
-            direction_combo.addItems(["", "↑", "↓"])
+            direction_combo.addItems(["", "↑", "↓", "⊙", "⊗"])
             display_value = ""
             if fixture.direction == "UP":
                 display_value = "↑"
             elif fixture.direction == "DOWN":
                 display_value = "↓"
+            elif fixture.direction == "TOWARD":
+                display_value = "⊙"
+            elif fixture.direction == "AWAY":
+                display_value = "⊗"
             direction_combo.setCurrentText(display_value)
             self.table.setCellWidget(row, 8, direction_combo)
 
@@ -318,6 +322,10 @@ class FixturesTab(BaseTab):
                     fixture.direction = "UP"
                 elif display_value == "↓":
                     fixture.direction = "DOWN"
+                elif display_value == "⊙":
+                    fixture.direction = "TOWARD"
+                elif display_value == "⊗":
+                    fixture.direction = "AWAY"
                 else:
                     fixture.direction = "NONE"
 
