@@ -165,8 +165,13 @@ class FixturesTab(BaseTab):
             self.table.setCellWidget(row, 1, address_spin)
 
             # Manufacturer and Model
-            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(fixture.manufacturer))
-            self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(fixture.model))
+            manufacturer_item = QtWidgets.QTableWidgetItem(fixture.manufacturer)
+            manufacturer_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
+            self.table.setItem(row, 2, manufacturer_item)
+
+            model_item = QtWidgets.QTableWidgetItem(fixture.model)
+            model_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
+            self.table.setItem(row, 3, model_item)
 
             # Mode combo box
             mode_combo = QtWidgets.QComboBox()
@@ -185,15 +190,18 @@ class FixturesTab(BaseTab):
                 if index >= 0:
                     mode_combo.setCurrentIndex(index)
                     channels = fixture.available_modes[index].channels
-                    self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(str(channels)))
+                    channels_item = QtWidgets.QTableWidgetItem(str(channels))
+                    channels_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
+                    self.table.setItem(row, 4, channels_item)
 
                 # Create closure for mode change handler
                 def create_mode_handler(current_row, modes):
                     def handle_mode_change(index):
                         if 0 <= index < len(modes):
                             channels = modes[index].channels
-                            self.table.setItem(current_row, 4,
-                                             QtWidgets.QTableWidgetItem(str(channels)))
+                            channels_item = QtWidgets.QTableWidgetItem(str(channels))
+                            channels_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
+                            self.table.setItem(current_row, 4, channels_item)
                             self.config.fixtures[current_row].current_mode = modes[index].name
                             self._update_row_colors()
                     return handle_mode_change
@@ -203,12 +211,16 @@ class FixturesTab(BaseTab):
                 )
             else:
                 mode_combo.addItem(fixture.current_mode)
-                self.table.setItem(row, 4, QtWidgets.QTableWidgetItem("0"))
+                channels_item = QtWidgets.QTableWidgetItem("0")
+                channels_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
+                self.table.setItem(row, 4, channels_item)
 
             self.table.setCellWidget(row, 5, mode_combo)
 
             # Name
-            self.table.setItem(row, 6, QtWidgets.QTableWidgetItem(fixture.name))
+            name_item = QtWidgets.QTableWidgetItem(fixture.name)
+            name_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
+            self.table.setItem(row, 6, name_item)
 
             # Group combo box
             group_combo = QtWidgets.QComboBox()
@@ -400,14 +412,15 @@ class FixturesTab(BaseTab):
                     if group_name in self.config.groups:
                         self.config.groups[group_name].color = color.name()
                 else:
-                    # Reset color if no group
+                    # Reset color to white if no group
+                    white_color = QtGui.QColor(255, 255, 255)
                     for col in range(self.table.columnCount()):
                         item = self.table.item(row, col)
                         if item:
-                            item.setBackground(QtGui.QColor())
+                            item.setBackground(white_color)
                         cell_widget = self.table.cellWidget(row, col)
                         if cell_widget:
-                            cell_widget.setStyleSheet("")
+                            cell_widget.setStyleSheet("background-color: white;")
 
     def _add_fixture(self):
         """Show dialog to add fixture from QLC+ definitions"""
