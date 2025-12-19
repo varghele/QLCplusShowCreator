@@ -2,11 +2,12 @@
 # Timeline-based show management tab
 
 import os
+import csv
 from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QComboBox, QPushButton,
                              QLabel, QSlider, QScrollArea, QWidget, QFrame,
                              QSplitter, QSizePolicy, QInputDialog, QMessageBox)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from config.models import Configuration, Show, ShowPart, TimelineData, LightBlock
+from config.models import Configuration, Show, ShowPart, TimelineData, LightBlock, ShowEffect
 from timeline.song_structure import SongStructure
 from timeline.light_lane import LightLane
 from timeline_ui import (MasterTimelineContainer, LightLaneWidget, AudioLaneWidget)
@@ -862,3 +863,102 @@ class ShowsTab(BaseTab):
         """Called when leaving the tab."""
         self._pause_playback()
         self.save_to_config()
+
+    def import_show_structure(self):
+        """Import show structures from CSV files in the shows directory.
+
+        Expected CSV format:
+        showpart,color,signature,bpm,num_bars,transition
+
+        Creates Show objects with ShowPart data and adds them to configuration.
+        """
+        # Get project root (parent of gui directory)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        shows_dir = os.path.join(project_root, "shows")
+
+        # Check if shows directory exists
+        if not os.path.exists(shows_dir):
+            raise FileNotFoundError(f"Shows directory not found: {shows_dir}")
+
+        # Count imported shows
+        imported_count = 0
+
+        # Scan for all show structure CSV files
+        csv_files = [f for f in os.listdir(shows_dir) if f.endswith('.csv')]
+
+        if not csv_files:
+            raise FileNotFoundError(f"No CSV files found in {shows_dir}")
+
+        for file in csv_files:
+            show_name = os.path.splitext(file)[0]  # Remove .csv extension
+            structure_file = os.path.join(shows_dir, file)
+
+            # Check if show already exists in configuration
+            if show_name in self.config.shows:
+                show = self.config.shows[show_name]
+                # Clear existing parts to reload from CSV
+                show.parts.clear()
+            else:
+                # Create new Show object with timeline data
+                show = Show(
+                    name=show_name,
+                    parts=[],
+                    effects=[],
+                    timeline_data=TimelineData()
+                )
+                self.config.shows[show_name] = show
+
+            # Read CSV and create show parts
+            with open(structure_file, 'r') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # Create ShowPart from CSV row
+                    show_part = ShowPart(
+                        name=row['showpart'],
+                        color=row['color'],
+                        signature=row['signature'],
+                        bpm=float(row['bpm']),
+                        num_bars=int(row['num_bars']),
+                        transition=row['transition']
+                    )
+                    # Add part to show
+                    show.parts.append(show_part)
+
+                    # Create empty effects for each fixture group
+                    for group_name in self.config.groups.keys():
+                        # Check if an effect already exists for this show part and group
+                        existing_effect = None
+                        for effect in show.effects:
+                            if (effect.show_part == show_part.name and
+                                    effect.fixture_group == group_name):
+                                existing_effect = effect
+                                break
+
+                        # Only create new effect if none exists
+                        if existing_effect is None:
+                            effect = ShowEffect(
+                                show_part=show_part.name,
+                                fixture_group=group_name,
+                                effect="",
+                                speed="1",
+                                color="",
+                                intensity=200,
+                                spot=""
+                            )
+                            show.effects.append(effect)
+
+            imported_count += 1
+
+        # Update show combo box with newly imported shows
+        self.show_combo.blockSignals(True)
+        self.show_combo.clear()
+        self.show_combo.addItems(sorted(self.config.shows.keys()))
+        if self.config.shows:
+            self.show_combo.setCurrentIndex(0)
+        self.show_combo.blockSignals(False)
+
+        # Load the first show if available
+        if self.show_combo.currentText():
+            self._load_show(self.show_combo.currentText())
+
+        print(f"Successfully imported {imported_count} show(s) from {shows_dir}")

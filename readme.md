@@ -27,7 +27,7 @@ conda activate QLCAutoShow
 ```bash
 pip install pyaudio soundfile librosa
 ```
-
+[gui.py](gui/gui.py)
 Or with conda:
 ```bash
 conda install -c conda-forge pyaudio soundfile librosa
