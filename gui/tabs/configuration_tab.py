@@ -2,7 +2,9 @@
 
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtGui import QFont
-from config.models import Configuration
+from PyQt6.QtCore import Qt
+from config.models import Configuration, Universe
+from utils.dmx_device_detection import get_device_display_names, get_device_port_by_display_name
 from .base_tab import BaseTab
 
 
@@ -10,8 +12,18 @@ class ConfigurationTab(BaseTab):
     """Universe configuration management tab
 
     Handles DMX universe configuration including E1.31, ArtNet, and DMX USB settings.
-    Provides table-based interface for adding, removing, and editing universe parameters.
+    Provides table-based interface with protocol-specific fields.
     """
+
+    # Column indices
+    COL_UNIVERSE_ID = 0
+    COL_OUTPUT_TYPE = 1
+    COL_MULTICAST = 2
+    COL_IP_ADDRESS = 3
+    COL_PORT = 4
+    COL_SUBNET = 5
+    COL_ARTNET_UNIVERSE = 6
+    COL_DMX_DEVICE = 7
 
     def __init__(self, config: Configuration, parent=None):
         """Initialize configuration tab
@@ -50,6 +62,12 @@ class ConfigurationTab(BaseTab):
         self.remove_universe_btn.setToolTip("Remove Universe")
         toolbar.addWidget(self.remove_universe_btn)
 
+        # Refresh Devices button
+        self.refresh_devices_btn = QtWidgets.QPushButton("Refresh Devices")
+        self.refresh_devices_btn.setFixedWidth(115)
+        self.refresh_devices_btn.setToolTip("Refresh USB DMX device list")
+        toolbar.addWidget(self.refresh_devices_btn)
+
         # Update Config button
         self.update_config_btn = QtWidgets.QPushButton("Update Config")
         self.update_config_btn.setFixedWidth(115)
@@ -60,15 +78,22 @@ class ConfigurationTab(BaseTab):
         main_layout.addLayout(toolbar)
 
         # Config label
-        self.config_label = QtWidgets.QLabel("Config")
+        self.config_label = QtWidgets.QLabel("Universe Configuration")
         self.config_label.setFont(QFont("", 14, QFont.Weight.Bold))
         main_layout.addWidget(self.config_label)
 
         # Universe list table
         self.universe_list = QtWidgets.QTableWidget()
-        self.universe_list.setColumnCount(6)
+        self.universe_list.setColumnCount(8)
         self.universe_list.setHorizontalHeaderLabels([
-            "Universe", "Output Type", "IP Address", "Port", "Subnet", "Universe"
+            "Universe ID",       # 0
+            "Protocol",          # 1
+            "Multicast",         # 2 - E1.31 only
+            "IP Address",        # 3 - ArtNet, E1.31
+            "Port",              # 4 - E1.31 only
+            "Subnet",            # 5 - ArtNet only
+            "Universe/Net",      # 6 - ArtNet, E1.31
+            "DMX Device"         # 7 - DMX USB only
         ])
 
         # Set table properties
@@ -89,13 +114,15 @@ class ConfigurationTab(BaseTab):
             QtWidgets.QHeaderView.ResizeMode.Interactive
         )
 
-        # Set initial column widths (these are now resizable)
-        self.universe_list.setColumnWidth(0, 80)   # Universe
-        self.universe_list.setColumnWidth(1, 120)  # Output Type
-        self.universe_list.setColumnWidth(2, 150)  # IP Address
-        self.universe_list.setColumnWidth(3, 80)   # Port
-        self.universe_list.setColumnWidth(4, 80)   # Subnet
-        self.universe_list.setColumnWidth(5, 80)   # Universe
+        # Set initial column widths
+        self.universe_list.setColumnWidth(0, 90)   # Universe ID
+        self.universe_list.setColumnWidth(1, 100)  # Protocol
+        self.universe_list.setColumnWidth(2, 80)   # Multicast
+        self.universe_list.setColumnWidth(3, 120)  # IP Address
+        self.universe_list.setColumnWidth(4, 70)   # Port
+        self.universe_list.setColumnWidth(5, 70)   # Subnet
+        self.universe_list.setColumnWidth(6, 100)  # Universe/Net
+        self.universe_list.setColumnWidth(7, 200)  # DMX Device
 
         main_layout.addWidget(self.universe_list)
 
@@ -106,6 +133,7 @@ class ConfigurationTab(BaseTab):
         """Connect widget signals to handlers"""
         self.add_universe_btn.clicked.connect(self._add_universe)
         self.remove_universe_btn.clicked.connect(self._remove_universe)
+        self.refresh_devices_btn.clicked.connect(self._refresh_devices)
         self.update_config_btn.clicked.connect(self.save_to_config)
         self.universe_list.itemChanged.connect(self._on_universe_item_changed)
 
@@ -118,76 +146,270 @@ class ConfigurationTab(BaseTab):
         self.universe_list.setRowCount(0)
 
         if hasattr(self.config, 'universes'):
-            for universe_id, universe in self.config.universes.items():
-                row = self.universe_list.rowCount()
-                self.universe_list.insertRow(row)
-
-                # Universe ID
-                self.universe_list.setItem(
-                    row, 0, QtWidgets.QTableWidgetItem(str(universe.id))
-                )
-
-                # Output type combo
-                output_combo = QtWidgets.QComboBox()
-                output_combo.addItems(["E1.31", "ArtNet", "DMX"])
-                output_combo.setCurrentText(universe.output.get('plugin', 'E1.31'))
-                output_combo.currentTextChanged.connect(
-                    lambda text, r=row: self._on_output_type_changed(r)
-                )
-                self.universe_list.setCellWidget(row, 1, output_combo)
-
-                # Parameters
-                params = universe.output.get('parameters', {})
-                self.universe_list.setItem(
-                    row, 2, QtWidgets.QTableWidgetItem(params.get('ip', ''))
-                )
-                self.universe_list.setItem(
-                    row, 3, QtWidgets.QTableWidgetItem(params.get('port', ''))
-                )
-                self.universe_list.setItem(
-                    row, 4, QtWidgets.QTableWidgetItem(params.get('subnet', ''))
-                )
-                self.universe_list.setItem(
-                    row, 5, QtWidgets.QTableWidgetItem(params.get('universe', ''))
-                )
+            for universe_id, universe in sorted(self.config.universes.items()):
+                self._add_universe_row(universe)
 
         # Re-enable signals
         self.universe_list.blockSignals(False)
 
+    def _add_universe_row(self, universe: Universe):
+        """Add a row for a universe with protocol-specific fields"""
+        row = self.universe_list.rowCount()
+        self.universe_list.insertRow(row)
+
+        protocol = universe.output.get('plugin', 'E1.31')
+        params = universe.output.get('parameters', {})
+
+        # Universe ID (always shown)
+        id_item = QtWidgets.QTableWidgetItem(str(universe.id))
+        id_item.setFlags(id_item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # Read-only
+        self.universe_list.setItem(row, self.COL_UNIVERSE_ID, id_item)
+
+        # Protocol selector (always shown)
+        protocol_combo = QtWidgets.QComboBox()
+        protocol_combo.addItems(["E1.31", "ArtNet", "DMX USB"])
+        protocol_combo.setCurrentText(protocol)
+        protocol_combo.currentTextChanged.connect(
+            lambda text, r=row: self._on_protocol_changed(r, text)
+        )
+        self.universe_list.setCellWidget(row, self.COL_OUTPUT_TYPE, protocol_combo)
+
+        # Create all widgets (we'll show/hide based on protocol)
+        self._populate_row_widgets(row, protocol, params)
+
+        # Update visibility for initial protocol
+        self._update_row_visibility(row, protocol)
+
+    def _populate_row_widgets(self, row: int, protocol: str, params: dict):
+        """Populate all widgets for a row based on protocol"""
+
+        # Multicast checkbox (E1.31 only)
+        multicast_widget = QtWidgets.QWidget()
+        multicast_layout = QtWidgets.QHBoxLayout(multicast_widget)
+        multicast_layout.setContentsMargins(4, 0, 4, 0)
+        multicast_checkbox = QtWidgets.QCheckBox()
+        multicast_checkbox.setChecked(params.get('multicast', 'true').lower() == 'true')
+        multicast_checkbox.stateChanged.connect(
+            lambda state, r=row: self._on_multicast_changed(r, state)
+        )
+        multicast_layout.addWidget(multicast_checkbox)
+        multicast_layout.addStretch()
+        self.universe_list.setCellWidget(row, self.COL_MULTICAST, multicast_widget)
+
+        # IP Address (ArtNet, E1.31)
+        ip_item = QtWidgets.QTableWidgetItem(params.get('ip', ''))
+        self.universe_list.setItem(row, self.COL_IP_ADDRESS, ip_item)
+
+        # Port (E1.31 only)
+        port_item = QtWidgets.QTableWidgetItem(params.get('port', '5568'))
+        self.universe_list.setItem(row, self.COL_PORT, port_item)
+
+        # Subnet (ArtNet only)
+        subnet_item = QtWidgets.QTableWidgetItem(params.get('subnet', '0'))
+        self.universe_list.setItem(row, self.COL_SUBNET, subnet_item)
+
+        # Universe (ArtNet, E1.31)
+        universe_item = QtWidgets.QTableWidgetItem(params.get('universe', '1'))
+        self.universe_list.setItem(row, self.COL_ARTNET_UNIVERSE, universe_item)
+
+        # DMX Device (DMX USB only)
+        device_combo = QtWidgets.QComboBox()
+        device_names = get_device_display_names()
+        device_combo.addItems(device_names)
+
+        # Try to select the stored device
+        stored_device = params.get('device', '')
+        if stored_device:
+            # Find matching device
+            for i, name in enumerate(device_names):
+                if stored_device in name:
+                    device_combo.setCurrentIndex(i)
+                    break
+
+        self.universe_list.setCellWidget(row, self.COL_DMX_DEVICE, device_combo)
+
+    def _update_row_visibility(self, row: int, protocol: str):
+        """Update which columns are visible/enabled for a row based on protocol"""
+
+        # Reset all items to enabled state first
+        for col in range(self.COL_MULTICAST, self.COL_DMX_DEVICE + 1):
+            item = self.universe_list.item(row, col)
+            widget = self.universe_list.cellWidget(row, col)
+
+            if item:
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsEditable)
+                item.setBackground(Qt.GlobalColor.white)
+            if widget:
+                widget.setEnabled(True)
+
+        # Disable irrelevant columns based on protocol
+        if protocol == "ArtNet":
+            # Show: IP Address, Subnet, Universe
+            # Hide: Multicast, Port, DMX Device
+            self._disable_cell(row, self.COL_MULTICAST)
+            self._disable_cell(row, self.COL_PORT)
+            self._disable_cell(row, self.COL_DMX_DEVICE)
+
+        elif protocol == "E1.31":
+            # Show: Multicast, IP Address (if not multicast), Port, Universe
+            # Hide: Subnet, DMX Device
+            self._disable_cell(row, self.COL_SUBNET)
+            self._disable_cell(row, self.COL_DMX_DEVICE)
+
+            # Update IP address based on multicast state
+            multicast_widget = self.universe_list.cellWidget(row, self.COL_MULTICAST)
+            if multicast_widget:
+                checkbox = multicast_widget.findChild(QtWidgets.QCheckBox)
+                if checkbox and checkbox.isChecked():
+                    # Multicast mode - IP is auto-calculated
+                    ip_item = self.universe_list.item(row, self.COL_IP_ADDRESS)
+                    if ip_item:
+                        ip_item.setFlags(ip_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                        ip_item.setBackground(QtCore.Qt.GlobalColor.lightGray)
+
+        elif protocol == "DMX USB":
+            # Show: DMX Device
+            # Hide: Multicast, IP Address, Port, Subnet, Universe
+            self._disable_cell(row, self.COL_MULTICAST)
+            self._disable_cell(row, self.COL_IP_ADDRESS)
+            self._disable_cell(row, self.COL_PORT)
+            self._disable_cell(row, self.COL_SUBNET)
+            self._disable_cell(row, self.COL_ARTNET_UNIVERSE)
+
+    def _disable_cell(self, row: int, col: int):
+        """Disable and gray out a cell"""
+        item = self.universe_list.item(row, col)
+        widget = self.universe_list.cellWidget(row, col)
+
+        if item:
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable & ~Qt.ItemFlag.ItemIsEnabled)
+            item.setBackground(QtCore.Qt.GlobalColor.lightGray)
+            item.setText("")  # Clear irrelevant data
+
+        if widget:
+            widget.setEnabled(False)
+
+    def _on_protocol_changed(self, row: int, protocol: str):
+        """Handle protocol type changes"""
+        self._update_row_visibility(row, protocol)
+
+        # Update universe ID from row
+        universe_id_item = self.universe_list.item(row, self.COL_UNIVERSE_ID)
+        if universe_id_item:
+            universe_id = int(universe_id_item.text())
+            if universe_id in self.config.universes:
+                self.config.universes[universe_id].output['plugin'] = protocol
+
+                # Set protocol-specific defaults
+                params = self.config.universes[universe_id].output['parameters']
+                if protocol == "ArtNet":
+                    params.setdefault('ip', '192.168.1.100')
+                    params.setdefault('subnet', '0')
+                    params.setdefault('universe', '0')
+                elif protocol == "E1.31":
+                    params.setdefault('multicast', 'true')
+                    params.setdefault('ip', '239.255.0.1')
+                    params.setdefault('port', '5568')
+                    params.setdefault('universe', '1')
+                elif protocol == "DMX USB":
+                    params.setdefault('device', '')
+
+                # Reload the row with new defaults
+                self.universe_list.blockSignals(True)
+                self._populate_row_widgets(row, protocol, params)
+                self._update_row_visibility(row, protocol)
+                self.universe_list.blockSignals(False)
+
+    def _on_multicast_changed(self, row: int, state: int):
+        """Handle multicast checkbox changes for E1.31"""
+        is_multicast = (state == Qt.CheckState.Checked.value)
+
+        # Update IP address editability
+        ip_item = self.universe_list.item(row, self.COL_IP_ADDRESS)
+        universe_item = self.universe_list.item(row, self.COL_ARTNET_UNIVERSE)
+
+        if is_multicast:
+            # Calculate multicast IP from universe number
+            if universe_item and universe_item.text():
+                universe_num = int(universe_item.text())
+                multicast_ip = f"239.255.{universe_num >> 8}.{universe_num & 0xFF}"
+                if ip_item:
+                    ip_item.setText(multicast_ip)
+                    ip_item.setFlags(ip_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    ip_item.setBackground(QtCore.Qt.GlobalColor.lightGray)
+        else:
+            # Allow manual IP entry
+            if ip_item:
+                ip_item.setFlags(ip_item.flags() | Qt.ItemFlag.ItemIsEditable)
+                ip_item.setBackground(Qt.GlobalColor.white)
+
+        # Update config
+        universe_id_item = self.universe_list.item(row, self.COL_UNIVERSE_ID)
+        if universe_id_item:
+            universe_id = int(universe_id_item.text())
+            if universe_id in self.config.universes:
+                self.config.universes[universe_id].output['parameters']['multicast'] = str(is_multicast).lower()
+
     def save_to_config(self):
         """Update universe configuration from table values"""
         for row in range(self.universe_list.rowCount()):
-            # Check if we have a valid universe ID in the first column
-            universe_id_item = self.universe_list.item(row, 0)
+            universe_id_item = self.universe_list.item(row, self.COL_UNIVERSE_ID)
             if universe_id_item is None or not universe_id_item.text():
                 continue
 
             try:
                 universe_id = int(universe_id_item.text())
-
-                # Skip if this universe doesn't exist in config
                 if universe_id not in self.config.universes:
                     continue
 
-                # Update IP Address
-                ip_item = self.universe_list.item(row, 2)
-                if ip_item and ip_item.text():
-                    self.config.universes[universe_id].output['parameters']['ip'] = ip_item.text()
+                # Get protocol
+                protocol_combo = self.universe_list.cellWidget(row, self.COL_OUTPUT_TYPE)
+                if protocol_combo:
+                    protocol = protocol_combo.currentText()
+                    self.config.universes[universe_id].output['plugin'] = protocol
 
-                # Update Port
-                port_item = self.universe_list.item(row, 3)
-                if port_item and port_item.text():
-                    self.config.universes[universe_id].output['parameters']['port'] = port_item.text()
+                params = self.config.universes[universe_id].output['parameters']
 
-                # Update Subnet
-                subnet_item = self.universe_list.item(row, 4)
-                if subnet_item and subnet_item.text():
-                    self.config.universes[universe_id].output['parameters']['subnet'] = subnet_item.text()
+                # Save protocol-specific parameters
+                if protocol == "ArtNet":
+                    # IP, Subnet, Universe
+                    ip_item = self.universe_list.item(row, self.COL_IP_ADDRESS)
+                    subnet_item = self.universe_list.item(row, self.COL_SUBNET)
+                    uni_item = self.universe_list.item(row, self.COL_ARTNET_UNIVERSE)
 
-                # Update Universe
-                uni_item = self.universe_list.item(row, 5)
-                if uni_item and uni_item.text():
-                    self.config.universes[universe_id].output['parameters']['universe'] = uni_item.text()
+                    if ip_item:
+                        params['ip'] = ip_item.text()
+                    if subnet_item:
+                        params['subnet'] = subnet_item.text()
+                    if uni_item:
+                        params['universe'] = uni_item.text()
+
+                elif protocol == "E1.31":
+                    # Multicast, IP, Port, Universe
+                    multicast_widget = self.universe_list.cellWidget(row, self.COL_MULTICAST)
+                    ip_item = self.universe_list.item(row, self.COL_IP_ADDRESS)
+                    port_item = self.universe_list.item(row, self.COL_PORT)
+                    uni_item = self.universe_list.item(row, self.COL_ARTNET_UNIVERSE)
+
+                    if multicast_widget:
+                        checkbox = multicast_widget.findChild(QtWidgets.QCheckBox)
+                        if checkbox:
+                            params['multicast'] = str(checkbox.isChecked()).lower()
+
+                    if ip_item:
+                        params['ip'] = ip_item.text()
+                    if port_item:
+                        params['port'] = port_item.text()
+                    if uni_item:
+                        params['universe'] = uni_item.text()
+
+                elif protocol == "DMX USB":
+                    # Device
+                    device_combo = self.universe_list.cellWidget(row, self.COL_DMX_DEVICE)
+                    if device_combo:
+                        device_display_name = device_combo.currentText()
+                        device_port = get_device_port_by_display_name(device_display_name)
+                        params['device'] = device_port if device_port else device_display_name
 
             except (ValueError, AttributeError) as e:
                 print(f"Error updating universe {row}: {e}")
@@ -196,61 +418,67 @@ class ConfigurationTab(BaseTab):
 
     def _add_universe(self):
         """Add a new universe configuration"""
-        row = self.universe_list.rowCount()
-        universe_id = row + 1
+        # Find next available universe ID
+        existing_ids = list(self.config.universes.keys()) if self.config.universes else [0]
+        universe_id = max(existing_ids) + 1
 
-        # Add new universe to configuration
-        self.config.add_universe(
-            universe_id=universe_id,
-            output_type='E1.31',
-            ip=f'192.168.1.{universe_id}',
-            port='6454',
-            subnet='0',
-            universe=str(universe_id)
+        # Create new universe with E1.31 defaults
+        new_universe = Universe(
+            id=universe_id,
+            name=f"Universe {universe_id}",
+            output={
+                'plugin': 'E1.31',
+                'line': '0',
+                'parameters': {
+                    'multicast': 'true',
+                    'ip': f'239.255.0.{universe_id}',
+                    'port': '5568',
+                    'universe': str(universe_id)
+                }
+            }
         )
 
-        # Update table
-        self.update_from_config()
+        self.config.universes[universe_id] = new_universe
+
+        # Add row to table
+        self.universe_list.blockSignals(True)
+        self._add_universe_row(new_universe)
+        self.universe_list.blockSignals(False)
 
     def _remove_universe(self):
         """Remove selected universe configuration"""
         current_row = self.universe_list.currentRow()
         if current_row >= 0:
-            universe_id_item = self.universe_list.item(current_row, 0)
+            universe_id_item = self.universe_list.item(current_row, self.COL_UNIVERSE_ID)
             if universe_id_item:
                 universe_id = int(universe_id_item.text())
                 if universe_id in self.config.universes:
-                    self.config.remove_universe(universe_id)
+                    del self.config.universes[universe_id]
                 self.universe_list.removeRow(current_row)
 
+    def _refresh_devices(self):
+        """Refresh USB DMX device list"""
+        # Get new device list
+        device_names = get_device_display_names()
+
+        # Update all DMX device combo boxes
+        for row in range(self.universe_list.rowCount()):
+            protocol_combo = self.universe_list.cellWidget(row, self.COL_OUTPUT_TYPE)
+            if protocol_combo and protocol_combo.currentText() == "DMX USB":
+                device_combo = self.universe_list.cellWidget(row, self.COL_DMX_DEVICE)
+                if device_combo:
+                    current_device = device_combo.currentText()
+                    device_combo.clear()
+                    device_combo.addItems(device_names)
+
+                    # Try to restore previous selection
+                    index = device_combo.findText(current_device)
+                    if index >= 0:
+                        device_combo.setCurrentIndex(index)
+
+        print("USB DMX device list refreshed")
+
     def _on_universe_item_changed(self, item):
-        """Handle changes to universe table items"""
-        row = item.row()
-        col = item.column()
-        universe_id_item = self.universe_list.item(row, 0)
-
-        if universe_id_item:
-            universe_id = int(universe_id_item.text())
-
-            if universe_id in self.config.universes:
-                # Update the appropriate field based on the column
-                if col == 2:  # IP Address
-                    self.config.universes[universe_id].output['parameters']['ip'] = item.text()
-                elif col == 3:  # Port
-                    self.config.universes[universe_id].output['parameters']['port'] = item.text()
-                elif col == 4:  # Subnet
-                    self.config.universes[universe_id].output['parameters']['subnet'] = item.text()
-                elif col == 5:  # Universe
-                    self.config.universes[universe_id].output['parameters']['universe'] = item.text()
-
-    def _on_output_type_changed(self, row):
-        """Handle output type changes"""
-        output_combo = self.universe_list.cellWidget(row, 1)
-        universe_id_item = self.universe_list.item(row, 0)
-
-        if output_combo and universe_id_item:
-            output_type = output_combo.currentText()
-            universe_id = int(universe_id_item.text())
-
-            if universe_id in self.config.universes:
-                self.config.universes[universe_id].output['plugin'] = output_type
+        """Handle changes to universe table items - update config in real-time"""
+        # Changes are auto-saved via save_to_config when needed
+        pass
