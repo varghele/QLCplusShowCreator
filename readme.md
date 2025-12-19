@@ -42,6 +42,18 @@ sudo apt-get install portaudio19-dev
 sudo dnf install portaudio-devel
 ```
 
+**USB DMX device detection** (optional, for DMX USB protocol support):
+```bash
+pip install pyserial
+```
+
+Or with conda:
+```bash
+conda install -c conda-forge pyserial
+```
+
+This enables automatic detection of USB DMX interfaces in the configuration tab.
+
 ### Manual Installation (pip)
 
 ```bash
@@ -49,6 +61,9 @@ pip install PyQt6 pyyaml numpy pandas
 
 # Optional audio support
 pip install pyaudio soundfile librosa
+
+# Optional USB DMX device detection
+pip install pyserial
 ```
 
 ## Running
