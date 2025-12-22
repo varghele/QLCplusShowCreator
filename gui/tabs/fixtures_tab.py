@@ -382,11 +382,21 @@ class FixturesTab(BaseTab):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_group = new_group_input.text().strip()
             if new_group:
+                # Update the current fixture's group combobox
                 current_index = group_combo.findText("Add New...")
                 group_combo.removeItem(current_index)
                 group_combo.addItem(new_group)
                 group_combo.addItem("Add New...")
                 group_combo.setCurrentText(new_group)
+
+                # Update all other fixtures' group comboboxes with the new group
+                for row in range(self.table.rowCount()):
+                    other_group_combo = self.table.cellWidget(row, 7)
+                    if other_group_combo and other_group_combo != group_combo:
+                        # Find "Add New..." item and insert new group before it
+                        add_new_index = other_group_combo.findText("Add New...")
+                        if add_new_index != -1:
+                            other_group_combo.insertItem(add_new_index, new_group)
 
     def _update_row_colors(self):
         """Apply group colors to table rows"""
