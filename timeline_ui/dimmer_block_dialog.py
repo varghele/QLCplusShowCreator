@@ -1,0 +1,196 @@
+# timeline_ui/dimmer_block_dialog.py
+# Dialog for editing dimmer sublane block parameters
+
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
+                             QGroupBox, QSlider, QDoubleSpinBox, QSpinBox,
+                             QLabel, QDialogButtonBox, QCheckBox)
+from PyQt6.QtCore import Qt
+from config.models import DimmerBlock
+
+
+class DimmerBlockDialog(QDialog):
+    """Dialog for editing dimmer sublane block parameters."""
+
+    def __init__(self, block: DimmerBlock, parent=None):
+        """Create the dimmer block dialog.
+
+        Args:
+            block: DimmerBlock to edit
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self.block = block
+
+        self.setWindowTitle("Edit Dimmer Block")
+        self.setMinimumWidth(400)
+        self.setMinimumHeight(280)
+
+        self._apply_groupbox_style()
+        self.setup_ui()
+        self.load_current_values()
+
+    def _apply_groupbox_style(self):
+        """Apply consistent styling to group boxes."""
+        self.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #555;
+                border-radius: 5px;
+                margin-top: 12px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                left: 10px;
+                padding: 0 5px;
+            }
+        """)
+
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+
+        # Timing info (read-only display)
+        timing_group = QGroupBox("Timing")
+        timing_layout = QFormLayout()
+
+        self.start_label = QLabel()
+        self.end_label = QLabel()
+        self.duration_label = QLabel()
+        timing_layout.addRow("Start:", self.start_label)
+        timing_layout.addRow("End:", self.end_label)
+        timing_layout.addRow("Duration:", self.duration_label)
+
+        timing_group.setLayout(timing_layout)
+        layout.addWidget(timing_group)
+
+        # Intensity group
+        intensity_group = QGroupBox("Intensity")
+        intensity_layout = QFormLayout()
+
+        # Intensity slider
+        intensity_widget = QHBoxLayout()
+        self.intensity_slider = QSlider(Qt.Orientation.Horizontal)
+        self.intensity_slider.setRange(0, 255)
+        self.intensity_spinbox = QSpinBox()
+        self.intensity_spinbox.setRange(0, 255)
+        self.intensity_slider.valueChanged.connect(self.intensity_spinbox.setValue)
+        self.intensity_spinbox.valueChanged.connect(self.intensity_slider.setValue)
+        intensity_widget.addWidget(self.intensity_slider, 1)
+        intensity_widget.addWidget(self.intensity_spinbox)
+        intensity_layout.addRow("Intensity:", intensity_widget)
+
+        # Percentage label
+        self.intensity_percent_label = QLabel("100%")
+        self.intensity_slider.valueChanged.connect(
+            lambda v: self.intensity_percent_label.setText(f"{int(v/255*100)}%")
+        )
+        intensity_layout.addRow("", self.intensity_percent_label)
+
+        intensity_group.setLayout(intensity_layout)
+        layout.addWidget(intensity_group)
+
+        # Strobe group
+        strobe_group = QGroupBox("Strobe")
+        strobe_layout = QFormLayout()
+
+        # Strobe enable checkbox
+        self.strobe_enabled = QCheckBox("Enable Strobe")
+        self.strobe_enabled.toggled.connect(self._on_strobe_toggled)
+        strobe_layout.addRow(self.strobe_enabled)
+
+        # Strobe speed
+        strobe_widget = QHBoxLayout()
+        self.strobe_slider = QSlider(Qt.Orientation.Horizontal)
+        self.strobe_slider.setRange(0, 200)  # 0-20 Hz in 0.1 increments
+        self.strobe_spinbox = QDoubleSpinBox()
+        self.strobe_spinbox.setRange(0.0, 20.0)
+        self.strobe_spinbox.setSingleStep(0.5)
+        self.strobe_spinbox.setSuffix(" Hz")
+        self.strobe_slider.valueChanged.connect(
+            lambda v: self.strobe_spinbox.setValue(v / 10.0)
+        )
+        self.strobe_spinbox.valueChanged.connect(
+            lambda v: self.strobe_slider.setValue(int(v * 10))
+        )
+        strobe_widget.addWidget(self.strobe_slider, 1)
+        strobe_widget.addWidget(self.strobe_spinbox)
+        strobe_layout.addRow("Speed:", strobe_widget)
+
+        strobe_group.setLayout(strobe_layout)
+        layout.addWidget(strobe_group)
+
+        # Iris group (for fixtures with iris)
+        iris_group = QGroupBox("Iris")
+        iris_layout = QFormLayout()
+
+        iris_widget = QHBoxLayout()
+        self.iris_slider = QSlider(Qt.Orientation.Horizontal)
+        self.iris_slider.setRange(0, 255)
+        self.iris_spinbox = QSpinBox()
+        self.iris_spinbox.setRange(0, 255)
+        self.iris_slider.valueChanged.connect(self.iris_spinbox.setValue)
+        self.iris_spinbox.valueChanged.connect(self.iris_slider.setValue)
+        iris_widget.addWidget(self.iris_slider, 1)
+        iris_widget.addWidget(self.iris_spinbox)
+        iris_layout.addRow("Opening:", iris_widget)
+
+        # Percentage label
+        self.iris_percent_label = QLabel("100%")
+        self.iris_slider.valueChanged.connect(
+            lambda v: self.iris_percent_label.setText(f"{int(v/255*100)}%")
+        )
+        iris_layout.addRow("", self.iris_percent_label)
+
+        iris_group.setLayout(iris_layout)
+        layout.addWidget(iris_group)
+
+        # Dialog buttons
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _on_strobe_toggled(self, enabled):
+        """Handle strobe enable/disable."""
+        self.strobe_slider.setEnabled(enabled)
+        self.strobe_spinbox.setEnabled(enabled)
+        if not enabled:
+            self.strobe_slider.setValue(0)
+
+    def load_current_values(self):
+        """Load current block values into the dialog."""
+        # Timing
+        self.start_label.setText(f"{self.block.start_time:.2f}s")
+        self.end_label.setText(f"{self.block.end_time:.2f}s")
+        duration = self.block.end_time - self.block.start_time
+        self.duration_label.setText(f"{duration:.2f}s")
+
+        # Intensity
+        self.intensity_slider.setValue(int(self.block.intensity))
+
+        # Strobe
+        if self.block.strobe_speed > 0:
+            self.strobe_enabled.setChecked(True)
+            self.strobe_spinbox.setValue(self.block.strobe_speed)
+        else:
+            self.strobe_enabled.setChecked(False)
+            self._on_strobe_toggled(False)
+
+        # Iris
+        self.iris_slider.setValue(int(self.block.iris))
+
+    def accept(self):
+        """Save parameters to block and close."""
+        self.block.intensity = float(self.intensity_spinbox.value())
+
+        if self.strobe_enabled.isChecked():
+            self.block.strobe_speed = self.strobe_spinbox.value()
+        else:
+            self.block.strobe_speed = 0.0
+
+        self.block.iris = float(self.iris_spinbox.value())
+
+        super().accept()

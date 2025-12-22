@@ -435,7 +435,37 @@ class LightLaneWidget(QFrame):
         self.lane.name = text
 
     def on_group_changed(self, group_name):
+        """Handle fixture group change - update capabilities and sublanes."""
         self.lane.fixture_group = group_name
+
+        # Clear cached capabilities for this group so they get re-detected
+        if self.config and group_name in self.config.groups:
+            self.config.groups[group_name].capabilities = None
+
+        # Re-detect capabilities for the new group
+        self.capabilities = self._detect_group_capabilities()
+        old_num_sublanes = self.num_sublanes
+        self.num_sublanes = self._count_sublanes()
+
+        # Update timeline widget with new sublane configuration
+        self.timeline_widget.num_sublanes = self.num_sublanes
+        self.timeline_widget.capabilities = self.capabilities
+
+        # Only rebuild layout if sublane count changed
+        if self.num_sublanes != old_num_sublanes:
+            # Update heights
+            buffer_height = 40
+            total_height = max(self.min_lane_height, self.num_sublanes * self.sublane_height + buffer_height)
+            self.setMinimumHeight(total_height)
+            self.setMaximumHeight(total_height)
+
+            timeline_height = self.num_sublanes * self.sublane_height
+            self.timeline_widget.setMinimumHeight(timeline_height)
+            self.timeline_widget.setMaximumHeight(timeline_height)
+
+        # Trigger repaint
+        self.timeline_widget.update()
+        self.update()
 
     def on_mute_toggled(self, checked):
         self.lane.muted = checked
