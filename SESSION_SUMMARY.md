@@ -1,97 +1,162 @@
-# Development Session Summary - December 22, 2024
+# Development Session Summary - December 23, 2024
 
 ## 🎯 What Was Accomplished
 
-Successfully completed **Phase 5 of the Sublane Feature** plus a major architectural enhancement.
+Successfully completed **Phase 6 of the Sublane Feature** (Effect Edit Dialogs) plus **Copy/Paste functionality** and several bug fixes.
 
-### Core Achievement: Multiple Blocks Per Sublane Type
+### Core Achievements
 
-**Problem Solved:** User couldn't create multiple blocks of the same type (e.g., multiple dimmer blocks) within one effect.
-
-**Solution:** Refactored data model from single Optional[Block] to List[Block] per sublane type.
-
-**Impact:**
-- ✅ Can now create unlimited blocks per sublane
-- ✅ Drag-to-create **appends** instead of replacing
-- ✅ Each block independently selectable/movable/resizable
-- ✅ Solid foundation for future "Riffs" feature
+1. **Effect Edit Dialogs (Phase 6)** - All 4 sublane-specific dialogs implemented
+2. **Copy/Paste Effects** - Right-click copy/paste and shift+drag to copy
+3. **Bug Fixes** - Fixture path issues, capability detection, config passing
 
 ---
 
-## 📁 Files Modified
+## 📁 Files Created/Modified
 
-### Core Implementation
-| File | Changes |
-|------|---------|
-| `config/models.py` | Refactored LightBlock to use List[Block] per sublane type, added migration |
-| `timeline/light_lane.py` | Updated API to support both single blocks and lists (backward compatible) |
-| `timeline_ui/light_block_widget.py` | Major refactor: multiple blocks, overlap prevention, visual feedback |
+### New Files Created
 
-### Test Files (Moved to `/tests/visual/`)
 | File | Purpose |
 |------|---------|
-| `test_sublane_blocks.py` | Demonstrates multiple blocks per sublane |
-| `test_sublane_ui.py` | Tests sublane layout and heights |
-| `test_capability_detection.py` | Tests fixture capability detection |
+| `timeline_ui/dimmer_block_dialog.py` | Dialog for editing dimmer parameters (intensity, strobe, iris) |
+| `timeline_ui/colour_block_dialog.py` | Simplified color dialog (presets, hex, RGBW sliders, color wheel) |
+| `timeline_ui/movement_block_dialog.py` | Pan/tilt dialog with 2D widget and fine controls |
+| `timeline_ui/special_block_dialog.py` | Gobo, focus, zoom, prism controls |
+| `timeline_ui/effect_clipboard.py` | Clipboard storage for copy/paste functionality |
 
-### Documentation (New/Updated)
-| File | Location | Purpose |
-|------|----------|---------|
-| `SUBLANE_IMPLEMENTATION_COMPLETE.md` | `.claude/docs/` | Comprehensive implementation documentation |
-| `SUBLANE_FEATURE_PLAN.md` | Root | Updated with completion status |
-| `SESSION_SUMMARY.md` | Root | This file - quick reference |
+### Files Modified
 
----
-
-## ✅ Phase 5 Features Completed
-
-### 1. Drag-to-Create
-- Drag in empty sublane area to create new blocks
-- Visual preview during drag
-- Snap to grid support
-- Works for all sublane types
-
-### 2. Overlap Prevention
-- Movement blocks cannot overlap
-- Special blocks cannot overlap
-- Dimmer/Colour blocks can overlap (for layering)
-- Enforced during create, resize, and move
-
-### 3. Visual Feedback
-- **Normal preview:** Semi-transparent colored when valid
-- **RED preview:** Bright red when overlap detected
-- **Cursor changes:** Resize arrows on edges
-- **Selection:** White border and handles
-- **Modified indicator:** Asterisk (*) on customized effects
-
-### 4. Block Manipulation
-- Click to select individual blocks
-- Drag edges to resize
-- Drag body to move
-- Auto-expand envelope when needed
-- All operations snap to grid (if enabled)
+| File | Changes |
+|------|---------|
+| `timeline_ui/light_block_widget.py` | Added copy/paste, shift+drag copy, sublane dialog routing |
+| `timeline_ui/light_lane_widget.py` | Added paste_effect_at_time(), connected paste signal |
+| `timeline_ui/timeline_widget.py` | Added right-click context menu with "Paste Effect" |
+| `utils/fixture_utils.py` | Fixed fixture paths (QLC+5, custom_fixtures, subdirectories) |
+| `gui/tabs/fixtures_tab.py` | Fixed fixture paths in Add Fixture dialog |
 
 ---
 
-## 🧪 Testing
+## ✅ Phase 6 Features Completed
 
-### Run Visual Tests
-```bash
-python tests/visual/test_sublane_blocks.py
-python tests/visual/test_sublane_ui.py
-python tests/visual/test_capability_detection.py
+### 1. Dimmer Block Dialog
+- Intensity slider (0-255)
+- Strobe enable/speed controls
+- Iris control
+- Styled QGroupBox headers
+
+### 2. Colour Block Dialog (Simplified per user request)
+- **Quick Preset Buttons**: 12 common colors (Red, Green, Blue, White, Amber, UV, etc.)
+- **Hex Color Picker**: Enter/display hex values directly
+- **RGBW Sliders**: Most common fixture color channels
+- **Optional Color Wheel**: Shows fixture-specific color wheel options when available
+
+### 3. Movement Block Dialog
+- **2D Pan/Tilt Widget**: Visual position control with click-to-set
+- **Fine Controls**: Pan fine, tilt fine spinboxes
+- **Speed Slider**: Movement speed control
+- **Interpolation Toggle**: Enable/disable smooth transitions
+
+### 4. Special Block Dialog
+- Gobo selection (index spinner)
+- Gobo rotation speed
+- Focus control
+- Zoom control
+- Prism enable/rotation
+
+---
+
+## ✅ Copy/Paste Functionality
+
+### Features Implemented
+
+1. **Right-click Copy**: Right-click on effect → "Copy Effect"
+2. **Right-click Paste**: Right-click on empty timeline → "Paste Effect"
+3. **Shift+Drag Copy**: Hold Shift while dragging to create a copy at new location
+4. **Cross-lane Paste**: Can paste to any lane, not just the source lane
+
+### How It Works
+
+```
+effect_clipboard.py:
+  - copy_effect(block) → stores deep copy of LightBlock
+  - paste_effect(target_time) → creates new LightBlock at target time
+  - has_clipboard_data() → checks if clipboard has content
 ```
 
-### What to Look For
-**test_sublane_blocks.py:**
-- Block 2: **TWO dimmer blocks** (at 5-7s and 7.5-10s)
-- Block 4: **THREE colour blocks** (red→green→blue at 18-22s)
-- Try drag-to-create in empty areas
-- Try overlapping movement → RED preview
+### User Workflow
+
+1. **Copy via Context Menu:**
+   - Right-click on an effect → "Copy Effect"
+   - Right-click at desired position in any lane → "Paste Effect"
+
+2. **Copy via Shift+Drag:**
+   - Hold Shift, drag effect to new position
+   - Release → copy created at drop location
+   - Original stays in place
 
 ---
 
-## 📂 New Folder Structure
+## 🐛 Bug Fixes
+
+### 1. Fixture Paths Not Found
+**Problem:** Fixtures not loading from QLC+5 or custom directories
+
+**Fix:** Updated `utils/fixture_utils.py`:
+- Added `C:\QLC+5\Fixtures` path for Windows
+- Added project's `custom_fixtures` folder
+- Fixed scanning of both flat directories and manufacturer subdirectories
+
+### 2. Add Fixture Dialog Empty
+**Problem:** Add Fixture dialog showed no fixtures
+
+**Fix:** Updated `gui/tabs/fixtures_tab.py`:
+- Synchronized paths with `fixture_utils.py`
+- Added same directory scanning logic
+
+### 3. All Sublanes Showing for Non-Moving Heads
+**Problem:** Even simple RGB fixtures showed 4 sublanes
+
+**Fix:**
+- Added `config=self.config` to LightLaneWidget creation in shows_tab.py
+- Updated `on_group_changed()` to re-detect capabilities when fixture group changes
+- Fixed capability caching/clearing
+
+### 4. QGroupBox Headers Squished
+**Problem:** Group box headers overlapping content
+
+**Fix:** Added CSS styling to all 4 dialogs:
+```python
+group_box.setStyleSheet("""
+    QGroupBox { margin-top: 12px; padding-top: 10px; }
+    QGroupBox::title { subcontrol-position: top left; padding: 0 5px; }
+""")
+```
+
+---
+
+## 🚀 Current Project Status
+
+### Completed Phases
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 1 | ✅ Complete | Data Model & Categorization |
+| Phase 2 | ✅ Complete | Fixture Capability Detection |
+| Phase 3 | ✅ Complete | Core Effect Logic |
+| Phase 4 | ✅ Complete | UI Timeline Rendering |
+| Phase 5 | ✅ Complete | UI Interaction (drag, resize, move) |
+| Phase 6 | ✅ Complete | Effect Edit Dialogs |
+
+### Pending Phases
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 7 | ⏳ Pending | DMX Generation |
+| Phase 8 | ⏳ Pending | Testing & Refinement |
+
+---
+
+## 📂 Project Structure
 
 ```
 QLCplusShowCreator/
@@ -99,79 +164,110 @@ QLCplusShowCreator/
 │   ├── docs/                   # Implementation documentation
 │   │   └── SUBLANE_IMPLEMENTATION_COMPLETE.md
 │   └── README.md
-├── tests/                      # Test files
-│   ├── visual/                 # Visual/interactive tests
-│   │   ├── test_sublane_blocks.py
-│   │   ├── test_sublane_ui.py
-│   │   └── test_capability_detection.py
-│   └── README.md
-├── config/                     # Configuration and models
-├── timeline/                   # Timeline logic
 ├── timeline_ui/                # Timeline UI widgets
-├── utils/                      # Utility functions
-└── [other project files]
+│   ├── light_block_widget.py   # Effect envelope widget
+│   ├── light_lane_widget.py    # Lane container widget
+│   ├── timeline_widget.py      # Base timeline with grid
+│   ├── dimmer_block_dialog.py  # NEW: Dimmer edit dialog
+│   ├── colour_block_dialog.py  # NEW: Colour edit dialog
+│   ├── movement_block_dialog.py # NEW: Movement edit dialog
+│   ├── special_block_dialog.py # NEW: Special edit dialog
+│   └── effect_clipboard.py     # NEW: Copy/paste clipboard
+├── utils/
+│   ├── fixture_utils.py        # Fixture loading & capability detection
+│   └── sublane_presets.py      # Preset categorization
+├── gui/tabs/
+│   ├── shows_tab.py            # Shows tab with timeline
+│   └── fixtures_tab.py         # Fixture management
+├── config/
+│   └── models.py               # Data models
+└── tests/visual/               # Visual test files
 ```
 
 ---
 
 ## 🚀 Next Steps (For Future Sessions)
 
-### Immediate Priorities
+### Immediate Priority: Phase 7 - DMX Generation
 
-1. **Effect Edit Dialogs (Phase 6)**
-   - Create dialog for editing sublane block parameters
-   - Support editing multiple blocks in same sublane
-   - Add/remove individual blocks
-   - Parameter controls (intensity, color, pan/tilt, etc.)
+1. **Update Playback Engine**
+   - Read from sublane block lists instead of old effect format
+   - Iterate through dimmer_blocks, colour_blocks, etc.
 
-2. **DMX Generation (Phase 7)**
-   - Update playback engine to read from sublane block lists
-   - Implement gap handling (return to defaults)
-   - Implement cross-fade for overlapping Dimmer/Colour
-   - Implement movement interpolation between blocks
+2. **Implement Gap Handling**
+   - Dimmer/Colour gaps → DMX value 0
+   - Movement gaps → Interpolate to next position (optional)
+   - Special gaps → DMX value 0
 
-3. **Integration Testing**
-   - Test with complete shows
-   - Performance testing with many blocks
-   - Edge case testing
+3. **Implement Cross-fade**
+   - When Dimmer/Colour blocks overlap
+   - Blend values based on overlap region
+
+4. **Implement Movement Interpolation**
+   - Smooth transition between movement blocks
+   - Respect interpolate_from_previous flag
 
 ### Future Enhancements
 
-- **Riffs System:** Sequences of effects for quick lightshow assembly
-- **Advanced Curves:** Ease-in/out interpolation
-- **Copy/Paste:** Block and effect duplication
-- **Undo/Redo:** History management
+- **Undo/Redo**: History management for block operations
+- **Riffs System**: Sequences of effects for quick lightshow assembly
+- **Advanced Curves**: Ease-in/out interpolation options
+- **Keyboard Shortcuts**: For common operations
 
 ---
 
 ## 💡 Key Design Decisions
 
-### Why List[Block] Instead of Single Blocks?
+### Simplified Colour Dialog
 
-**User Requirement:** "I want multiple dimmer blocks in an effect for complex sequences"
+**User Request:** Remove CMY/HSV tabs, add quick presets and color wheel
 
-**Decision:** Refactor to List[Block] architecture (Option A)
+**Implementation:**
+- 12 preset color buttons for fast selection
+- Hex input for precise colors
+- RGBW sliders (most common fixture setup)
+- Optional color wheel from fixture definition
 
-**Alternatives Considered:**
-- Option B: Keep single blocks, use multiple effects (rejected - breaks conceptual model)
-- Option C: Hybrid with gaps (rejected - too complex)
+### Copy/Paste Architecture
 
-**Benefits:**
-- Natural model for sequences
-- Solid foundation for Riffs
-- Flexible for complex lighting
-- Clean implementation
+**Design Choice:** Module-level clipboard with deep copy
 
-### Overlap Prevention Strategy
+**Reasoning:**
+- Simple implementation with `to_dict()` / `from_dict()`
+- Works across lanes naturally
+- Time adjustment on paste (not copy)
+- Clipboard persists until overwritten
 
-**Movement/Special:** No overlaps allowed
-- Reasoning: Can only have one position/gobo at a time
-- Implementation: Check overlaps, show RED feedback
-- User experience: Clear visual indication
+---
 
-**Dimmer/Colour:** Overlaps allowed
-- Reasoning: Can layer intensities and colors
-- Future: Cross-fade blending during playback
+## 🧪 Testing
+
+### Run the Application
+```bash
+python main.py
+```
+
+### Test Copy/Paste
+1. Load a config with fixtures
+2. Create effects on lanes
+3. Right-click → Copy Effect
+4. Right-click elsewhere → Paste Effect
+5. Hold Shift + drag effect to copy
+
+### Test Edit Dialogs
+1. Create an effect
+2. Double-click on a sublane block
+3. Appropriate dialog opens
+4. Modify values, click OK
+5. Block updates visually
+
+---
+
+## ⚠️ Known Limitations
+
+1. **No DMX Playback Yet**: UI complete, playback engine not updated
+2. **No Cross-fade Implementation**: Overlap prevention works, blending not implemented
+3. **Color Wheel Detection**: Requires proper fixture definition files
 
 ---
 
@@ -181,61 +277,17 @@ QLCplusShowCreator/
 
 1. **Start Here:** `SESSION_SUMMARY.md` (this file)
 2. **Deep Dive:** `.claude/docs/SUBLANE_IMPLEMENTATION_COMPLETE.md`
-3. **Original Plan:** `SUBLANE_FEATURE_PLAN.md`
+3. **Feature Plan:** `SUBLANE_FEATURE_PLAN.md`
 4. **Architecture:** `CURRENT_ARCHITECTURE_SUMMARY.md`
 
-### For Understanding Code
+### Key Files for Phase 7
 
-**Key Files:**
-- `config/models.py` - Data structures (LightBlock, sublane blocks)
-- `timeline_ui/light_block_widget.py` - User interaction (most complex file)
-- `utils/fixture_utils.py` - Capability detection
-
-**Common Tasks:**
-- Add sublane type → Update models + capability detection + rendering
-- Change interaction → Modify light_block_widget.py mouse handlers
-- Add parameter → Update sublane block dataclass + edit dialog
+- `timeline_ui/light_block_widget.py` - Block data access
+- `config/models.py` - Data structures
+- Playback/DMX generation module (to be identified/created)
 
 ---
 
-## 🔧 Git Workflow
-
-### Add All Changes
-```bash
-git add .
-git commit -m "Implement Phase 5: Multiple blocks per sublane + visual feedback"
-```
-
-### What's Included
-- Core implementation files
-- Test files in organized structure
-- Comprehensive documentation
-- Updated feature plan
-
----
-
-## ⚠️ Known Limitations
-
-1. **No Edit Dialog Yet:** Can create/move/resize visually, but can't edit parameters (intensity, colors, etc.)
-2. **No DMX Playback:** UI complete, playback engine not yet updated
-3. **No Cross-fade:** Overlap prevention works, but blending not implemented
-
----
-
-## ✨ Success Metrics
-
-- ✅ Multiple blocks per sublane working
-- ✅ Drag-to-create appends correctly
-- ✅ Overlap prevention with visual feedback
-- ✅ All interaction working (select, resize, move)
-- ✅ Backward compatible (auto-migration)
-- ✅ Test files demonstrating all features
-- ✅ Comprehensive documentation
-
-**Status:** Production-ready UI, pending edit dialogs and playback integration
-
----
-
-**Session Date:** December 22, 2024
+**Session Date:** December 23, 2024
 **Completed By:** Claude Code + User
-**Next Session:** Start with Phase 6 (Effect Edit Dialogs) or Phase 7 (DMX Generation)
+**Next Session:** Start with Phase 7 (DMX Generation)

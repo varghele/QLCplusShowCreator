@@ -41,6 +41,7 @@ class LightBlockWidget(QWidget):
         self.drag_start_time = None
         self.drag_start_duration = None
         self.snap_to_grid = True
+        self.shift_drag_copying = False  # True when shift+drag to copy
 
         # Sublane interaction state
         self.clicked_sublane_type = None  # Which sublane type was clicked (if any)
@@ -500,6 +501,9 @@ class LightBlockWidget(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             pos = event.pos()
 
+            # Check if Shift is held for copy operation
+            shift_held = event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+
             # First, check if clicking on a sublane block
             sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
 
@@ -553,6 +557,9 @@ class LightBlockWidget(QWidget):
                         self.resizing_right = True
                     else:
                         self.dragging = True
+                        # Check if shift is held for copy operation
+                        if shift_held:
+                            self.shift_drag_copying = True
 
             self.drag_start_pos = event.globalPosition().toPoint()
             self.drag_start_time = self.block.start_time
@@ -813,6 +820,25 @@ class LightBlockWidget(QWidget):
     def mouseReleaseEvent(self, event: QMouseEvent):
         """Handle mouse release to stop dragging/resizing."""
         if event.button() == Qt.MouseButton.LeftButton:
+            # Handle shift+drag copy completion
+            if self.shift_drag_copying and self.dragging:
+                # Create a copy of the effect at the new position
+                new_start_time = self.block.start_time  # Current position after drag
+                # Reset original block to its starting position
+                self.block.start_time = self.drag_start_time
+                self.block.end_time = self.drag_start_time + self.drag_start_duration
+                # Update sublane blocks back to original times
+                self._restore_sublane_times()
+                self.update_position()
+
+                # Create copy at new position via lane widget
+                if hasattr(self.lane_widget, 'paste_effect_at_time'):
+                    from .effect_clipboard import copy_effect, paste_effect
+                    copy_effect(self.block)
+                    self.lane_widget.paste_effect_at_time(new_start_time)
+
+                self.shift_drag_copying = False
+
             # Handle drag-to-create completion
             if self.creating_sublane and self.create_start_time is not None and self.create_end_time is not None:
                 # Only create if no overlap (overlap_detected flag is set during mouseMoveEvent)
@@ -884,6 +910,11 @@ class LightBlockWidget(QWidget):
 
         edit_action = menu.addAction("Edit Effect Envelope...")
         edit_action.triggered.connect(self.open_effect_dialog)
+
+        menu.addSeparator()
+
+        copy_action = menu.addAction("Copy Effect")
+        copy_action.triggered.connect(self.copy_effect)
 
         menu.addSeparator()
 
@@ -979,6 +1010,42 @@ class LightBlockWidget(QWidget):
                 self.selected_sublane_type = None
             self.block.modified = True
             self.update_display()
+
+    def _restore_sublane_times(self):
+        """Restore all sublane block times to match the original envelope position.
+
+        Used when cancelling a shift+drag copy to reset the visual dragging.
+        """
+        # Calculate the time offset that was applied during dragging
+        current_duration = self.block.end_time - self.block.start_time
+        original_duration = self.drag_start_duration
+
+        # The blocks were dragged with the envelope, so we need to restore them
+        # to match the original start time
+        time_delta = self.drag_start_time - self.block.start_time
+
+        # Since we already reset self.block.start_time and end_time,
+        # we need to adjust all sublane blocks to match
+        for dimmer_block in self.block.dimmer_blocks:
+            dimmer_block.start_time += time_delta
+            dimmer_block.end_time += time_delta
+
+        for colour_block in self.block.colour_blocks:
+            colour_block.start_time += time_delta
+            colour_block.end_time += time_delta
+
+        for movement_block in self.block.movement_blocks:
+            movement_block.start_time += time_delta
+            movement_block.end_time += time_delta
+
+        for special_block in self.block.special_blocks:
+            special_block.start_time += time_delta
+            special_block.end_time += time_delta
+
+    def copy_effect(self):
+        """Copy this effect to the clipboard."""
+        from .effect_clipboard import copy_effect
+        copy_effect(self.block)
 
     def keyPressEvent(self, event):
         """Handle key press for deletion."""
