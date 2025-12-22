@@ -2,7 +2,7 @@
 # Base timeline widget with grid drawing and snap functionality
 # Adapted from midimaker_and_show_structure/ui/lane_widget.py
 
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QWidget, QMenu
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPainter, QPen, QColor, QWheelEvent
 
@@ -16,6 +16,7 @@ class TimelineWidget(QWidget):
 
     zoom_changed = pyqtSignal(float)  # Emits new zoom factor
     playhead_moved = pyqtSignal(float)  # Emits playhead position in seconds
+    paste_requested = pyqtSignal(float)  # Emits time position when paste requested
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -153,6 +154,27 @@ class TimelineWidget(QWidget):
         """Handle mouse release to stop playhead dragging."""
         if event.button() == Qt.MouseButton.LeftButton:
             self.dragging_playhead = False
+
+    def contextMenuEvent(self, event):
+        """Handle right-click context menu for paste."""
+        from timeline_ui.effect_clipboard import has_clipboard_data
+
+        menu = QMenu(self)
+
+        # Calculate time at click position
+        click_time = self.pixel_to_time(event.pos().x())
+        if self.snap_to_grid:
+            click_time = self.find_nearest_beat_time(click_time)
+
+        # Add paste action if clipboard has data
+        if has_clipboard_data():
+            paste_action = menu.addAction("Paste Effect")
+            paste_action.triggered.connect(lambda: self.paste_requested.emit(click_time))
+        else:
+            paste_action = menu.addAction("Paste Effect (no effect copied)")
+            paste_action.setEnabled(False)
+
+        menu.exec(event.globalPos())
 
     def update_playhead_from_mouse(self, x_pos: int):
         """Update playhead position based on mouse position."""

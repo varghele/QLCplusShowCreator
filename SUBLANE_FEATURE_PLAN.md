@@ -323,12 +323,18 @@ If conversion is desired:
 - [x] Implement selection highlighting
 - [x] Implement cursor changes (resize arrows on edges)
 
-### Phase 6: Effect Creation/Editing Dialogs
-- [ ] Create/update full effect dialog (all sublanes)
-- [ ] Create sublane-specific edit dialogs
-- [ ] Implement auto-population of sublanes from effect parameters
-- [ ] Add movement interpolation toggle
-- [ ] Add modified indicator (*) update logic
+### Phase 6: Effect Creation/Editing Dialogs ✅ COMPLETE (Dec 2024)
+- [x] Create sublane-specific edit dialogs:
+  - DimmerBlockDialog: intensity, strobe, iris
+  - ColourBlockDialog: presets, hex picker, RGBW sliders, optional color wheel
+  - MovementBlockDialog: 2D pan/tilt widget, fine controls, speed, interpolation
+  - SpecialBlockDialog: gobo, focus, zoom, prism
+- [x] Double-click on sublane block opens appropriate dialog
+- [x] Add movement interpolation toggle
+- [x] **BONUS:** Copy/Paste functionality:
+  - Right-click → Copy Effect / Paste Effect
+  - Shift+drag to copy effect
+  - Works across any lane
 
 ### Phase 7: DMX Generation
 - [ ] Update DMX generation to read from sublane blocks
@@ -395,7 +401,7 @@ If conversion is desired:
 2. ~~**Cross-fade Curve**: Linear cross-fade or other curve options (ease-in/out)?~~ **RESOLVED**: Linear for now, can add curve options later
 3. ~~**Movement Interpolation Curve**: Linear interpolation or other curves (ease-in/out, S-curve)?~~ **RESOLVED**: Linear for now, can add curve options later
 4. **Undo/Redo**: How to handle multi-sublane operations in undo stack? (decide during implementation)
-5. **Copy/Paste**: Should copying a sublane block also copy the envelope? (decide during implementation)
+5. ~~**Copy/Paste**: Should copying a sublane block also copy the envelope?~~ **RESOLVED**: Copy entire effect with all sublanes (implemented Dec 2024)
 6. **Keyboard Shortcuts**: What shortcuts for sublane-specific operations? (decide during implementation)
 7. **Visual Spacing**: How much vertical space per sublane? Fixed or dynamic? (decide during implementation)
 

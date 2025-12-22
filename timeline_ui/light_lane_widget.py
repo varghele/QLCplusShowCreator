@@ -88,6 +88,7 @@ class LightLaneWidget(QFrame):
         self.timeline_widget.zoom_changed.connect(self.zoom_changed.emit)
         self.timeline_widget.zoom_changed.connect(self.on_timeline_zoom_changed)
         self.timeline_widget.playhead_moved.connect(self.playhead_moved.emit)
+        self.timeline_widget.paste_requested.connect(self.paste_effect_at_time)
 
         # Create light block widgets for existing blocks
         for block in self.lane.light_blocks:
@@ -531,3 +532,43 @@ class LightLaneWidget(QFrame):
                     background-color: #666;
                 }
             """)
+
+    def paste_effect_at_time(self, target_time: float):
+        """Paste copied effect at the specified time.
+
+        Args:
+            target_time: Start time for the pasted effect
+        """
+        from timeline_ui.effect_clipboard import paste_effect
+
+        # Create new block from clipboard
+        new_block = paste_effect(target_time)
+        if new_block is None:
+            return
+
+        # Add to lane data
+        self.lane.light_blocks.append(new_block)
+
+        # Create widget for the new block
+        self.create_light_block_widget(new_block)
+
+    def update_fixture_groups(self, fixture_groups: list):
+        """Update the available fixture groups in the combo box.
+
+        Args:
+            fixture_groups: List of fixture group names
+        """
+        self.fixture_groups = fixture_groups
+        current_text = self.group_combo.currentText()
+
+        self.group_combo.blockSignals(True)
+        self.group_combo.clear()
+        self.group_combo.addItems(self.fixture_groups)
+
+        # Restore previous selection if still available
+        if current_text in self.fixture_groups:
+            self.group_combo.setCurrentText(current_text)
+        elif self.lane.fixture_group in self.fixture_groups:
+            self.group_combo.setCurrentText(self.lane.fixture_group)
+
+        self.group_combo.blockSignals(False)

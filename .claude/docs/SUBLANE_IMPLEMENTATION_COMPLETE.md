@@ -228,11 +228,15 @@ python test_capability_detection.py
 - ✅ Selection highlighting
 - ✅ Cursor feedback
 
-### Phase 6: Effect Dialogs ⏳ PENDING
-- ⏳ Full effect dialog (all sublanes)
-- ⏳ Sublane-specific edit dialogs
-- ⏳ Movement interpolation toggle
-- ⏳ Parameter editing UI
+### Phase 6: Effect Dialogs ✅ COMPLETE (Dec 2024)
+- ✅ Sublane-specific edit dialogs:
+  - `dimmer_block_dialog.py`: Intensity, strobe, iris
+  - `colour_block_dialog.py`: Presets, hex picker, RGBW sliders, color wheel
+  - `movement_block_dialog.py`: 2D pan/tilt widget, fine controls, speed, interpolation
+  - `special_block_dialog.py`: Gobo, focus, zoom, prism
+- ✅ Double-click on sublane block opens dialog
+- ✅ Movement interpolation toggle
+- ✅ **BONUS:** Copy/Paste functionality (effect_clipboard.py)
 
 ### Phase 7: DMX Generation ⏳ PENDING
 - ⏳ Read from sublane blocks
@@ -252,19 +256,13 @@ python test_capability_detection.py
 
 ### Immediate (Needed for Production)
 
-1. **Effect Edit Dialogs (Phase 6)**
-   - Create dialog for editing sublane parameters
-   - Support editing multiple blocks in same sublane
-   - Add/remove individual sublane blocks
-   - Copy/paste blocks
-
-2. **DMX Generation (Phase 7)**
+1. **DMX Generation (Phase 7)** - NEXT PRIORITY
    - Update playback engine to read from sublane lists
    - Implement gap handling (return to defaults)
    - Implement cross-fade for Dimmer/Colour overlaps
    - Implement movement interpolation
 
-3. **Integration Testing**
+2. **Integration Testing (Phase 8)**
    - Test with real shows
    - Test with different fixture types
    - Performance testing with many blocks
@@ -280,7 +278,6 @@ python test_capability_detection.py
 2. **Advanced Features**
    - Curve-based interpolation (ease-in/out)
    - Custom cross-fade curves
-   - Copy/paste sublane blocks
    - Undo/redo support
 
 3. **Performance**
@@ -292,20 +289,19 @@ python test_capability_detection.py
 
 ## 🐛 Known Limitations
 
-1. **No Edit Dialog Yet**
-   - Can create/move/resize blocks visually
-   - Cannot edit parameters (intensity, color values, etc.) yet
-   - Workaround: Blocks created with default values
-
-2. **No DMX Playback Yet**
+1. **No DMX Playback Yet**
    - UI is complete and functional
    - Playback engine not yet updated
    - Workaround: None (needed for actual shows)
 
-3. **No Cross-fade Implementation**
+2. **No Cross-fade Implementation**
    - Overlap prevention works
    - Visual feedback works
    - Actual cross-fade blending not implemented yet
+
+3. **Color Wheel Detection**
+   - Requires fixture definition files with color wheel capabilities
+   - Falls back to preset colors if not available
 
 ---
 
@@ -421,6 +417,6 @@ python -m pytest tests/
 
 ---
 
-**Implementation Complete:** December 22, 2024
-**Status:** Ready for Phase 6 (Edit Dialogs) and Phase 7 (DMX Generation)
-**Quality:** Production-ready UI, pending playback integration
+**Implementation Complete:** December 23, 2024
+**Status:** Phases 1-6 Complete. Ready for Phase 7 (DMX Generation)
+**Quality:** Production-ready UI with edit dialogs and copy/paste, pending playback integration
