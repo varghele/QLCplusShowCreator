@@ -187,3 +187,72 @@ def determine_fixture_type(fixture_def):
             return "BAR"
     else:
         return "PAR"  # Default type
+
+
+def detect_fixture_group_capabilities(fixtures, fixture_definitions=None):
+    """
+    Detect sublane capabilities for a fixture group by analyzing fixture definitions.
+
+    Args:
+        fixtures: List of Fixture objects in the group
+        fixture_definitions: Optional dict of pre-loaded fixture definitions.
+                           If None, will scan from QLC+ directories.
+
+    Returns:
+        FixtureGroupCapabilities object with detected capabilities
+    """
+    from config.models import FixtureGroupCapabilities
+    from utils.sublane_presets import (
+        categorize_preset, SublaneType,
+        DIMMER_PRESETS, COLOUR_PRESETS, MOVEMENT_PRESETS, SPECIAL_PRESETS
+    )
+
+    capabilities = FixtureGroupCapabilities()
+
+    # If no fixture definitions provided, scan them
+    if fixture_definitions is None:
+        models_in_config = {(f.manufacturer, f.model) for f in fixtures}
+        fixture_definitions = load_fixture_definitions_from_qlc(models_in_config)
+
+    # Analyze each fixture in the group
+    for fixture in fixtures:
+        fixture_key = f"{fixture.manufacturer}_{fixture.model}"
+
+        if fixture_key not in fixture_definitions:
+            # Try alternate key format
+            fixture_key = f"{fixture.manufacturer}_{fixture.model.replace(' ', '_')}"
+
+        if fixture_key in fixture_definitions:
+            fixture_def = fixture_definitions[fixture_key]
+
+            # Check all channels for their presets
+            for channel in fixture_def.get('channels', []):
+                preset = channel.get('preset')
+
+                if preset:
+                    sublane_type = categorize_preset(preset)
+
+                    if sublane_type == SublaneType.DIMMER:
+                        capabilities.has_dimmer = True
+                    elif sublane_type == SublaneType.COLOUR:
+                        capabilities.has_colour = True
+                    elif sublane_type == SublaneType.MOVEMENT:
+                        capabilities.has_movement = True
+                    elif sublane_type == SublaneType.SPECIAL:
+                        capabilities.has_special = True
+
+                # Fallback: check channel name if no preset
+                elif not preset:
+                    channel_name = channel.get('name', '') or ''
+
+                    # Simple heuristics based on channel name
+                    if channel_name and any(word in channel_name for word in ['Dimmer', 'Intensity', 'Master', 'Strobe', 'Shutter']):
+                        capabilities.has_dimmer = True
+                    elif channel_name and any(word in channel_name for word in ['Red', 'Green', 'Blue', 'White', 'Cyan', 'Magenta', 'Yellow', 'Color', 'Hue', 'Saturation']):
+                        capabilities.has_colour = True
+                    elif channel_name and any(word in channel_name for word in ['Pan', 'Tilt', 'X-Axis', 'Y-Axis']):
+                        capabilities.has_movement = True
+                    elif channel_name and any(word in channel_name for word in ['Gobo', 'Prism', 'Focus', 'Zoom', 'Beam']):
+                        capabilities.has_special = True
+
+    return capabilities

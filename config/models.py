@@ -46,6 +46,209 @@ class FixtureGroup:
     name: str
     fixtures: List[Fixture]
     color: str = '#808080'  # Default color for the group
+    capabilities: Optional['FixtureGroupCapabilities'] = None  # Auto-detected sublane capabilities
+
+
+@dataclass
+class FixtureGroupCapabilities:
+    """Capabilities of a fixture group, determining which sublanes to display."""
+    has_dimmer: bool = False
+    has_colour: bool = False
+    has_movement: bool = False
+    has_special: bool = False
+
+    def to_dict(self) -> Dict:
+        return {
+            "has_dimmer": self.has_dimmer,
+            "has_colour": self.has_colour,
+            "has_movement": self.has_movement,
+            "has_special": self.has_special
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'FixtureGroupCapabilities':
+        return cls(
+            has_dimmer=data.get("has_dimmer", False),
+            has_colour=data.get("has_colour", False),
+            has_movement=data.get("has_movement", False),
+            has_special=data.get("has_special", False)
+        )
+
+
+@dataclass
+class DimmerBlock:
+    """Dimmer sublane block - controls intensity and shutter effects."""
+    start_time: float
+    end_time: float
+    intensity: float = 255.0  # 0-255
+    strobe_speed: float = 0.0  # 0 = no strobe, >0 = strobe speed
+    iris: float = 255.0  # 0-255, if applicable
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "intensity": self.intensity,
+            "strobe_speed": self.strobe_speed,
+            "iris": self.iris
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'DimmerBlock':
+        return cls(
+            start_time=data.get("start_time", 0.0),
+            end_time=data.get("end_time", 0.0),
+            intensity=data.get("intensity", 255.0),
+            strobe_speed=data.get("strobe_speed", 0.0),
+            iris=data.get("iris", 255.0)
+        )
+
+
+@dataclass
+class ColourBlock:
+    """Colour sublane block - controls color parameters."""
+    start_time: float
+    end_time: float
+    color_mode: str = "RGB"  # "RGB", "CMY", "HSV", "Wheel"
+
+    # RGB/CMY/RGBW values (0-255)
+    red: float = 0.0
+    green: float = 0.0
+    blue: float = 0.0
+    white: float = 0.0
+    amber: float = 0.0
+    cyan: float = 0.0
+    magenta: float = 0.0
+    yellow: float = 0.0
+    uv: float = 0.0
+    lime: float = 0.0
+
+    # HSV values
+    hue: float = 0.0  # 0-360
+    saturation: float = 0.0  # 0-100
+    value: float = 0.0  # 0-100
+
+    # Color wheel
+    color_wheel_position: int = 0  # Wheel position
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "color_mode": self.color_mode,
+            "red": self.red,
+            "green": self.green,
+            "blue": self.blue,
+            "white": self.white,
+            "amber": self.amber,
+            "cyan": self.cyan,
+            "magenta": self.magenta,
+            "yellow": self.yellow,
+            "uv": self.uv,
+            "lime": self.lime,
+            "hue": self.hue,
+            "saturation": self.saturation,
+            "value": self.value,
+            "color_wheel_position": self.color_wheel_position
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'ColourBlock':
+        return cls(
+            start_time=data.get("start_time", 0.0),
+            end_time=data.get("end_time", 0.0),
+            color_mode=data.get("color_mode", "RGB"),
+            red=data.get("red", 0.0),
+            green=data.get("green", 0.0),
+            blue=data.get("blue", 0.0),
+            white=data.get("white", 0.0),
+            amber=data.get("amber", 0.0),
+            cyan=data.get("cyan", 0.0),
+            magenta=data.get("magenta", 0.0),
+            yellow=data.get("yellow", 0.0),
+            uv=data.get("uv", 0.0),
+            lime=data.get("lime", 0.0),
+            hue=data.get("hue", 0.0),
+            saturation=data.get("saturation", 0.0),
+            value=data.get("value", 0.0),
+            color_wheel_position=data.get("color_wheel_position", 0)
+        )
+
+
+@dataclass
+class MovementBlock:
+    """Movement sublane block - controls pan, tilt, and positioning."""
+    start_time: float
+    end_time: float
+    pan: float = 127.5  # 0-255 (127.5 = center)
+    tilt: float = 127.5  # 0-255 (127.5 = center)
+    pan_fine: float = 0.0  # Fine adjustment
+    tilt_fine: float = 0.0  # Fine adjustment
+    speed: float = 255.0  # Movement speed
+    interpolate_from_previous: bool = True  # Gradual transition from previous block
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "pan": self.pan,
+            "tilt": self.tilt,
+            "pan_fine": self.pan_fine,
+            "tilt_fine": self.tilt_fine,
+            "speed": self.speed,
+            "interpolate_from_previous": self.interpolate_from_previous
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'MovementBlock':
+        return cls(
+            start_time=data.get("start_time", 0.0),
+            end_time=data.get("end_time", 0.0),
+            pan=data.get("pan", 127.5),
+            tilt=data.get("tilt", 127.5),
+            pan_fine=data.get("pan_fine", 0.0),
+            tilt_fine=data.get("tilt_fine", 0.0),
+            speed=data.get("speed", 255.0),
+            interpolate_from_previous=data.get("interpolate_from_previous", True)
+        )
+
+
+@dataclass
+class SpecialBlock:
+    """Special sublane block - controls gobo, beam, and prism effects."""
+    start_time: float
+    end_time: float
+    gobo_index: int = 0  # Gobo selection
+    gobo_rotation: float = 0.0  # Gobo rotation speed/position
+    focus: float = 127.5  # Beam focus (0-255)
+    zoom: float = 127.5  # Beam zoom (0-255)
+    prism_enabled: bool = False  # Prism on/off
+    prism_rotation: float = 0.0  # Prism rotation speed
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "gobo_index": self.gobo_index,
+            "gobo_rotation": self.gobo_rotation,
+            "focus": self.focus,
+            "zoom": self.zoom,
+            "prism_enabled": self.prism_enabled,
+            "prism_rotation": self.prism_rotation
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SpecialBlock':
+        return cls(
+            start_time=data.get("start_time", 0.0),
+            end_time=data.get("end_time", 0.0),
+            gobo_index=data.get("gobo_index", 0),
+            gobo_rotation=data.get("gobo_rotation", 0.0),
+            focus=data.get("focus", 127.5),
+            zoom=data.get("zoom", 127.5),
+            prism_enabled=data.get("prism_enabled", False),
+            prism_rotation=data.get("prism_rotation", 0.0)
+        )
 
 
 @dataclass
@@ -73,28 +276,103 @@ class ShowPart:
 
 @dataclass
 class LightBlock:
-    """Represents an effect block on a light lane timeline"""
-    start_time: float      # In seconds
-    duration: float        # In seconds
+    """Represents an effect block (envelope) on a light lane timeline with sublanes.
+
+    The LightBlock acts as an envelope containing sublane blocks.
+    Start/end times are automatically adjusted based on sublane block extents.
+    """
+    start_time: float      # In seconds (envelope start)
+    end_time: float        # In seconds (envelope end)
     effect_name: str       # "module.function" e.g., "bars.static"
-    parameters: Dict[str, any] = field(default_factory=dict)  # {speed, color, intensity, spot}
+    modified: bool = False  # True if sublanes modified beyond original effect
+
+    # Sublane blocks - now supports MULTIPLE blocks per sublane type
+    dimmer_blocks: List[DimmerBlock] = field(default_factory=list)
+    colour_blocks: List[ColourBlock] = field(default_factory=list)
+    movement_blocks: List[MovementBlock] = field(default_factory=list)
+    special_blocks: List[SpecialBlock] = field(default_factory=list)
+
+    # Legacy support (deprecated, kept for migration)
+    duration: Optional[float] = None  # Deprecated: use end_time - start_time
+    parameters: Dict[str, any] = field(default_factory=dict)  # Deprecated
+
+    def get_duration(self) -> float:
+        """Calculate duration from start and end times."""
+        return self.end_time - self.start_time
+
+    def update_envelope_bounds(self):
+        """Update envelope start/end times based on sublane block extents."""
+        # Collect all sublane blocks from all lists
+        all_blocks = (
+            self.dimmer_blocks +
+            self.colour_blocks +
+            self.movement_blocks +
+            self.special_blocks
+        )
+
+        if all_blocks:
+            self.start_time = min(b.start_time for b in all_blocks)
+            self.end_time = max(b.end_time for b in all_blocks)
 
     def to_dict(self) -> Dict:
         return {
             "start_time": self.start_time,
-            "duration": self.duration,
+            "end_time": self.end_time,
             "effect_name": self.effect_name,
+            "modified": self.modified,
+            "dimmer_blocks": [b.to_dict() for b in self.dimmer_blocks],
+            "colour_blocks": [b.to_dict() for b in self.colour_blocks],
+            "movement_blocks": [b.to_dict() for b in self.movement_blocks],
+            "special_blocks": [b.to_dict() for b in self.special_blocks],
+            # Legacy fields
+            "duration": self.get_duration(),
             "parameters": self.parameters
         }
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'LightBlock':
-        return cls(
-            start_time=data.get("start_time", 0.0),
-            duration=data.get("duration", 4.0),
+        # Handle both new format and legacy format
+        start_time = data.get("start_time", 0.0)
+        end_time = data.get("end_time")
+
+        # Legacy: if no end_time, calculate from duration
+        if end_time is None:
+            duration = data.get("duration", 4.0)
+            end_time = start_time + duration
+
+        block = cls(
+            start_time=start_time,
+            end_time=end_time,
             effect_name=data.get("effect_name", ""),
+            modified=data.get("modified", False),
+            duration=data.get("duration"),
             parameters=data.get("parameters", {})
         )
+
+        # Load sublane blocks - handle both new list format and old single-block format
+        # New format: dimmer_blocks (list)
+        if data.get("dimmer_blocks"):
+            block.dimmer_blocks = [DimmerBlock.from_dict(b) for b in data["dimmer_blocks"]]
+        # Old format: dimmer_block (single) - migrate to list
+        elif data.get("dimmer_block"):
+            block.dimmer_blocks = [DimmerBlock.from_dict(data["dimmer_block"])]
+
+        if data.get("colour_blocks"):
+            block.colour_blocks = [ColourBlock.from_dict(b) for b in data["colour_blocks"]]
+        elif data.get("colour_block"):
+            block.colour_blocks = [ColourBlock.from_dict(data["colour_block"])]
+
+        if data.get("movement_blocks"):
+            block.movement_blocks = [MovementBlock.from_dict(b) for b in data["movement_blocks"]]
+        elif data.get("movement_block"):
+            block.movement_blocks = [MovementBlock.from_dict(data["movement_block"])]
+
+        if data.get("special_blocks"):
+            block.special_blocks = [SpecialBlock.from_dict(b) for b in data["special_blocks"]]
+        elif data.get("special_block"):
+            block.special_blocks = [SpecialBlock.from_dict(data["special_block"])]
+
+        return block
 
 
 @dataclass

@@ -27,7 +27,7 @@ class LightLane:
 
     def add_light_block(self, start_time: float, duration: float,
                         effect_name: str = "", parameters: dict = None) -> LightBlock:
-        """Add a new light block to this lane.
+        """Add a new light block to this lane (legacy method).
 
         Args:
             start_time: Start time in seconds
@@ -40,9 +40,52 @@ class LightLane:
         """
         block = LightBlock(
             start_time=start_time,
-            duration=duration,
+            end_time=start_time + duration,
             effect_name=effect_name,
             parameters=parameters or {}
+        )
+        self.light_blocks.append(block)
+        return block
+
+    def add_light_block_with_sublanes(self, start_time: float, end_time: float,
+                                      effect_name: str = "",
+                                      dimmer_block=None, colour_block=None,
+                                      movement_block=None, special_block=None,
+                                      dimmer_blocks=None, colour_blocks=None,
+                                      movement_blocks=None, special_blocks=None) -> LightBlock:
+        """Add a new light block with sublane blocks.
+
+        Args:
+            start_time: Envelope start time in seconds
+            end_time: Envelope end time in seconds
+            effect_name: Effect name (e.g., "bars.static")
+            dimmer_block: Optional single DimmerBlock (legacy, converted to list)
+            colour_block: Optional single ColourBlock (legacy, converted to list)
+            movement_block: Optional single MovementBlock (legacy, converted to list)
+            special_block: Optional single SpecialBlock (legacy, converted to list)
+            dimmer_blocks: Optional list of DimmerBlocks (new format)
+            colour_blocks: Optional list of ColourBlocks (new format)
+            movement_blocks: Optional list of MovementBlocks (new format)
+            special_blocks: Optional list of SpecialBlocks (new format)
+
+        Returns:
+            The created LightBlock
+        """
+        # Handle both legacy single-block args and new list args
+        final_dimmer_blocks = dimmer_blocks or ([] if dimmer_block is None else [dimmer_block])
+        final_colour_blocks = colour_blocks or ([] if colour_block is None else [colour_block])
+        final_movement_blocks = movement_blocks or ([] if movement_block is None else [movement_block])
+        final_special_blocks = special_blocks or ([] if special_block is None else [special_block])
+
+        block = LightBlock(
+            start_time=start_time,
+            end_time=end_time,
+            effect_name=effect_name,
+            modified=False,
+            dimmer_blocks=final_dimmer_blocks,
+            colour_blocks=final_colour_blocks,
+            movement_blocks=final_movement_blocks,
+            special_blocks=final_special_blocks
         )
         self.light_blocks.append(block)
         return block
