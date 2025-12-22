@@ -445,20 +445,27 @@ class FixturesTab(BaseTab):
         try:
             # Scan QLC+ fixture directories
             qlc_fixture_dirs = []
+
+            # Always include project's custom_fixtures folder first
+            project_custom_fixtures = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'custom_fixtures')
+            if os.path.exists(project_custom_fixtures):
+                qlc_fixture_dirs.append(project_custom_fixtures)
+
             if sys.platform.startswith('linux'):
-                qlc_fixture_dirs.extend([
-                    '/usr/share/qlcplus/fixtures',
-                    os.path.expanduser('~/.qlcplus/fixtures')
-                ])
+                # Linux paths
+                qlc_fixture_dirs.append(os.path.expanduser('~/.qlcplus/Fixtures'))
+                qlc_fixture_dirs.append('/usr/share/qlcplus/Fixtures')
+
             elif sys.platform == 'win32':
-                qlc_fixture_dirs.extend([
-                    os.path.join(os.path.expanduser('~'), 'QLC+', 'fixtures'),
-                    'C:\\QLC+\\Fixtures'
-                ])
+                # Windows paths
+                qlc_fixture_dirs.append(os.path.join(os.path.expanduser('~'), 'QLC+', 'Fixtures'))
+                qlc_fixture_dirs.append('C:\\QLC+\\Fixtures')
+                qlc_fixture_dirs.append('C:\\QLC+5\\Fixtures')
+
             elif sys.platform == 'darwin':
-                qlc_fixture_dirs.append(
-                    os.path.expanduser('~/Library/Application Support/QLC+/fixtures')
-                )
+                # macOS paths
+                qlc_fixture_dirs.append(os.path.expanduser('~/Library/Application Support/QLC+/Fixtures'))
+                qlc_fixture_dirs.append('/Applications/QLC+.app/Contents/Resources/Fixtures')
 
             # Build fixture list
             fixture_files = []

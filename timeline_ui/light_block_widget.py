@@ -839,30 +839,145 @@ class LightBlockWidget(QWidget):
             # Note: We keep self.selected_sublane_block so the selection persists after release
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
-        """Handle double-click to open effect editor."""
+        """Handle double-click to open effect editor or sublane block editor."""
         if event.button() == Qt.MouseButton.LeftButton:
-            self.open_effect_dialog()
+            pos = event.position().toPoint()
+            sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
+
+            if sublane_block is not None:
+                # Double-clicked on a sublane block - open sublane-specific dialog
+                self.open_sublane_dialog(sublane_type, sublane_block)
+            else:
+                # Double-clicked on envelope - open effect dialog
+                self.open_effect_dialog()
 
     def contextMenuEvent(self, event):
         """Handle right-click context menu."""
         from PyQt6.QtWidgets import QMenu
         menu = QMenu(self)
 
-        edit_action = menu.addAction("Edit Effect...")
+        # Check if right-clicked on a sublane block
+        pos = self.mapFromGlobal(event.globalPos())
+        sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
+
+        if sublane_block is not None:
+            # Sublane block context menu
+            sublane_labels = {
+                "dimmer": "Dimmer",
+                "colour": "Colour",
+                "movement": "Movement",
+                "special": "Special"
+            }
+            label = sublane_labels.get(sublane_type, sublane_type.capitalize())
+
+            edit_sublane_action = menu.addAction(f"Edit {label} Block...")
+            edit_sublane_action.triggered.connect(
+                lambda: self.open_sublane_dialog(sublane_type, sublane_block)
+            )
+
+            delete_sublane_action = menu.addAction(f"Delete {label} Block")
+            delete_sublane_action.triggered.connect(
+                lambda: self._delete_sublane_block(sublane_type, sublane_block)
+            )
+
+            menu.addSeparator()
+
+        edit_action = menu.addAction("Edit Effect Envelope...")
         edit_action.triggered.connect(self.open_effect_dialog)
 
         menu.addSeparator()
 
-        delete_action = menu.addAction("Delete")
+        delete_action = menu.addAction("Delete Entire Effect")
         delete_action.triggered.connect(lambda: self.remove_requested.emit(self))
 
         menu.exec(event.globalPos())
 
     def open_effect_dialog(self):
-        """Open the effect editor dialog."""
+        """Open the effect editor dialog for the envelope."""
         from .effect_block_dialog import EffectBlockDialog
         dialog = EffectBlockDialog(self.block, parent=self)
         if dialog.exec():
+            self.update_display()
+
+    def open_sublane_dialog(self, sublane_type: str, sublane_block):
+        """Open the appropriate dialog for a sublane block.
+
+        Args:
+            sublane_type: Type of sublane ("dimmer", "colour", "movement", "special")
+            sublane_block: The sublane block to edit
+        """
+        dialog = None
+
+        if sublane_type == "dimmer":
+            from .dimmer_block_dialog import DimmerBlockDialog
+            dialog = DimmerBlockDialog(sublane_block, parent=self)
+        elif sublane_type == "colour":
+            from .colour_block_dialog import ColourBlockDialog
+            # Get color wheel options from fixture if available
+            color_wheel_options = self._get_color_wheel_options()
+            dialog = ColourBlockDialog(sublane_block, color_wheel_options=color_wheel_options, parent=self)
+        elif sublane_type == "movement":
+            from .movement_block_dialog import MovementBlockDialog
+            dialog = MovementBlockDialog(sublane_block, parent=self)
+        elif sublane_type == "special":
+            from .special_block_dialog import SpecialBlockDialog
+            dialog = SpecialBlockDialog(sublane_block, parent=self)
+
+        if dialog and dialog.exec():
+            # Mark effect as modified since sublane was changed
+            self.block.modified = True
+            self.update_display()
+
+    def _get_color_wheel_options(self):
+        """Get color wheel options from fixture group if available.
+
+        Returns:
+            List of (name, dmx_value, hex_color) tuples, or empty list
+        """
+        try:
+            # Check if we have access to config through lane_widget
+            if not self.lane_widget or not self.lane_widget.config:
+                return []
+
+            # Get fixture group
+            group_name = self.lane_widget.lane.fixture_group
+            if group_name not in self.lane_widget.config.groups:
+                return []
+
+            group = self.lane_widget.config.groups[group_name]
+
+            # Get color wheel options from fixtures
+            from utils.fixture_utils import get_color_wheel_options
+            return get_color_wheel_options(group.fixtures)
+
+        except Exception:
+            # If anything goes wrong, just return empty list
+            return []
+
+    def _delete_sublane_block(self, sublane_type: str, sublane_block):
+        """Delete a specific sublane block.
+
+        Args:
+            sublane_type: Type of sublane
+            sublane_block: The block to delete
+        """
+        block_list = None
+        if sublane_type == "dimmer":
+            block_list = self.block.dimmer_blocks
+        elif sublane_type == "colour":
+            block_list = self.block.colour_blocks
+        elif sublane_type == "movement":
+            block_list = self.block.movement_blocks
+        elif sublane_type == "special":
+            block_list = self.block.special_blocks
+
+        if block_list and sublane_block in block_list:
+            block_list.remove(sublane_block)
+            # Clear selection if deleted block was selected
+            if self.selected_sublane_block == sublane_block:
+                self.selected_sublane_block = None
+                self.selected_sublane_type = None
+            self.block.modified = True
             self.update_display()
 
     def keyPressEvent(self, event):

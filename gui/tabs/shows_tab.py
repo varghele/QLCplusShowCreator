@@ -451,7 +451,7 @@ class ShowsTab(BaseTab):
         # Get fixture groups from config
         fixture_groups = list(self.config.groups.keys())
 
-        lane_widget = LightLaneWidget(lane, fixture_groups, self)
+        lane_widget = LightLaneWidget(lane, fixture_groups, self, config=self.config)
         lane_widget.set_song_structure(self.song_structure)
         lane_widget.set_zoom_factor(self.zoom_slider.value() / 100.0)
 
