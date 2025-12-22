@@ -30,6 +30,11 @@ class TimelineWidget(QWidget):
         self.max_zoom = 5.0
         self.song_structure = None
 
+        # Sublane support
+        self.num_sublanes = 1  # Number of sublanes (1-4)
+        self.sublane_height = 60  # Height per sublane in pixels
+        self.capabilities = None  # FixtureGroupCapabilities (for label drawing)
+
         self.setMinimumHeight(60)
         self.update_timeline_width()
         self.setStyleSheet("background-color: #f8f8f8; border: 1px solid #ddd;")
@@ -266,6 +271,18 @@ class TimelineWidget(QWidget):
         except Exception as e:
             print(f"Error drawing song structure background: {e}")
 
+    def draw_sublane_separators(self, painter, width, height):
+        """Draw horizontal lines separating sublanes."""
+        if self.num_sublanes <= 1:
+            return
+
+        separator_pen = QPen(QColor("#666666"), 1, Qt.PenStyle.DashLine)
+        painter.setPen(separator_pen)
+
+        for i in range(1, self.num_sublanes):
+            y = i * self.sublane_height
+            painter.drawLine(0, int(y), width, int(y))
+
     def paintEvent(self, event):
         """Draw the timeline."""
         super().paintEvent(event)
@@ -281,6 +298,9 @@ class TimelineWidget(QWidget):
 
         # Draw grid
         self.draw_grid(painter, width, height)
+
+        # Draw sublane separators
+        self.draw_sublane_separators(painter, width, height)
 
         # Draw playhead
         self.draw_playhead(painter, width, height)

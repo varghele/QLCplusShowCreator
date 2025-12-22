@@ -23,24 +23,38 @@ class LightLaneWidget(QFrame):
     zoom_changed = pyqtSignal(float)  # Emits zoom factor
     playhead_moved = pyqtSignal(float)  # Emits playhead position
 
-    def __init__(self, lane: LightLane, fixture_groups: list = None, parent=None):
+    def __init__(self, lane: LightLane, fixture_groups: list = None, parent=None, config=None):
         """Create a new light lane widget.
 
         Args:
             lane: LightLane instance to display
             fixture_groups: List of available fixture group names
             parent: Parent widget
+            config: Configuration object (for capability detection)
         """
         super().__init__(parent)
         self.lane = lane
         self.fixture_groups = fixture_groups or []
         self.light_block_widgets = []
         self.main_window = parent
+        self.config = config
+
+        # Detect capabilities and calculate sublane layout
+        self.capabilities = self._detect_group_capabilities()
+        self.num_sublanes = self._count_sublanes()
+        self.sublane_height = 50  # Height per sublane in pixels
+        self.min_lane_height = 95  # Minimum height to accommodate control panel
 
         self.setFrameStyle(QFrame.Shape.Box)
         self.setLineWidth(1)
-        self.setMinimumHeight(80)
-        self.setMaximumHeight(120)
+
+        # Dynamic height based on number of sublanes, with minimum for control panel
+        # Add buffer for margins, padding, and horizontal scrollbar
+        buffer_height = 40  # Extra space for layout margins and scrollbar
+        total_height = max(self.min_lane_height, self.num_sublanes * self.sublane_height + buffer_height)
+        self.setMinimumHeight(total_height)
+        self.setMaximumHeight(total_height)
+
         self.setStyleSheet("""
             LightLaneWidget {
                 background-color: #2d2d2d;
@@ -61,6 +75,16 @@ class LightLaneWidget(QFrame):
         # Timeline section (right side) - scrollable
         self.timeline_scroll = QScrollArea()
         self.timeline_widget = TimelineWidget()
+
+        # Configure sublanes
+        self.timeline_widget.num_sublanes = self.num_sublanes
+        self.timeline_widget.sublane_height = self.sublane_height
+        self.timeline_widget.capabilities = self.capabilities
+        # Timeline height should exactly fit sublanes (no buffer needed here)
+        timeline_height = self.num_sublanes * self.sublane_height
+        self.timeline_widget.setMinimumHeight(timeline_height)
+        self.timeline_widget.setMaximumHeight(timeline_height)  # Prevent vertical growth
+
         self.timeline_widget.zoom_changed.connect(self.zoom_changed.emit)
         self.timeline_widget.zoom_changed.connect(self.on_timeline_zoom_changed)
         self.timeline_widget.playhead_moved.connect(self.playhead_moved.emit)
@@ -215,6 +239,86 @@ class LightLaneWidget(QFrame):
 
         return widget
 
+    def _detect_group_capabilities(self):
+        """Detect capabilities from fixture group."""
+        from config.models import FixtureGroupCapabilities
+
+        # If no config provided, return default (all capabilities)
+        if not self.config:
+            return FixtureGroupCapabilities(True, True, True, True)
+
+        # Check if group exists in config
+        if self.lane.fixture_group not in self.config.groups:
+            return FixtureGroupCapabilities(True, True, True, True)
+
+        group = self.config.groups[self.lane.fixture_group]
+
+        # Check if capabilities already cached
+        if group.capabilities:
+            return group.capabilities
+
+        # Otherwise detect and cache
+        from utils.fixture_utils import detect_fixture_group_capabilities
+        caps = detect_fixture_group_capabilities(group.fixtures)
+        group.capabilities = caps
+        return caps
+
+    def _count_sublanes(self):
+        """Count number of active sublanes."""
+        count = 0
+        if self.capabilities.has_dimmer:
+            count += 1
+        if self.capabilities.has_colour:
+            count += 1
+        if self.capabilities.has_movement:
+            count += 1
+        if self.capabilities.has_special:
+            count += 1
+        return max(1, count)  # At least 1 sublane
+
+    def get_sublane_index(self, sublane_type: str) -> int:
+        """Get the row index (0-based) for a sublane type.
+
+        Args:
+            sublane_type: "dimmer", "colour", "movement", or "special"
+
+        Returns:
+            Row index, or 0 if not found
+        """
+        index = 0
+
+        if sublane_type == "dimmer":
+            if self.capabilities.has_dimmer:
+                return index
+            else:
+                return 0
+        if self.capabilities.has_dimmer:
+            index += 1
+
+        if sublane_type == "colour":
+            if self.capabilities.has_colour:
+                return index
+            else:
+                return 0
+        if self.capabilities.has_colour:
+            index += 1
+
+        if sublane_type == "movement":
+            if self.capabilities.has_movement:
+                return index
+            else:
+                return 0
+        if self.capabilities.has_movement:
+            index += 1
+
+        if sublane_type == "special":
+            if self.capabilities.has_special:
+                return index
+            else:
+                return 0
+
+        return 0  # Fallback
+
     def set_song_structure(self, song_structure):
         """Set song structure for this lane's timeline."""
         self.timeline_widget.set_song_structure(song_structure)
@@ -241,7 +345,7 @@ class LightLaneWidget(QFrame):
 
     def create_light_block_widget(self, block):
         """Create a widget for a light block."""
-        block_widget = LightBlockWidget(block, self.timeline_widget)
+        block_widget = LightBlockWidget(block, self.timeline_widget, self)
         block_widget.remove_requested.connect(self.remove_light_block_widget)
         block_widget.position_changed.connect(self.on_block_position_changed)
         block_widget.duration_changed.connect(self.on_block_duration_changed)
@@ -251,10 +355,58 @@ class LightLaneWidget(QFrame):
 
     def add_light_block(self):
         """Add a new light block at the current playhead position."""
-        start_time = self.timeline_widget.playhead_position
+        from config.models import DimmerBlock, ColourBlock, MovementBlock, SpecialBlock
 
-        # Default duration: 4 seconds (or 4 beats at 60 BPM)
-        block = self.lane.add_light_block(start_time, 4.0)
+        start_time = self.timeline_widget.playhead_position
+        end_time = start_time + 4.0  # Default 4 second duration
+
+        # Create sublane blocks based on capabilities
+        dimmer_block = None
+        colour_block = None
+        movement_block = None
+        special_block = None
+
+        if self.capabilities.has_dimmer:
+            dimmer_block = DimmerBlock(
+                start_time=start_time,
+                end_time=end_time,
+                intensity=255.0
+            )
+
+        if self.capabilities.has_colour:
+            colour_block = ColourBlock(
+                start_time=start_time,
+                end_time=end_time,
+                color_mode="RGB",
+                red=255.0,
+                green=255.0,
+                blue=255.0
+            )
+
+        if self.capabilities.has_movement:
+            movement_block = MovementBlock(
+                start_time=start_time,
+                end_time=end_time,
+                pan=127.5,
+                tilt=127.5
+            )
+
+        if self.capabilities.has_special:
+            special_block = SpecialBlock(
+                start_time=start_time,
+                end_time=end_time
+            )
+
+        # Create the light block with sublane blocks
+        block = self.lane.add_light_block_with_sublanes(
+            start_time=start_time,
+            end_time=end_time,
+            effect_name="",
+            dimmer_block=dimmer_block,
+            colour_block=colour_block,
+            movement_block=movement_block,
+            special_block=special_block
+        )
         self.create_light_block_widget(block)
 
     def remove_light_block_widget(self, block_widget):
