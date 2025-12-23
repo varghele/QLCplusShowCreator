@@ -29,8 +29,11 @@ def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
     fixture_num = len(fixture_conf) if fixture_conf else 1
 
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+
+    # If no dimmer channels found, use dummy channel 0 for RGB-only fixtures
+    # The intensity values will be converted to RGB by the export process
     if not channels_dict:
-        return []
+        channels_dict = {'IntensityDimmer': [{'channel': 0}]}
 
     # Get step timings and count
     step_timings, total_steps = calculate_step_timing(
@@ -98,8 +101,11 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
     fixture_num = len(fixture_conf) if fixture_conf else 1
 
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+
+    # If no dimmer channels found, use dummy channel 0 for RGB-only fixtures
+    # The intensity values will be converted to RGB by the export process
     if not channels_dict:
-        return []
+        channels_dict = {'IntensityDimmer': [{'channel': 0}]}
 
     # Get step timings and count - double the duration since each ON/OFF pair needs one full step
     step_timings, total_steps = calculate_step_timing(
@@ -197,8 +203,11 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
     fixture_num = len(fixture_conf) if fixture_conf else 1
 
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+
+    # If no dimmer channels found, use dummy channel 0 for RGB-only fixtures
+    # The intensity values will be converted to RGB by the export process
     if not channels_dict:
-        return []
+        channels_dict = {'IntensityDimmer': [{'channel': 0}]}
 
     # Get step timings and count
     step_timings, total_steps = calculate_step_timing(
@@ -272,8 +281,11 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
     fixture_num = len(fixture_conf) if fixture_conf else 1
 
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+
+    # If no dimmer channels found, use dummy channel 0 for RGB-only fixtures
+    # The intensity values will be converted to RGB by the export process
     if not channels_dict:
-        return []
+        channels_dict = {'IntensityDimmer': [{'channel': 0}]}
 
     # Count total channels
     total_channels = 0
@@ -371,8 +383,11 @@ def waterfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
 
     # Get dimmer channels
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+
+    # If no dimmer channels found, use dummy channel 0 for RGB-only fixtures
+    # The intensity values will be converted to RGB by the export process
     if not channels_dict:
-        return []
+        channels_dict = {'IntensityDimmer': [{'channel': 0}]}
 
     # Get step timings and count
     step_timings, total_steps = calculate_step_timing(

@@ -85,6 +85,14 @@ python main.py
 - [x] Add intensity handle with dragging
 - [x] Export dimmer blocks to QLC+ sequences
 
+### Phase 6.6: RGB Control for No-Dimmer Fixtures ✅
+- [x] Automatic RGB control mode for fixtures without dimmer capability
+- [x] Dimmer sublane controls RGB intensity (scales RGB values)
+- [x] Fix RGB channel detection (IntensityRed/Green/Blue presets)
+- [x] Fix dimmer effect functions to generate steps for RGB fixtures
+- [x] Support multi-segment RGB fixtures (e.g., 10-pixel LED bars)
+- [x] Export RGB sequences with dimmer effects applied
+
 ### Phase 7: Full Effect Integration (Next)
 - [ ] Add colour effects (RGB, rainbow, fade, etc.)
 - [ ] Add movement effects (pan/tilt, positions, etc.)
@@ -104,6 +112,7 @@ python main.py
 **Effect Speed:** How fast the effect runs (1/4, 1/2, 1, 2, 4 = beats per step)
 **Grid Lines:** Visual beat divisions showing where effect steps occur
 **Intensity Handle:** White horizontal line to adjust brightness
+**RGB Control Mode:** For fixtures without dimmer, dimmer blocks control RGB intensity (orange color)
 
 ## 🎮 Controls
 
@@ -184,6 +193,6 @@ A: You're trying to overlap Movement or Special blocks (prevented by design)
 
 ---
 
-**Status:** Phase 6.5 complete, ready for Phase 7
+**Status:** Phase 6.6 complete (RGB control for no-dimmer fixtures), ready for Phase 7
 **Branch:** `refactorplustimeline`
-**Last Commit:** Dimmer effects integration with interactive controls
+**Last Commit:** RGB control integration for multi-segment fixtures without dimmer
