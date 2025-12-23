@@ -635,16 +635,37 @@ def _convert_dimmer_steps_to_rgb(steps, dimmer_block, colour_blocks, fixture_def
             fixture_id = fixture_start_id + i
             intensity = fixture_intensities.get(fixture_id, 0)
 
-            # Scale RGB by intensity (0-255)
-            intensity_ratio = intensity / 255.0
-            scaled_r = int(base_rgb[0] * intensity_ratio)
-            scaled_g = int(base_rgb[1] * intensity_ratio)
-            scaled_b = int(base_rgb[2] * intensity_ratio)
-
             # Apply RGB values to ALL channel sets (e.g., all 10 segments)
             num_rgb_sets = len(channels_dict['IntensityRed'])
             channel_value_pairs = []
+
             for seg_idx in range(num_rgb_sets):
+                # Determine per-segment intensity based on effect type
+                seg_intensity = intensity
+
+                if dimmer_block.effect_type == "twinkle":
+                    # Twinkle: Each segment independently randomized
+                    # Use step number and segment index as seed for pseudo-random variation
+                    import random
+                    random.seed(int(step.get("Number")) * 1000 + seg_idx + fixture_id)
+                    seg_intensity = random.randint(0, 255)
+
+                elif dimmer_block.effect_type in ["ping_pong_smooth", "waterfall"]:
+                    # Wave pattern: offset intensity based on segment index
+                    # Create a wave that moves across segments
+                    step_num = int(step.get("Number"))
+                    wave_position = (step_num + seg_idx) % num_rgb_sets
+                    wave_intensity = abs((wave_position - num_rgb_sets / 2) / (num_rgb_sets / 2))
+                    seg_intensity = int(intensity * (1.0 - wave_intensity))
+
+                # For static/strobe: use base intensity (uniform across segments)
+
+                # Scale RGB by segment intensity
+                intensity_ratio = seg_intensity / 255.0
+                scaled_r = int(base_rgb[0] * intensity_ratio)
+                scaled_g = int(base_rgb[1] * intensity_ratio)
+                scaled_b = int(base_rgb[2] * intensity_ratio)
+
                 r_ch = channels_dict['IntensityRed'][seg_idx]['channel']
                 g_ch = channels_dict['IntensityGreen'][seg_idx]['channel']
                 b_ch = channels_dict['IntensityBlue'][seg_idx]['channel']
