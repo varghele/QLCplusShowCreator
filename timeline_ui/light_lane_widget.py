@@ -267,7 +267,8 @@ class LightLaneWidget(QFrame):
     def _count_sublanes(self):
         """Count number of active sublanes."""
         count = 0
-        if self.capabilities.has_dimmer:
+        # Show dimmer sublane if has dimmer OR colour (dimmer controls RGB intensity for no-dimmer fixtures)
+        if self.capabilities.has_dimmer or self.capabilities.has_colour:
             count += 1
         if self.capabilities.has_colour:
             count += 1
@@ -289,11 +290,13 @@ class LightLaneWidget(QFrame):
         index = 0
 
         if sublane_type == "dimmer":
-            if self.capabilities.has_dimmer:
+            # Show dimmer sublane if has dimmer OR colour (dimmer controls RGB for no-dimmer fixtures)
+            if self.capabilities.has_dimmer or self.capabilities.has_colour:
                 return index
             else:
                 return 0
-        if self.capabilities.has_dimmer:
+        # Advance index if dimmer sublane is shown
+        if self.capabilities.has_dimmer or self.capabilities.has_colour:
             index += 1
 
         if sublane_type == "colour":
@@ -367,7 +370,8 @@ class LightLaneWidget(QFrame):
         movement_block = None
         special_block = None
 
-        if self.capabilities.has_dimmer:
+        # Create dimmer block if has dimmer OR colour (dimmer controls RGB for no-dimmer fixtures)
+        if self.capabilities.has_dimmer or self.capabilities.has_colour:
             dimmer_block = DimmerBlock(
                 start_time=start_time,
                 end_time=end_time,

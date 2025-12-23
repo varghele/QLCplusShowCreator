@@ -204,13 +204,23 @@ class LightBlockWidget(QWidget):
         """Draw individual sublane blocks within the envelope."""
         sublane_height = self.lane_widget.sublane_height
 
+        # Check if fixture has dimmer capability
+        has_dimmer = self.lane_widget.capabilities.has_dimmer if hasattr(self.lane_widget, 'capabilities') and self.lane_widget.capabilities else True
+        has_colour = self.lane_widget.capabilities.has_colour if hasattr(self.lane_widget, 'capabilities') and self.lane_widget.capabilities else False
+
         # Draw dimmer blocks (iterate through list)
         for dimmer_block in self.block.dimmer_blocks:
+            # Use orange/amber color if controlling RGB instead of dimmer
+            if not has_dimmer and has_colour:
+                dimmer_color = QColor(255, 140, 0)  # Orange (RGB control mode)
+            else:
+                dimmer_color = QColor(255, 200, 100)  # Warm yellow (normal dimmer)
+
             self._draw_sublane_block(
                 painter,
                 dimmer_block,
                 "dimmer",
-                QColor(255, 200, 100),  # Warm yellow
+                dimmer_color,
                 sublane_height
             )
 
@@ -285,6 +295,12 @@ class LightBlockWidget(QWidget):
         if sublane_type == "dimmer":
             self._draw_dimmer_block_grid(painter, sublane_block, x_offset, y_offset, width, sublane_height, margin)
             self._draw_intensity_handle(painter, sublane_block, x_offset, y_offset, width, sublane_height, margin)
+
+            # Draw RGB icon if controlling RGB instead of dimmer
+            has_dimmer = self.lane_widget.capabilities.has_dimmer if hasattr(self.lane_widget, 'capabilities') and self.lane_widget.capabilities else True
+            has_colour = self.lane_widget.capabilities.has_colour if hasattr(self.lane_widget, 'capabilities') and self.lane_widget.capabilities else False
+            if not has_dimmer and has_colour and width >= 40:
+                self._draw_rgb_icon(painter, x_offset, y_offset, width, sublane_height, margin)
 
         # Draw text label if block is wide enough
         self._draw_sublane_block_label(painter, sublane_block, sublane_type, x_offset, y_offset, width, sublane_height, margin)
@@ -361,6 +377,36 @@ class LightBlockWidget(QWidget):
         # Draw text with dark outline for better visibility
         painter.setPen(QPen(QColor(40, 40, 40)))
         painter.drawText(text_x, text_y, full_text)
+
+    def _draw_rgb_icon(self, painter, x_offset, y_offset, width, sublane_height, margin):
+        """Draw small RGB icon in corner of dimmer block to indicate RGB control mode."""
+        from PyQt6.QtGui import QFont
+        from PyQt6.QtCore import QRect
+
+        # Draw "RGB" text in top-right corner
+        font = QFont()
+        font.setPointSize(6)
+        font.setBold(True)
+        painter.setFont(font)
+
+        icon_text = "RGB"
+        metrics = painter.fontMetrics()
+        text_width = metrics.horizontalAdvance(icon_text)
+        text_height = metrics.height()
+
+        # Position in top-right corner with padding
+        icon_x = int(x_offset + width - text_width - 6)
+        icon_y = int(y_offset + margin + text_height)
+
+        # Draw semi-transparent background
+        bg_rect = QRect(icon_x - 2, icon_y - text_height, text_width + 4, text_height + 2)
+        painter.setBrush(QBrush(QColor(0, 0, 0, 150)))
+        painter.setPen(QPen(QColor(255, 255, 255, 200), 1))
+        painter.drawRoundedRect(bg_rect, 2, 2)
+
+        # Draw text
+        painter.setPen(QPen(QColor(255, 255, 255)))
+        painter.drawText(icon_x, icon_y, icon_text)
 
     def _draw_intensity_handle(self, painter, sublane_block, x_offset, y_offset, width, sublane_height, margin):
         """Draw intensity handle and darkened area above it for dimmer blocks."""
@@ -617,7 +663,8 @@ class LightBlockWidget(QWidget):
 
         # Check each sublane row based on capabilities
         sublane_types = []
-        if self.lane_widget.capabilities.has_dimmer:
+        # Show dimmer sublane if has dimmer OR colour (dimmer controls RGB for no-dimmer fixtures)
+        if self.lane_widget.capabilities.has_dimmer or self.lane_widget.capabilities.has_colour:
             sublane_types.append("dimmer")
         if self.lane_widget.capabilities.has_colour:
             sublane_types.append("colour")

@@ -547,6 +547,121 @@ def create_tracks_old(function, root, effects, base_dir="../"):
     return current_id
 
 
+def _convert_dimmer_steps_to_rgb(steps, dimmer_block, colour_blocks, fixture_def, mode_name, fixture_num, fixture_start_id):
+    """
+    Convert dimmer intensity steps to RGB channel steps for fixtures without dimmer capability.
+
+    Args:
+        steps: List of Step XML elements with dimmer intensity values
+        dimmer_block: The DimmerBlock being processed
+        colour_blocks: List of ColourBlocks from the same light block
+        fixture_def: Fixture definition dictionary
+        mode_name: Current fixture mode name
+        fixture_num: Number of fixtures in group
+        fixture_start_id: Starting fixture ID
+
+    Returns:
+        List of Step XML elements with RGB channel values
+    """
+    from utils.effects_utils import get_channels_by_property
+
+    # Get RGB channels from fixture definition (try different preset names)
+    channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityRed", "IntensityGreen", "IntensityBlue"])
+
+    if not channels_dict:
+        print("Warning: No RGB channels found for fixture without dimmer")
+        return steps
+
+    # Verify we have all three RGB channels
+    if 'IntensityRed' not in channels_dict or 'IntensityGreen' not in channels_dict or 'IntensityBlue' not in channels_dict:
+        print(f"Warning: Missing some RGB channels. Found: {list(channels_dict.keys())}")
+        return steps
+
+    # Helper function to find overlapping colour block at a given time
+    def get_rgb_at_time(time_seconds):
+        """Get RGB values from overlapping colour block, or (0,0,0) if none."""
+        for colour_block in colour_blocks:
+            if colour_block.start_time <= time_seconds <= colour_block.end_time:
+                # Found overlapping colour block
+                r = getattr(colour_block, 'red', 0)
+                g = getattr(colour_block, 'green', 0)
+                b = getattr(colour_block, 'blue', 0)
+                return (int(r), int(g), int(b))
+        # No overlapping colour block
+        return (0, 0, 0)
+
+    # Convert each step
+    converted_steps = []
+    cumulative_time = 0
+
+    for step in steps:
+        # Calculate time of this step (in seconds)
+        fade_in = int(step.get("FadeIn", 0))
+        hold = int(step.get("Hold", 0))
+        step_time = dimmer_block.start_time + (cumulative_time / 1000.0)
+        cumulative_time += fade_in + hold
+
+        # Parse intensity values from step
+        step_text = step.text if step.text else ""
+        # Format: "fixture_id:channel,value:fixture_id:channel,value..."
+
+        # Parse to get intensity for each fixture
+        fixture_intensities = {}
+        if step_text:
+            fixture_parts = step_text.split(':')
+            for i in range(0, len(fixture_parts), 2):
+                if i + 1 < len(fixture_parts):
+                    fixture_id = int(fixture_parts[i])
+                    channel_value_pairs = fixture_parts[i + 1].split(',')
+                    if len(channel_value_pairs) >= 2:
+                        intensity = int(channel_value_pairs[1])
+                        fixture_intensities[fixture_id] = intensity
+
+        # Get RGB values at this time
+        base_rgb = get_rgb_at_time(step_time)
+
+        # Create new step with RGB values
+        new_step = ET.Element("Step")
+        new_step.set("Number", step.get("Number"))
+        new_step.set("FadeIn", step.get("FadeIn"))
+        new_step.set("Hold", step.get("Hold"))
+        new_step.set("FadeOut", step.get("FadeOut"))
+
+        # Build RGB values for all fixtures
+        values = []
+        total_values = 0
+
+        for i in range(fixture_num):
+            fixture_id = fixture_start_id + i
+            intensity = fixture_intensities.get(fixture_id, 0)
+
+            # Scale RGB by intensity (0-255)
+            intensity_ratio = intensity / 255.0
+            scaled_r = int(base_rgb[0] * intensity_ratio)
+            scaled_g = int(base_rgb[1] * intensity_ratio)
+            scaled_b = int(base_rgb[2] * intensity_ratio)
+
+            # Apply RGB values to ALL channel sets (e.g., all 10 segments)
+            num_rgb_sets = len(channels_dict['IntensityRed'])
+            channel_value_pairs = []
+            for seg_idx in range(num_rgb_sets):
+                r_ch = channels_dict['IntensityRed'][seg_idx]['channel']
+                g_ch = channels_dict['IntensityGreen'][seg_idx]['channel']
+                b_ch = channels_dict['IntensityBlue'][seg_idx]['channel']
+                channel_value_pairs.extend([f"{r_ch},{scaled_r}", f"{g_ch},{scaled_g}", f"{b_ch},{scaled_b}"])
+
+            channel_values = ",".join(channel_value_pairs)
+            total_values += num_rgb_sets * 3
+
+            values.append(f"{fixture_id}:{channel_values}")
+
+        new_step.set("Values", str(total_values))
+        new_step.text = ":".join(values)
+        converted_steps.append(new_step)
+
+    return converted_steps
+
+
 def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_map,
                                 function_id_counter, effects, fixture_definitions):
     """
@@ -697,6 +812,11 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
 
             function_id_counter += 1
 
+        # Check if this fixture group has dimmer capability
+        group_capabilities = config.groups[group_name].capabilities if hasattr(config.groups[group_name], 'capabilities') else None
+        has_dimmer = group_capabilities.has_dimmer if group_capabilities else True
+        has_colour = group_capabilities.has_colour if group_capabilities else False
+
         # Process dimmer blocks for this lane
         for block in lane.light_blocks:
             for dimmer_block in block.dimmer_blocks:
@@ -757,6 +877,19 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                             intensity=int(dimmer_block.intensity),
                             spot=None,
                         )
+
+                        # If fixture has no dimmer, convert intensity steps to RGB steps
+                        if not has_dimmer and has_colour:
+                            steps = _convert_dimmer_steps_to_rgb(
+                                steps=steps,
+                                dimmer_block=dimmer_block,
+                                colour_blocks=block.colour_blocks,
+                                fixture_def=fixture_def,
+                                mode_name=first_fixture.current_mode,
+                                fixture_num=fixture_num,
+                                fixture_start_id=fixture_start_id
+                            )
+
                         add_steps_to_sequence(sequence, steps)
                     except Exception as e:
                         print(f"Error creating dimmer effect steps: {e}")
