@@ -471,11 +471,11 @@ class Configuration:
         config = cls(fixtures=[], groups={}, workspace_path=workspace_path)
 
         for fixture_data in fixtures_data:
-            # Get fixture definition and current mode
+            # Get fixture definition for type info
             fixture_def = fixture_definitions.get(
                 (fixture_data['Manufacturer'], fixture_data['Model']))
 
-            # Create FixtureMode objects without the 'type' field
+            # Create FixtureMode objects from the available modes
             modes = []
             if fixture_data['AvailableModes']:
                 for mode in fixture_data['AvailableModes']:
@@ -484,7 +484,6 @@ class Configuration:
                         channels=mode['channels']
                     ))
 
-        for fixture_data in fixtures_data:
             fixture = Fixture(
                 universe=fixture_data['Universe'],
                 address=fixture_data['Address'],
@@ -496,10 +495,10 @@ class Configuration:
                 current_mode=fixture_data['CurrentMode'],
                 available_modes=modes,
                 type=fixture_def['type'] if fixture_def else "PAR",  # Default to PAR if no definition found
-                x = fixture_data.get('X', 0.0),
-                y = fixture_data.get('Y', 0.0),
-                z = fixture_data.get('Z', 0.0),
-                rotation = fixture_data.get('Rotation', 0.0)
+                x=fixture_data.get('X', 0.0),
+                y=fixture_data.get('Y', 0.0),
+                z=fixture_data.get('Z', 0.0),
+                rotation=fixture_data.get('Rotation', 0.0)
             )
             config.fixtures.append(fixture)
 
@@ -870,6 +869,11 @@ class Configuration:
                 fixture_id = fixture.find("qlc:ID", ns).text
                 manufacturer = fixture.find("qlc:Manufacturer", ns).text
                 model = fixture.find("qlc:Model", ns).text
+                current_mode = fixture.find("qlc:Mode", ns).text
+
+                # Get channel count from workspace (this is the actual count for the current mode)
+                channels_elem = fixture.find("qlc:Channels", ns)
+                workspace_channels = int(channels_elem.text) if channels_elem is not None else 6
 
                 # Find group for this fixture
                 group_name = ""
@@ -884,6 +888,17 @@ class Configuration:
                 # Get fixture definition if available
                 fixture_def = fixture_definitions.get((manufacturer, model))
 
+                # Use fixture definition modes if available, otherwise create from workspace data
+                if fixture_def and fixture_def['modes']:
+                    available_modes = fixture_def['modes']
+                else:
+                    # Fallback: create a single mode from workspace data
+                    available_modes = [{
+                        'name': current_mode,
+                        'channels': workspace_channels,
+                        'type': 'PAR'  # Default type
+                    }]
+
                 fixtures_data.append({
                     'Universe': int(fixture.find("qlc:Universe", ns).text) + 1,
                     'Address': int(fixture.find("qlc:Address", ns).text) + 1,
@@ -892,8 +907,9 @@ class Configuration:
                     'Name': fixture.find("qlc:Name", ns).text,
                     'Group': group_name,
                     'Direction': "",
-                    'CurrentMode': fixture.find("qlc:Mode", ns).text,
-                    'AvailableModes': fixture_def['modes'] if fixture_def else None
+                    'CurrentMode': current_mode,
+                    'AvailableModes': available_modes,
+                    'WorkspaceChannels': workspace_channels  # Store for validation
                 })
 
             return fixtures_data

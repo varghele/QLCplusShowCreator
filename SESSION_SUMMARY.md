@@ -1,293 +1,231 @@
-# Development Session Summary - December 23, 2024
+# Development Session Summary - December 23, 2024 (Updated)
 
-## 🎯 What Was Accomplished
+## What Was Accomplished
 
-Successfully completed **Phase 6 of the Sublane Feature** (Effect Edit Dialogs) plus **Copy/Paste functionality** and several bug fixes.
+This session focused on **UI cleanup and bug fixes** - removing manual update buttons and making the application auto-save changes, plus fixing the workspace import.
 
 ### Core Achievements
 
-1. **Effect Edit Dialogs (Phase 6)** - All 4 sublane-specific dialogs implemented
-2. **Copy/Paste Effects** - Right-click copy/paste and shift+drag to copy
-3. **Bug Fixes** - Fixture path issues, capability detection, config passing
+1. **Auto-save Fixtures Tab** - Removed "Update Fixtures" button, changes now auto-save
+2. **Auto-save Stage Tab** - Removed "Save Stage" button, changes now auto-save (kept "Update Stage" for now)
+3. **Auto-save Configuration Tab** - Changes now auto-save (kept "Update Config" button)
+4. **Group typing fix** - Typing a group name directly now works same as "Add New..."
+5. **Stage coordinate system** - (0,0) now at center with dimension labels
+6. **Workspace import fix** - Fixtures now show correct channel counts
 
 ---
 
-## 📁 Files Created/Modified
+## Files Modified
 
-### New Files Created
+### `gui/tabs/fixtures_tab.py`
 
-| File | Purpose |
-|------|---------|
-| `timeline_ui/dimmer_block_dialog.py` | Dialog for editing dimmer parameters (intensity, strobe, iris) |
-| `timeline_ui/colour_block_dialog.py` | Simplified color dialog (presets, hex, RGBW sliders, color wheel) |
-| `timeline_ui/movement_block_dialog.py` | Pan/tilt dialog with 2D widget and fine controls |
-| `timeline_ui/special_block_dialog.py` | Gobo, focus, zoom, prism controls |
-| `timeline_ui/effect_clipboard.py` | Clipboard storage for copy/paste functionality |
+| Change | Description |
+|--------|-------------|
+| Removed "Update Fixtures" button | Lines 75-79 deleted |
+| Removed button signal | Line 139 deleted |
+| Connected spinboxes to auto-save | Universe/Address spinboxes trigger `save_to_config` |
+| Connected direction combo to auto-save | Direction changes trigger `save_to_config` |
+| Added parent notifications | Mode/group changes notify MainWindow |
+| Fixed parent reference | Changed `self.parent()` to `self.window()` (6 locations) |
+| Added `_add_group_to_all_combos()` | New helper method to sync group names across comboboxes |
+| Updated group handler | Typing new group names now adds to all comboboxes |
 
-### Files Modified
+### `gui/tabs/stage_tab.py`
 
-| File | Changes |
-|------|---------|
-| `timeline_ui/light_block_widget.py` | Added copy/paste, shift+drag copy, sublane dialog routing |
-| `timeline_ui/light_lane_widget.py` | Added paste_effect_at_time(), connected paste signal |
-| `timeline_ui/timeline_widget.py` | Added right-click context menu with "Paste Effect" |
-| `utils/fixture_utils.py` | Fixed fixture paths (QLC+5, custom_fixtures, subdirectories) |
-| `gui/tabs/fixtures_tab.py` | Fixed fixture paths in Add Fixture dialog |
+| Change | Description |
+|--------|-------------|
+| Removed "Save Stage" button | Button deleted from UI |
+| Kept "Update Stage" button | Still available for manual refresh |
+| Connected dimension spinboxes | Width/depth changes auto-update stage view |
 
----
+### `gui/tabs/configuration_tab.py`
 
-## ✅ Phase 6 Features Completed
+| Change | Description |
+|--------|-------------|
+| Updated `_on_universe_item_changed` | Now saves IP/Port/Subnet/Universe changes immediately |
+| Added `_on_device_changed` method | DMX device combo changes auto-save |
+| Connected device combo | DMX device selection triggers auto-save |
 
-### 1. Dimmer Block Dialog
-- Intensity slider (0-255)
-- Strobe enable/speed controls
-- Iris control
-- Styled QGroupBox headers
+### `gui/StageView.py`
 
-### 2. Colour Block Dialog (Simplified per user request)
-- **Quick Preset Buttons**: 12 common colors (Red, Green, Blue, White, Amber, UV, etc.)
-- **Hex Color Picker**: Enter/display hex values directly
-- **RGBW Sliders**: Most common fixture color channels
-- **Optional Color Wheel**: Shows fixture-specific color wheel options when available
+| Change | Description |
+|--------|-------------|
+| Increased padding | 10 → 40 pixels for dimension labels |
+| Added `meters_to_pixels()` | Convert center-based meters to pixels |
+| Added `pixels_to_meters()` | Convert pixels to center-based meters |
+| Updated all position conversions | Fixture/spot loading, saving, snapping |
+| Added center lines | Darker X/Y axes through (0,0) |
+| Added `_draw_dimension_labels()` | Labels at edges showing meter values |
 
-### 3. Movement Block Dialog
-- **2D Pan/Tilt Widget**: Visual position control with click-to-set
-- **Fine Controls**: Pan fine, tilt fine spinboxes
-- **Speed Slider**: Movement speed control
-- **Interpolation Toggle**: Enable/disable smooth transitions
+### `gui/stage_items.py`
 
-### 4. Special Block Dialog
-- Gobo selection (index spinner)
-- Gobo rotation speed
-- Focus control
-- Zoom control
-- Prism enable/rotation
+| Change | Description |
+|--------|-------------|
+| Updated `FixtureItem.wheelEvent` | Added auto-save after rotation/z-height change |
+| Updated `SpotItem.mouseMoveEvent` | Uses `snap_to_grid_position()` and auto-saves |
 
----
+### `config/models.py`
 
-## ✅ Copy/Paste Functionality
-
-### Features Implemented
-
-1. **Right-click Copy**: Right-click on effect → "Copy Effect"
-2. **Right-click Paste**: Right-click on empty timeline → "Paste Effect"
-3. **Shift+Drag Copy**: Hold Shift while dragging to create a copy at new location
-4. **Cross-lane Paste**: Can paste to any lane, not just the source lane
-
-### How It Works
-
-```
-effect_clipboard.py:
-  - copy_effect(block) → stores deep copy of LightBlock
-  - paste_effect(target_time) → creates new LightBlock at target time
-  - has_clipboard_data() → checks if clipboard has content
-```
-
-### User Workflow
-
-1. **Copy via Context Menu:**
-   - Right-click on an effect → "Copy Effect"
-   - Right-click at desired position in any lane → "Paste Effect"
-
-2. **Copy via Shift+Drag:**
-   - Hold Shift, drag effect to new position
-   - Release → copy created at drop location
-   - Original stays in place
+| Change | Description |
+|--------|-------------|
+| Fixed `_parse_workspace` | Now reads `<Channels>` element from workspace |
+| Added fallback mode creation | Creates mode from workspace data if fixture def not found |
+| Fixed `from_workspace` | Merged duplicate loops, each fixture gets its own modes |
 
 ---
 
-## 🐛 Bug Fixes
+## Bug Fixes
 
-### 1. Fixture Paths Not Found
-**Problem:** Fixtures not loading from QLC+5 or custom directories
+### 1. Fixtures Not Auto-Saving
+**Problem:** Had to click "Update Fixtures" to save changes
 
-**Fix:** Updated `utils/fixture_utils.py`:
-- Added `C:\QLC+5\Fixtures` path for Windows
-- Added project's `custom_fixtures` folder
-- Fixed scanning of both flat directories and manufacturer subdirectories
+**Fix:** Connected all editable widgets to auto-save:
+- Spinboxes (universe, address)
+- Comboboxes (mode, group, direction)
+- Add/remove/duplicate operations
 
-### 2. Add Fixture Dialog Empty
-**Problem:** Add Fixture dialog showed no fixtures
-
-**Fix:** Updated `gui/tabs/fixtures_tab.py`:
-- Synchronized paths with `fixture_utils.py`
-- Added same directory scanning logic
-
-### 3. All Sublanes Showing for Non-Moving Heads
-**Problem:** Even simple RGB fixtures showed 4 sublanes
+### 2. Stage Not Auto-Saving
+**Problem:** Had to click "Save Stage" to save positions
 
 **Fix:**
-- Added `config=self.config` to LightLaneWidget creation in shows_tab.py
-- Updated `on_group_changed()` to re-detect capabilities when fixture group changes
-- Fixed capability caching/clearing
+- Fixture drag already auto-saved (existing)
+- Added auto-save to rotation/z-height changes (wheelEvent)
+- Added auto-save to spot movements
+- Connected dimension spinboxes to auto-update
 
-### 4. QGroupBox Headers Squished
-**Problem:** Group box headers overlapping content
+### 3. Configuration Not Auto-Saving
+**Problem:** Had to click "Update Config" to save changes
 
-**Fix:** Added CSS styling to all 4 dialogs:
-```python
-group_box.setStyleSheet("""
-    QGroupBox { margin-top: 12px; padding-top: 10px; }
-    QGroupBox::title { subcontrol-position: top left; padding: 0 5px; }
-""")
-```
+**Fix:** Connected all editable widgets:
+- Table item changes (IP, port, subnet, universe)
+- DMX device combo changes
+- Protocol and multicast already worked
+
+### 4. Parent Reference Bug
+**Problem:** `on_groups_changed()` never called - fixtures not appearing on stage
+
+**Root Cause:** When tab is added to layout, `self.parent()` returns container widget, not MainWindow
+
+**Fix:** Changed to `self.window()` which returns top-level window (MainWindow)
+
+### 5. Group Typing Not Recognized
+**Problem:** Typing group name directly didn't add to other comboboxes
+
+**Fix:** Added `_add_group_to_all_combos()` method, called when new group name typed
+
+### 6. Stage Coordinate System
+**Problem:** Hard to position fixtures - had to count grid squares
+
+**Fix:**
+- Changed coordinate system: (0,0) at center of stage
+- Added dimension labels at edges (e.g., -5, -4, ..., 0, ..., 4, 5 for 10m stage)
+- Added darker center lines for visual reference
+
+### 7. Workspace Import Wrong Channels
+**Problem:** All fixtures showed 6 channels regardless of actual count
+
+**Root Cause:**
+1. `_parse_workspace` didn't read `<Channels>` element
+2. Bug in `from_workspace` - two loops, second used last fixture's modes for all
+
+**Fix:**
+- Read `<Channels>` element from workspace
+- Create fallback mode if fixture definition not found
+- Merged loops so each fixture gets its own modes
 
 ---
 
-## 🚀 Current Project Status
+## New Coordinate System
+
+### Before
+- (0,0) at top-left corner of stage
+- All coordinates positive
+- No visual reference for positions
+
+### After
+- (0,0) at **center** of stage
+- Negative X = left, Positive X = right
+- Negative Y = front (audience), Positive Y = back
+- Dimension labels at edges showing meters
+- Darker center lines for X and Y axes
+
+**Example for 10m × 6m stage:**
+- X range: -5 to +5
+- Y range: -3 to +3
+- Labels every 1m (or 0.5m for small stages)
+
+---
+
+## Auto-Save Summary
+
+| Component | What Auto-Saves | Manual Button |
+|-----------|-----------------|---------------|
+| Fixtures Tab | All changes | Removed |
+| Stage Tab | Position, rotation, z-height | "Update Stage" kept |
+| Configuration Tab | All universe settings | "Update Config" kept |
+
+---
+
+## Testing Checklist
+
+### Fixtures Tab
+- [x] Add fixture → appears on Stage tab
+- [x] Remove fixture → removed from Stage tab
+- [x] Change universe/address → saved immediately
+- [x] Change mode → saved immediately
+- [x] Change group → saved immediately, appears in all comboboxes
+- [x] Type new group name → recognized as new group
+
+### Stage Tab
+- [x] Change dimensions → stage updates
+- [x] Drag fixture → position saved
+- [x] Rotate fixture (scroll) → saved
+- [x] Change z-height (Shift+scroll) → saved
+- [x] Dimension labels visible
+- [x] Center lines visible
+
+### Configuration Tab
+- [x] Change IP address → saved
+- [x] Change port → saved
+- [x] Change protocol → saved
+- [x] Select DMX device → saved
+
+### Workspace Import
+- [x] Import workspace → correct channel counts
+
+---
+
+## Previous Session Work (Still Valid)
 
 ### Completed Phases
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Phase 1 | ✅ Complete | Data Model & Categorization |
-| Phase 2 | ✅ Complete | Fixture Capability Detection |
-| Phase 3 | ✅ Complete | Core Effect Logic |
-| Phase 4 | ✅ Complete | UI Timeline Rendering |
-| Phase 5 | ✅ Complete | UI Interaction (drag, resize, move) |
-| Phase 6 | ✅ Complete | Effect Edit Dialogs |
+| Phase 1 | Complete | Data Model & Categorization |
+| Phase 2 | Complete | Fixture Capability Detection |
+| Phase 3 | Complete | Core Effect Logic |
+| Phase 4 | Complete | UI Timeline Rendering |
+| Phase 5 | Complete | UI Interaction (drag, resize, move) |
+| Phase 6 | Complete | Effect Edit Dialogs |
 
 ### Pending Phases
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Phase 7 | ⏳ Pending | DMX Generation |
-| Phase 8 | ⏳ Pending | Testing & Refinement |
+| Phase 7 | Pending | DMX Generation |
+| Phase 8 | Pending | Testing & Refinement |
 
 ---
 
-## 📂 Project Structure
+## Next Steps
 
-```
-QLCplusShowCreator/
-├── .claude/                    # Claude context files
-│   ├── docs/                   # Implementation documentation
-│   │   └── SUBLANE_IMPLEMENTATION_COMPLETE.md
-│   └── README.md
-├── timeline_ui/                # Timeline UI widgets
-│   ├── light_block_widget.py   # Effect envelope widget
-│   ├── light_lane_widget.py    # Lane container widget
-│   ├── timeline_widget.py      # Base timeline with grid
-│   ├── dimmer_block_dialog.py  # NEW: Dimmer edit dialog
-│   ├── colour_block_dialog.py  # NEW: Colour edit dialog
-│   ├── movement_block_dialog.py # NEW: Movement edit dialog
-│   ├── special_block_dialog.py # NEW: Special edit dialog
-│   └── effect_clipboard.py     # NEW: Copy/paste clipboard
-├── utils/
-│   ├── fixture_utils.py        # Fixture loading & capability detection
-│   └── sublane_presets.py      # Preset categorization
-├── gui/tabs/
-│   ├── shows_tab.py            # Shows tab with timeline
-│   └── fixtures_tab.py         # Fixture management
-├── config/
-│   └── models.py               # Data models
-└── tests/visual/               # Visual test files
-```
-
----
-
-## 🚀 Next Steps (For Future Sessions)
-
-### Immediate Priority: Phase 7 - DMX Generation
-
-1. **Update Playback Engine**
-   - Read from sublane block lists instead of old effect format
-   - Iterate through dimmer_blocks, colour_blocks, etc.
-
-2. **Implement Gap Handling**
-   - Dimmer/Colour gaps → DMX value 0
-   - Movement gaps → Interpolate to next position (optional)
-   - Special gaps → DMX value 0
-
-3. **Implement Cross-fade**
-   - When Dimmer/Colour blocks overlap
-   - Blend values based on overlap region
-
-4. **Implement Movement Interpolation**
-   - Smooth transition between movement blocks
-   - Respect interpolate_from_previous flag
-
-### Future Enhancements
-
-- **Undo/Redo**: History management for block operations
-- **Riffs System**: Sequences of effects for quick lightshow assembly
-- **Advanced Curves**: Ease-in/out interpolation options
-- **Keyboard Shortcuts**: For common operations
-
----
-
-## 💡 Key Design Decisions
-
-### Simplified Colour Dialog
-
-**User Request:** Remove CMY/HSV tabs, add quick presets and color wheel
-
-**Implementation:**
-- 12 preset color buttons for fast selection
-- Hex input for precise colors
-- RGBW sliders (most common fixture setup)
-- Optional color wheel from fixture definition
-
-### Copy/Paste Architecture
-
-**Design Choice:** Module-level clipboard with deep copy
-
-**Reasoning:**
-- Simple implementation with `to_dict()` / `from_dict()`
-- Works across lanes naturally
-- Time adjustment on paste (not copy)
-- Clipboard persists until overwritten
-
----
-
-## 🧪 Testing
-
-### Run the Application
-```bash
-python main.py
-```
-
-### Test Copy/Paste
-1. Load a config with fixtures
-2. Create effects on lanes
-3. Right-click → Copy Effect
-4. Right-click elsewhere → Paste Effect
-5. Hold Shift + drag effect to copy
-
-### Test Edit Dialogs
-1. Create an effect
-2. Double-click on a sublane block
-3. Appropriate dialog opens
-4. Modify values, click OK
-5. Block updates visually
-
----
-
-## ⚠️ Known Limitations
-
-1. **No DMX Playback Yet**: UI complete, playback engine not updated
-2. **No Cross-fade Implementation**: Overlap prevention works, blending not implemented
-3. **Color Wheel Detection**: Requires proper fixture definition files
-
----
-
-## 📚 Documentation Guide
-
-### For Continuing This Work
-
-1. **Start Here:** `SESSION_SUMMARY.md` (this file)
-2. **Deep Dive:** `.claude/docs/SUBLANE_IMPLEMENTATION_COMPLETE.md`
-3. **Feature Plan:** `SUBLANE_FEATURE_PLAN.md`
-4. **Architecture:** `CURRENT_ARCHITECTURE_SUMMARY.md`
-
-### Key Files for Phase 7
-
-- `timeline_ui/light_block_widget.py` - Block data access
-- `config/models.py` - Data structures
-- Playback/DMX generation module (to be identified/created)
+1. **Test all auto-save functionality** thoroughly
+2. **Phase 7: DMX Generation** - Update playback engine for sublane format
+3. **Undo/Redo** - History management for operations
+4. **Remove remaining manual update buttons** if auto-save proves reliable
 
 ---
 
 **Session Date:** December 23, 2024
+**Focus:** UI cleanup, auto-save, bug fixes
 **Completed By:** Claude Code + User
-**Next Session:** Start with Phase 7 (DMX Generation)

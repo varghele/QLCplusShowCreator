@@ -72,12 +72,6 @@ class FixturesTab(BaseTab):
         self.duplicate_btn.setToolTip("Duplicate Fixture")
         toolbar.addWidget(self.duplicate_btn)
 
-        # Update Fixtures button
-        self.update_btn = QtWidgets.QPushButton("Update Fixtures")
-        self.update_btn.setFixedWidth(115)
-        self.update_btn.setToolTip("Update Fixtures in Config")
-        toolbar.addWidget(self.update_btn)
-
         toolbar.addStretch()
         main_layout.addLayout(toolbar)
 
@@ -136,7 +130,6 @@ class FixturesTab(BaseTab):
         self.add_btn.clicked.connect(self._add_fixture)
         self.remove_btn.clicked.connect(self._remove_fixture)
         self.duplicate_btn.clicked.connect(self._duplicate_fixture)
-        self.update_btn.clicked.connect(self.save_to_config)
         self.table.itemChanged.connect(self.save_to_config)
 
     def update_from_config(self):
@@ -156,12 +149,14 @@ class FixturesTab(BaseTab):
             universe_spin = QtWidgets.QSpinBox()
             universe_spin.setRange(1, 16)
             universe_spin.setValue(fixture.universe)
+            universe_spin.valueChanged.connect(self.save_to_config)
             self.table.setCellWidget(row, 0, universe_spin)
 
             # Address spinbox
             address_spin = QtWidgets.QSpinBox()
             address_spin.setRange(1, 512)
             address_spin.setValue(fixture.address)
+            address_spin.valueChanged.connect(self.save_to_config)
             self.table.setCellWidget(row, 1, address_spin)
 
             # Manufacturer and Model
@@ -204,6 +199,10 @@ class FixturesTab(BaseTab):
                             self.table.setItem(current_row, 4, channels_item)
                             self.config.fixtures[current_row].current_mode = modes[index].name
                             self._update_row_colors()
+                            # Notify main window of changes
+                            main_window = self.window()
+                            if main_window and hasattr(main_window, 'on_groups_changed'):
+                                main_window.on_groups_changed()
                     return handle_mode_change
 
                 mode_combo.currentIndexChanged.connect(
@@ -232,17 +231,26 @@ class FixturesTab(BaseTab):
             group_combo.setCurrentText(fixture.group)
 
             # Create closure for group change handler
-            def create_group_handler(current_row):
+            def create_group_handler(current_row, combo):
                 def handle_group_change(text):
                     if text == "Add New...":
-                        self._handle_new_group(group_combo)
-                    else:
+                        self._handle_new_group(combo)
+                    elif text:
                         self.config.fixtures[current_row].group = text
                         self._update_groups()
+                        # If this is a new group, add it to all other comboboxes
+                        self._add_group_to_all_combos(text, combo)
+                    else:
+                        self.config.fixtures[current_row].group = ""
+                        self._update_groups()
                     self._update_row_colors()
+                    # Notify main window of changes
+                    main_window = self.window()
+                    if main_window and hasattr(main_window, 'on_groups_changed'):
+                        main_window.on_groups_changed()
                 return handle_group_change
 
-            group_combo.currentTextChanged.connect(create_group_handler(row))
+            group_combo.currentTextChanged.connect(create_group_handler(row, group_combo))
             self.table.setCellWidget(row, 7, group_combo)
 
             # Direction combo box
@@ -258,6 +266,7 @@ class FixturesTab(BaseTab):
             elif fixture.direction == "AWAY":
                 display_value = "⊗"
             direction_combo.setCurrentText(display_value)
+            direction_combo.currentIndexChanged.connect(self.save_to_config)
             self.table.setCellWidget(row, 8, direction_combo)
 
         # Re-enable signals and update colors
@@ -331,9 +340,10 @@ class FixturesTab(BaseTab):
 
         self._update_groups()
 
-        # Notify parent of group changes if needed
-        if self.parent() and hasattr(self.parent(), 'on_groups_changed'):
-            self.parent().on_groups_changed()
+        # Notify main window of group changes if needed
+        main_window = self.window()
+        if main_window and hasattr(main_window, 'on_groups_changed'):
+            main_window.on_groups_changed()
 
     def _update_groups(self):
         """Rebuild groups from fixtures, preserving colors"""
@@ -390,13 +400,24 @@ class FixturesTab(BaseTab):
                 group_combo.setCurrentText(new_group)
 
                 # Update all other fixtures' group comboboxes with the new group
-                for row in range(self.table.rowCount()):
-                    other_group_combo = self.table.cellWidget(row, 7)
-                    if other_group_combo and other_group_combo != group_combo:
-                        # Find "Add New..." item and insert new group before it
-                        add_new_index = other_group_combo.findText("Add New...")
-                        if add_new_index != -1:
-                            other_group_combo.insertItem(add_new_index, new_group)
+                self._add_group_to_all_combos(new_group, group_combo)
+
+    def _add_group_to_all_combos(self, group_name, exclude_combo=None):
+        """Add a group name to all group comboboxes if it doesn't exist
+
+        Args:
+            group_name: The group name to add
+            exclude_combo: Optional combobox to exclude from update
+        """
+        for row in range(self.table.rowCount()):
+            combo = self.table.cellWidget(row, 7)
+            if combo and combo != exclude_combo:
+                # Check if group already exists in this combo
+                if combo.findText(group_name) == -1:
+                    # Find "Add New..." item and insert new group before it
+                    add_new_index = combo.findText("Add New...")
+                    if add_new_index != -1:
+                        combo.insertItem(add_new_index, group_name)
 
     def _update_row_colors(self):
         """Apply group colors to table rows"""
@@ -594,6 +615,11 @@ class FixturesTab(BaseTab):
         # Refresh table
         self.update_from_config()
 
+        # Notify main window of changes
+        main_window = self.window()
+        if main_window and hasattr(main_window, 'on_groups_changed'):
+            main_window.on_groups_changed()
+
         print(f"Added fixture: {manufacturer} {model}")
 
     def _remove_fixture(self):
@@ -627,9 +653,10 @@ class FixturesTab(BaseTab):
             self._update_groups()
             self._update_row_colors()
 
-            # Notify parent
-            if self.parent() and hasattr(self.parent(), 'on_groups_changed'):
-                self.parent().on_groups_changed()
+            # Notify main window
+            main_window = self.window()
+            if main_window and hasattr(main_window, 'on_groups_changed'):
+                main_window.on_groups_changed()
 
     def _duplicate_fixture(self):
         """Duplicate selected fixture with offset address"""
@@ -688,5 +715,10 @@ class FixturesTab(BaseTab):
 
         # Refresh table
         self.update_from_config()
+
+        # Notify main window of changes
+        main_window = self.window()
+        if main_window and hasattr(main_window, 'on_groups_changed'):
+            main_window.on_groups_changed()
 
         print(f"Duplicated fixture: {original_fixture.manufacturer} {original_fixture.model}")

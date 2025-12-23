@@ -319,3 +319,43 @@ The monolithic MainWindow has been transformed into a clean, orchestration layer
 *Refactoring completed: December 2024*
 *Total phases: 6*
 *Total time: ~6 hours*
+
+---
+
+## Post-Refactoring Enhancements (December 23, 2024)
+
+### Auto-Save Implementation
+
+After the initial refactoring, additional work was done to improve user experience by implementing auto-save functionality across tabs:
+
+#### FixturesTab
+- Removed "Update Fixtures" button
+- Connected universe/address spinboxes to `save_to_config`
+- Connected mode/group/direction combos to auto-save
+- Added parent notifications via `self.window().on_groups_changed()`
+- Fixed parent reference bug (`self.parent()` → `self.window()`)
+- Added `_add_group_to_all_combos()` for syncing group names
+
+#### StageTab
+- Removed "Save Stage" button (kept "Update Stage")
+- Connected dimension spinboxes to auto-update
+- Stage positions already auto-saved via `stage_items.py`
+
+#### ConfigurationTab
+- Updated `_on_universe_item_changed` to save immediately
+- Added `_on_device_changed` for DMX device auto-save
+- Connected all editable widgets to save on change
+
+### StageView Coordinate System Update
+
+- Changed coordinate system: (0,0) now at center of stage
+- Added `meters_to_pixels()` and `pixels_to_meters()` helpers
+- Added dimension labels at edges
+- Added darker center lines for visual reference
+- Increased padding for labels (10 → 40 pixels)
+
+### Workspace Import Fix
+
+- Fixed `_parse_workspace` to read `<Channels>` element
+- Fixed `from_workspace` modes assignment bug
+- Added fallback mode creation when fixture definition not found

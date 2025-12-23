@@ -226,6 +226,11 @@ class ConfigurationTab(BaseTab):
                     device_combo.setCurrentIndex(i)
                     break
 
+        # Connect to auto-save on device change
+        device_combo.currentTextChanged.connect(
+            lambda text, r=row: self._on_device_changed(r, text)
+        )
+
         self.universe_list.setCellWidget(row, self.COL_DMX_DEVICE, device_combo)
 
     def _update_row_visibility(self, row: int, protocol: str):
@@ -349,6 +354,20 @@ class ConfigurationTab(BaseTab):
             universe_id = int(universe_id_item.text())
             if universe_id in self.config.universes:
                 self.config.universes[universe_id].output['parameters']['multicast'] = str(is_multicast).lower()
+
+    def _on_device_changed(self, row: int, device_display_name: str):
+        """Handle DMX device selection changes"""
+        universe_id_item = self.universe_list.item(row, self.COL_UNIVERSE_ID)
+        if universe_id_item:
+            try:
+                universe_id = int(universe_id_item.text())
+                if universe_id in self.config.universes:
+                    device_port = get_device_port_by_display_name(device_display_name)
+                    self.config.universes[universe_id].output['parameters']['device'] = (
+                        device_port if device_port else device_display_name
+                    )
+            except (ValueError, AttributeError) as e:
+                print(f"Error updating DMX device: {e}")
 
     def save_to_config(self):
         """Update universe configuration from table values"""
@@ -480,5 +499,45 @@ class ConfigurationTab(BaseTab):
 
     def _on_universe_item_changed(self, item):
         """Handle changes to universe table items - update config in real-time"""
-        # Changes are auto-saved via save_to_config when needed
-        pass
+        row = item.row()
+        col = item.column()
+
+        # Get universe ID for this row
+        universe_id_item = self.universe_list.item(row, self.COL_UNIVERSE_ID)
+        if not universe_id_item or not universe_id_item.text():
+            return
+
+        try:
+            universe_id = int(universe_id_item.text())
+            if universe_id not in self.config.universes:
+                return
+
+            params = self.config.universes[universe_id].output['parameters']
+
+            # Update the specific parameter based on column
+            if col == self.COL_IP_ADDRESS:
+                params['ip'] = item.text()
+            elif col == self.COL_PORT:
+                params['port'] = item.text()
+            elif col == self.COL_SUBNET:
+                params['subnet'] = item.text()
+            elif col == self.COL_ARTNET_UNIVERSE:
+                params['universe'] = item.text()
+                # Update multicast IP if E1.31 multicast is enabled
+                protocol_combo = self.universe_list.cellWidget(row, self.COL_OUTPUT_TYPE)
+                if protocol_combo and protocol_combo.currentText() == "E1.31":
+                    multicast_widget = self.universe_list.cellWidget(row, self.COL_MULTICAST)
+                    if multicast_widget:
+                        checkbox = multicast_widget.findChild(QtWidgets.QCheckBox)
+                        if checkbox and checkbox.isChecked():
+                            universe_num = int(item.text()) if item.text() else 1
+                            multicast_ip = f"239.255.{universe_num >> 8}.{universe_num & 0xFF}"
+                            ip_item = self.universe_list.item(row, self.COL_IP_ADDRESS)
+                            if ip_item:
+                                self.universe_list.blockSignals(True)
+                                ip_item.setText(multicast_ip)
+                                params['ip'] = multicast_ip
+                                self.universe_list.blockSignals(False)
+
+        except (ValueError, AttributeError) as e:
+            print(f"Error updating universe config: {e}")
