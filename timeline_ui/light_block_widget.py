@@ -302,6 +302,10 @@ class LightBlockWidget(QWidget):
             if not has_dimmer and has_colour and width >= 40:
                 self._draw_rgb_icon(painter, x_offset, y_offset, width, sublane_height, margin)
 
+        # Draw grid for movement blocks (similar to dimmer blocks)
+        if sublane_type == "movement":
+            self._draw_movement_block_grid(painter, sublane_block, x_offset, y_offset, width, sublane_height, margin)
+
         # Draw text label if block is wide enough
         self._draw_sublane_block_label(painter, sublane_block, sublane_type, x_offset, y_offset, width, sublane_height, margin)
 
@@ -536,6 +540,66 @@ class LightBlockWidget(QWidget):
             # Silently fail if grid cannot be drawn
             pass
 
+    def _draw_movement_block_grid(self, painter, sublane_block, x_offset, y_offset, width, sublane_height, margin):
+        """Draw beat grid lines inside movement block based on speed setting."""
+        try:
+            # Get speed setting (movement blocks now have effect_speed like dimmer blocks)
+            effect_speed = getattr(sublane_block, 'effect_speed', '1')
+
+            # Convert speed to multiplier
+            if '/' in effect_speed:
+                num, denom = map(int, effect_speed.split('/'))
+                speed_multiplier = num / denom
+            else:
+                speed_multiplier = float(effect_speed)
+
+            # Get BPM at block start time
+            if hasattr(self.timeline_widget, 'song_structure') and self.timeline_widget.song_structure:
+                part_at_block = self.timeline_widget.song_structure.get_part_at_time(sublane_block.start_time)
+                if part_at_block:
+                    bpm = part_at_block.bpm
+                    # Parse time signature
+                    numerator, denominator = map(int, part_at_block.signature.split('/'))
+                    beats_per_bar = (numerator * 4) / denominator
+                else:
+                    bpm = 120
+                    beats_per_bar = 4.0
+            else:
+                bpm = 120
+                beats_per_bar = 4.0
+
+            # Calculate time per step (in seconds)
+            seconds_per_beat = 60.0 / bpm
+            seconds_per_step = seconds_per_beat / speed_multiplier
+
+            # Calculate block duration
+            block_duration = sublane_block.end_time - sublane_block.start_time
+
+            # Calculate number of steps
+            num_steps = int(block_duration / seconds_per_step)
+
+            # Draw grid lines (black like dimmer blocks for consistency)
+            grid_pen = QPen(QColor(0, 0, 0, 120), 1, Qt.PenStyle.DotLine)
+            painter.setPen(grid_pen)
+
+            for step in range(1, num_steps):  # Skip first (start) and last (end)
+                step_time = sublane_block.start_time + (step * seconds_per_step)
+                step_pixel = self.timeline_widget.time_to_pixel(step_time)
+                envelope_start_pixel = self.timeline_widget.time_to_pixel(self.block.start_time)
+
+                x = step_pixel - envelope_start_pixel
+
+                # Draw vertical line
+                painter.drawLine(
+                    int(x),
+                    int(y_offset + margin),
+                    int(x),
+                    int(y_offset + sublane_height - margin)
+                )
+        except Exception as e:
+            # Silently fail if grid cannot be drawn
+            pass
+
     def _get_sublane_block_info(self, sublane_block, sublane_type):
         """Get short info text about sublane block content."""
         try:
@@ -552,12 +616,14 @@ class LightBlockWidget(QWidget):
                     return sublane_block.color_mode
                 return "RGB"
             elif sublane_type == "movement":
-                # Show pan/tilt if available
-                if hasattr(sublane_block, 'pan') and hasattr(sublane_block, 'tilt'):
+                # Show effect type (and pan/tilt for static)
+                effect_type = getattr(sublane_block, 'effect_type', 'static')
+                effect_display = effect_type.replace('_', ' ').title()
+                if effect_type == "static" and hasattr(sublane_block, 'pan') and hasattr(sublane_block, 'tilt'):
                     pan = int(sublane_block.pan)
                     tilt = int(sublane_block.tilt)
                     return f"P{pan}/T{tilt}"
-                return "Move"
+                return effect_display
             elif sublane_type == "special":
                 # Show if any special effects are active
                 active_effects = []
@@ -1426,12 +1492,12 @@ class LightBlockWidget(QWidget):
         copy_effect(self.block)
 
     def wheelEvent(self, event):
-        """Handle mouse wheel for speed adjustment (Ctrl+wheel) on dimmer blocks."""
+        """Handle mouse wheel for speed adjustment (Ctrl+wheel) on dimmer and movement blocks."""
         from PyQt6.QtCore import Qt
 
-        # Check if Ctrl is pressed and a dimmer block is selected
+        # Check if Ctrl is pressed and a dimmer or movement block is selected
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            if self.selected_sublane_type == "dimmer" and self.selected_sublane_block:
+            if self.selected_sublane_type in ["dimmer", "movement"] and self.selected_sublane_block:
                 # Speed options in order
                 speed_options = ["1/4", "1/2", "1", "2", "4"]
 

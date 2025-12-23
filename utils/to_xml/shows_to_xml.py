@@ -683,6 +683,234 @@ def _convert_dimmer_steps_to_rgb(steps, dimmer_block, colour_blocks, fixture_def
     return converted_steps
 
 
+def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixture_conf,
+                                    fixture_start_id, bpm, signature, num_bars):
+    """
+    Generate movement shape steps for a movement block.
+
+    Supports static positioning and dynamic shapes (circle, diamond, lissajous, etc.)
+    with clipping to boundary limits.
+
+    Step density is kept constant per shape cycle (minimum 32 steps per cycle) for
+    smooth motion. The speed setting controls how many times the shape is traced,
+    not the step count.
+
+    Parameters:
+        movement_block: MovementBlock with effect parameters
+        fixture_def: Fixture definition dictionary
+        mode_name: Current fixture mode name
+        fixture_conf: List of fixture configurations
+        fixture_start_id: Starting fixture ID for value assignment
+        bpm: Beats per minute
+        signature: Time signature (e.g., "4/4")
+        num_bars: Number of bars for the effect
+
+    Returns:
+        List of Step elements for QLC+ sequence
+    """
+    import math
+    from utils.effects_utils import get_channels_by_property
+
+    # Get pan/tilt channels
+    channels_dict = get_channels_by_property(fixture_def, mode_name, ["PositionPan", "PositionTilt"])
+    if not channels_dict:
+        return []
+
+    # Get effect parameters
+    effect_type = movement_block.effect_type
+    center_pan = movement_block.pan
+    center_tilt = movement_block.tilt
+    pan_amplitude = movement_block.pan_amplitude
+    tilt_amplitude = movement_block.tilt_amplitude
+    pan_min = movement_block.pan_min
+    pan_max = movement_block.pan_max
+    tilt_min = movement_block.tilt_min
+    tilt_max = movement_block.tilt_max
+    lissajous_ratio = getattr(movement_block, 'lissajous_ratio', '1:2')
+    phase_offset_enabled = getattr(movement_block, 'phase_offset_enabled', False)
+    phase_offset_degrees = getattr(movement_block, 'phase_offset_degrees', 0.0)
+    effect_speed = movement_block.effect_speed
+
+    # Convert speed to multiplier
+    if '/' in effect_speed:
+        num, denom = map(int, effect_speed.split('/'))
+        speed_multiplier = num / denom
+    else:
+        speed_multiplier = float(effect_speed)
+
+    # Calculate timing
+    numerator, denominator = map(int, signature.split('/'))
+    beats_per_bar = (numerator * 4) / denominator
+    seconds_per_beat = 60.0 / bpm
+    seconds_per_bar = beats_per_bar * seconds_per_beat
+
+    # Calculate block duration
+    block_duration = movement_block.end_time - movement_block.start_time
+    block_duration_ms = int(block_duration * 1000)
+
+    # Calculate number of shape cycles based on speed
+    # Speed "1" = 1 cycle per bar, Speed "2" = 2 cycles per bar, etc.
+    total_cycles = (block_duration / seconds_per_bar) * speed_multiplier
+
+    # Minimum steps per cycle for smooth motion (32 gives smooth curves)
+    STEPS_PER_CYCLE = 32
+
+    # Calculate total steps needed
+    # For static, we only need 1 step
+    if effect_type == "static":
+        total_steps = 1
+    else:
+        # Ensure at least STEPS_PER_CYCLE steps, scaled by number of cycles
+        total_steps = max(STEPS_PER_CYCLE, int(total_cycles * STEPS_PER_CYCLE))
+        # Cap at a reasonable maximum to avoid too many steps
+        total_steps = min(total_steps, 256)
+
+    # Calculate step duration
+    if total_steps > 0:
+        step_duration_ms = block_duration_ms // total_steps
+    else:
+        step_duration_ms = block_duration_ms
+
+    # Ensure minimum step duration of 20ms
+    if step_duration_ms < 20 and total_steps > 1:
+        total_steps = block_duration_ms // 20
+        step_duration_ms = block_duration_ms // max(1, total_steps)
+
+    # Parse lissajous ratio
+    try:
+        ratio_parts = lissajous_ratio.split(':')
+        freq_pan = int(ratio_parts[0])
+        freq_tilt = int(ratio_parts[1])
+    except (ValueError, IndexError):
+        freq_pan, freq_tilt = 1, 2
+
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+    steps = []
+
+    # Count channels per fixture
+    pan_channels = channels_dict.get('PositionPan', [])
+    tilt_channels = channels_dict.get('PositionTilt', [])
+    channels_per_fixture = len(pan_channels) + len(tilt_channels)
+
+    for step_idx in range(total_steps):
+        step = ET.Element("Step")
+        step.set("Number", str(step_idx))
+        step.set("FadeIn", "0")
+        step.set("Hold", str(step_duration_ms))
+        step.set("FadeOut", "0")
+        step.set("Values", str(channels_per_fixture * fixture_num))
+
+        values = []
+
+        for fixture_idx in range(fixture_num):
+            fixture_id = fixture_start_id + fixture_idx
+
+            # Calculate phase offset for this fixture
+            if phase_offset_enabled:
+                fixture_phase = (fixture_idx * phase_offset_degrees) * math.pi / 180.0
+            else:
+                fixture_phase = 0.0
+
+            # Calculate position based on effect type
+            # t represents the angle in radians, scaled by total_cycles to trace the shape multiple times
+            t = 2 * math.pi * total_cycles * step_idx / max(1, total_steps) + fixture_phase
+
+            if effect_type == "static":
+                pan = center_pan
+                tilt = center_tilt
+            elif effect_type == "circle":
+                pan = center_pan + pan_amplitude * math.cos(t)
+                tilt = center_tilt + tilt_amplitude * math.sin(t)
+            elif effect_type == "diamond":
+                # Diamond: 4 corners, scaled by total_cycles for multiple traces
+                phase = (step_idx / max(1, total_steps)) * 4 * total_cycles
+                corner = int(phase) % 4
+                local_t = phase - int(phase)
+                corners = [
+                    (center_pan, center_tilt - tilt_amplitude),
+                    (center_pan + pan_amplitude, center_tilt),
+                    (center_pan, center_tilt + tilt_amplitude),
+                    (center_pan - pan_amplitude, center_tilt),
+                ]
+                start = corners[corner]
+                end = corners[(corner + 1) % 4]
+                pan = start[0] + local_t * (end[0] - start[0])
+                tilt = start[1] + local_t * (end[1] - start[1])
+            elif effect_type == "square":
+                # Square: 4 corners, scaled by total_cycles for multiple traces
+                phase = (step_idx / max(1, total_steps)) * 4 * total_cycles
+                corner = int(phase) % 4
+                local_t = phase - int(phase)
+                corners = [
+                    (center_pan - pan_amplitude, center_tilt - tilt_amplitude),
+                    (center_pan + pan_amplitude, center_tilt - tilt_amplitude),
+                    (center_pan + pan_amplitude, center_tilt + tilt_amplitude),
+                    (center_pan - pan_amplitude, center_tilt + tilt_amplitude),
+                ]
+                start = corners[corner]
+                end = corners[(corner + 1) % 4]
+                pan = start[0] + local_t * (end[0] - start[0])
+                tilt = start[1] + local_t * (end[1] - start[1])
+            elif effect_type == "triangle":
+                # Triangle: 3 corners, scaled by total_cycles for multiple traces
+                phase = (step_idx / max(1, total_steps)) * 3 * total_cycles
+                corner = int(phase) % 3
+                local_t = phase - int(phase)
+                corners = [
+                    (center_pan, center_tilt - tilt_amplitude),
+                    (center_pan + pan_amplitude * 0.866, center_tilt + tilt_amplitude * 0.5),
+                    (center_pan - pan_amplitude * 0.866, center_tilt + tilt_amplitude * 0.5),
+                ]
+                start = corners[corner]
+                end = corners[(corner + 1) % 3]
+                pan = start[0] + local_t * (end[0] - start[0])
+                tilt = start[1] + local_t * (end[1] - start[1])
+            elif effect_type == "figure_8":
+                pan = center_pan + pan_amplitude * math.sin(t)
+                tilt = center_tilt + tilt_amplitude * math.sin(2 * t)
+            elif effect_type == "lissajous":
+                pan = center_pan + pan_amplitude * math.sin(freq_pan * t)
+                tilt = center_tilt + tilt_amplitude * math.sin(freq_tilt * t)
+            elif effect_type == "random":
+                # Pseudo-random smooth motion using multiple sine waves
+                pan = center_pan + pan_amplitude * (
+                    0.5 * math.sin(3 * t) + 0.3 * math.sin(7 * t) + 0.2 * math.sin(11 * t)
+                )
+                tilt = center_tilt + tilt_amplitude * (
+                    0.5 * math.sin(5 * t) + 0.3 * math.sin(11 * t) + 0.2 * math.sin(13 * t)
+                )
+            elif effect_type == "bounce":
+                # Bouncing pattern using triangle waves, scaled by total_cycles
+                bounce_t = (step_idx / max(1, total_steps)) * 4 * total_cycles
+                pan_t = abs((bounce_t % 2) - 1)
+                tilt_t = abs(((bounce_t + 0.5) % 2) - 1)
+                pan = center_pan - pan_amplitude + 2 * pan_amplitude * pan_t
+                tilt = center_tilt - tilt_amplitude + 2 * tilt_amplitude * tilt_t
+            else:
+                # Default to static
+                pan = center_pan
+                tilt = center_tilt
+
+            # Apply clipping to boundaries
+            pan = max(pan_min, min(pan_max, pan))
+            tilt = max(tilt_min, min(tilt_max, tilt))
+
+            # Build channel values for this fixture
+            channel_value_pairs = []
+            for pan_ch in pan_channels:
+                channel_value_pairs.append(f"{pan_ch['channel']},{int(pan)}")
+            for tilt_ch in tilt_channels:
+                channel_value_pairs.append(f"{tilt_ch['channel']},{int(tilt)}")
+
+            channel_values = ",".join(channel_value_pairs)
+            values.append(f"{fixture_id}:{channel_values}")
+
+        step.text = ":".join(values)
+        steps.append(step)
+
+    return steps
+
+
 def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_map,
                                 function_id_counter, effects, fixture_definitions):
     """
@@ -925,6 +1153,75 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                 # Use color from song part for easy identification
                 color = part_at_dimmer.color if part_at_dimmer else '#808080'
                 show_func.set("Color", color)
+
+                function_id_counter += 1
+
+        # Process movement blocks for this lane
+        for block in lane.light_blocks:
+            for movement_block in block.movement_blocks:
+                # Get fixture definition first - skip if not available
+                first_fixture = config.groups[group_name].fixtures[0]
+                fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
+                fixture_def = fixture_definitions.get(fixture_key)
+
+                # Find BPM and song part at movement block start
+                part_at_movement = song_structure.get_part_at_time(movement_block.start_time)
+
+                if not fixture_def or not first_fixture.current_mode or not part_at_movement:
+                    print(f"Warning: Skipping movement block - missing fixture_def, mode, or part")
+                    continue
+
+                # Convert start_time from seconds to milliseconds
+                movement_start_time_ms = int(movement_block.start_time * 1000)
+
+                # Calculate movement block duration in milliseconds
+                movement_duration = movement_block.end_time - movement_block.start_time
+                movement_duration_ms = int(movement_duration * 1000)
+
+                # Calculate number of bars from movement block duration
+                movement_bpm = part_at_movement.bpm if part_at_movement else 120
+                numerator, denominator = map(int, part_at_movement.signature.split('/'))
+                beats_per_bar = (numerator * 4) / denominator
+                seconds_per_bar = beats_per_bar * (60.0 / movement_bpm)
+                num_bars = max(1, int(movement_duration / seconds_per_bar))
+
+                # Generate movement shape steps FIRST, before creating sequence
+                try:
+                    steps = _generate_movement_shape_steps(
+                        movement_block=movement_block,
+                        fixture_def=fixture_def,
+                        mode_name=first_fixture.current_mode,
+                        fixture_conf=config.groups[group_name].fixtures,
+                        fixture_start_id=fixture_start_id,
+                        bpm=movement_bpm,
+                        signature=part_at_movement.signature,
+                        num_bars=num_bars
+                    )
+
+                    if not steps:
+                        print(f"Warning: No steps generated for movement block at {movement_start_time_ms}ms")
+                        continue
+
+                except Exception as e:
+                    print(f"Error creating movement effect steps: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
+
+                # Only create sequence and ShowFunction if we have valid steps
+                sequence_name = f"{show.name}_{group_name}_movement_{movement_start_time_ms}"
+                sequence = create_sequence(engine, function_id_counter, sequence_name,
+                                          scene.get("ID"), movement_bpm)
+                add_steps_to_sequence(sequence, steps)
+
+                # Create ShowFunction for this movement block
+                show_func = ET.SubElement(track, "ShowFunction")
+                show_func.set("ID", str(function_id_counter))
+                show_func.set("StartTime", str(movement_start_time_ms))
+                show_func.set("Duration", str(movement_duration_ms))
+
+                # Use blue color for movement blocks
+                show_func.set("Color", "#6496FF")
 
                 function_id_counter += 1
 

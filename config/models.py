@@ -183,15 +183,42 @@ class ColourBlock:
 
 @dataclass
 class MovementBlock:
-    """Movement sublane block - controls pan, tilt, and positioning."""
+    """Movement sublane block - controls pan, tilt, and positioning.
+
+    Supports both static positioning and dynamic shape effects (circle, diamond, etc.).
+    When effect_type is 'static', pan/tilt define the exact position.
+    When effect_type is a shape, pan/tilt define the center, and the shape is traced
+    within the bounds defined by pan_min/pan_max and tilt_min/tilt_max.
+    """
     start_time: float
     end_time: float
-    pan: float = 127.5  # 0-255 (127.5 = center)
-    tilt: float = 127.5  # 0-255 (127.5 = center)
+    pan: float = 127.5  # 0-255 (center position for shapes, or static position)
+    tilt: float = 127.5  # 0-255 (center position for shapes, or static position)
     pan_fine: float = 0.0  # Fine adjustment
     tilt_fine: float = 0.0  # Fine adjustment
-    speed: float = 255.0  # Movement speed
+    speed: float = 255.0  # Movement speed (DMX)
     interpolate_from_previous: bool = True  # Gradual transition from previous block
+
+    # Effect type and speed (similar to DimmerBlock)
+    effect_type: str = "static"  # "static", "circle", "diamond", "lissajous", "figure_8", "square", "triangle", "random", "bounce"
+    effect_speed: str = "1"  # Speed multiplier: "1/4", "1/2", "1", "2", "4"
+
+    # Boundary limits (hard limits the effect cannot exceed)
+    pan_min: float = 0.0  # Minimum pan value (0-255)
+    pan_max: float = 255.0  # Maximum pan value (0-255)
+    tilt_min: float = 0.0  # Minimum tilt value (0-255)
+    tilt_max: float = 255.0  # Maximum tilt value (0-255)
+
+    # Amplitude (size of the effect within the bounds)
+    pan_amplitude: float = 50.0  # How far pan moves from center (0-127.5)
+    tilt_amplitude: float = 50.0  # How far tilt moves from center (0-127.5)
+
+    # Lissajous-specific parameter
+    lissajous_ratio: str = "1:2"  # Frequency ratio for lissajous curves: "1:2", "2:3", "3:4", "3:2", "4:3"
+
+    # Phase offset for multi-fixture effects
+    phase_offset_enabled: bool = False  # Enable phase offset between fixtures
+    phase_offset_degrees: float = 0.0  # Phase offset in degrees (0-360)
 
     def to_dict(self) -> Dict:
         return {
@@ -202,7 +229,18 @@ class MovementBlock:
             "pan_fine": self.pan_fine,
             "tilt_fine": self.tilt_fine,
             "speed": self.speed,
-            "interpolate_from_previous": self.interpolate_from_previous
+            "interpolate_from_previous": self.interpolate_from_previous,
+            "effect_type": self.effect_type,
+            "effect_speed": self.effect_speed,
+            "pan_min": self.pan_min,
+            "pan_max": self.pan_max,
+            "tilt_min": self.tilt_min,
+            "tilt_max": self.tilt_max,
+            "pan_amplitude": self.pan_amplitude,
+            "tilt_amplitude": self.tilt_amplitude,
+            "lissajous_ratio": self.lissajous_ratio,
+            "phase_offset_enabled": self.phase_offset_enabled,
+            "phase_offset_degrees": self.phase_offset_degrees
         }
 
     @classmethod
@@ -215,7 +253,18 @@ class MovementBlock:
             pan_fine=data.get("pan_fine", 0.0),
             tilt_fine=data.get("tilt_fine", 0.0),
             speed=data.get("speed", 255.0),
-            interpolate_from_previous=data.get("interpolate_from_previous", True)
+            interpolate_from_previous=data.get("interpolate_from_previous", True),
+            effect_type=data.get("effect_type", "static"),
+            effect_speed=data.get("effect_speed", "1"),
+            pan_min=data.get("pan_min", 0.0),
+            pan_max=data.get("pan_max", 255.0),
+            tilt_min=data.get("tilt_min", 0.0),
+            tilt_max=data.get("tilt_max", 255.0),
+            pan_amplitude=data.get("pan_amplitude", 50.0),
+            tilt_amplitude=data.get("tilt_amplitude", 50.0),
+            lissajous_ratio=data.get("lissajous_ratio", "1:2"),
+            phase_offset_enabled=data.get("phase_offset_enabled", False),
+            phase_offset_degrees=data.get("phase_offset_degrees", 0.0)
         )
 
 
