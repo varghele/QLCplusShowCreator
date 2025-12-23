@@ -1,6 +1,6 @@
 # Quick Start - Sublane Feature
 
-**Last Updated:** December 22, 2024
+**Last Updated:** December 23, 2024
 
 ## 🚀 What's Working Now
 
@@ -9,19 +9,43 @@
 ✅ **Overlap prevention** with visual feedback (RED = invalid)
 ✅ **Select, resize, move** individual blocks
 ✅ **Auto-expand** effect envelopes
+✅ **Sublane labels** on timeline rows and blocks
+✅ **Dimmer effects** (static, twinkle, strobe, etc.)
+✅ **Grid visualization** showing beat divisions
+✅ **Speed control** with Ctrl+mousewheel
+✅ **Intensity handle** with visual dragging
+✅ **Export to QLC+** sequences
+
+## 🆕 New in This Session
+
+### Sublane Labels
+- **Row labels** on the left side of each sublane (Dimmer, Colour, Movement, Special)
+- **Block labels** showing effect type and intensity (e.g., "Dimmer: Twinkle (255)")
+
+### Dimmer Effects
+- **Effect selection**: Choose from static, twinkle, strobe, ping_pong_smooth, waterfall
+- **Speed control**: Set effect speed (1/4, 1/2, 1, 2, 4)
+- **Export**: Each dimmer block generates its own QLC+ sequence
+
+### Interactive Controls
+- **Grid visualization**: Black dotted lines showing beat divisions
+- **Ctrl+mousewheel**: Adjust effect speed (select block first)
+- **Intensity handle**: Drag white horizontal line to adjust intensity
 
 ## 🧪 Try It Out
 
 ```bash
-# Run visual tests to see it working
-python tests/visual/test_sublane_blocks.py
+# Run the application
+python main.py
 ```
 
-**Look for:**
-- Block 2: **TWO dimmer blocks** (yellow)
-- Block 4: **THREE colour blocks** (red→green→blue)
-- Drag in empty areas to create new blocks
-- Try overlapping movement blocks → RED preview
+**Test the new features:**
+1. Create a light block on the timeline
+2. Drag in the dimmer sublane to create a dimmer block
+3. Double-click to open editor → select "twinkle" effect
+4. Click block to select → Ctrl+scroll to change speed
+5. Hover over white line in block → drag vertically to adjust intensity
+6. Observe grid lines showing beat divisions
 
 ## 📁 Where Things Are
 
@@ -30,10 +54,15 @@ python tests/visual/test_sublane_blocks.py
 │   └── docs/                     # Detailed docs
 ├── tests/                        # All tests
 │   └── visual/                   # Interactive tests
-├── config/models.py              # Data structures
+├── config/models.py              # Data structures (DimmerBlock)
 ├── timeline_ui/                  # UI widgets
-│   └── light_block_widget.py     # Main interaction logic
-└── SESSION_SUMMARY.md            # Last session details
+│   ├── light_block_widget.py     # Main interaction logic
+│   ├── dimmer_block_dialog.py    # Dimmer effect editor
+│   └── timeline_widget.py        # Sublane row labels
+├── utils/to_xml/
+│   └── shows_to_xml.py           # Export to QLC+
+└── effects/
+    └── dimmers.py                # Dimmer effect functions
 ```
 
 ## 📖 Documentation
@@ -45,27 +74,72 @@ python tests/visual/test_sublane_blocks.py
 | `.claude/docs/SUBLANE_IMPLEMENTATION_COMPLETE.md` | Full details | Deep dive |
 | `SUBLANE_FEATURE_PLAN.md` | Original plan + status | Understanding roadmap |
 
-## 🔨 Next Tasks
+## 🔨 Current Tasks
 
-### Phase 6: Edit Dialogs
-Create dialogs to edit sublane block parameters (intensity, colors, pan/tilt, etc.)
+### Phase 6.5: Dimmer Effects Integration ✅
+- [x] Add effect_type and effect_speed to DimmerBlock model
+- [x] Update dimmer block dialog with effect selection
+- [x] Add sublane labels to timeline
+- [x] Add grid visualization to dimmer blocks
+- [x] Implement Ctrl+mousewheel speed adjustment
+- [x] Add intensity handle with dragging
+- [x] Export dimmer blocks to QLC+ sequences
 
-### Phase 7: DMX Generation
-Update playback engine to read from sublane block lists and generate DMX
+### Phase 7: Full Effect Integration (Next)
+- [ ] Add colour effects (RGB, rainbow, fade, etc.)
+- [ ] Add movement effects (pan/tilt, positions, etc.)
+- [ ] Add special effects (gobo, prism, beam, etc.)
+- [ ] Test export with multiple effect types
 
-### Phase 8: Testing
-Integration tests, performance tests, real-world usage
+### Phase 8: Testing & Refinement
+- [ ] Integration tests
+- [ ] Performance tests
+- [ ] Real-world usage testing
 
 ## 💡 Key Concepts
 
 **Effect Envelope:** Container for sublane blocks (dashed border)
 **Sublane Block:** Individual block with specific parameters (yellow/green/blue/purple)
-**Multiple Blocks:** Can have many blocks of same type in one effect
-**Overlap:** Movement/Special can't overlap, Dimmer/Colour can
+**Effect Type:** The lighting effect to apply (static, twinkle, strobe, etc.)
+**Effect Speed:** How fast the effect runs (1/4, 1/2, 1, 2, 4 = beats per step)
+**Grid Lines:** Visual beat divisions showing where effect steps occur
+**Intensity Handle:** White horizontal line to adjust brightness
+
+## 🎮 Controls
+
+### Block Creation
+- **Drag in sublane** to create new block
+- **Double-click block** to edit parameters
+
+### Block Selection
+- **Click block** to select
+- **Click elsewhere** to deselect
+
+### Movement
+- **Horizontal drag** on block body = move in time
+- **Edge drag** = resize (adds/removes beats)
+
+### Intensity
+- **Drag white line** vertically = adjust intensity
+- **Top** = 255 (full brightness)
+- **Bottom** = 0 (off)
+- **Label shows** current value while dragging
+
+### Speed
+- **Select block** first
+- **Ctrl+Scroll Up** = increase speed (faster effect)
+- **Ctrl+Scroll Down** = decrease speed (slower effect)
+- **Grid updates** automatically
+
+### Zoom
+- **Shift+Scroll** = zoom timeline (existing feature)
 
 ## ⚡ Quick Commands
 
 ```bash
+# Run application
+python main.py
+
 # Run tests
 python tests/visual/test_sublane_blocks.py
 python tests/visual/test_sublane_ui.py
@@ -73,29 +147,43 @@ python tests/visual/test_sublane_ui.py
 # Check git status
 git status
 
+# Commit changes
+git add .
+git commit -m "Add dimmer effects integration with grid visualization"
+
 # Push changes
 git push origin refactorplustimeline
 ```
 
 ## 🆘 Troubleshooting
 
+**Q: Can't see sublane labels**
+A: Make sure you have at least one light block on the timeline
+
+**Q: Grid lines not visible**
+A: Grid lines are black dotted lines - they show up best on yellow dimmer blocks
+
+**Q: Ctrl+scroll not working**
+A: Make sure you've clicked on a dimmer block to select it first
+
+**Q: Intensity handle not dragging**
+A: Hover over the white horizontal line until cursor changes to ↕, then drag
+
 **Q: Can't see multiple blocks**
 A: Run test_sublane_blocks.py - Block 2 and Block 4 demonstrate this
 
-**Q: Drag-to-create not working**
-A: Make sure you're dragging in an empty area of a sublane row
-
 **Q: RED preview always shows**
-A: You're trying to overlap Movement or Special blocks (this is prevented by design)
+A: You're trying to overlap Movement or Special blocks (prevented by design)
 
 ## 📞 Getting Help
 
-1. Read `SESSION_SUMMARY.md` for context
-2. Check `.claude/docs/SUBLANE_IMPLEMENTATION_COMPLETE.md` for details
+1. Read `SESSION_SUMMARY.md` for detailed feature documentation
+2. Check `.claude/docs/SUBLANE_IMPLEMENTATION_COMPLETE.md` for implementation details
 3. Look at test files to see working examples
 4. Review `SUBLANE_FEATURE_PLAN.md` for overall design
 
 ---
 
-**Status:** Phase 5 complete, ready for Phase 6
-**Commit:** 169fc6b on branch `refactorplustimeline`
+**Status:** Phase 6.5 complete, ready for Phase 7
+**Branch:** `refactorplustimeline`
+**Last Commit:** Dimmer effects integration with interactive controls

@@ -697,6 +697,83 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
 
             function_id_counter += 1
 
+        # Process dimmer blocks for this lane
+        for block in lane.light_blocks:
+            for dimmer_block in block.dimmer_blocks:
+                # Get effect module
+                effect_module = effects.get("dimmers")
+                if not effect_module:
+                    continue
+
+                # Get effect function based on effect_type
+                effect_func_name = dimmer_block.effect_type
+                if not hasattr(effect_module, effect_func_name):
+                    print(f"Warning: Effect function '{effect_func_name}' not found in dimmers module")
+                    continue
+
+                effect_func = getattr(effect_module, effect_func_name)
+
+                # Convert start_time from seconds to milliseconds
+                dimmer_start_time_ms = int(dimmer_block.start_time * 1000)
+
+                # Create sequence for this dimmer block
+                sequence_name = f"{show.name}_{group_name}_dimmer_{dimmer_start_time_ms}"
+
+                # Find BPM and song part at dimmer block start
+                part_at_dimmer = song_structure.get_part_at_time(dimmer_block.start_time)
+                dimmer_bpm = part_at_dimmer.bpm if part_at_dimmer else 120
+
+                sequence = create_sequence(engine, function_id_counter, sequence_name,
+                                          scene.get("ID"), dimmer_bpm)
+
+                # Get fixture definition
+                first_fixture = config.groups[group_name].fixtures[0]
+                fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
+                fixture_def = fixture_definitions.get(fixture_key)
+
+                if fixture_def and first_fixture.current_mode and part_at_dimmer:
+                    # Calculate number of bars from dimmer block duration
+                    dimmer_duration = dimmer_block.end_time - dimmer_block.start_time
+                    numerator, denominator = map(int, part_at_dimmer.signature.split('/'))
+                    beats_per_bar = (numerator * 4) / denominator
+                    seconds_per_bar = beats_per_bar * (60.0 / dimmer_bpm)
+                    num_bars = max(1, int(dimmer_duration / seconds_per_bar))
+
+                    try:
+                        # Call the effect function with dimmer block parameters
+                        steps = effect_func(
+                            start_step=0,
+                            fixture_def=fixture_def,
+                            mode_name=first_fixture.current_mode,
+                            start_bpm=dimmer_bpm,
+                            end_bpm=dimmer_bpm,
+                            signature=part_at_dimmer.signature,
+                            transition="instant",
+                            num_bars=num_bars,
+                            speed=dimmer_block.effect_speed,
+                            color=None,
+                            fixture_conf=config.groups[group_name].fixtures,
+                            fixture_start_id=fixture_start_id,
+                            intensity=int(dimmer_block.intensity),
+                            spot=None,
+                        )
+                        add_steps_to_sequence(sequence, steps)
+                    except Exception as e:
+                        print(f"Error creating dimmer effect steps: {e}")
+                        import traceback
+                        traceback.print_exc()
+
+                # Create ShowFunction for this dimmer block
+                show_func = ET.SubElement(track, "ShowFunction")
+                show_func.set("ID", str(function_id_counter))
+                show_func.set("StartTime", str(dimmer_start_time_ms))
+
+                # Use color from song part for easy identification
+                color = part_at_dimmer.color if part_at_dimmer else '#808080'
+                show_func.set("Color", color)
+
+                function_id_counter += 1
+
         fixture_start_id += fixture_num
         track_id += 1
 
