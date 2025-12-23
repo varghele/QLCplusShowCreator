@@ -305,6 +305,58 @@ class TimelineWidget(QWidget):
             y = i * self.sublane_height
             painter.drawLine(0, int(y), width, int(y))
 
+    def draw_sublane_labels(self, painter, width, height):
+        """Draw sublane type labels on the left side of each row."""
+        if self.num_sublanes <= 1 or not self.capabilities:
+            return
+
+        from PyQt6.QtGui import QFont
+        from PyQt6.QtCore import QRect
+
+        # Get sublane types in order
+        sublane_types = []
+        if self.capabilities.has_dimmer:
+            sublane_types.append(("Dimmer", QColor(255, 200, 100)))
+        if self.capabilities.has_colour:
+            sublane_types.append(("Colour", QColor(100, 255, 150)))
+        if self.capabilities.has_movement:
+            sublane_types.append(("Movement", QColor(100, 150, 255)))
+        if self.capabilities.has_special:
+            sublane_types.append(("Special", QColor(200, 100, 255)))
+
+        # Set font for labels
+        font = QFont()
+        font.setPointSize(8)
+        font.setBold(True)
+        painter.setFont(font)
+
+        # Draw each label
+        for i, (label, color) in enumerate(sublane_types):
+            y_offset = i * self.sublane_height
+
+            # Calculate text size
+            metrics = painter.fontMetrics()
+            text_width = metrics.horizontalAdvance(label)
+            text_height = metrics.height()
+
+            # Position at left with padding
+            x_pos = 4
+            y_pos = y_offset + (self.sublane_height + text_height) // 2 - 3
+            padding = 3
+
+            # Draw semi-transparent colored background
+            bg_rect = QRect(x_pos - padding, y_offset + 2,
+                           text_width + 2 * padding, text_height + padding)
+            bg_color = QColor(color)
+            bg_color.setAlpha(100)
+            painter.setBrush(bg_color)
+            painter.setPen(QPen(color.darker(130), 1))
+            painter.drawRoundedRect(bg_rect, 2, 2)
+
+            # Draw text in dark color for contrast
+            painter.setPen(QPen(QColor(40, 40, 40)))
+            painter.drawText(x_pos, y_pos, label)
+
     def paintEvent(self, event):
         """Draw the timeline."""
         super().paintEvent(event)
@@ -323,6 +375,9 @@ class TimelineWidget(QWidget):
 
         # Draw sublane separators
         self.draw_sublane_separators(painter, width, height)
+
+        # Draw sublane labels
+        self.draw_sublane_labels(painter, width, height)
 
         # Draw playhead
         self.draw_playhead(painter, width, height)

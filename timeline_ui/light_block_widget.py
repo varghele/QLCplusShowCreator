@@ -277,6 +277,9 @@ class LightBlockWidget(QWidget):
             3, 3
         )
 
+        # Draw text label if block is wide enough
+        self._draw_sublane_block_label(painter, sublane_block, sublane_type, x_offset, y_offset, width, sublane_height, margin)
+
         # Draw resize handles if THIS SPECIFIC BLOCK is selected (CHANGED: check block reference)
         if is_selected:
             handle_color = QColor(255, 255, 255, 150)
@@ -289,6 +292,99 @@ class LightBlockWidget(QWidget):
             # Right handle
             painter.drawRect(int(x_offset + width - margin - 4), int(y_offset + margin),
                            4, int(sublane_height - 2 * margin))
+
+    def _draw_sublane_block_label(self, painter, sublane_block, sublane_type, x_offset, y_offset, width, sublane_height, margin):
+        """Draw text label on sublane block if wide enough."""
+        from PyQt6.QtGui import QFont
+        from PyQt6.QtCore import QRect
+
+        # Minimum width to show label (in pixels)
+        MIN_WIDTH_FOR_LABEL = 60
+
+        if width < MIN_WIDTH_FOR_LABEL:
+            return  # Block too narrow, skip label
+
+        # Sublane type labels
+        sublane_labels = {
+            "dimmer": "Dimmer",
+            "colour": "Colour",
+            "movement": "Movement",
+            "special": "Special"
+        }
+
+        # Get label text
+        label_text = sublane_labels.get(sublane_type, sublane_type.capitalize())
+
+        # Get additional info if block is wide enough
+        info_text = ""
+        if width >= 100:  # Wide enough for additional info
+            info_text = self._get_sublane_block_info(sublane_block, sublane_type)
+
+        # Combine label and info
+        if info_text:
+            full_text = f"{label_text}: {info_text}"
+        else:
+            full_text = label_text
+
+        # Set font
+        font = QFont()
+        font.setPointSize(7)
+        font.setBold(True)
+        painter.setFont(font)
+
+        # Calculate text size
+        metrics = painter.fontMetrics()
+        text_width = metrics.horizontalAdvance(full_text)
+        text_height = metrics.height()
+
+        # Check if text fits within block width
+        if text_width + 10 > width - 2 * margin:
+            # Text too wide, try just the label without info
+            full_text = label_text
+            text_width = metrics.horizontalAdvance(full_text)
+            if text_width + 10 > width - 2 * margin:
+                return  # Even just label doesn't fit, skip
+
+        # Calculate centered position
+        text_x = int(x_offset + (width - text_width) / 2)
+        text_y = int(y_offset + (sublane_height + text_height) / 2 - 2)
+
+        # Draw text with dark outline for better visibility
+        painter.setPen(QPen(QColor(40, 40, 40)))
+        painter.drawText(text_x, text_y, full_text)
+
+    def _get_sublane_block_info(self, sublane_block, sublane_type):
+        """Get short info text about sublane block content."""
+        try:
+            if sublane_type == "dimmer":
+                # Show intensity value
+                intensity = int(sublane_block.intensity)
+                return f"{intensity}"
+            elif sublane_type == "colour":
+                # Show color mode or RGB values
+                if hasattr(sublane_block, 'color_mode') and sublane_block.color_mode:
+                    return sublane_block.color_mode
+                return "RGB"
+            elif sublane_type == "movement":
+                # Show pan/tilt if available
+                if hasattr(sublane_block, 'pan') and hasattr(sublane_block, 'tilt'):
+                    pan = int(sublane_block.pan)
+                    tilt = int(sublane_block.tilt)
+                    return f"P{pan}/T{tilt}"
+                return "Move"
+            elif sublane_type == "special":
+                # Show if any special effects are active
+                active_effects = []
+                if hasattr(sublane_block, 'gobo') and sublane_block.gobo:
+                    active_effects.append("Gobo")
+                if hasattr(sublane_block, 'prism') and sublane_block.prism:
+                    active_effects.append("Prism")
+                if active_effects:
+                    return active_effects[0]  # Show first effect
+                return "FX"
+        except Exception:
+            pass
+        return ""
 
     def _draw_resize_handles(self, painter):
         """Draw resize handles on the envelope edges."""
