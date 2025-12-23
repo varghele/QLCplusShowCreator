@@ -48,12 +48,9 @@ class StageTab(BaseTab):
         dim_layout.addRow("Width (m):", self.stage_width)
         dim_layout.addRow("Depth (m):", self.stage_height)
 
-        # Update and save stage buttons
+        # Update stage button
         self.update_stage_btn = QtWidgets.QPushButton("Update Stage")
         dim_layout.addRow(self.update_stage_btn)
-
-        self.save_stage_btn = QtWidgets.QPushButton("Save Stage")
-        dim_layout.addRow(self.save_stage_btn)
 
         # Grid controls group
         grid_group = QtWidgets.QGroupBox("Grid Settings")
@@ -112,9 +109,10 @@ class StageTab(BaseTab):
 
     def connect_signals(self):
         """Connect widget signals to handlers"""
-        # Stage dimension controls
+        # Stage dimension controls - auto-update on change
+        self.stage_width.valueChanged.connect(self._update_stage)
+        self.stage_height.valueChanged.connect(self._update_stage)
         self.update_stage_btn.clicked.connect(self._update_stage)
-        self.save_stage_btn.clicked.connect(self.save_to_config)
 
         # Grid controls
         self.grid_toggle.stateChanged.connect(

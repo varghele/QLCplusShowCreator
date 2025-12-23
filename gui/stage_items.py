@@ -196,6 +196,12 @@ class FixtureItem(QGraphicsItem):
             self.rotation_angle = new_angle
 
         self.update()
+
+        # Auto-save to config after rotation/z-height change
+        view = self.scene().views()[0]
+        if hasattr(view, 'save_positions_to_config'):
+            view.save_positions_to_config()
+
         event.accept()
 
 
@@ -219,20 +225,18 @@ class SpotItem(QGraphicsItem):
             # Get current position in scene coordinates
             new_pos = event.scenePos()
 
-            # Calculate grid size in pixels
-            grid_size_pixels = view.grid_size_m * view.pixels_per_meter
-
-            # Snap to grid
-            x = round((new_pos.x() - view.padding) / grid_size_pixels) * grid_size_pixels + view.padding
-            y = round((new_pos.y() - view.padding) / grid_size_pixels) * grid_size_pixels + view.padding
-
-            # Set new position
-            self.setPos(x, y)
+            # Use view's snap_to_grid_position for center-based snapping
+            snapped_pos = view.snap_to_grid_position(new_pos)
+            self.setPos(snapped_pos)
         else:
             super().mouseMoveEvent(event)
 
         # Store new position
         self.last_pos = self.pos()
+
+        # Auto-save to config after move
+        if hasattr(view, 'save_positions_to_config'):
+            view.save_positions_to_config()
 
     def paint(self, painter, option, widget):
         if self.isSelected():
