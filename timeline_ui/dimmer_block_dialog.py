@@ -3,7 +3,7 @@
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                              QGroupBox, QSlider, QDoubleSpinBox, QSpinBox,
-                             QLabel, QDialogButtonBox, QCheckBox)
+                             QLabel, QDialogButtonBox, QCheckBox, QComboBox)
 from PyQt6.QtCore import Qt
 from config.models import DimmerBlock
 
@@ -63,6 +63,24 @@ class DimmerBlockDialog(QDialog):
 
         timing_group.setLayout(timing_layout)
         layout.addWidget(timing_group)
+
+        # Effect group
+        effect_group = QGroupBox("Effect")
+        effect_layout = QFormLayout()
+
+        # Effect type selector
+        self.effect_type_combo = QComboBox()
+        self.effect_type_combo.addItems(["static", "twinkle", "strobe", "ping_pong_smooth", "waterfall"])
+        effect_layout.addRow("Effect Type:", self.effect_type_combo)
+
+        # Effect speed selector
+        self.effect_speed_combo = QComboBox()
+        self.effect_speed_combo.addItems(["1/4", "1/2", "1", "2", "4"])
+        self.effect_speed_combo.setCurrentText("1")
+        effect_layout.addRow("Speed:", self.effect_speed_combo)
+
+        effect_group.setLayout(effect_layout)
+        layout.addWidget(effect_group)
 
         # Intensity group
         intensity_group = QGroupBox("Intensity")
@@ -168,6 +186,10 @@ class DimmerBlockDialog(QDialog):
         duration = self.block.end_time - self.block.start_time
         self.duration_label.setText(f"{duration:.2f}s")
 
+        # Effect
+        self.effect_type_combo.setCurrentText(self.block.effect_type)
+        self.effect_speed_combo.setCurrentText(self.block.effect_speed)
+
         # Intensity
         self.intensity_slider.setValue(int(self.block.intensity))
 
@@ -184,13 +206,20 @@ class DimmerBlockDialog(QDialog):
 
     def accept(self):
         """Save parameters to block and close."""
+        # Effect parameters
+        self.block.effect_type = self.effect_type_combo.currentText()
+        self.block.effect_speed = self.effect_speed_combo.currentText()
+
+        # Intensity
         self.block.intensity = float(self.intensity_spinbox.value())
 
+        # Strobe
         if self.strobe_enabled.isChecked():
             self.block.strobe_speed = self.strobe_spinbox.value()
         else:
             self.block.strobe_speed = 0.0
 
+        # Iris
         self.block.iris = float(self.iris_spinbox.value())
 
         super().accept()

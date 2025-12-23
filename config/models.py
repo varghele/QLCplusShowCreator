@@ -83,6 +83,8 @@ class DimmerBlock:
     intensity: float = 255.0  # 0-255
     strobe_speed: float = 0.0  # 0 = no strobe, >0 = strobe speed
     iris: float = 255.0  # 0-255, if applicable
+    effect_type: str = "static"  # Effect type: "static", "twinkle", "strobe", etc.
+    effect_speed: str = "1"  # Speed multiplier: "1/4", "1/2", "1", "2", "4", etc.
 
     def to_dict(self) -> Dict:
         return {
@@ -90,7 +92,9 @@ class DimmerBlock:
             "end_time": self.end_time,
             "intensity": self.intensity,
             "strobe_speed": self.strobe_speed,
-            "iris": self.iris
+            "iris": self.iris,
+            "effect_type": self.effect_type,
+            "effect_speed": self.effect_speed
         }
 
     @classmethod
@@ -100,7 +104,9 @@ class DimmerBlock:
             end_time=data.get("end_time", 0.0),
             intensity=data.get("intensity", 255.0),
             strobe_speed=data.get("strobe_speed", 0.0),
-            iris=data.get("iris", 255.0)
+            iris=data.get("iris", 255.0),
+            effect_type=data.get("effect_type", "static"),
+            effect_speed=data.get("effect_speed", "1")
         )
 
 

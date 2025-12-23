@@ -61,6 +61,10 @@ class LightBlockWidget(QWidget):
         # Overlap feedback state
         self.overlap_detected = False  # True when current drag/resize would create overlap
 
+        # Intensity handle state (for dimmer blocks)
+        self.dragging_intensity_handle = None  # Which dimmer block's intensity handle is being dragged
+        self.drag_start_intensity = None  # Initial intensity value when drag started
+
         self.setMinimumHeight(30)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setMouseTracking(True)  # Enable mouse tracking for cursor updates on hover
@@ -277,6 +281,11 @@ class LightBlockWidget(QWidget):
             3, 3
         )
 
+        # Draw grid and intensity handle for dimmer blocks
+        if sublane_type == "dimmer":
+            self._draw_dimmer_block_grid(painter, sublane_block, x_offset, y_offset, width, sublane_height, margin)
+            self._draw_intensity_handle(painter, sublane_block, x_offset, y_offset, width, sublane_height, margin)
+
         # Draw text label if block is wide enough
         self._draw_sublane_block_label(painter, sublane_block, sublane_type, x_offset, y_offset, width, sublane_height, margin)
 
@@ -353,13 +362,144 @@ class LightBlockWidget(QWidget):
         painter.setPen(QPen(QColor(40, 40, 40)))
         painter.drawText(text_x, text_y, full_text)
 
+    def _draw_intensity_handle(self, painter, sublane_block, x_offset, y_offset, width, sublane_height, margin):
+        """Draw intensity handle and darkened area above it for dimmer blocks."""
+        try:
+            # Get intensity (0-255)
+            intensity = getattr(sublane_block, 'intensity', 255.0)
+
+            # Calculate handle Y position (top=255, bottom=0)
+            # Invert: higher intensity = higher position (toward top)
+            usable_height = sublane_height - 2 * margin
+            intensity_ratio = intensity / 255.0
+            handle_y_offset = y_offset + margin + (usable_height * (1.0 - intensity_ratio))
+
+            # Draw darkened overlay above the handle
+            if intensity < 255:
+                dark_overlay = QColor(0, 0, 0, 100)
+                painter.setBrush(QBrush(dark_overlay))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.drawRect(
+                    int(x_offset + margin),
+                    int(y_offset + margin),
+                    int(width - 2 * margin),
+                    int(handle_y_offset - (y_offset + margin))
+                )
+
+            # Draw intensity handle line
+            handle_pen = QPen(QColor(255, 255, 255, 200), 2)
+            painter.setPen(handle_pen)
+            painter.drawLine(
+                int(x_offset + margin),
+                int(handle_y_offset),
+                int(x_offset + width - margin),
+                int(handle_y_offset)
+            )
+
+            # Draw intensity label if dragging this handle
+            if hasattr(self, 'dragging_intensity_handle') and self.dragging_intensity_handle is sublane_block:
+                from PyQt6.QtGui import QFont
+                from PyQt6.QtCore import QRect
+
+                # Draw intensity value label
+                font = QFont()
+                font.setPointSize(8)
+                font.setBold(True)
+                painter.setFont(font)
+
+                intensity_text = f"{int(intensity)}"
+                metrics = painter.fontMetrics()
+                text_width = metrics.horizontalAdvance(intensity_text)
+                text_height = metrics.height()
+
+                # Position label near the handle
+                label_x = int(x_offset + width / 2 - text_width / 2)
+                label_y = int(handle_y_offset - 5)
+
+                # Draw background
+                bg_rect = QRect(label_x - 3, label_y - text_height, text_width + 6, text_height + 3)
+                painter.setBrush(QBrush(QColor(40, 40, 40, 200)))
+                painter.setPen(QPen(QColor(255, 255, 255), 1))
+                painter.drawRoundedRect(bg_rect, 2, 2)
+
+                # Draw text
+                painter.setPen(QPen(QColor(255, 255, 255)))
+                painter.drawText(label_x, label_y, intensity_text)
+
+        except Exception as e:
+            # Silently fail if handle cannot be drawn
+            pass
+
+    def _draw_dimmer_block_grid(self, painter, sublane_block, x_offset, y_offset, width, sublane_height, margin):
+        """Draw beat grid lines inside dimmer block based on speed setting."""
+        try:
+            # Get speed setting
+            effect_speed = getattr(sublane_block, 'effect_speed', '1')
+
+            # Convert speed to multiplier
+            if '/' in effect_speed:
+                num, denom = map(int, effect_speed.split('/'))
+                speed_multiplier = num / denom
+            else:
+                speed_multiplier = float(effect_speed)
+
+            # Get BPM at block start time
+            if hasattr(self.timeline_widget, 'song_structure') and self.timeline_widget.song_structure:
+                part_at_block = self.timeline_widget.song_structure.get_part_at_time(sublane_block.start_time)
+                if part_at_block:
+                    bpm = part_at_block.bpm
+                    # Parse time signature
+                    numerator, denominator = map(int, part_at_block.signature.split('/'))
+                    beats_per_bar = (numerator * 4) / denominator
+                else:
+                    bpm = 120
+                    beats_per_bar = 4.0
+            else:
+                bpm = 120
+                beats_per_bar = 4.0
+
+            # Calculate time per step (in seconds)
+            seconds_per_beat = 60.0 / bpm
+            seconds_per_step = seconds_per_beat / speed_multiplier
+
+            # Calculate block duration
+            block_duration = sublane_block.end_time - sublane_block.start_time
+
+            # Calculate number of steps
+            num_steps = int(block_duration / seconds_per_step)
+
+            # Draw grid lines (black for better visibility on yellow dimmer blocks)
+            grid_pen = QPen(QColor(0, 0, 0, 120), 1, Qt.PenStyle.DotLine)
+            painter.setPen(grid_pen)
+
+            for step in range(1, num_steps):  # Skip first (start) and last (end)
+                step_time = sublane_block.start_time + (step * seconds_per_step)
+                step_pixel = self.timeline_widget.time_to_pixel(step_time)
+                envelope_start_pixel = self.timeline_widget.time_to_pixel(self.block.start_time)
+
+                x = step_pixel - envelope_start_pixel
+
+                # Draw vertical line
+                painter.drawLine(
+                    int(x),
+                    int(y_offset + margin),
+                    int(x),
+                    int(y_offset + sublane_height - margin)
+                )
+        except Exception as e:
+            # Silently fail if grid cannot be drawn
+            pass
+
     def _get_sublane_block_info(self, sublane_block, sublane_type):
         """Get short info text about sublane block content."""
         try:
             if sublane_type == "dimmer":
-                # Show intensity value
+                # Show effect type and intensity
                 intensity = int(sublane_block.intensity)
-                return f"{intensity}"
+                effect_type = getattr(sublane_block, 'effect_type', 'static')
+                # Capitalize first letter of effect type
+                effect_display = effect_type.capitalize()
+                return f"{effect_display} ({intensity})"
             elif sublane_type == "colour":
                 # Show color mode or RGB values
                 if hasattr(sublane_block, 'color_mode') and sublane_block.color_mode:
@@ -541,6 +681,53 @@ class LightBlockWidget(QWidget):
 
         return (None, None)
 
+    def _is_on_intensity_handle(self, pos, sublane_type, sublane_block):
+        """Check if position is on the intensity handle of a dimmer block.
+
+        Args:
+            pos: QPoint position relative to widget
+            sublane_type: Type of sublane
+            sublane_block: The sublane block object
+
+        Returns:
+            True if on intensity handle, False otherwise
+        """
+        if sublane_type != "dimmer":
+            return False
+
+        try:
+            sublane_height = self.lane_widget.sublane_height
+            margin = 2
+
+            # Get sublane row index
+            sublane_index = self.lane_widget.get_sublane_index(sublane_type)
+            y_offset = sublane_index * sublane_height
+
+            # Calculate handle Y position
+            intensity = getattr(sublane_block, 'intensity', 255.0)
+            usable_height = sublane_height - 2 * margin
+            intensity_ratio = intensity / 255.0
+            handle_y_offset = y_offset + margin + (usable_height * (1.0 - intensity_ratio))
+
+            # Check if Y position is near the handle (within 8 pixels)
+            handle_tolerance = 8
+            if abs(pos.y() - handle_y_offset) <= handle_tolerance:
+                # Also check X position is within block bounds
+                block_start_pixel = self.timeline_widget.time_to_pixel(sublane_block.start_time)
+                block_end_pixel = self.timeline_widget.time_to_pixel(sublane_block.end_time)
+                envelope_start_pixel = self.timeline_widget.time_to_pixel(self.block.start_time)
+
+                x_min = block_start_pixel - envelope_start_pixel
+                x_max = block_end_pixel - envelope_start_pixel
+
+                if x_min <= pos.x() <= x_max:
+                    return True
+
+        except Exception:
+            pass
+
+        return False
+
     def _is_on_sublane_block_edge(self, pos, sublane_type, sublane_block):
         """Check if position is on the left or right edge of a sublane block.
 
@@ -614,12 +801,16 @@ class LightBlockWidget(QWidget):
                 self.drag_start_sublane_start = sublane_block.start_time
                 self.drag_start_sublane_end = sublane_block.end_time
 
+                # Check if clicking on intensity handle (for dimmer blocks)
+                if self._is_on_intensity_handle(pos, sublane_type, sublane_block):
+                    # Start dragging intensity handle
+                    self.dragging_intensity_handle = sublane_block
+                    self.drag_start_intensity = sublane_block.intensity
                 # Check if clicking on edge for resizing
-                edge = self._is_on_sublane_block_edge(pos, sublane_type, sublane_block)
-
-                if edge:
+                elif self._is_on_sublane_block_edge(pos, sublane_type, sublane_block):
                     # Start resizing sublane block (CHANGED: store block reference)
                     self.resizing_sublane = sublane_block
+                    edge = self._is_on_sublane_block_edge(pos, sublane_type, sublane_block)
                     self.resizing_sublane_edge = edge
                 else:
                     # Clicked on sublane block body - enable dragging (CHANGED: store block reference)
@@ -663,13 +854,19 @@ class LightBlockWidget(QWidget):
 
     def mouseMoveEvent(self, event: QMouseEvent):
         """Handle mouse move for dragging/resizing."""
-        if not (self.dragging or self.resizing_left or self.resizing_right or self.resizing_sublane or self.dragging_sublane or self.creating_sublane):
+        if not (self.dragging or self.resizing_left or self.resizing_right or self.resizing_sublane or self.dragging_sublane or self.creating_sublane or self.dragging_intensity_handle):
             # Update cursor based on position
             pos = event.pos()
 
-            # Check if hovering over a sublane block edge
+            # Check if hovering over a sublane block
             sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
             if sublane_block:
+                # Check if hovering over intensity handle
+                if self._is_on_intensity_handle(pos, sublane_type, sublane_block):
+                    # On intensity handle - show vertical resize cursor
+                    self.setCursor(Qt.CursorShape.SizeVerCursor)
+                    return
+                # Check if hovering over edge
                 edge = self._is_on_sublane_block_edge(pos, sublane_type, sublane_block)
                 if edge:
                     # On sublane edge - show resize cursor
@@ -810,6 +1007,43 @@ class LightBlockWidget(QWidget):
                 self.overlap_detected = False
 
             self.update()  # Redraw to show preview
+
+        elif self.dragging_intensity_handle:
+            # Drag intensity handle vertically
+            pos = event.pos()
+
+            # Get sublane info
+            sublane_type = "dimmer"  # Intensity handle only for dimmer blocks
+            sublane_height = self.lane_widget.sublane_height
+            margin = 2
+
+            # Get sublane row index
+            sublane_index = self.lane_widget.get_sublane_index(sublane_type)
+            y_offset = sublane_index * sublane_height
+
+            # Calculate new intensity from Y position
+            usable_height = sublane_height - 2 * margin
+            # Y position relative to sublane top
+            y_in_sublane = pos.y() - (y_offset + margin)
+
+            # Clamp to usable height
+            y_in_sublane = max(0, min(y_in_sublane, usable_height))
+
+            # Convert to intensity (inverted: top=255, bottom=0)
+            intensity_ratio = 1.0 - (y_in_sublane / usable_height)
+            new_intensity = intensity_ratio * 255.0
+
+            # Clamp intensity
+            new_intensity = max(0.0, min(255.0, new_intensity))
+
+            # Update intensity
+            self.dragging_intensity_handle.intensity = new_intensity
+
+            # Mark block as modified
+            self.block.modified = True
+
+            # Redraw to update handle position and label
+            self.update()
 
     def _get_sublane_block_by_type(self, sublane_type):
         """Get sublane block object by type."""
@@ -958,6 +1192,7 @@ class LightBlockWidget(QWidget):
             self.resizing_sublane = None
             self.resizing_sublane_edge = None
             self.dragging_sublane = None
+            self.dragging_intensity_handle = None
             # Note: We keep self.selected_sublane_block so the selection persists after release
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
@@ -1142,6 +1377,50 @@ class LightBlockWidget(QWidget):
         """Copy this effect to the clipboard."""
         from .effect_clipboard import copy_effect
         copy_effect(self.block)
+
+    def wheelEvent(self, event):
+        """Handle mouse wheel for speed adjustment (Ctrl+wheel) on dimmer blocks."""
+        from PyQt6.QtCore import Qt
+
+        # Check if Ctrl is pressed and a dimmer block is selected
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            if self.selected_sublane_type == "dimmer" and self.selected_sublane_block:
+                # Speed options in order
+                speed_options = ["1/4", "1/2", "1", "2", "4"]
+
+                # Get current speed
+                current_speed = getattr(self.selected_sublane_block, 'effect_speed', '1')
+
+                # Find current index
+                try:
+                    current_index = speed_options.index(current_speed)
+                except ValueError:
+                    current_index = 2  # Default to "1"
+
+                # Determine direction (up = faster, down = slower)
+                delta = event.angleDelta().y()
+                if delta > 0:
+                    # Scroll up - increase speed
+                    new_index = min(current_index + 1, len(speed_options) - 1)
+                else:
+                    # Scroll down - decrease speed
+                    new_index = max(current_index - 1, 0)
+
+                # Update speed
+                self.selected_sublane_block.effect_speed = speed_options[new_index]
+
+                # Mark block as modified
+                self.block.modified = True
+
+                # Repaint to update grid
+                self.update()
+
+                # Accept event to prevent propagation
+                event.accept()
+                return
+
+        # If not handled, pass to parent
+        super().wheelEvent(event)
 
     def keyPressEvent(self, event):
         """Handle key press for deletion."""

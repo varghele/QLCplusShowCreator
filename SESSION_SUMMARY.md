@@ -1,197 +1,291 @@
-# Development Session Summary - December 23, 2024 (Updated)
+# Development Session Summary - December 23, 2024
 
 ## What Was Accomplished
 
-This session focused on **UI cleanup and bug fixes** - removing manual update buttons and making the application auto-save changes, plus fixing the workspace import.
+This session focused on **sublane UI improvements** and **dimmer effect integration** - adding visual labels, grid visualization, interactive controls, and full effect support for dimmer sublanes.
 
 ### Core Achievements
 
-1. **Auto-save Fixtures Tab** - Removed "Update Fixtures" button, changes now auto-save
-2. **Auto-save Stage Tab** - Removed "Save Stage" button, changes now auto-save (kept "Update Stage" for now)
-3. **Auto-save Configuration Tab** - Changes now auto-save (kept "Update Config" button)
-4. **Group typing fix** - Typing a group name directly now works same as "Add New..."
-5. **Stage coordinate system** - (0,0) now at center with dimension labels
-6. **Workspace import fix** - Fixtures now show correct channel counts
+1. **Sublane Labels** - Added visible labels for sublane rows and blocks
+2. **Dimmer Effects Integration** - Full effect support (static, twinkle, strobe, etc.)
+3. **Grid Visualization** - Visual beat divisions inside dimmer blocks
+4. **Speed Control** - Ctrl+mousewheel to adjust effect speed
+5. **Intensity Handle** - Visual draggable handle for intensity control
+6. **Export Support** - Dimmer blocks generate QLC+ sequences
+
+---
+
+## New Features
+
+### 1. Sublane Labels
+
+**Timeline Row Labels** (`timeline_widget.py:308-358`)
+- Labels on left side of each sublane row
+- Color-coded backgrounds matching sublane types:
+  - Dimmer (yellow)
+  - Colour (green)
+  - Movement (blue)
+  - Special (purple)
+
+**Block Labels** (`light_block_widget.py:356-390`)
+- Blocks now show: `"Dimmer: Twinkle (255)"`
+- Format: `<Type>: <Effect> (<Intensity>)`
+- Updates automatically when parameters change
+- Only shows when block is wide enough
+
+### 2. Dimmer Effects Integration
+
+**Data Model** (`config/models.py:78-110`)
+- Added `effect_type` field (static, twinkle, strobe, ping_pong_smooth, waterfall)
+- Added `effect_speed` field (1/4, 1/2, 1, 2, 4)
+- Full serialization support
+
+**Edit Dialog** (`dimmer_block_dialog.py:67-83`)
+- Effect Type dropdown
+- Speed dropdown
+- Loads/saves effect parameters
+
+**Export Support** (`shows_to_xml.py:700-775`)
+- Each dimmer block generates its own QLC+ sequence
+- Calls appropriate effect function from `effects/dimmers.py`
+- Uses song part color for easy identification
+- Timing aligned to musical grid (BPM/time signature)
+
+### 3. Grid Visualization
+
+**Beat Division Lines** (`light_block_widget.py:429-467`)
+- Black dotted vertical lines inside dimmer blocks
+- Shows where effect steps occur
+- Based on:
+  - Effect speed setting (1/4, 1/2, 1, 2, 4)
+  - Current BPM at block position
+  - Time signature from song structure
+- Example: Speed "1" = quarter notes, Speed "2" = eighth notes
+
+### 4. Speed Adjustment
+
+**Ctrl+Mousewheel** (`light_block_widget.py:1279-1321`)
+- Select dimmer block → Ctrl+Scroll Up/Down
+- Cycles through speeds: 1/4 → 1/2 → 1 → 2 → 4
+- Grid updates in real-time
+- Block label updates immediately
+
+### 5. Intensity Handle
+
+**Visual Handle** (`light_block_widget.py:361-427`)
+- White horizontal line inside dimmer block
+- Position represents intensity (top=255, bottom=0)
+- Area above handle is darkened (black overlay)
+
+**Dragging** (`light_block_widget.py:684-729, 804-817, 1011-1046`)
+- Click and drag handle vertically
+- Shows live intensity value label
+- Cursor changes to vertical resize icon
+- Updates block text after release
+
+**Interaction Priorities:**
+- Horizontal drag = move in time
+- Edge drag = resize (adds/removes beats)
+- Intensity handle drag = adjust intensity
 
 ---
 
 ## Files Modified
 
-### `gui/tabs/fixtures_tab.py`
-
-| Change | Description |
-|--------|-------------|
-| Removed "Update Fixtures" button | Lines 75-79 deleted |
-| Removed button signal | Line 139 deleted |
-| Connected spinboxes to auto-save | Universe/Address spinboxes trigger `save_to_config` |
-| Connected direction combo to auto-save | Direction changes trigger `save_to_config` |
-| Added parent notifications | Mode/group changes notify MainWindow |
-| Fixed parent reference | Changed `self.parent()` to `self.window()` (6 locations) |
-| Added `_add_group_to_all_combos()` | New helper method to sync group names across comboboxes |
-| Updated group handler | Typing new group names now adds to all comboboxes |
-
-### `gui/tabs/stage_tab.py`
-
-| Change | Description |
-|--------|-------------|
-| Removed "Save Stage" button | Button deleted from UI |
-| Kept "Update Stage" button | Still available for manual refresh |
-| Connected dimension spinboxes | Width/depth changes auto-update stage view |
-
-### `gui/tabs/configuration_tab.py`
-
-| Change | Description |
-|--------|-------------|
-| Updated `_on_universe_item_changed` | Now saves IP/Port/Subnet/Universe changes immediately |
-| Added `_on_device_changed` method | DMX device combo changes auto-save |
-| Connected device combo | DMX device selection triggers auto-save |
-
-### `gui/StageView.py`
-
-| Change | Description |
-|--------|-------------|
-| Increased padding | 10 → 40 pixels for dimension labels |
-| Added `meters_to_pixels()` | Convert center-based meters to pixels |
-| Added `pixels_to_meters()` | Convert pixels to center-based meters |
-| Updated all position conversions | Fixture/spot loading, saving, snapping |
-| Added center lines | Darker X/Y axes through (0,0) |
-| Added `_draw_dimension_labels()` | Labels at edges showing meter values |
-
-### `gui/stage_items.py`
-
-| Change | Description |
-|--------|-------------|
-| Updated `FixtureItem.wheelEvent` | Added auto-save after rotation/z-height change |
-| Updated `SpotItem.mouseMoveEvent` | Uses `snap_to_grid_position()` and auto-saves |
-
 ### `config/models.py`
+| Line Range | Change |
+|------------|--------|
+| 78-110 | Added `effect_type` and `effect_speed` fields to DimmerBlock |
+| 89-98 | Updated `to_dict()` to include new fields |
+| 100-110 | Updated `from_dict()` to load new fields |
 
-| Change | Description |
-|--------|-------------|
-| Fixed `_parse_workspace` | Now reads `<Channels>` element from workspace |
-| Added fallback mode creation | Creates mode from workspace data if fixture def not found |
-| Fixed `from_workspace` | Merged duplicate loops, each fixture gets its own modes |
+### `timeline_ui/dimmer_block_dialog.py`
+| Line Range | Change |
+|------------|--------|
+| 4-6 | Added QComboBox import |
+| 67-83 | Added Effect group with type and speed selectors |
+| 189-191 | Load effect parameters from block |
+| 209-211 | Save effect parameters to block |
 
----
+### `timeline_ui/timeline_widget.py`
+| Line Range | Change |
+|------------|--------|
+| 308-358 | Added `draw_sublane_labels()` method |
+| 380 | Call sublane labels in paintEvent |
 
-## Bug Fixes
+### `timeline_ui/light_block_widget.py`
+| Line Range | Change |
+|------------|--------|
+| 280-283 | Draw grid and intensity handle for dimmer blocks |
+| 361-427 | Added `_draw_intensity_handle()` method |
+| 429-467 | Added `_draw_dimmer_block_grid()` method |
+| 420-427 | Display effect type in block info |
+| 684-729 | Added `_is_on_intensity_handle()` detection |
+| 804-817 | Handle intensity handle clicks in mousePressEvent |
+| 857-882 | Update cursor for intensity handle hover |
+| 1011-1046 | Handle intensity dragging in mouseMoveEvent |
+| 1195 | Clear intensity handle state in mouseReleaseEvent |
+| 1279-1321 | Added wheelEvent for Ctrl+scroll speed adjustment |
 
-### 1. Fixtures Not Auto-Saving
-**Problem:** Had to click "Update Fixtures" to save changes
-
-**Fix:** Connected all editable widgets to auto-save:
-- Spinboxes (universe, address)
-- Comboboxes (mode, group, direction)
-- Add/remove/duplicate operations
-
-### 2. Stage Not Auto-Saving
-**Problem:** Had to click "Save Stage" to save positions
-
-**Fix:**
-- Fixture drag already auto-saved (existing)
-- Added auto-save to rotation/z-height changes (wheelEvent)
-- Added auto-save to spot movements
-- Connected dimension spinboxes to auto-update
-
-### 3. Configuration Not Auto-Saving
-**Problem:** Had to click "Update Config" to save changes
-
-**Fix:** Connected all editable widgets:
-- Table item changes (IP, port, subnet, universe)
-- DMX device combo changes
-- Protocol and multicast already worked
-
-### 4. Parent Reference Bug
-**Problem:** `on_groups_changed()` never called - fixtures not appearing on stage
-
-**Root Cause:** When tab is added to layout, `self.parent()` returns container widget, not MainWindow
-
-**Fix:** Changed to `self.window()` which returns top-level window (MainWindow)
-
-### 5. Group Typing Not Recognized
-**Problem:** Typing group name directly didn't add to other comboboxes
-
-**Fix:** Added `_add_group_to_all_combos()` method, called when new group name typed
-
-### 6. Stage Coordinate System
-**Problem:** Hard to position fixtures - had to count grid squares
-
-**Fix:**
-- Changed coordinate system: (0,0) at center of stage
-- Added dimension labels at edges (e.g., -5, -4, ..., 0, ..., 4, 5 for 10m stage)
-- Added darker center lines for visual reference
-
-### 7. Workspace Import Wrong Channels
-**Problem:** All fixtures showed 6 channels regardless of actual count
-
-**Root Cause:**
-1. `_parse_workspace` didn't read `<Channels>` element
-2. Bug in `from_workspace` - two loops, second used last fixture's modes for all
-
-**Fix:**
-- Read `<Channels>` element from workspace
-- Create fallback mode if fixture definition not found
-- Merged loops so each fixture gets its own modes
+### `utils/to_xml/shows_to_xml.py`
+| Line Range | Change |
+|------------|--------|
+| 700-775 | Process dimmer blocks for export |
+| 703-714 | Get effect function by type |
+| 715-727 | Create sequence for each dimmer block |
+| 729-740 | Calculate bars from dimmer duration |
+| 742-764 | Call effect function with parameters |
+| 766-775 | Create ShowFunction with song part color |
 
 ---
 
-## New Coordinate System
+## Usage Guide
 
-### Before
-- (0,0) at top-left corner of stage
-- All coordinates positive
-- No visual reference for positions
+### Creating Dimmer Effects
 
-### After
-- (0,0) at **center** of stage
-- Negative X = left, Positive X = right
-- Negative Y = front (audience), Positive Y = back
-- Dimension labels at edges showing meters
-- Darker center lines for X and Y axes
+1. **Add a light block** to the timeline
+2. **Drag to create** a dimmer block in the dimmer sublane
+3. **Double-click** the dimmer block to open editor
+4. **Select effect type**: static, twinkle, strobe, etc.
+5. **Choose speed**: 1/4, 1/2, 1, 2, 4
+6. **Set intensity**: Use slider or drag handle
 
-**Example for 10m × 6m stage:**
-- X range: -5 to +5
-- Y range: -3 to +3
-- Labels every 1m (or 0.5m for small stages)
+### Interactive Controls
+
+**Speed Adjustment:**
+- Select dimmer block
+- Ctrl+Scroll Up = faster (1/4 → 1/2 → 1 → 2 → 4)
+- Ctrl+Scroll Down = slower
+- Grid updates automatically
+
+**Intensity Adjustment:**
+- Hover over white horizontal line
+- Cursor changes to ↕
+- Click and drag vertically
+- Live value shown while dragging
+- Top = 255, Bottom = 0
+
+**Grid Visualization:**
+- Automatically shows beat divisions
+- Based on current speed setting
+- Updates when speed changes
+- Black dotted lines for visibility
+
+### Export to QLC+
+
+1. Each dimmer block creates a separate sequence
+2. Sequence color matches song part
+3. Effect steps align to musical grid
+4. Timing based on BPM and time signature
 
 ---
 
-## Auto-Save Summary
+## Technical Details
 
-| Component | What Auto-Saves | Manual Button |
-|-----------|-----------------|---------------|
-| Fixtures Tab | All changes | Removed |
-| Stage Tab | Position, rotation, z-height | "Update Stage" kept |
-| Configuration Tab | All universe settings | "Update Config" kept |
+### Effect Function Calls
+
+Dimmer effects are called from `effects/dimmers.py`:
+```python
+effect_func(
+    start_step=0,
+    fixture_def=fixture_def,
+    mode_name=mode_name,
+    start_bpm=bpm,
+    end_bpm=bpm,
+    signature=time_signature,
+    transition="instant",
+    num_bars=calculated_bars,
+    speed=dimmer_block.effect_speed,
+    color=None,
+    fixture_conf=fixtures,
+    fixture_start_id=fixture_start_id,
+    intensity=int(dimmer_block.intensity),
+    spot=None
+)
+```
+
+### Grid Calculation
+
+```python
+# Convert speed to multiplier
+speed_multiplier = parse_speed(effect_speed)  # e.g., "1/2" → 0.5
+
+# Calculate time per step
+seconds_per_beat = 60.0 / bpm
+seconds_per_step = seconds_per_beat / speed_multiplier
+
+# Draw grid lines at each step
+for step in range(1, num_steps):
+    step_time = start_time + (step * seconds_per_step)
+    # Draw vertical line at step_time
+```
+
+### Intensity Mapping
+
+```python
+# Y position to intensity (inverted)
+usable_height = sublane_height - 2 * margin
+y_in_sublane = mouse_y - (sublane_top + margin)
+intensity_ratio = 1.0 - (y_in_sublane / usable_height)
+intensity = intensity_ratio * 255.0  # Top=255, Bottom=0
+```
 
 ---
 
 ## Testing Checklist
 
-### Fixtures Tab
-- [x] Add fixture → appears on Stage tab
-- [x] Remove fixture → removed from Stage tab
-- [x] Change universe/address → saved immediately
-- [x] Change mode → saved immediately
-- [x] Change group → saved immediately, appears in all comboboxes
-- [x] Type new group name → recognized as new group
+### Sublane Labels
+- [x] Timeline row labels visible
+- [x] Labels color-coded correctly
+- [x] Block labels show effect type
+- [x] Block labels show intensity
+- [x] Labels hide when block too narrow
 
-### Stage Tab
-- [x] Change dimensions → stage updates
-- [x] Drag fixture → position saved
-- [x] Rotate fixture (scroll) → saved
-- [x] Change z-height (Shift+scroll) → saved
-- [x] Dimension labels visible
-- [x] Center lines visible
+### Dimmer Effects
+- [x] Effect type dropdown works
+- [x] Speed dropdown works
+- [x] Effects save/load correctly
+- [x] Export generates sequences
+- [x] Sequences use correct effect function
+- [x] Timing aligns to grid
 
-### Configuration Tab
-- [x] Change IP address → saved
-- [x] Change port → saved
-- [x] Change protocol → saved
-- [x] Select DMX device → saved
+### Grid Visualization
+- [x] Grid lines visible (black dotted)
+- [x] Grid updates with speed changes
+- [x] Grid aligns to beats correctly
+- [x] Grid respects BPM changes
 
-### Workspace Import
-- [x] Import workspace → correct channel counts
+### Speed Control
+- [x] Ctrl+Scroll Up increases speed
+- [x] Ctrl+Scroll Down decreases speed
+- [x] Grid updates immediately
+- [x] Label updates immediately
+
+### Intensity Handle
+- [x] Handle visible (white line)
+- [x] Area above darkened
+- [x] Cursor changes on hover
+- [x] Dragging updates intensity
+- [x] Label shows while dragging
+- [x] Block text updates after drag
+
+---
+
+## Known Limitations
+
+1. **Effect functions**: Only dimmer effects integrated (colour/movement/special pending)
+2. **Resize behavior**: Resizing adds/removes steps but doesn't show preview yet
+3. **Undo/Redo**: Not implemented for new features
+
+---
+
+## Next Steps
+
+1. **Test dimmer effects** in QLC+ with exported workspace
+2. **Add colour effects** using same pattern
+3. **Add movement effects** with position/speed parameters
+4. **Add special effects** for gobo/prism/etc.
+5. **Implement undo/redo** for intensity/speed changes
 
 ---
 
@@ -207,25 +301,17 @@ This session focused on **UI cleanup and bug fixes** - removing manual update bu
 | Phase 4 | Complete | UI Timeline Rendering |
 | Phase 5 | Complete | UI Interaction (drag, resize, move) |
 | Phase 6 | Complete | Effect Edit Dialogs |
+| **Phase 6.5** | **Complete** | **Dimmer Effects Integration** |
 
 ### Pending Phases
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Phase 7 | Pending | DMX Generation |
+| Phase 7 | Pending | Full DMX Generation (all effect types) |
 | Phase 8 | Pending | Testing & Refinement |
 
 ---
 
-## Next Steps
-
-1. **Test all auto-save functionality** thoroughly
-2. **Phase 7: DMX Generation** - Update playback engine for sublane format
-3. **Undo/Redo** - History management for operations
-4. **Remove remaining manual update buttons** if auto-save proves reliable
-
----
-
 **Session Date:** December 23, 2024
-**Focus:** UI cleanup, auto-save, bug fixes
+**Focus:** Sublane labels, dimmer effects, grid visualization, interactive controls
 **Completed By:** Claude Code + User
