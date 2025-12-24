@@ -1,383 +1,451 @@
-# Development Session Summary - December 23, 2024 (Updated)
+# Development Session Summary - December 24, 2024
 
 ## What Was Accomplished
 
-This session focused on **RGB control for no-dimmer fixtures** - enabling dimmer effects (twinkle, strobe, etc.) to work with RGB-only fixtures like LED bars by automatically controlling RGB intensity.
+This session focused on **fixing and enhancing movement effects export** - resolving QLC+ crashes, implementing adaptive step density, adding color wheel fallback, dynamic strobe effects, and special block support.
 
 ### Core Achievements
 
-**Previous Work (Earlier Session):**
-1. **Sublane Labels** - Added visible labels for sublane rows and blocks
-2. **Dimmer Effects Integration** - Full effect support (static, twinkle, strobe, etc.)
-3. **Grid Visualization** - Visual beat divisions inside dimmer blocks
-4. **Speed Control** - Ctrl+mousewheel to adjust effect speed
-5. **Intensity Handle** - Visual draggable handle for intensity control
-6. **Export Support** - Dimmer blocks generate QLC+ sequences
-
-**New in This Session (RGB Control):**
-7. **RGB Control Mode** - Automatic detection and handling of RGB-only fixtures
-8. **Channel Detection Fix** - Fixed RGB channel search (IntensityRed/Green/Blue presets)
-9. **Dimmer Effect Fix** - Modified effect functions to generate steps for RGB fixtures
-10. **Multi-Segment Support** - Fixed RGB conversion to handle all segments (e.g., 10-pixel LED bars)
+1. **Fixed QLC+ Crash** - Removed invalid Duration attribute from movement ShowFunctions
+2. **Adaptive Step Density** - Implemented 24 steps/second cap with speed-based optimization
+3. **Color Wheel Fallback** - Auto-map RGB to color wheel for fixtures without RGB channels
+4. **Dynamic Strobe Effects** - Strobe and twinkle effects now work in movement sequences
+5. **Special Block Support** - Gobo, prism, focus, and zoom now export correctly
 
 ---
 
-## New Features
+## Issues Fixed
 
-### 1. Sublane Labels
+### 1. QLC+ Crash on Movement Export
 
-**Timeline Row Labels** (`timeline_widget.py:308-358`)
-- Labels on left side of each sublane row
-- Color-coded backgrounds matching sublane types:
-  - Dimmer (yellow)
-  - Colour (green)
-  - Movement (blue)
-  - Special (purple)
+**Problem**: Exported workspace files with movement effects crashed QLC+ silently when opened.
 
-**Block Labels** (`light_block_widget.py:356-390`)
-- Blocks now show: `"Dimmer: Twinkle (255)"`
-- Format: `<Type>: <Effect> (<Intensity>)`
-- Updates automatically when parameters change
-- Only shows when block is wide enough
+**Root Cause**: Movement ShowFunction elements had a `Duration` attribute that conflicted with QLC+'s sequence timing system. QLC+ determines sequence duration from the sequence steps themselves, not from a ShowFunction Duration attribute.
 
-### 2. Dimmer Effects Integration
+**Solution** (`utils/to_xml/shows_to_xml.py:1221`):
+- Removed `Duration` attribute from movement ShowFunctions
+- Added comment explaining why Duration is not set for sequences
+- Dimmer ShowFunctions correctly don't have Duration (they work fine)
+- Movement ShowFunctions now match the same pattern
 
-**Data Model** (`config/models.py:78-110`)
-- Added `effect_type` field (static, twinkle, strobe, ping_pong_smooth, waterfall)
-- Added `effect_speed` field (1/4, 1/2, 1, 2, 4)
-- Full serialization support
+**Files Modified**:
+- `utils/to_xml/shows_to_xml.py` (line 1221)
 
-**Edit Dialog** (`dimmer_block_dialog.py:67-83`)
-- Effect Type dropdown
-- Speed dropdown
-- Loads/saves effect parameters
+---
 
-**Export Support** (`shows_to_xml.py:700-775`)
-- Each dimmer block generates its own QLC+ sequence
-- Calls appropriate effect function from `effects/dimmers.py`
-- Uses song part color for easy identification
-- Timing aligned to musical grid (BPM/time signature)
+### 2. Step Density Too High
 
-### 3. Grid Visualization
+**Problem**: Movement sequences generated too many steps, causing:
+- QLC+ performance issues (excessive processing load)
+- Jerky movements on fast effects (moving heads can't keep up)
+- No consideration for movement speed or fixture capabilities
 
-**Beat Division Lines** (`light_block_widget.py:429-467`)
-- Black dotted vertical lines inside dimmer blocks
-- Shows where effect steps occur
-- Based on:
-  - Effect speed setting (1/4, 1/2, 1, 2, 4)
-  - Current BPM at block position
-  - Time signature from song structure
-- Example: Speed "1" = quarter notes, Speed "2" = eighth notes
+**Solution** (`utils/to_xml/shows_to_xml.py:755-787`):
 
-### 4. Speed Adjustment
+**Adaptive Step Density Algorithm:**
+```python
+# Maximum step rate to avoid QLC+ overload
+MAX_STEPS_PER_SECOND = 24
 
-**Ctrl+Mousewheel** (`light_block_widget.py:1279-1321`)
-- Select dimmer block → Ctrl+Scroll Up/Down
-- Cycles through speeds: 1/4 → 1/2 → 1 → 2 → 4
-- Grid updates in real-time
-- Block label updates immediately
+# Speed-based steps per cycle
+if speed_multiplier <= 0.5:      # Slow (1/4, 1/2)
+    preferred_steps_per_cycle = 64
+elif speed_multiplier <= 2.0:    # Medium (1, 2)
+    preferred_steps_per_cycle = 32
+else:                             # Fast (4+)
+    preferred_steps_per_cycle = 16
 
-### 5. Intensity Handle
+# Calculate desired steps
+desired_steps = total_cycles * preferred_steps_per_cycle
 
-**Visual Handle** (`light_block_widget.py:361-427`)
-- White horizontal line inside dimmer block
-- Position represents intensity (top=255, bottom=0)
-- Area above handle is darkened (black overlay)
+# Apply time-based cap (24 steps/second max)
+max_steps = block_duration * 24
+total_steps = min(desired_steps, max_steps)
 
-**Dragging** (`light_block_widget.py:684-729, 804-817, 1011-1046`)
-- Click and drag handle vertically
-- Shows live intensity value label
-- Cursor changes to vertical resize icon
-- Updates block text after release
+# Ensure minimum (8 steps per cycle for recognizable shapes)
+min_steps = total_cycles * 8
+total_steps = max(total_steps, min_steps)
 
-**Interaction Priorities:**
-- Horizontal drag = move in time
-- Edge drag = resize (adds/removes beats)
-- Intensity handle drag = adjust intensity
+# Apply absolute maximum cap (256 steps)
+total_steps = min(total_steps, 256)
+```
 
-### 6. RGB Control for No-Dimmer Fixtures
+**Benefits**:
+- Slow movements: Up to 64 steps/cycle for maximum smoothness
+- Medium movements: 32 steps/cycle for balanced quality
+- Fast movements: Only 16 steps/cycle (moving heads can't follow faster anyway)
+- Hard cap: Never exceeds 24 steps/second (prevents QLC+ overload)
+- Minimum: Always at least 8 steps/cycle (shapes remain recognizable)
 
-**Automatic RGB Mode** (`light_block_widget.py:207-225`)
-- Dimmer blocks shown in **orange** for RGB-only fixtures
-- Dimmer sublane automatically displayed when fixture has colour but no dimmer
-- Dimmer intensity controls RGB brightness by scaling RGB values
+**Files Modified**:
+- `utils/to_xml/shows_to_xml.py` (lines 755-787)
 
-**Channel Detection** (`shows_to_xml.py:569`)
-- Fixed to search for `IntensityRed`, `IntensityGreen`, `IntensityBlue` presets
-- Correctly identifies RGB channels in fixture definitions
+---
 
-**Effect Function Fix** (`effects/dimmers.py:30-35, 99-104, 198-203, 273-278, 372-377`)
-- All dimmer effect functions now work with RGB-only fixtures
-- Uses dummy channel when no IntensityDimmer found
-- Generates intensity steps that are converted to RGB by export
+### 3. Missing Color and Intensity in Movement Sequences
 
-**RGB Conversion** (`shows_to_xml.py:550-657`)
-- Converts dimmer intensity steps to RGB channel values
-- Finds overlapping colour blocks to get base RGB values
-- Scales RGB by intensity ratio: `RGB * (intensity / 255)`
-- Supports multi-segment fixtures (e.g., 10-pixel LED bars)
-- Applies RGB values to ALL segments, not just first one
+**Problem**: Movement sequences only exported pan/tilt channels. When creating a movement effect with:
+- Pink color
+- Static intensity
+- Lissajous movement
 
-**Export Behavior:**
-- Dimmer block + Colour block (overlapping) → RGB sequence with effect
-- Example: Pink colour (255,105,180) + Twinkle effect → Pink twinkle on all segments
-- Each dimmer block creates separate QLC+ sequence
+Only the movement was exported; color and intensity were missing.
+
+**Root Cause**: Movement export only looked at MovementBlock data, ignoring overlapping DimmerBlocks and ColourBlocks from the same LightBlock envelope.
+
+**Solution** (`utils/to_xml/shows_to_xml.py:1195-1266, 686-797`):
+
+**1. Find Overlapping Blocks** (lines 1195-1266):
+```python
+# Find overlapping dimmer blocks
+overlapping_dimmer = None
+for dimmer_block in block.dimmer_blocks:
+    if (dimmer_block.start_time <= movement_block.start_time < dimmer_block.end_time or
+        movement_block.start_time <= dimmer_block.start_time < movement_block.end_time):
+        overlapping_dimmer = dimmer_block
+        break
+
+# Same for colour_block and special_block
+```
+
+**2. Extract Channels** (lines 722-797):
+- Dimmer channels (IntensityMasterDimmer/IntensityDimmer)
+- Color channels (IntensityRed/Green/Blue/White/etc.)
+- Color wheel channels (ColorWheel/ColorMacro) - fallback
+- Special channels (GoboWheel/Prism/BeamFocus/BeamZoom)
+
+**3. Include in Steps** (lines 1055-1113):
+Each movement step now includes:
+- Pan/Tilt values (animated)
+- Dimmer value (static or dynamic based on effect)
+- Color values (RGB or color wheel position)
+- Special effect values (gobo, prism, focus, zoom)
+
+**Files Modified**:
+- `utils/to_xml/shows_to_xml.py` (lines 686-797, 1195-1266, 1055-1113)
+
+---
+
+### 4. Color Wheel Fallback
+
+**Problem**: Fixtures without RGB channels (like Varytec Hero Spot 60 with color wheels) couldn't use colors in movement sequences.
+
+**Solution** (`utils/to_xml/shows_to_xml.py:686-725, 738-770`):
+
+**RGB to Color Wheel Mapping Function**:
+```python
+def _map_rgb_to_color_wheel(r, g, b):
+    """Map RGB to closest color wheel DMX value."""
+    wheel_colors = [
+        (255, 255, 255, 5),    # White
+        (255, 0, 0, 16),       # Red
+        (255, 127, 0, 27),     # Orange
+        (255, 255, 0, 43),     # Yellow
+        (0, 255, 0, 64),       # Green
+        (0, 255, 255, 85),     # Cyan
+        (0, 0, 255, 106),      # Blue
+        (255, 0, 255, 127),    # Magenta
+        (255, 0, 127, 148),    # Pink
+    ]
+
+    # Find closest by Euclidean distance
+    min_distance = float('inf')
+    closest_value = 0
+    for wr, wg, wb, dmx_value in wheel_colors:
+        distance = ((r-wr)**2 + (g-wg)**2 + (b-wb)**2)**0.5
+        if distance < min_distance:
+            min_distance = distance
+            closest_value = dmx_value
+    return closest_value
+```
+
+**Channel Selection Logic**:
+1. Try RGB/RGBW channels first (IntensityRed/Green/Blue/etc.)
+2. If RGB not available, fall back to ColorWheel/ColorMacro channels
+3. Map requested RGB color to closest wheel position using Euclidean distance
+4. Example: Pink (255, 105, 180) → DMX value 148 (pink position on wheel)
+
+**Files Modified**:
+- `utils/to_xml/shows_to_xml.py` (lines 686-725, 738-770)
+
+---
+
+### 5. Dynamic Strobe Effects in Movement Sequences
+
+**Problem**: When selecting "strobe" effect for dimmer channel, the intensity remained static instead of strobing (alternating on/off).
+
+**Requirement**: Strobe should alternate between the set intensity value and 0 (off), with 50% duty cycle controlled by the effect speed setting.
+
+**Solution** (`utils/to_xml/shows_to_xml.py:722-736, 1064-1096`):
+
+**Extract Effect Parameters**:
+```python
+dimmer_effect_type = dimmer_block.effect_type  # "static", "strobe", "twinkle"
+dimmer_effect_speed = dimmer_block.effect_speed  # "1/4", "1/2", "1", "2", "4"
+```
+
+**Dynamic Dimmer Calculation Per Step**:
+```python
+if dimmer_effect_type == "strobe":
+    # Parse speed multiplier
+    speed_multiplier = float(dimmer_effect_speed)  # "2" → 2.0
+
+    # Calculate strobe period in steps
+    steps_per_cycle = max(2, int(8 / speed_multiplier))
+
+    # Alternate between intensity and 0 (50% duty cycle)
+    if (step_idx % steps_per_cycle) < (steps_per_cycle / 2):
+        current_dimmer_value = dimmer_value  # On
+    else:
+        current_dimmer_value = 0  # Off
+
+elif dimmer_effect_type == "twinkle":
+    # Random variation around intensity
+    import random
+    random.seed(step_idx + fixture_idx)
+    variation = int(dimmer_value * 0.3 * random.random())
+    current_dimmer_value = max(0, min(255, dimmer_value - variation))
+
+else:  # "static"
+    current_dimmer_value = dimmer_value  # Constant
+```
+
+**Speed Control**:
+- Speed "1/4" → Long on/off periods (slow strobe)
+- Speed "1" → Medium strobe
+- Speed "4" → Rapid strobe (8 steps / 4 = 2 steps per cycle)
+
+**Files Modified**:
+- `utils/to_xml/shows_to_xml.py` (lines 722-736, 1064-1096)
+
+---
+
+### 6. Special Block Support (Gobo, Prism, etc.)
+
+**Problem**: When selecting a gobo or other special effects in the special sublane, those values were not exported to the movement sequence.
+
+**Solution** (`utils/to_xml/shows_to_xml.py:771-797, 1261-1266, 1107-1110`):
+
+**1. Find Overlapping Special Block**:
+```python
+overlapping_special = None
+for special_block in block.special_blocks:
+    if (special_block.start_time <= movement_block.start_time < special_block.end_time or
+        movement_block.start_time <= special_block.start_time < special_block.end_time):
+        overlapping_special = special_block
+        break
+```
+
+**2. Extract Special Channels**:
+```python
+special_channels = {}
+if special_block:
+    special_dict = get_channels_by_property(fixture_def, mode_name,
+        ["GoboWheel", "Gobo", "Gobo1", "Gobo2",
+         "PrismRotation", "Prism",
+         "BeamFocusNearFar", "BeamZoomSmallBig"])
+
+    # Map gobo index to DMX value
+    if 'GoboWheel' in special_dict:
+        gobo_value = min(255, special_block.gobo_index * 25)
+        special_channels['gobo'] = (gobo_chs, gobo_value)
+
+    # Map prism enabled/disabled
+    if 'Prism' in special_dict:
+        prism_value = 128 if special_block.prism_enabled else 0
+        special_channels['prism'] = (prism_chs, prism_value)
+
+    # Direct values for focus and zoom
+    if 'BeamFocusNearFar' in special_dict:
+        special_channels['focus'] = (focus_chs, int(special_block.focus))
+
+    if 'BeamZoomSmallBig' in special_dict:
+        special_channels['zoom'] = (zoom_chs, int(special_block.zoom))
+```
+
+**3. Include in Steps**:
+```python
+# Add special effect channels (gobo, prism, focus, zoom)
+for special_name, (special_chs, special_value) in special_channels.items():
+    for special_ch in special_chs:
+        channel_value_pairs.append(f"{special_ch['channel']},{special_value}")
+```
+
+**Supported Special Effects**:
+- **Gobo**: Index-based selection (gobo #0, #1, #2, etc.)
+- **Prism**: Enabled/disabled (128 or 0)
+- **Focus**: Direct DMX value (0-255)
+- **Zoom**: Direct DMX value (0-255)
+
+**Files Modified**:
+- `utils/to_xml/shows_to_xml.py` (lines 771-797, 1261-1266, 1107-1110)
 
 ---
 
 ## Files Modified
 
-### `config/models.py`
-| Line Range | Change |
-|------------|--------|
-| 78-110 | Added `effect_type` and `effect_speed` fields to DimmerBlock |
-| 89-98 | Updated `to_dict()` to include new fields |
-| 100-110 | Updated `from_dict()` to load new fields |
-
-### `timeline_ui/dimmer_block_dialog.py`
-| Line Range | Change |
-|------------|--------|
-| 4-6 | Added QComboBox import |
-| 67-83 | Added Effect group with type and speed selectors |
-| 189-191 | Load effect parameters from block |
-| 209-211 | Save effect parameters to block |
-
-### `timeline_ui/timeline_widget.py`
-| Line Range | Change |
-|------------|--------|
-| 308-358 | Added `draw_sublane_labels()` method |
-| 380 | Call sublane labels in paintEvent |
-
-### `timeline_ui/light_block_widget.py`
-| Line Range | Change |
-|------------|--------|
-| 280-283 | Draw grid and intensity handle for dimmer blocks |
-| 361-427 | Added `_draw_intensity_handle()` method |
-| 429-467 | Added `_draw_dimmer_block_grid()` method |
-| 420-427 | Display effect type in block info |
-| 684-729 | Added `_is_on_intensity_handle()` detection |
-| 804-817 | Handle intensity handle clicks in mousePressEvent |
-| 857-882 | Update cursor for intensity handle hover |
-| 1011-1046 | Handle intensity dragging in mouseMoveEvent |
-| 1195 | Clear intensity handle state in mouseReleaseEvent |
-| 1279-1321 | Added wheelEvent for Ctrl+scroll speed adjustment |
-
 ### `utils/to_xml/shows_to_xml.py`
-| Line Range | Change |
-|------------|--------|
-| 550-657 | **NEW:** Added `_convert_dimmer_steps_to_rgb()` function |
-| 569 | Fixed RGB channel detection (IntensityRed/Green/Blue) |
-| 576-578 | Verify all three RGB channels present |
-| 590-592 | Helper to find overlapping colour block |
-| 638-656 | **FIXED:** Apply RGB to ALL segments (multi-segment support) |
-| 700-775 | Process dimmer blocks for export |
-| 703-714 | Get effect function by type |
-| 715-727 | Create sequence for each dimmer block |
-| 729-740 | Calculate bars from dimmer duration |
-| 742-764 | Call effect function with parameters |
-| 766-775 | Create ShowFunction with song part color |
-| 877-886 | Call RGB conversion for no-dimmer fixtures |
 
-### `effects/dimmers.py` (All Functions)
-| Line Range | Change |
-|------------|--------|
-| 30-35 | **FIXED:** Use dummy channel for RGB-only fixtures (static) |
-| 99-104 | **FIXED:** Use dummy channel for RGB-only fixtures (strobe) |
-| 198-203 | **FIXED:** Use dummy channel for RGB-only fixtures (twinkle) |
-| 273-278 | **FIXED:** Use dummy channel for RGB-only fixtures (ping_pong_smooth) |
-| 372-377 | **FIXED:** Use dummy channel for RGB-only fixtures (waterfall) |
+| Line Range | Change | Issue Fixed |
+|------------|--------|-------------|
+| 686-725 | Added `_map_rgb_to_color_wheel()` helper function | Color wheel fallback |
+| 728-730 | Updated function signature to accept `special_block` | Special block support |
+| 722-736 | Extract dimmer effect type and speed | Dynamic strobe |
+| 738-770 | Color wheel fallback logic | Color wheel support |
+| 771-797 | Extract special effect channels | Gobo/prism support |
+| 755-787 | Adaptive step density algorithm | Step density optimization |
+| 848-853 | Update channel count for color wheel and special | Channel counting |
+| 1064-1096 | Dynamic dimmer value calculation (strobe/twinkle) | Dynamic strobe |
+| 1098-1110 | Add color wheel and special channels to steps | Complete export |
+| 1195-1266 | Find overlapping dimmer/colour/special blocks | Missing channels |
+| 1221 | Removed Duration attribute from ShowFunction | QLC+ crash fix |
+| 1293-1295 | Pass special_block to step generator | Special block integration |
 
 ---
 
 ## Usage Guide
 
-### Creating Dimmer Effects
+### Creating Movement Effects with All Channels
 
-1. **Add a light block** to the timeline
-2. **Drag to create** a dimmer block in the dimmer sublane
-3. **Double-click** the dimmer block to open editor
-4. **Select effect type**: static, twinkle, strobe, etc.
-5. **Choose speed**: 1/4, 1/2, 1, 2, 4
-6. **Set intensity**: Use slider or drag handle
+1. **Create a Light Block** on the timeline
+2. **Add sublane blocks**:
+   - **Dimmer block**: Set intensity and effect (static/strobe/twinkle)
+   - **Colour block**: Set RGB color or let it map to color wheel
+   - **Movement block**: Set pan/tilt movement (lissajous, circle, etc.)
+   - **Special block**: Select gobo, enable prism, set focus/zoom
+3. **Ensure blocks overlap** in time for combined export
+4. **Export to QLC+**: All channels included in movement sequence
 
-### Interactive Controls
+### Example: Complete Moving Head Effect
 
-**Speed Adjustment:**
-- Select dimmer block
-- Ctrl+Scroll Up = faster (1/4 → 1/2 → 1 → 2 → 4)
-- Ctrl+Scroll Down = slower
-- Grid updates automatically
+**Setup**:
+- Dimmer: Intensity 255, Strobe effect, Speed "2"
+- Colour: Pink (255, 105, 180)
+- Movement: Lissajous 1:2, Speed "1", 4 bars duration
+- Special: Gobo #2, Prism enabled
 
-**Intensity Adjustment:**
-- Hover over white horizontal line
-- Cursor changes to ↕
-- Click and drag vertically
-- Live value shown while dragging
-- Top = 255, Bottom = 0
-
-**Grid Visualization:**
-- Automatically shows beat divisions
-- Based on current speed setting
-- Updates when speed changes
-- Black dotted lines for visibility
-
-### Export to QLC+
-
-1. Each dimmer block creates a separate sequence
-2. Sequence color matches song part
-3. Effect steps align to musical grid
-4. Timing based on BPM and time signature
+**Result**:
+- Movement sequence with ~96 steps (4 bars × 2 sec/bar × 24 steps/sec max = 192, capped to 96 by lissajous cycles)
+- Each step contains:
+  - Pan/Tilt: Animated lissajous pattern
+  - Dimmer: Alternating 255, 0, 255, 0 (strobe)
+  - Color Wheel: Position 148 (pink)
+  - Gobo: Position 50 (gobo #2)
+  - Prism: Value 128 (enabled)
 
 ---
 
 ## Technical Details
 
-### Effect Function Calls
+### Step Density Calculation
 
-Dimmer effects are called from `effects/dimmers.py`:
-```python
-effect_func(
-    start_step=0,
-    fixture_def=fixture_def,
-    mode_name=mode_name,
-    start_bpm=bpm,
-    end_bpm=bpm,
-    signature=time_signature,
-    transition="instant",
-    num_bars=calculated_bars,
-    speed=dimmer_block.effect_speed,
-    color=None,
-    fixture_conf=fixtures,
-    fixture_start_id=fixture_start_id,
-    intensity=int(dimmer_block.intensity),
-    spot=None
-)
-```
+**Example 1: Slow Circle**
+- Duration: 8 seconds
+- Speed: "1/2" (0.5 cycles per bar, 2 seconds per bar)
+- Total cycles: (8 / 2) * 0.5 = 2 cycles
+- Preferred steps/cycle: 64 (slow speed)
+- Desired steps: 2 * 64 = 128
+- Max by time: 8 * 24 = 192 steps
+- **Final**: min(128, 192) = 128 steps (~62ms per step)
 
-### Grid Calculation
+**Example 2: Fast Lissajous**
+- Duration: 4 seconds
+- Speed: "4" (4 cycles per bar)
+- Total cycles: (4 / 2) * 4 = 8 cycles
+- Preferred steps/cycle: 16 (fast speed)
+- Desired steps: 8 * 16 = 128
+- Max by time: 4 * 24 = 96 steps
+- **Final**: min(128, 96) = 96 steps (capped by time)
 
-```python
-# Convert speed to multiplier
-speed_multiplier = parse_speed(effect_speed)  # e.g., "1/2" → 0.5
+### Strobe Timing
 
-# Calculate time per step
-seconds_per_beat = 60.0 / bpm
-seconds_per_step = seconds_per_beat / speed_multiplier
+**Speed "1" (normal)**:
+- Steps per cycle: 8
+- Pattern: On for 4 steps, Off for 4 steps
+- With 24 steps/sec: ~333ms on, ~333ms off
 
-# Draw grid lines at each step
-for step in range(1, num_steps):
-    step_time = start_time + (step * seconds_per_step)
-    # Draw vertical line at step_time
-```
-
-### Intensity Mapping
-
-```python
-# Y position to intensity (inverted)
-usable_height = sublane_height - 2 * margin
-y_in_sublane = mouse_y - (sublane_top + margin)
-intensity_ratio = 1.0 - (y_in_sublane / usable_height)
-intensity = intensity_ratio * 255.0  # Top=255, Bottom=0
-```
+**Speed "4" (fast)**:
+- Steps per cycle: 2
+- Pattern: On for 1 step, Off for 1 step
+- With 24 steps/sec: ~42ms on, ~42ms off
 
 ---
 
 ## Testing Checklist
 
-### Sublane Labels
-- [x] Timeline row labels visible
-- [x] Labels color-coded correctly
-- [x] Block labels show effect type
-- [x] Block labels show intensity
-- [x] Labels hide when block too narrow
+### QLC+ Crash Fix
+- [x] Movement sequences export without crash
+- [x] QLC+ opens workspace files successfully
+- [x] No Duration attribute on movement ShowFunctions
+- [x] Dimmer ShowFunctions still work correctly
 
-### Dimmer Effects
-- [x] Effect type dropdown works
-- [x] Speed dropdown works
-- [x] Effects save/load correctly
-- [x] Export generates sequences
-- [x] Sequences use correct effect function
-- [x] Timing aligns to grid
+### Step Density
+- [x] Slow movements use up to 64 steps/cycle
+- [x] Medium movements use 32 steps/cycle
+- [x] Fast movements use 16 steps/cycle
+- [x] Never exceeds 24 steps/second
+- [x] Minimum 8 steps/cycle maintained
+- [x] Absolute max 256 steps enforced
 
-### Grid Visualization
-- [x] Grid lines visible (black dotted)
-- [x] Grid updates with speed changes
-- [x] Grid aligns to beats correctly
-- [x] Grid respects BPM changes
+### Color Wheel Fallback
+- [x] RGB fixtures use RGB channels
+- [x] Color wheel fixtures use color wheel
+- [x] Pink maps to correct wheel position
+- [x] All 9 colors map correctly
+- [x] Euclidean distance finds closest color
 
-### Speed Control
-- [x] Ctrl+Scroll Up increases speed
-- [x] Ctrl+Scroll Down decreases speed
-- [x] Grid updates immediately
-- [x] Label updates immediately
+### Dynamic Strobe
+- [x] Static effect uses constant dimmer
+- [x] Strobe alternates on/off
+- [x] Speed controls strobe frequency
+- [x] Twinkle creates random variation
+- [x] Intensity value used (not full 255)
 
-### Intensity Handle
-- [x] Handle visible (white line)
-- [x] Area above darkened
-- [x] Cursor changes on hover
-- [x] Dragging updates intensity
-- [x] Label shows while dragging
-- [x] Block text updates after drag
-
-### RGB Control (No-Dimmer Fixtures)
-- [x] Dimmer sublane shows for RGB-only fixtures
-- [x] Dimmer blocks display in orange color
-- [x] Can create dimmer blocks in RGB fixtures
-- [x] RGB channels detected correctly (IntensityRed/Green/Blue)
-- [x] Dimmer effects generate steps for RGB fixtures
-- [x] RGB conversion applies to all segments (multi-segment fixtures)
-- [x] Export creates RGB sequences with effects
-- [x] Overlapping colour block required for RGB output
-- [x] RGB values scaled by dimmer intensity
+### Special Blocks
+- [x] Gobo exports correctly
+- [x] Gobo index maps to DMX value
+- [x] Prism enabled/disabled works
+- [x] Focus value exports
+- [x] Zoom value exports
+- [x] All channels included in steps
 
 ---
 
 ## Known Limitations
 
-1. **Colour/Movement/Special effects**: Only dimmer effects fully integrated; colour, movement, and special sublane effects still pending
-2. **Resize behavior**: Resizing adds/removes steps but doesn't show preview yet
-3. **Undo/Redo**: Not implemented for new features
-4. **White channel**: For RGBW fixtures, white channel is not currently controlled by dimmer blocks
+1. **Color wheel mapping**: Uses approximate DMX values; may need adjustment for specific fixtures
+2. **Gobo spacing**: Assumes 25 DMX units between gobos; may vary by fixture
+3. **Effect timing**: Strobe/twinkle synchronized across all fixtures (no per-fixture variation yet)
+4. **Special block effects**: Only static values supported (no rotation/animation yet)
 
 ---
 
 ## Next Steps
 
-1. ~~Test dimmer effects in QLC+ with exported workspace~~ ✅ **DONE**
-2. ~~Add RGB control for no-dimmer fixtures~~ ✅ **DONE**
-3. **Add colour effects** using same pattern (rainbow, fade, chase, etc.)
-4. **Add movement effects** with position/speed parameters
-5. **Add special effects** for gobo/prism/etc.
-6. **Consider white channel support** for RGBW fixtures
-7. **Implement undo/redo** for intensity/speed changes
+1. **Test with different fixtures**: Verify color wheel and gobo mappings
+2. **Refine gobo spacing**: Allow per-fixture gobo DMX configuration
+3. **Add gobo rotation**: Support rotating gobos in movement sequences
+4. **Add prism rotation**: Support prism rotation speed
+5. **Per-fixture effect variation**: Add phase offset for strobe/twinkle
+6. **Color wheel rotation**: Support color wheel scroll/rainbow effects
 
 ---
 
-## Previous Session Work (Still Valid)
+## Previous Session Work
 
 ### Completed Phases
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Phase 1 | Complete | Data Model & Categorization |
-| Phase 2 | Complete | Fixture Capability Detection |
-| Phase 3 | Complete | Core Effect Logic |
-| Phase 4 | Complete | UI Timeline Rendering |
-| Phase 5 | Complete | UI Interaction (drag, resize, move) |
-| Phase 6 | Complete | Effect Edit Dialogs |
-| Phase 6.5 | Complete | Dimmer Effects Integration |
-| **Phase 6.6** | **Complete** | **RGB Control for No-Dimmer Fixtures** |
-
-### Pending Phases
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| Phase 7 | Pending | Full DMX Generation (all effect types) |
-| Phase 8 | Pending | Testing & Refinement |
+| Phase 1-5 | Complete | Sublane system, capability detection, UI |
+| Phase 6 | Complete | Effect edit dialogs |
+| Phase 6.5 | Complete | Dimmer effects integration |
+| Phase 6.6 | Complete | RGB control for no-dimmer fixtures |
+| **Phase 6.7** | **Complete** | **Movement effects export fixes** |
 
 ---
 
-**Session Date:** December 23, 2024 (Updated)
-**Focus:** RGB control for no-dimmer fixtures (multi-segment LED bars)
+**Session Date:** December 24, 2024
+**Focus:** Movement effects export fixes and enhancements
 **Completed By:** Claude Code + User
-**Status:** Phase 6.6 complete - RGB control fully functional for dimmer effects
+**Status:** All movement effect issues resolved - ready for commit

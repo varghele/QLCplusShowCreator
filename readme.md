@@ -2,6 +2,31 @@
 
 A visual tool for creating light shows for QLC+, featuring timeline-based editing with audio synchronization.
 
+## Features
+
+### Sublane-Based Timeline
+- **Dimmer Effects**: Static, strobe, twinkle, ping-pong, waterfall effects with adjustable speed and intensity
+- **Color Control**: RGB/RGBW color mixing with automatic color wheel fallback for non-RGB fixtures
+- **Movement Effects**: Pan/tilt positioning with shapes (circle, lissajous, diamond, square, triangle, figure-8, bounce, random)
+- **Special Effects**: Gobo selection, prism control, beam focus, and zoom
+
+### Movement Effects
+- **Shape Generation**: 9 different movement patterns with customizable parameters
+- **Adaptive Step Density**: Automatically optimizes step count based on speed (24 steps/second max to prevent QLC+ overload)
+- **Multi-Channel Integration**: Combines pan/tilt with dimmer, color, and special effects in single sequences
+- **Phase Offset**: Synchronized multi-fixture effects with adjustable phase
+
+### Smart Export
+- **Color Wheel Mapping**: Automatically maps RGB colors to closest color wheel position for fixtures without RGB
+- **Dynamic Effects**: Strobe and twinkle effects work with movement sequences
+- **Optimized Performance**: Speed-based step density (64 steps/cycle for slow, 32 for medium, 16 for fast movements)
+- **QLC+ Compatible**: Generates valid workspace files that open without crashes
+
+### Audio Synchronization
+- BPM and time signature detection
+- Visual beat grid alignment
+- Song structure with multiple parts
+
 ## Installation
 
 ### Using Conda (recommended)

@@ -683,17 +683,59 @@ def _convert_dimmer_steps_to_rgb(steps, dimmer_block, colour_blocks, fixture_def
     return converted_steps
 
 
+def _map_rgb_to_color_wheel(r, g, b):
+    """
+    Map RGB color to closest color wheel position.
+    Returns DMX value (0-255) for the color wheel channel.
+
+    Common color wheel mapping (approximate):
+    - White/Open: 0-10
+    - Red: 11-21
+    - Orange: 22-32
+    - Yellow: 33-53
+    - Green: 54-74
+    - Cyan/Light Blue: 75-95
+    - Blue: 96-116
+    - Magenta/Purple: 117-137
+    - Pink: 138-158
+    """
+    # Define common colors on a typical color wheel with their RGB values
+    wheel_colors = [
+        (255, 255, 255, 5),    # White
+        (255, 0, 0, 16),       # Red
+        (255, 127, 0, 27),     # Orange
+        (255, 255, 0, 43),     # Yellow
+        (0, 255, 0, 64),       # Green
+        (0, 255, 255, 85),     # Cyan
+        (0, 0, 255, 106),      # Blue
+        (255, 0, 255, 127),    # Magenta
+        (255, 0, 127, 148),    # Pink
+    ]
+
+    # Find closest color by Euclidean distance
+    min_distance = float('inf')
+    closest_value = 0
+
+    for wr, wg, wb, dmx_value in wheel_colors:
+        distance = ((r - wr) ** 2 + (g - wg) ** 2 + (b - wb) ** 2) ** 0.5
+        if distance < min_distance:
+            min_distance = distance
+            closest_value = dmx_value
+
+    return closest_value
+
+
 def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixture_conf,
-                                    fixture_start_id, bpm, signature, num_bars):
+                                    fixture_start_id, bpm, signature, num_bars,
+                                    dimmer_block=None, colour_block=None, special_block=None):
     """
     Generate movement shape steps for a movement block.
 
     Supports static positioning and dynamic shapes (circle, diamond, lissajous, etc.)
-    with clipping to boundary limits.
+    with clipping to boundary limits. Also includes dimmer and color channels if
+    overlapping blocks are provided.
 
-    Step density is kept constant per shape cycle (minimum 32 steps per cycle) for
-    smooth motion. The speed setting controls how many times the shape is traced,
-    not the step count.
+    Step density is adaptive based on speed setting with a 24 steps/second cap.
 
     Parameters:
         movement_block: MovementBlock with effect parameters
@@ -704,6 +746,9 @@ def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixtu
         bpm: Beats per minute
         signature: Time signature (e.g., "4/4")
         num_bars: Number of bars for the effect
+        dimmer_block: Optional DimmerBlock to include intensity in steps
+        colour_block: Optional ColourBlock to include color in steps
+        special_block: Optional SpecialBlock to include gobo, prism, etc. in steps
 
     Returns:
         List of Step elements for QLC+ sequence
@@ -715,6 +760,83 @@ def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixtu
     channels_dict = get_channels_by_property(fixture_def, mode_name, ["PositionPan", "PositionTilt"])
     if not channels_dict:
         return []
+
+    # Get dimmer channels if dimmer_block is provided
+    dimmer_channels = []
+    dimmer_value = 255
+    dimmer_effect_type = "static"
+    dimmer_effect_speed = "1"
+    if dimmer_block:
+        dimmer_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityMasterDimmer", "IntensityDimmer"])
+        if dimmer_dict:
+            for prop in ["IntensityMasterDimmer", "IntensityDimmer"]:
+                if prop in dimmer_dict:
+                    dimmer_channels.extend(dimmer_dict[prop])
+                    break
+        dimmer_value = int(dimmer_block.intensity)
+        dimmer_effect_type = dimmer_block.effect_type
+        dimmer_effect_speed = dimmer_block.effect_speed
+
+    # Get color channels if colour_block is provided
+    color_channels = {}
+    color_wheel_channels = []
+    color_wheel_value = 0
+    if colour_block:
+        # Try RGB/RGBW channels first
+        color_dict = get_channels_by_property(fixture_def, mode_name,
+            ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite",
+             "IntensityAmber", "IntensityCyan", "IntensityMagenta", "IntensityYellow"])
+        if color_dict:
+            color_channels = {
+                'red': (color_dict.get('IntensityRed', []), int(colour_block.red)),
+                'green': (color_dict.get('IntensityGreen', []), int(colour_block.green)),
+                'blue': (color_dict.get('IntensityBlue', []), int(colour_block.blue)),
+                'white': (color_dict.get('IntensityWhite', []), int(colour_block.white)),
+                'amber': (color_dict.get('IntensityAmber', []), int(colour_block.amber)),
+                'cyan': (color_dict.get('IntensityCyan', []), int(colour_block.cyan)),
+                'magenta': (color_dict.get('IntensityMagenta', []), int(colour_block.magenta)),
+                'yellow': (color_dict.get('IntensityYellow', []), int(colour_block.yellow))
+            }
+        else:
+            # Fallback to color wheel if RGB not available
+            wheel_dict = get_channels_by_property(fixture_def, mode_name, ["ColorWheel", "ColorMacro"])
+            if wheel_dict:
+                for prop in ["ColorWheel", "ColorMacro"]:
+                    if prop in wheel_dict:
+                        color_wheel_channels.extend(wheel_dict[prop])
+                        break
+                # Map RGB to closest color wheel position
+                # Simple mapping: calculate which wheel position is closest to requested RGB
+                r, g, b = int(colour_block.red), int(colour_block.green), int(colour_block.blue)
+                color_wheel_value = _map_rgb_to_color_wheel(r, g, b)
+
+    # Get special effect channels if special_block is provided
+    special_channels = {}
+    if special_block:
+        special_dict = get_channels_by_property(fixture_def, mode_name,
+            ["GoboWheel", "Gobo", "Gobo1", "Gobo2", "PrismRotation", "Prism",
+             "BeamFocusNearFar", "BeamZoomSmallBig", "BeamIrisCloseOpen"])
+        if special_dict:
+            # Map special block values to channels
+            if 'GoboWheel' in special_dict or 'Gobo' in special_dict or 'Gobo1' in special_dict:
+                gobo_chs = special_dict.get('GoboWheel', special_dict.get('Gobo', special_dict.get('Gobo1', [])))
+                if gobo_chs:
+                    # Gobo index mapping (typically each gobo is ~20-30 DMX values apart)
+                    gobo_value = min(255, special_block.gobo_index * 25)
+                    special_channels['gobo'] = (gobo_chs, gobo_value)
+
+            if 'Prism' in special_dict:
+                prism_chs = special_dict['Prism']
+                prism_value = 128 if special_block.prism_enabled else 0
+                special_channels['prism'] = (prism_chs, prism_value)
+
+            if 'BeamFocusNearFar' in special_dict:
+                focus_chs = special_dict['BeamFocusNearFar']
+                special_channels['focus'] = (focus_chs, int(special_block.focus))
+
+            if 'BeamZoomSmallBig' in special_dict:
+                zoom_chs = special_dict['BeamZoomSmallBig']
+                special_channels['zoom'] = (zoom_chs, int(special_block.zoom))
 
     # Get effect parameters
     effect_type = movement_block.effect_type
@@ -752,18 +874,39 @@ def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixtu
     # Speed "1" = 1 cycle per bar, Speed "2" = 2 cycles per bar, etc.
     total_cycles = (block_duration / seconds_per_bar) * speed_multiplier
 
-    # Minimum steps per cycle for smooth motion (32 gives smooth curves)
-    STEPS_PER_CYCLE = 32
+    # Step density constraints
+    MAX_STEPS_PER_SECOND = 24  # Maximum to avoid QLC+ overload and jerky movements
+    MIN_STEPS_PER_CYCLE = 8    # Minimum for recognizable shapes
+    MAX_TOTAL_STEPS = 256      # Absolute maximum
 
     # Calculate total steps needed
     # For static, we only need 1 step
     if effect_type == "static":
         total_steps = 1
     else:
-        # Ensure at least STEPS_PER_CYCLE steps, scaled by number of cycles
-        total_steps = max(STEPS_PER_CYCLE, int(total_cycles * STEPS_PER_CYCLE))
-        # Cap at a reasonable maximum to avoid too many steps
-        total_steps = min(total_steps, 256)
+        # Determine preferred steps per cycle based on speed
+        # Slower movements get more steps for smoothness
+        # Faster movements get fewer steps (moving heads can't keep up anyway)
+        if speed_multiplier <= 0.5:      # Speed 1/4 or 1/2
+            preferred_steps_per_cycle = 64
+        elif speed_multiplier <= 2.0:    # Speed 1 or 2
+            preferred_steps_per_cycle = 32
+        else:                             # Speed 4+
+            preferred_steps_per_cycle = 16
+
+        # Calculate desired steps for smooth motion
+        desired_steps = int(total_cycles * preferred_steps_per_cycle)
+
+        # Apply time-based cap (24 steps/second maximum)
+        max_steps_by_time = int(block_duration * MAX_STEPS_PER_SECOND)
+        total_steps = min(desired_steps, max_steps_by_time)
+
+        # Ensure minimum steps per cycle for recognizable shapes
+        min_steps = max(1, int(total_cycles * MIN_STEPS_PER_CYCLE))
+        total_steps = max(total_steps, min_steps)
+
+        # Apply absolute maximum cap
+        total_steps = min(total_steps, MAX_TOTAL_STEPS)
 
     # Calculate step duration
     if total_steps > 0:
@@ -791,6 +934,20 @@ def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixtu
     pan_channels = channels_dict.get('PositionPan', [])
     tilt_channels = channels_dict.get('PositionTilt', [])
     channels_per_fixture = len(pan_channels) + len(tilt_channels)
+
+    # Add dimmer channels to count
+    channels_per_fixture += len(dimmer_channels)
+
+    # Add color channels to count
+    for color_name, (color_chs, _) in color_channels.items():
+        channels_per_fixture += len(color_chs)
+
+    # Add color wheel channels to count
+    channels_per_fixture += len(color_wheel_channels)
+
+    # Add special effect channels to count
+    for special_name, (special_chs, _) in special_channels.items():
+        channels_per_fixture += len(special_chs)
 
     for step_idx in range(total_steps):
         step = ET.Element("Step")
@@ -897,10 +1054,60 @@ def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixtu
 
             # Build channel values for this fixture
             channel_value_pairs = []
+
+            # Add pan/tilt channels
             for pan_ch in pan_channels:
                 channel_value_pairs.append(f"{pan_ch['channel']},{int(pan)}")
             for tilt_ch in tilt_channels:
                 channel_value_pairs.append(f"{tilt_ch['channel']},{int(tilt)}")
+
+            # Add dimmer channels with dynamic effects support
+            if dimmer_channels:
+                # Calculate dimmer value based on effect type
+                current_dimmer_value = dimmer_value
+
+                if dimmer_effect_type == "strobe":
+                    # Strobe effect: alternate between intensity and 0
+                    # Speed controls frequency of alternation
+                    speed_multiplier = 1.0
+                    if '/' in dimmer_effect_speed:
+                        num, denom = map(int, dimmer_effect_speed.split('/'))
+                        speed_multiplier = num / denom
+                    else:
+                        speed_multiplier = float(dimmer_effect_speed)
+
+                    # Calculate strobe period in steps
+                    steps_per_cycle = max(2, int(8 / speed_multiplier))  # Slower speed = longer period
+                    # Use intensity value: alternate between dimmer_value and 0
+                    # 50% duty cycle
+                    if (step_idx % steps_per_cycle) < (steps_per_cycle / 2):
+                        current_dimmer_value = dimmer_value  # On
+                    else:
+                        current_dimmer_value = 0  # Off
+
+                elif dimmer_effect_type == "twinkle":
+                    # Twinkle: random variation around dimmer_value
+                    import random
+                    random.seed(step_idx + fixture_idx)  # Consistent but varied per step/fixture
+                    variation = int(dimmer_value * 0.3 * random.random())
+                    current_dimmer_value = max(0, min(255, dimmer_value - variation))
+
+                for dimmer_ch in dimmer_channels:
+                    channel_value_pairs.append(f"{dimmer_ch['channel']},{int(current_dimmer_value)}")
+
+            # Add color channels (RGB/RGBW/etc.)
+            for color_name, (color_chs, color_value) in color_channels.items():
+                for color_ch in color_chs:
+                    channel_value_pairs.append(f"{color_ch['channel']},{color_value}")
+
+            # Add color wheel channels (fallback when RGB not available)
+            for color_wheel_ch in color_wheel_channels:
+                channel_value_pairs.append(f"{color_wheel_ch['channel']},{color_wheel_value}")
+
+            # Add special effect channels (gobo, prism, focus, zoom)
+            for special_name, (special_chs, special_value) in special_channels.items():
+                for special_ch in special_chs:
+                    channel_value_pairs.append(f"{special_ch['channel']},{special_value}")
 
             channel_values = ",".join(channel_value_pairs)
             values.append(f"{fixture_id}:{channel_values}")
@@ -1171,6 +1378,29 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                     print(f"Warning: Skipping movement block - missing fixture_def, mode, or part")
                     continue
 
+                # Find overlapping dimmer and colour blocks from the same LightBlock
+                # to include their channel values in the movement steps
+                overlapping_dimmer = None
+                for dimmer_block in block.dimmer_blocks:
+                    if (dimmer_block.start_time <= movement_block.start_time < dimmer_block.end_time or
+                        movement_block.start_time <= dimmer_block.start_time < movement_block.end_time):
+                        overlapping_dimmer = dimmer_block
+                        break
+
+                overlapping_colour = None
+                for colour_block in block.colour_blocks:
+                    if (colour_block.start_time <= movement_block.start_time < colour_block.end_time or
+                        movement_block.start_time <= colour_block.start_time < movement_block.end_time):
+                        overlapping_colour = colour_block
+                        break
+
+                overlapping_special = None
+                for special_block in block.special_blocks:
+                    if (special_block.start_time <= movement_block.start_time < special_block.end_time or
+                        movement_block.start_time <= special_block.start_time < special_block.end_time):
+                        overlapping_special = special_block
+                        break
+
                 # Convert start_time from seconds to milliseconds
                 movement_start_time_ms = int(movement_block.start_time * 1000)
 
@@ -1195,7 +1425,10 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                         fixture_start_id=fixture_start_id,
                         bpm=movement_bpm,
                         signature=part_at_movement.signature,
-                        num_bars=num_bars
+                        num_bars=num_bars,
+                        dimmer_block=overlapping_dimmer,
+                        colour_block=overlapping_colour,
+                        special_block=overlapping_special
                     )
 
                     if not steps:
@@ -1218,7 +1451,7 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                 show_func = ET.SubElement(track, "ShowFunction")
                 show_func.set("ID", str(function_id_counter))
                 show_func.set("StartTime", str(movement_start_time_ms))
-                show_func.set("Duration", str(movement_duration_ms))
+                # Note: Duration is NOT set for Sequences - QLC+ determines duration from sequence steps
 
                 # Use blue color for movement blocks
                 show_func.set("Color", "#6496FF")
