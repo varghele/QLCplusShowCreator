@@ -77,9 +77,17 @@ class ConfigurationTab(BaseTab):
         toolbar.addStretch()
         main_layout.addLayout(toolbar)
 
-        # Config label
+        # Config label with tooltip
         self.config_label = QtWidgets.QLabel("Universe Configuration")
         self.config_label.setFont(QFont("", 14, QFont.Weight.Bold))
+        self.config_label.setToolTip(
+            "Universe mapping to QLC+:\n"
+            "  Universe 1 → QLC+ Line 2 (Gerät 3)\n"
+            "  Universe 2 → QLC+ Line 3 (Gerät 4)\n"
+            "  etc.\n\n"
+            "Note: QLC+ Lines 0-1 are reserved for hardcoded interfaces\n"
+            "(10.2.0.2 and 127.0.0.1) and are skipped."
+        )
         main_layout.addWidget(self.config_label)
 
         # Universe list table
@@ -95,6 +103,17 @@ class ConfigurationTab(BaseTab):
             "Universe/Net",      # 6 - ArtNet, E1.31
             "DMX Device"         # 7 - DMX USB only
         ])
+
+        # Set tooltip for Universe ID column header
+        header_item = self.universe_list.horizontalHeaderItem(self.COL_UNIVERSE_ID)
+        if header_item:
+            header_item.setToolTip(
+                "Universe ID in Show Creator\n"
+                "Maps to QLC+ Line (ID + 1):\n"
+                "  Universe 1 → Line 2\n"
+                "  Universe 2 → Line 3\n"
+                "  etc."
+            )
 
         # Set table properties
         self.universe_list.setSelectionBehavior(
@@ -189,6 +208,11 @@ class ConfigurationTab(BaseTab):
         multicast_layout.setContentsMargins(4, 0, 4, 0)
         multicast_checkbox = QtWidgets.QCheckBox()
         multicast_checkbox.setChecked(params.get('multicast', 'true').lower() == 'true')
+        multicast_checkbox.setToolTip(
+            "E1.31 Multicast mode\n"
+            "Checked: Uses multicast IP (auto-calculated from universe)\n"
+            "Unchecked: Uses unicast IP (manual entry)"
+        )
         multicast_checkbox.stateChanged.connect(
             lambda state, r=row: self._on_multicast_changed(r, state)
         )
@@ -305,19 +329,21 @@ class ConfigurationTab(BaseTab):
             if universe_id in self.config.universes:
                 self.config.universes[universe_id].output['plugin'] = protocol
 
-                # Set protocol-specific defaults
+                # Clear old parameters and set protocol-specific defaults
                 params = self.config.universes[universe_id].output['parameters']
+                params.clear()  # Clear old protocol parameters
+
                 if protocol == "ArtNet":
-                    params.setdefault('ip', '192.168.1.100')
-                    params.setdefault('subnet', '0')
-                    params.setdefault('universe', '0')
+                    params['ip'] = '192.168.1.100'
+                    params['subnet'] = '0'
+                    params['universe'] = '0'
                 elif protocol == "E1.31":
-                    params.setdefault('multicast', 'true')
-                    params.setdefault('ip', '239.255.0.1')
-                    params.setdefault('port', '5568')
-                    params.setdefault('universe', '1')
+                    params['multicast'] = 'true'
+                    params['ip'] = '239.255.0.1'
+                    params['port'] = '5568'
+                    params['universe'] = '1'
                 elif protocol == "DMX USB":
-                    params.setdefault('device', '')
+                    params['device'] = ''
 
                 # Reload the row with new defaults
                 self.universe_list.blockSignals(True)
@@ -388,23 +414,24 @@ class ConfigurationTab(BaseTab):
                     self.config.universes[universe_id].output['plugin'] = protocol
 
                 params = self.config.universes[universe_id].output['parameters']
+                params.clear()  # Clear old parameters before saving new ones
 
                 # Save protocol-specific parameters
                 if protocol == "ArtNet":
-                    # IP, Subnet, Universe
+                    # IP, Subnet, Universe (only save non-empty values)
                     ip_item = self.universe_list.item(row, self.COL_IP_ADDRESS)
                     subnet_item = self.universe_list.item(row, self.COL_SUBNET)
                     uni_item = self.universe_list.item(row, self.COL_ARTNET_UNIVERSE)
 
-                    if ip_item:
+                    if ip_item and ip_item.text():
                         params['ip'] = ip_item.text()
-                    if subnet_item:
+                    if subnet_item and subnet_item.text():
                         params['subnet'] = subnet_item.text()
-                    if uni_item:
+                    if uni_item and uni_item.text():
                         params['universe'] = uni_item.text()
 
                 elif protocol == "E1.31":
-                    # Multicast, IP, Port, Universe
+                    # Multicast, IP, Port, Universe (only save non-empty values)
                     multicast_widget = self.universe_list.cellWidget(row, self.COL_MULTICAST)
                     ip_item = self.universe_list.item(row, self.COL_IP_ADDRESS)
                     port_item = self.universe_list.item(row, self.COL_PORT)
@@ -415,11 +442,11 @@ class ConfigurationTab(BaseTab):
                         if checkbox:
                             params['multicast'] = str(checkbox.isChecked()).lower()
 
-                    if ip_item:
+                    if ip_item and ip_item.text():
                         params['ip'] = ip_item.text()
-                    if port_item:
+                    if port_item and port_item.text():
                         params['port'] = port_item.text()
-                    if uni_item:
+                    if uni_item and uni_item.text():
                         params['universe'] = uni_item.text()
 
                 elif protocol == "DMX USB":
@@ -428,7 +455,8 @@ class ConfigurationTab(BaseTab):
                     if device_combo:
                         device_display_name = device_combo.currentText()
                         device_port = get_device_port_by_display_name(device_display_name)
-                        params['device'] = device_port if device_port else device_display_name
+                        if device_port or device_display_name:
+                            params['device'] = device_port if device_port else device_display_name
 
             except (ValueError, AttributeError) as e:
                 print(f"Error updating universe {row}: {e}")
