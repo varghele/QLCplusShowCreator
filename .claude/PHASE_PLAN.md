@@ -6,11 +6,11 @@
 
 ## Overview
 
-This document tracks the development phases for QLC+ Show Creator. Check boxes indicate completion status.
+This document tracks the development phases for QLC+ Show Creator and the integrated Visualizer. Check boxes indicate completion status.
 
 ---
 
-## Completed Phases
+## Completed Phases (Show Creator)
 
 ### Phase 1: Core Infrastructure (COMPLETE)
 
@@ -102,7 +102,7 @@ Priority bug fixes before new features:
 
 ---
 
-## Upcoming Phases
+## Upcoming Phases (Show Creator)
 
 ### Phase 11: In-App Show Structure Creation (PLANNED)
 
@@ -115,9 +115,34 @@ Currently, show structures must be created as CSV files manually. This phase add
 - [ ] Import from CSV (keep existing functionality)
 - [ ] Save show structure to configuration
 
-**Note:** This replaces the manual CSV workflow and should come before effects creation in the user workflow.
+### Phase 12: ArtNet DMX Output (PLANNED - Required for Visualizer)
 
-### Phase 12: Effects/Riffs System Enhancement (PLANNED)
+Enable the Show Creator to send DMX directly for preview:
+
+- [ ] ArtNet packet generation (`utils/artnet/sender.py`)
+- [ ] Real-time DMX output during playback
+- [ ] Universe routing configuration
+- [ ] Network interface selection
+- [ ] Rate limiting (44Hz max)
+- [ ] Toggle between preview mode and QLC+ export mode
+
+**Note:** This is required before the Visualizer can show live previews.
+
+### Phase 13: TCP Server for Visualizer (PLANNED - Required for Visualizer)
+
+TCP server in Show Creator to send configuration to Visualizer:
+
+- [ ] TCP server implementation (`utils/tcp/server.py`)
+- [ ] Protocol definition:
+  - Stage dimensions message
+  - Fixture list message (positions, types, addresses, modes)
+  - Groups message (name, color, fixtures)
+  - Update notification on changes
+- [ ] Connection status UI indicator
+- [ ] Auto-reconnect handling
+- [ ] Serialize `Configuration` to network-friendly format
+
+### Phase 14: Effects/Riffs System Enhancement (PLANNED)
 
 Improve the effects system with predefined sequences:
 
@@ -126,28 +151,6 @@ Improve the effects system with predefined sequences:
 - [ ] Quick apply riffs to timeline
 - [ ] Riff templates per fixture type
 - [ ] User-defined riffs
-
-### Phase 13: ArtNet DMX Output (PLANNED)
-
-Enable the app to send DMX directly (for preview/testing):
-
-- [ ] ArtNet packet generation
-- [ ] Real-time DMX output during playback
-- [ ] Universe routing configuration
-- [ ] Network interface selection
-- [ ] Rate limiting to avoid overload
-
-### Phase 14: External Visualizer Connection (PLANNED)
-
-TCP connection for external visualizer application:
-
-- [ ] TCP server in Show Creator
-- [ ] Protocol definition for stage/fixture data
-- [ ] Real-time fixture position updates
-- [ ] Fixture configuration sync
-- [ ] Connection status UI
-
-**Note:** Visualizer will be a separate repository.
 
 ### Phase 15: Audio Analysis Integration (FUTURE)
 
@@ -158,25 +161,188 @@ AI-assisted show generation:
 - [ ] Effect suggestion based on audio
 - [ ] Automatic show generation algorithm
 
-**Note:** This is a longer-term goal requiring significant research and design.
+---
+
+## Visualizer Phases
+
+### Phase V1: Project Foundation (PLANNED - PRIORITY)
+
+Set up the Visualizer project structure:
+
+- [ ] Create `visualizer/` directory structure
+- [ ] Visualizer entry point (`visualizer/main.py`)
+- [ ] Import shared modules (`config/models.py`, `utils/fixture_utils.py`)
+- [ ] PyQt6 main window skeleton
+- [ ] Add ModernGL, PyGLM to requirements
+
+**Files to create:**
+```
+visualizer/
+├── main.py
+├── __init__.py
+└── requirements.txt (visualizer-specific deps)
+```
+
+### Phase V2: TCP Client Integration (PLANNED - PRIORITY)
+
+Receive configuration from Show Creator:
+
+- [ ] TCP client implementation (`visualizer/tcp/client.py`)
+- [ ] Parse stage dimensions message
+- [ ] Parse fixture list message
+- [ ] Parse groups message
+- [ ] Handle connection/disconnection gracefully
+- [ ] Connection status UI (green/red indicator)
+- [ ] Store received config in local data structures
+
+**Files to create:**
+```
+visualizer/tcp/
+├── __init__.py
+├── client.py
+└── protocol.py
+```
+
+### Phase V3: ArtNet Receiver (PLANNED)
+
+Receive live DMX values:
+
+- [ ] ArtNet UDP listener (`visualizer/artnet/listener.py`)
+- [ ] Parse ArtNet OpDmx packets
+- [ ] Support Universe 0 and 1 (configurable)
+- [ ] Thread-safe DMX value storage
+- [ ] Connection status detection (receiving/not receiving)
+- [ ] Handle both Show Creator and QLC+ as sources
+
+**ArtNet OpDmx packet format:**
+- Bytes 0-7: "Art-Net\0"
+- Bytes 8-9: OpCode 0x5000 (little-endian)
+- Byte 14-15: Universe (little-endian)
+- Byte 16-17: Length (big-endian)
+- Bytes 18+: DMX data (up to 512 bytes)
+
+**Files to create:**
+```
+visualizer/artnet/
+├── __init__.py
+├── listener.py
+└── protocol.py
+```
+
+### Phase V4: 3D Rendering Foundation (PLANNED)
+
+Basic OpenGL setup:
+
+- [ ] ModernGL context in PyQt6 (`visualizer/renderer/engine.py`)
+- [ ] Orbiting camera with mouse controls (`visualizer/renderer/camera.py`)
+- [ ] Stage floor with grid lines (`visualizer/renderer/stage.py`)
+- [ ] Dark background rendering
+- [ ] FPS counter
+- [ ] Window resize handling
+
+**Camera controls:**
+- Left mouse drag: Orbit around stage center
+- Right mouse drag: Pan
+- Scroll wheel: Zoom
+- Home key: Reset view
+
+**Files to create:**
+```
+visualizer/renderer/
+├── __init__.py
+├── engine.py
+├── camera.py
+└── stage.py
+```
+
+### Phase V5: Fixture Rendering (PLANNED)
+
+Render fixture models:
+
+- [ ] Fixture base class (`visualizer/renderer/fixtures.py`)
+- [ ] LED Bar: 10 RGBW segments
+- [ ] Moving Head: Base + rotating head
+- [ ] Wash: Box with color glow
+- [ ] Sunstrip: Warm white segments
+- [ ] Apply DMX color values to fixtures
+- [ ] Pan/tilt rotation for moving heads (from DMX)
+
+**Channel mapping:** Use `utils/fixture_utils.py` to get channel functions from QXF files.
+
+### Phase V6: Volumetric Beam Rendering (PLANNED)
+
+Ray-traced beam visualization:
+
+- [ ] Beam geometry: Cone from fixture to floor
+- [ ] Volumetric fragment shader (`visualizer/renderer/shaders/beam.frag`)
+- [ ] Beam color from RGB DMX values
+- [ ] Beam intensity from dimmer channel
+- [ ] Moving head beam follows pan/tilt
+- [ ] Additive blending for overlapping beams
+- [ ] Floor projection (spotlight effect)
+
+**Performance target:** 60 FPS with 10+ active beams
+
+**Files to create:**
+```
+visualizer/renderer/
+├── beams.py
+└── shaders/
+    ├── beam.vert
+    ├── beam.frag
+    ├── fixture.vert
+    └── fixture.frag
+```
+
+### Phase V7: UI Polish (PLANNED)
+
+Final UI touches:
+
+- [ ] Connect/Disconnect button (TCP)
+- [ ] ArtNet status indicator
+- [ ] Universe activity indicators
+- [ ] Smooth camera interpolation
+- [ ] Remember window position (QSettings)
+- [ ] Command-line arguments (--config, --port)
+- [ ] Error handling and user messages
 
 ---
 
 ## Phase Dependencies
 
 ```
+Show Creator                          Visualizer
+─────────────                         ──────────
 Phase 10 (Bug Fixes)
     ↓
-Phase 11 (Show Structure) ─────────┐
-    ↓                              │
-Phase 12 (Riffs)                   │
-    ↓                              │
-Phase 13 (ArtNet Output) ──────────┤
-    ↓                              │
-Phase 14 (Visualizer) ←────────────┘
+Phase 11 (Show Structure)
     ↓
-Phase 15 (Audio Analysis)
+Phase 12 (ArtNet Output) ──────────────────────────┐
+    ↓                                              │
+Phase 13 (TCP Server) ────────┐                    │
+    ↓                         │                    │
+Phase 14 (Riffs)              │                    │
+    ↓                         ▼                    ▼
+Phase 15 (Audio)        Phase V1 (Foundation)
+                              ↓
+                        Phase V2 (TCP Client) ◄────┤
+                              ↓                    │
+                        Phase V3 (ArtNet) ◄────────┘
+                              ↓
+                        Phase V4 (3D Rendering)
+                              ↓
+                        Phase V5 (Fixtures)
+                              ↓
+                        Phase V6 (Beams)
+                              ↓
+                        Phase V7 (UI Polish)
 ```
+
+**Critical path for Visualizer:**
+1. Phase 12 (ArtNet Output) - Show Creator must send DMX
+2. Phase 13 (TCP Server) - Show Creator must send config
+3. Phase V2 + V3 - Visualizer receives data
+4. Phase V4-V7 - Visualizer renders
 
 ---
 
@@ -197,6 +363,8 @@ Items to address when time permits:
 
 ## File Locations by Phase
 
+### Show Creator
+
 | Phase | Key Files |
 |-------|-----------|
 | Universe/Fixtures | `gui/tabs/configuration_tab.py`, `gui/tabs/fixtures_tab.py` |
@@ -204,6 +372,18 @@ Items to address when time permits:
 | Sublanes | `config/models.py`, `timeline_ui/light_block_widget.py` |
 | Export | `utils/to_xml/shows_to_xml.py` |
 | Show Structure | `timeline/song_structure.py`, `shows/*.csv` |
+| ArtNet Output | `utils/artnet/sender.py` (to create) |
+| TCP Server | `utils/tcp/server.py` (to create) |
+
+### Visualizer
+
+| Phase | Key Files |
+|-------|-----------|
+| Foundation | `visualizer/main.py` |
+| TCP Client | `visualizer/tcp/client.py` |
+| ArtNet | `visualizer/artnet/listener.py` |
+| Rendering | `visualizer/renderer/engine.py` |
+| Beams | `visualizer/renderer/beams.py` |
 
 ---
 
@@ -227,8 +407,17 @@ Items to address when time permits:
 
 ### v0.5 - Show Creation (NEXT)
 - In-app show structure creation
-- Riffs system
+- ArtNet output for preview
+
+### v0.6 - Visualizer Alpha
+- TCP + ArtNet communication working
+- Basic 3D rendering
+
+### v0.7 - Visualizer Beta
+- Volumetric beams
+- All fixture types rendered
 
 ### v1.0 - Feature Complete (FUTURE)
 - All planned features
 - Stable and tested
+- Riffs system
