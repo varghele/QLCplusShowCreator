@@ -95,7 +95,7 @@ This document tracks the development phases for QLC+ Show Creator and the integr
 
 Priority bug fixes before new features:
 
-- [ ] **Universe configuration bugs** - Investigate and fix issues with universe setup
+- [x] **Universe configuration bugs** - Fixed UID-based format, Line mapping, cleared PluginParameters. QLC+ network settings must be configured manually in QLC+ UI (stored in separate plugin config files).
 - [ ] Effect system polish
 - [ ] Export edge cases
 - [ ] UI/UX improvements based on usage
