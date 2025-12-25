@@ -8,38 +8,45 @@
 
 > **Copy this section when starting a new Claude session:**
 >
-> I'm working on **QLC+ Show Creator**, a PyQt6 application for creating light shows for QLC+ (open-source lighting control software). The app features:
+> I'm working on **QLC+ Show Creator**, a PyQt6 application for creating light shows for QLC+ (open-source lighting control software). The project includes:
+>
+> **Show Creator** (main application):
 > - Timeline-based editing with audio synchronization
 > - Fixture/universe configuration (E1.31, ArtNet, DMX USB)
 > - Stage planning with visual fixture placement
 > - Sublane-based effect system (Dimmer, Colour, Movement, Special)
 > - Export to QLC+ workspace files (.qxw)
+> - ArtNet output for live preview
 >
-> **Key files to understand the architecture:**
+> **Visualizer** (3D preview):
+> - Real-time 3D beam visualization
+> - Receives stage/fixture config via TCP from Show Creator
+> - Receives DMX data via ArtNet (from Show Creator or QLC+)
+> - OpenGL rendering with volumetric beams
+>
+> **Key files:**
 > - `.claude/OVERVIEW.md` - This file (project context)
 > - `.claude/PHASE_PLAN.md` - Current development roadmap
 > - `.claude/PROMPTS.md` - Specific task prompts
-> - `config/models.py` - Core data models
-> - `gui/gui.py` - Main window orchestration
+> - `config/models.py` - Core data models (shared)
+> - `utils/fixture_utils.py` - Fixture parsing (shared)
 >
 > **Current branch:** `refactorplustimeline`
 >
-> **Tech stack:** Python 3.12, PyQt6, pandas, numpy, PyYAML
+> **Tech stack:** Python 3.12, PyQt6, ModernGL, pandas, numpy, PyYAML
 
 ---
 
 ## Project Purpose
 
-QLC+ Show Creator is a visual tool for creating light shows that export to QLC+ workspace files. It bridges the gap between:
-- **Manual QLC+ programming** (time-consuming, complex)
-- **Automated show generation** (future goal with audio analysis)
+QLC+ Show Creator is a visual tool for creating light shows that export to QLC+ workspace files. The Visualizer provides real-time 3D preview of the lighting effects.
 
-The app enables users to:
-1. Configure DMX universes and fixtures
-2. Plan stage layouts visually
-3. Load song structures (currently CSV, future: in-app creation)
-4. Design effects using a timeline with sublanes
-5. Export complete QLC+ workspace files
+**Workflow:**
+1. Configure DMX universes and fixtures (Show Creator)
+2. Plan stage layouts visually (Show Creator)
+3. Create show structure and effects (Show Creator)
+4. Preview in real-time (Visualizer receives data via TCP + ArtNet)
+5. Export to QLC+ for live performance
 
 ---
 
@@ -47,57 +54,112 @@ The app enables users to:
 
 ```
 QLCplusShowCreator/
-├── main.py                    # Application entry point
+├── main.py                    # Show Creator entry point
 ├── config/
-│   └── models.py              # Core data models (40KB - most important!)
-├── gui/
-│   ├── gui.py                 # MainWindow orchestration (~270 lines)
-│   ├── Ui_MainWindow.py       # Qt Designer UI
-│   ├── StageView.py           # Stage visualization widget
-│   └── tabs/                  # Modular tab system
-│       ├── base_tab.py        # Abstract base for all tabs
-│       ├── configuration_tab.py  # Universe/DMX setup
-│       ├── fixtures_tab.py    # Fixture management
-│       ├── stage_tab.py       # Stage layout
-│       └── shows_tab.py       # Timeline/effects editing
-├── timeline/
-│   ├── light_lane.py          # Lane runtime logic
-│   ├── song_structure.py      # Show structure data
-│   └── playback_engine.py     # Playback control
-├── timeline_ui/
-│   ├── master_timeline_widget.py
-│   ├── timeline_widget.py     # Base timeline canvas
-│   ├── light_lane_widget.py   # Lane container widget
-│   ├── light_block_widget.py  # Effect block widget (65KB - complex!)
-│   ├── *_block_dialog.py      # Sublane edit dialogs
-│   └── effect_clipboard.py    # Copy/paste support
-├── effects/
-│   ├── dimmers.py             # Dimmer effect functions
-│   ├── bars.py                # Bar/LED effects
-│   ├── moving_heads.py        # Movement patterns
-│   └── multicolor.py          # Color effects
+│   └── models.py              # Core data models (SHARED)
+├── gui/                       # Show Creator GUI
+│   ├── gui.py                 # MainWindow orchestration
+│   ├── tabs/                  # Modular tab system
+│   └── StageView.py           # 2D stage visualization
+├── timeline/                  # Timeline logic
+├── timeline_ui/               # Timeline widgets
+├── effects/                   # Effect functions
 ├── utils/
-│   ├── fixture_utils.py       # Fixture definition parsing
-│   ├── sublane_presets.py     # QLC+ preset categorization
-│   └── to_xml/
-│       └── shows_to_xml.py    # QLC+ export (most complex)
-├── audio/                     # Audio playback/analysis (optional)
+│   ├── fixture_utils.py       # QXF parsing (SHARED)
+│   ├── sublane_presets.py     # Channel categorization (SHARED)
+│   └── to_xml/                # QLC+ export
+├── audio/                     # Audio playback (optional)
 ├── shows/                     # Show structure CSV files
-└── custom_fixtures/           # User fixture definitions
+├── custom_fixtures/           # User fixture definitions
+│
+└── visualizer/                # 3D Visualizer (separate app)
+    ├── main.py                # Visualizer entry point
+    ├── tcp/                   # TCP client for config sync
+    ├── artnet/                # ArtNet receiver for DMX
+    ├── renderer/              # OpenGL 3D rendering
+    │   ├── engine.py          # Main render loop
+    │   ├── camera.py          # Orbiting camera
+    │   ├── stage.py           # Floor/grid rendering
+    │   ├── fixtures.py        # Fixture models
+    │   ├── beams.py           # Volumetric beams
+    │   └── shaders/           # GLSL shaders
+    └── ui/                    # Visualizer UI
 ```
+
+---
+
+## Communication Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Show Creator                            │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │   Config    │  │  Timeline   │  │   Playback Engine   │  │
+│  │   Models    │  │   Effects   │  │                     │  │
+│  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘  │
+│         │                │                     │             │
+│         ▼                │                     ▼             │
+│  ┌─────────────┐         │         ┌─────────────────────┐  │
+│  │ TCP Server  │         │         │   ArtNet Sender     │  │
+│  │ (Config)    │         │         │   (DMX Output)      │  │
+│  └──────┬──────┘         │         └──────────┬──────────┘  │
+└─────────┼────────────────┼─────────────────────┼────────────┘
+          │                │                     │
+          │ TCP            │                     │ ArtNet (UDP 6454)
+          │ Stage layout   │                     │ DMX values
+          │ Fixtures       │                     │
+          │ Groups         │                     │
+          ▼                │                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       Visualizer                             │
+│  ┌─────────────┐                   ┌─────────────────────┐  │
+│  │ TCP Client  │                   │  ArtNet Listener    │  │
+│  │ (Config)    │                   │  (DMX Input)        │  │
+│  └──────┬──────┘                   └──────────┬──────────┘  │
+│         │                                     │             │
+│         ▼                                     ▼             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │              3D Rendering Engine                     │   │
+│  │   Stage Floor │ Fixtures │ Volumetric Beams         │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+
+                              OR
+
+┌─────────────────┐
+│      QLC+       │──── ArtNet (UDP 6454) ────▶ Visualizer
+│  (DMX Control)  │     (when Show Creator
+└─────────────────┘      is not playing)
+```
+
+### TCP Protocol (Config Sync)
+
+Show Creator → Visualizer:
+- Stage dimensions (width, depth, height)
+- Fixture list (positions, types, DMX addresses, modes)
+- Groups (name, color, fixture members)
+- Updates on configuration changes
+
+### ArtNet Protocol (DMX Data)
+
+- **Source**: Show Creator (during playback) OR QLC+ (for testing)
+- **Port**: UDP 6454
+- **Universes**: Configurable (typically 0, 1)
+- **Rate**: Up to 44Hz (DMX refresh rate)
+- **Data**: 512 channels per universe
 
 ---
 
 ## Core Data Models (`config/models.py`)
 
-### Key Classes
+### Key Classes (Shared by Show Creator and Visualizer)
 
 **Configuration** - Root container for all project data
 - `universes: Dict[int, Universe]` - DMX universe configurations
 - `fixtures: Dict[str, Fixture]` - All fixtures by name
 - `groups: Dict[str, FixtureGroup]` - Fixture groups
 - `shows: Dict[str, Show]` - Shows with song structure
-- `stage_*` - Stage dimensions
+- `stage_width`, `stage_depth`, `stage_height` - Stage dimensions
 
 **Fixture** - Individual lighting fixture
 - `universe`, `address` - DMX addressing
@@ -109,106 +171,114 @@ QLCplusShowCreator/
 **FixtureGroup** - Group of fixtures controlled together
 - `fixtures: List[Fixture]`
 - `capabilities: FixtureGroupCapabilities` - Auto-detected
+- `color: str` - Group color for UI
 
-**LightBlock** - Effect envelope on timeline
-- `start_time`, `end_time` - Timing
-- `dimmer_blocks: List[DimmerBlock]`
-- `colour_blocks: List[ColourBlock]`
-- `movement_blocks: List[MovementBlock]`
-- `special_blocks: List[SpecialBlock]`
+**Universe** - DMX universe configuration
+- `output_type` - E1.31, ArtNet, DMX USB
+- `ip`, `port`, `subnet` - Network settings
 
 ### Sublane Block Models
 
-Each sublane type has independent timing within the envelope:
-
-- **DimmerBlock**: `intensity`, `effect_type` (static/strobe/twinkle), `effect_speed`
-- **ColourBlock**: `color` (RGB), `color_mode`, preset options
-- **MovementBlock**: `shape`, `pan/tilt`, `size`, `speed`, `interpolate_gaps`
+- **DimmerBlock**: `intensity`, `effect_type`, `effect_speed`
+- **ColourBlock**: `color` (RGB), `color_mode`, presets
+- **MovementBlock**: `shape`, `pan/tilt`, `size`, `speed`
 - **SpecialBlock**: `gobo_index`, `prism_enabled`, `focus`, `zoom`
 
 ---
 
-## GUI Architecture
+## Show Creator GUI
 
 ### Tab System
-
-The MainWindow uses a **modular tab architecture** (refactored Dec 2024):
 
 1. **ConfigurationTab** - Universe management (E1.31, ArtNet, DMX USB)
 2. **FixturesTab** - Fixture inventory, groups, QLC+ definition import
 3. **StageTab** - Visual stage layout with drag-and-drop
 4. **ShowsTab** - Timeline editing with sublanes
 
-### Cross-Tab Communication
-
-```
-FixturesTab modifies groups
-    ↓
-MainWindow.on_groups_changed()
-    ↓
-├── StageTab.update_from_config()
-└── ShowsTab.update_from_config()
-```
-
----
-
-## Sublane System
-
-The effect system uses **four sublane types** based on fixture capabilities:
+### Sublane System
 
 | Sublane | Controls | Can Overlap? |
 |---------|----------|--------------|
 | **Dimmer** | Intensity, strobe, iris | Yes (cross-fade) |
 | **Colour** | RGB, color wheel, CMY | Yes (cross-fade) |
-| **Movement** | Pan/tilt, shapes, speed | No (one position at a time) |
-| **Special** | Gobo, prism, focus, zoom | No (one setting at a time) |
-
-### Capability Detection
-
-Fixture capabilities are **auto-detected** from QLC+ fixture definition files (`.qxf`):
-- Channel `Preset` attributes are categorized into sublanes
-- See `utils/sublane_presets.py` for full mapping
-- Groups show only applicable sublanes
+| **Movement** | Pan/tilt, shapes, speed | No |
+| **Special** | Gobo, prism, focus, zoom | No |
 
 ---
 
-## QLC+ Export
+## Visualizer
 
-Export logic is in `utils/to_xml/shows_to_xml.py`:
+### Purpose
 
-1. Creates QLC+ workspace XML structure
-2. Generates sequences from sublane blocks
-3. Maps fixtures to channels based on modes
-4. Handles color wheel fallback for non-RGB fixtures
-5. Implements adaptive step density (24 steps/sec max)
-6. Supports dynamic dimmer effects (strobe, twinkle)
+Real-time 3D visualization of lighting effects for:
+- Previewing shows during creation
+- Testing without physical fixtures
+- Debugging DMX output
+- Client presentations
+
+### Features
+
+- **3D Stage Rendering**: Floor grid matching stage dimensions
+- **Fixture Models**: LED bars, moving heads, washes, sunstrips
+- **Volumetric Beams**: Ray-traced light beams with color/intensity
+- **Pan/Tilt Animation**: Moving heads follow DMX values
+- **Orbiting Camera**: Mouse-controlled view
+- **Dual Input**: TCP for config, ArtNet for DMX
+
+### Rendering Approach
+
+- **Engine**: ModernGL (modern OpenGL bindings)
+- **Beams**: Cone geometry with volumetric fragment shaders
+- **Blending**: Additive for overlapping beams
+- **Performance Target**: 60 FPS with 10+ active beams
+
+### Fixture Rendering
+
+| Type | Visualization |
+|------|---------------|
+| LED Bar | 10 RGBW segments in a row |
+| Moving Head | Base + rotating head with beam |
+| Wash | Box shape with front color glow |
+| Sunstrip | Strip with warm white segments |
+
+---
+
+## Shared Code
+
+The following modules are shared between Show Creator and Visualizer:
+
+| Module | Purpose |
+|--------|---------|
+| `config/models.py` | All data models |
+| `utils/fixture_utils.py` | QXF file parsing |
+| `utils/sublane_presets.py` | Channel categorization |
+
+This ensures consistency and reduces code duplication.
 
 ---
 
 ## Current Status (December 2024)
 
-### Working Features
+### Show Creator - Working
 - Universe configuration (E1.31, ArtNet, DMX USB)
 - Fixture import from QLC+ definitions
 - Fixture groups with color coding
 - Stage planning with visual placement
 - CSV-based show structure import
 - Timeline with sublane-based effects
-- All sublane edit dialogs (dimmer, colour, movement, special)
+- All sublane edit dialogs
 - Copy/paste effects
 - Export to QLC+ workspace
 
-### Known Issues
-- Universe configuration has some bugs (needs investigation)
-- Only CSV import for show structure (no in-app creation)
-- Some effects still need polish/bug fixes
-
-### Not Yet Implemented
+### Show Creator - Needs Work
+- Universe configuration bugs
 - In-app show structure creation
-- ArtNet DMX output from the app
-- TCP connection for external visualizer
-- "Riffs" (predefined effect sequences)
-- AI-assisted show generation
+- ArtNet DMX output (for Visualizer)
+- TCP server for Visualizer
+
+### Visualizer - Not Started
+- All components need implementation
+- Priority: TCP integration first, then rendering
 
 ---
 
@@ -224,31 +294,23 @@ conda activate QLCAutoShow
 # Or install manually
 pip install -r requirements.txt
 
-# Run the application
+# Run Show Creator
 python main.py
+
+# Run Visualizer (when implemented)
+python visualizer/main.py
 ```
 
 ### Testing
 
 ```bash
-# Visual tests (interactive)
+# Show Creator visual tests
 python tests/visual/test_sublane_blocks.py
 python tests/visual/test_sublane_ui.py
-python tests/visual/test_capability_detection.py
-```
 
-### Key Commands
-
-```bash
-# Git
-git checkout refactorplustimeline
-git pull origin refactorplustimeline
-
-# Running
-python main.py
-
-# With specific config
-python main.py --config path/to/config.yaml
+# Visualizer tests (when implemented)
+python visualizer/tests/test_tcp_client.py
+python visualizer/tests/test_artnet_listener.py
 ```
 
 ---
@@ -258,18 +320,11 @@ python main.py --config path/to/config.yaml
 | File | Purpose | When to Read |
 |------|---------|--------------|
 | `config/models.py` | All data models | Understanding data flow |
+| `utils/fixture_utils.py` | Fixture parsing | Shared by both apps |
 | `timeline_ui/light_block_widget.py` | Effect interaction | UI debugging |
 | `utils/to_xml/shows_to_xml.py` | QLC+ export | Export issues |
-| `gui/tabs/*.py` | Tab implementations | Tab-specific work |
-| `utils/fixture_utils.py` | Fixture parsing | Capability issues |
-
----
-
-## External Dependencies
-
-- **QLC+**: Target lighting software (https://www.qlcplus.org/)
-- **Fixture definitions**: QLC+ `.qxf` files define fixture capabilities
-- **Audio files**: For timeline synchronization (optional)
+| `visualizer/renderer/engine.py` | 3D rendering | Visualizer work |
+| `visualizer/tcp/client.py` | Config sync | TCP integration |
 
 ---
 
@@ -281,8 +336,9 @@ python main.py --config path/to/config.yaml
 - Movement: Blue (#2196F3)
 - Special: Orange (#FF5722)
 
-### Effect Speeds
-- 1/4, 1/2, 1, 2, 4 (beats per step)
+### Network Ports
+- ArtNet: UDP 6454
+- TCP Config: TBD (suggest 7654)
 
 ### DMX Protocols
 - E1.31 (sACN): Network-based, multicast
