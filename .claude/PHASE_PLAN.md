@@ -150,29 +150,43 @@ Enable the Show Creator to send DMX directly for preview:
 - `.claude/INTEGRATION_COMPLETE.md` - Full integration summary
 - `utils/artnet/README.md` - API documentation
 
+### Phase 13: TCP Server for Visualizer (COMPLETE - Dec 2025)
+
+TCP server in Show Creator to send configuration to Visualizer:
+
+- [x] TCP server implementation (`utils/tcp/server.py`)
+- [x] Protocol definition (JSON with newline delimiter):
+  - [x] Stage dimensions message
+  - [x] Fixture list message (positions, types, addresses, modes)
+  - [x] Groups message (name, color, fixtures)
+  - [x] Update notification on changes
+  - [x] Heartbeat messages for keep-alive
+- [x] Connection status UI indicator (LED in ShowsTab toolbar)
+- [x] Multi-client support with thread-safe handling
+- [x] Auto-send configuration on client connect
+- [x] Auto-send updates on config changes
+- [x] Qt signals for GUI integration
+- [x] Serialize `Configuration` to JSON format
+
+**Implementation files:**
+- `utils/tcp/protocol.py` (171 lines) - Protocol definition
+- `utils/tcp/server.py` (301 lines) - Multi-threaded TCP server
+- `gui/tabs/shows_tab.py` - GUI integration (+130 lines)
+- `test_tcp_client.py` (153 lines) - Test client
+
+**Documentation:**
+- `.claude/TCP_IMPLEMENTATION.md` - Complete implementation summary
+- `utils/tcp/README.md` - API documentation and usage guide
+
 ---
 
 ## Current Phase
 
-No active development phase - ready for Phase 13.
+No active development phase - ready for Phase 14 or Visualizer V1.
 
 ---
 
 ## Upcoming Phases (Show Creator)
-
-### Phase 13: TCP Server for Visualizer (PLANNED - Required for Visualizer)
-
-TCP server in Show Creator to send configuration to Visualizer:
-
-- [ ] TCP server implementation (`utils/tcp/server.py`)
-- [ ] Protocol definition:
-  - Stage dimensions message
-  - Fixture list message (positions, types, addresses, modes)
-  - Groups message (name, color, fixtures)
-  - Update notification on changes
-- [ ] Connection status UI indicator
-- [ ] Auto-reconnect handling
-- [ ] Serialize `Configuration` to network-friendly format
 
 ### Phase 14: Effects/Riffs System Enhancement (PLANNED)
 
@@ -405,7 +419,7 @@ Items to address when time permits:
 | Export | `utils/to_xml/shows_to_xml.py` |
 | Show Structure | `timeline/song_structure.py`, `shows/*.csv` |
 | ArtNet Output | `utils/artnet/sender.py`, `utils/artnet/dmx_manager.py`, `utils/artnet/shows_artnet_controller.py` |
-| TCP Server | `utils/tcp/server.py` (to create) |
+| TCP Server | `utils/tcp/server.py`, `utils/tcp/protocol.py` |
 
 ### Visualizer
 
@@ -442,9 +456,9 @@ Items to address when time permits:
 - Shows directory management
 - Audio file integration
 
-### v0.6 - ArtNet Preview (IN PROGRESS - Dec 2025)
-- [x] ArtNet output for preview (Phase 12 complete)
-- [ ] TCP server for visualizer (Phase 13 next)
+### v0.6 - ArtNet Preview (ACHIEVED - Dec 2025)
+- [x] ArtNet output for preview (Phase 12)
+- [x] TCP server for visualizer (Phase 13)
 
 ### v0.7 - Visualizer Alpha
 - TCP + ArtNet communication working
