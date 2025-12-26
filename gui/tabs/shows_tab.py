@@ -5,7 +5,7 @@ import os
 import csv
 from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QComboBox, QPushButton,
                              QLabel, QSlider, QScrollArea, QWidget, QFrame,
-                             QSplitter, QSizePolicy, QInputDialog, QMessageBox)
+                             QSplitter, QSizePolicy, QInputDialog, QMessageBox, QCheckBox)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from config.models import Configuration, Show, ShowPart, TimelineData, LightBlock, ShowEffect
 from timeline.song_structure import SongStructure
@@ -23,6 +23,13 @@ try:
     AUDIO_AVAILABLE = True
 except ImportError:
     AUDIO_AVAILABLE = False
+
+# Try to import ArtNet components - may not be available
+try:
+    from utils.artnet import ShowsArtNetController
+    ARTNET_AVAILABLE = True
+except ImportError:
+    ARTNET_AVAILABLE = False
 
 
 class ShowsTab(BaseTab):
@@ -51,6 +58,10 @@ class ShowsTab(BaseTab):
         self.audio_mixer = None
         self.playback_sync = None
         self.device_manager = None
+
+        # ArtNet controller (lazy init)
+        self.artnet_controller = None
+        self.artnet_enabled = True  # Default to enabled
 
         # Playback timer
         self.playback_timer = QTimer()
@@ -148,6 +159,20 @@ class ShowsTab(BaseTab):
         toolbar.addWidget(self.zoom_label)
 
         toolbar.addStretch()
+
+        # ArtNet output toggle (if available)
+        if ARTNET_AVAILABLE:
+            toolbar.addSpacing(20)
+            self.artnet_checkbox = QCheckBox("ArtNet Output")
+            self.artnet_checkbox.setChecked(self.artnet_enabled)
+            self.artnet_checkbox.setToolTip("Enable/disable real-time DMX output via ArtNet")
+            self.artnet_checkbox.setStyleSheet("""
+                QCheckBox {
+                    font-weight: bold;
+                    color: #4CAF50;
+                }
+            """)
+            toolbar.addWidget(self.artnet_checkbox)
 
         # Save button
         self.save_btn = QPushButton("Save")
@@ -265,6 +290,10 @@ class ShowsTab(BaseTab):
         self.audio_lane.playhead_moved.connect(self._on_playhead_moved)
         self.audio_lane.audio_file_changed.connect(self._on_audio_file_loaded)
 
+        # ArtNet checkbox
+        if ARTNET_AVAILABLE and hasattr(self, 'artnet_checkbox'):
+            self.artnet_checkbox.toggled.connect(self._on_artnet_toggle)
+
     def update_from_config(self):
         """Refresh timeline from configuration."""
         # Update show combo
@@ -325,6 +354,10 @@ class ShowsTab(BaseTab):
         self.master_timeline.timeline_widget.set_song_structure(self.song_structure)
         self.audio_lane.set_song_structure(self.song_structure)
 
+        # Update ArtNet controller with new song structure
+        if self.artnet_controller:
+            self.artnet_controller.set_song_structure(self.song_structure)
+
         # Update total time display
         total_duration = self.song_structure.get_total_duration() if self.song_structure else 0
         self.total_time_label.setText(f"/ {self._format_time(total_duration)}")
@@ -365,6 +398,12 @@ class ShowsTab(BaseTab):
             for lane_data in show.timeline_data.lanes:
                 runtime_lane = LightLane.from_data_model(lane_data)
                 self._add_lane_widget(runtime_lane)
+
+            # Update ArtNet controller with loaded lanes
+            if self.artnet_controller:
+                self.artnet_controller.set_light_lanes(
+                    [widget.lane for widget in self.lane_widgets]
+                )
         else:
             # No timeline data, clear audio
             self.audio_lane.clear_audio()
@@ -607,6 +646,13 @@ class ShowsTab(BaseTab):
             if self.playback_sync:
                 self.playback_sync.on_play_requested(self.playhead_position)
 
+        # Initialize and start ArtNet if enabled
+        if ARTNET_AVAILABLE and self.artnet_enabled:
+            if self.artnet_controller is None:
+                self._init_artnet_controller()
+            if self.artnet_controller:
+                self.artnet_controller.start_playback()
+
         self.playback_timer.start()
 
     def _pause_playback(self):
@@ -618,6 +664,10 @@ class ShowsTab(BaseTab):
         if self.playback_sync:
             self.playback_sync.on_pause_requested()
 
+        # Pause ArtNet output
+        if self.artnet_controller:
+            self.artnet_controller.pause_playback()
+
     def _stop_playback(self):
         """Stop playback and reset position."""
         self.is_playing = False
@@ -626,6 +676,10 @@ class ShowsTab(BaseTab):
 
         if self.playback_sync:
             self.playback_sync.on_stop_requested()
+
+        # Stop ArtNet output
+        if self.artnet_controller:
+            self.artnet_controller.stop_playback()
 
         self._seek_to(0.0)
 
@@ -662,6 +716,10 @@ class ShowsTab(BaseTab):
         self.audio_lane.set_playhead_position(position)
         for lane in self.lane_widgets:
             lane.set_playhead_position(position)
+
+        # Update ArtNet controller position
+        if self.artnet_controller:
+            self.artnet_controller.update_position(position)
 
     def _init_audio_engine(self):
         """Initialize audio engine on first use."""
@@ -737,10 +795,66 @@ class ShowsTab(BaseTab):
             if was_playing:
                 self._start_playback()
 
+    def _init_artnet_controller(self):
+        """Initialize ArtNet controller on first use."""
+        if not ARTNET_AVAILABLE:
+            return
+
+        if self.artnet_controller is None:
+            try:
+                # Load fixture definitions
+                fixture_defs = Configuration._scan_fixture_definitions()
+
+                # Create controller
+                self.artnet_controller = ShowsArtNetController(
+                    config=self.config,
+                    fixture_definitions=fixture_defs,
+                    song_structure=self.song_structure,
+                    target_ip="255.255.255.255"  # Broadcast
+                )
+
+                # Set light lanes
+                self.artnet_controller.set_light_lanes(
+                    [widget.lane for widget in self.lane_widgets]
+                )
+
+                # Enable output if checkbox is checked
+                if self.artnet_enabled:
+                    self.artnet_controller.enable_output()
+
+                print("ArtNet controller initialized")
+
+            except Exception as e:
+                print(f"Failed to initialize ArtNet controller: {e}")
+                import traceback
+                traceback.print_exc()
+                self.artnet_controller = None
+
+    def _on_artnet_toggle(self, checked: bool):
+        """Handle ArtNet checkbox toggle."""
+        self.artnet_enabled = checked
+
+        if checked:
+            # Initialize and enable
+            if self.artnet_controller is None:
+                self._init_artnet_controller()
+            elif self.artnet_controller:
+                self.artnet_controller.enable_output()
+                # Update song structure and lanes
+                self.artnet_controller.set_song_structure(self.song_structure)
+                self.artnet_controller.set_light_lanes(
+                    [widget.lane for widget in self.lane_widgets]
+                )
+        else:
+            # Disable
+            if self.artnet_controller:
+                self.artnet_controller.disable_output()
+
     def cleanup(self):
-        """Clean up audio resources."""
+        """Clean up audio and ArtNet resources."""
         self._stop_playback()
 
+        # Clean up audio
         if self.audio_engine:
             try:
                 self.audio_engine.shutdown()
@@ -749,6 +863,14 @@ class ShowsTab(BaseTab):
             self.audio_engine = None
             self.audio_mixer = None
             self.playback_sync = None
+
+        # Clean up ArtNet
+        if self.artnet_controller:
+            try:
+                self.artnet_controller.cleanup()
+            except Exception:
+                pass
+            self.artnet_controller = None
 
         self.audio_lane.cleanup()
 
