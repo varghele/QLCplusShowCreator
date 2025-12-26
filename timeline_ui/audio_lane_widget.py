@@ -287,6 +287,17 @@ class AudioLaneWidget(QFrame):
             self.file_path_edit.setText(f"Error: {str(e)}")
             self.audio_file = None
 
+    def clear_audio(self):
+        """Clear the current audio file and reset the display."""
+        self.audio_file = None
+        self.audio_file_path = ""
+        self.file_path_edit.setText("")
+        self.file_path_edit.setPlaceholderText("No audio file loaded")
+        self.file_path_edit.setToolTip("")
+        # Clear waveform from timeline
+        if hasattr(self.timeline_widget, 'load_audio'):
+            self.timeline_widget.load_audio(None)
+
     def get_audio_file_path(self) -> str:
         """Get the current audio file path."""
         return self.audio_file_path

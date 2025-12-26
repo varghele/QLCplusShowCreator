@@ -1,6 +1,6 @@
 # QLC+ Show Creator - Development Phase Plan
 
-**Last Updated:** December 2024
+**Last Updated:** December 2025
 
 ---
 
@@ -35,7 +35,7 @@ This document tracks the development phases for QLC+ Show Creator and the integr
 - [x] Stage dimensions configuration
 - [x] Coordinate system (0,0 at center)
 
-### Phase 4: MainWindow Refactoring (COMPLETE - Dec 2024)
+### Phase 4: MainWindow Refactoring (COMPLETE - Dec 2025)
 
 - [x] Split monolithic `gui.py` (1,738 → 270 lines, 84% reduction)
 - [x] Modular tab architecture (`gui/tabs/`)
@@ -43,7 +43,7 @@ This document tracks the development phases for QLC+ Show Creator and the integr
 - [x] Cross-tab communication via parent
 - [x] Auto-save functionality
 
-### Phase 5: Sublane System - Data & Detection (COMPLETE - Dec 2024)
+### Phase 5: Sublane System - Data & Detection (COMPLETE - Dec 2025)
 
 - [x] Sublane block data models (Dimmer, Colour, Movement, Special)
 - [x] Multiple blocks per sublane type (List architecture)
@@ -51,7 +51,7 @@ This document tracks the development phases for QLC+ Show Creator and the integr
 - [x] Capability auto-detection from fixture definitions
 - [x] QLC+ preset categorization (`sublane_presets.py`)
 
-### Phase 6: Sublane System - UI (COMPLETE - Dec 2024)
+### Phase 6: Sublane System - UI (COMPLETE - Dec 2025)
 
 - [x] Sublane rendering in timeline
 - [x] Dynamic lane height based on capabilities
@@ -61,7 +61,7 @@ This document tracks the development phases for QLC+ Show Creator and the integr
 - [x] Selection and cursor feedback
 - [x] Effect envelope auto-expansion
 
-### Phase 7: Sublane Edit Dialogs (COMPLETE - Dec 2024)
+### Phase 7: Sublane Edit Dialogs (COMPLETE - Dec 2025)
 
 - [x] DimmerBlockDialog (intensity, strobe, effect type/speed)
 - [x] ColourBlockDialog (RGB, presets, color wheel)
@@ -69,14 +69,14 @@ This document tracks the development phases for QLC+ Show Creator and the integr
 - [x] SpecialBlockDialog (gobo, prism, focus, zoom)
 - [x] Copy/paste functionality (`effect_clipboard.py`)
 
-### Phase 8: QLC+ Export - Dimmer (COMPLETE - Dec 2024)
+### Phase 8: QLC+ Export - Dimmer (COMPLETE - Dec 2025)
 
 - [x] Export dimmer blocks to QLC+ sequences
 - [x] Dimmer effects (static, strobe, twinkle)
 - [x] Speed-based step generation
 - [x] RGB control for fixtures without dimmer channel
 
-### Phase 9: QLC+ Export - Movement (COMPLETE - Dec 2024)
+### Phase 9: QLC+ Export - Movement (COMPLETE - Dec 2025)
 
 - [x] Movement sequences with pan/tilt animation
 - [x] Shape generation (circle, lissajous, diamond, etc.)
@@ -87,33 +87,46 @@ This document tracks the development phases for QLC+ Show Creator and the integr
 - [x] Special block export (gobo, prism, focus, zoom)
 - [x] Fixed QLC+ crash issue (Duration attribute removal)
 
----
-
-## Current Phase
-
-### Phase 10: Bug Fixes & Stabilization (IN PROGRESS)
+### Phase 10: Bug Fixes & Stabilization (COMPLETE - Dec 2025)
 
 Priority bug fixes before new features:
 
 - [x] **Universe configuration bugs** - Fixed UID-based format, Line mapping, cleared PluginParameters. QLC+ network settings must be configured manually in QLC+ UI (stored in separate plugin config files).
-- [ ] Effect system polish
-- [ ] Export edge cases
-- [ ] UI/UX improvements based on usage
+- [x] Effect system polish
+- [x] Export edge cases
+- [x] UI/UX improvements based on usage
+
+### Phase 11: In-App Show Structure Creation (COMPLETE - Dec 2025)
+
+In-app show structure creation and management:
+
+- [x] Show structure editor UI in Structure tab
+- [x] Song part management (add/remove/reorder via right-click menu)
+- [x] Custom table cell widgets (TimeSignatureWidget, ColorButton)
+- [x] Timing configuration per part (BPM double spinbox, bars spinbox)
+- [x] BPM and time signature settings with input validation
+- [x] Transition type selection (instant/gradual combobox)
+- [x] Color coding for show parts with hex color picker
+- [x] CSV import/export functionality maintained
+- [x] Shows directory management system
+- [x] Audio file management (auto-copy to audiofiles/ subfolder)
+- [x] Auto-load shows on tab activation
+- [x] Auto-save to CSV on structure changes
+- [x] Delete show functionality with audio file cleanup
+- [x] Directory selection dialog with default location warning
+- [x] Audio lane integration with waveform display
+- [x] Timeline synchronization between Structure and Shows tabs
+- [x] Removed audio extension prompt (structure managed in Structure tab)
+
+---
+
+## Current Phase
+
+No active development phase - ready for Phase 12.
 
 ---
 
 ## Upcoming Phases (Show Creator)
-
-### Phase 11: In-App Show Structure Creation (PLANNED)
-
-Currently, show structures must be created as CSV files manually. This phase adds in-app creation:
-
-- [ ] Show structure editor UI
-- [ ] Song part management (add/remove/reorder)
-- [ ] Timing configuration per part
-- [ ] BPM and time signature settings
-- [ ] Import from CSV (keep existing functionality)
-- [ ] Save show structure to configuration
 
 ### Phase 12: ArtNet DMX Output (PLANNED - Required for Visualizer)
 
@@ -401,19 +414,24 @@ Items to address when time permits:
 - Sublane system complete
 - Basic export working
 
-### v0.4 - Export Polish (CURRENT TARGET)
+### v0.4 - Export Polish (ACHIEVED)
 - All export features working
 - Bug fixes complete
 
-### v0.5 - Show Creation (NEXT)
+### v0.5 - Show Creation (ACHIEVED - Dec 2025)
 - In-app show structure creation
-- ArtNet output for preview
+- Shows directory management
+- Audio file integration
 
-### v0.6 - Visualizer Alpha
+### v0.6 - ArtNet Preview (NEXT)
+- ArtNet output for preview
+- TCP server for visualizer
+
+### v0.7 - Visualizer Alpha
 - TCP + ArtNet communication working
 - Basic 3D rendering
 
-### v0.7 - Visualizer Beta
+### v0.8 - Visualizer Beta
 - Volumetric beams
 - All fixture types rendered
 

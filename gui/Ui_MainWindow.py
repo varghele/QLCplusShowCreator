@@ -25,9 +25,6 @@ class Ui_MainWindow(object):
         self.loadAction = QAction(QtWidgets.QApplication.style().standardIcon(
             QtWidgets.QStyle.StandardPixmap.SP_DialogOpenButton),
             "Load Configuration", MainWindow)
-        self.loadShowsAction = QAction(QtWidgets.QApplication.style().standardIcon(
-            QtWidgets.QStyle.StandardPixmap.SP_TitleBarShadeButton),
-            "Load Shows", MainWindow)
         self.importWorkspaceAction = QAction(QtWidgets.QApplication.style().standardIcon(
             QtWidgets.QStyle.StandardPixmap.SP_FileDialogDetailedView),
             "Import Workspace", MainWindow)
@@ -42,7 +39,6 @@ class Ui_MainWindow(object):
         spacer.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
                              QtWidgets.QSizePolicy.Policy.Expanding)
         self.toolbar.addWidget(spacer)
-        self.toolbar.addAction(self.loadShowsAction)
         self.toolbar.addAction(self.importWorkspaceAction)
         self.toolbar.addAction(self.createWorkspaceAction)
 
@@ -62,10 +58,14 @@ class Ui_MainWindow(object):
         # Shows Tab (UI created by ShowsTab)
         self.tab_2 = QtWidgets.QWidget()
 
+        # Structure Tab (UI created by StructureTab)
+        self.tab_structure = QtWidgets.QWidget()
+
         # Add tabs to widget
         self.tabWidget.addTab(self.tab_config, "Configuration")
         self.tabWidget.addTab(self.tab, "Fixtures")
         self.tabWidget.addTab(self.tab_stage, "Stage")
+        self.tabWidget.addTab(self.tab_structure, "Structure")
         self.tabWidget.addTab(self.tab_2, "Shows")
 
         self.horizontalLayout.addWidget(self.tabWidget)
@@ -84,6 +84,7 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_config), _translate("MainWindow", "Configuration"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Fixtures"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_stage), _translate("MainWindow", "Stage"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_structure), _translate("MainWindow", "Structure"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Shows"))
         # Toolbar actions
         self.saveAction.setText(_translate("MainWindow", "Save Configuration"))
