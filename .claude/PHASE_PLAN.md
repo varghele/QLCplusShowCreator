@@ -118,28 +118,47 @@ In-app show structure creation and management:
 - [x] Timeline synchronization between Structure and Shows tabs
 - [x] Removed audio extension prompt (structure managed in Structure tab)
 
+### Phase 12: ArtNet DMX Output (COMPLETE - Dec 2025)
+
+Enable the Show Creator to send DMX directly for preview:
+
+- [x] ArtNet packet generation (`utils/artnet/sender.py`)
+- [x] Real-time DMX output during playback
+- [x] Universe routing configuration
+- [x] Rate limiting (44Hz max)
+- [x] Toggle via GUI checkbox in ShowsTab toolbar
+- [x] **BPM-aware movement timing** (integrated with SongStructure)
+- [x] **All movement shapes implemented:**
+  - [x] Circle, Figure-8, Lissajous (existing)
+  - [x] Diamond, Square, Triangle, Random, Bounce (new)
+- [x] **Granular block ending** (per sublane type)
+- [x] **ShowsTab integration** with playback controls
+- [x] Fixture channel mapping from .qxf definitions
+- [x] Real-time effect calculations (strobe, twinkle)
+- [x] LTP (Latest Takes Priority) block merging
+- [x] 44Hz DMX update timer
+- [x] Broadcast and unicast support
+
+**Implementation files:**
+- `utils/artnet/sender.py` (168 lines) - Packet generation
+- `utils/artnet/dmx_manager.py` (620 lines) - DMX state + BPM integration
+- `utils/artnet/shows_artnet_controller.py` (227 lines) - ShowsTab integration
+- `gui/tabs/shows_tab.py` - GUI integration with checkbox toggle
+
+**Documentation:**
+- `.claude/ARTNET_IMPLEMENTATION.md` - Original implementation
+- `.claude/INTEGRATION_COMPLETE.md` - Full integration summary
+- `utils/artnet/README.md` - API documentation
+
 ---
 
 ## Current Phase
 
-No active development phase - ready for Phase 12.
+No active development phase - ready for Phase 13.
 
 ---
 
 ## Upcoming Phases (Show Creator)
-
-### Phase 12: ArtNet DMX Output (PLANNED - Required for Visualizer)
-
-Enable the Show Creator to send DMX directly for preview:
-
-- [ ] ArtNet packet generation (`utils/artnet/sender.py`)
-- [ ] Real-time DMX output during playback
-- [ ] Universe routing configuration
-- [ ] Network interface selection
-- [ ] Rate limiting (44Hz max)
-- [ ] Toggle between preview mode and QLC+ export mode
-
-**Note:** This is required before the Visualizer can show live previews.
 
 ### Phase 13: TCP Server for Visualizer (PLANNED - Required for Visualizer)
 
@@ -385,7 +404,7 @@ Items to address when time permits:
 | Sublanes | `config/models.py`, `timeline_ui/light_block_widget.py` |
 | Export | `utils/to_xml/shows_to_xml.py` |
 | Show Structure | `timeline/song_structure.py`, `shows/*.csv` |
-| ArtNet Output | `utils/artnet/sender.py` (to create) |
+| ArtNet Output | `utils/artnet/sender.py`, `utils/artnet/dmx_manager.py`, `utils/artnet/shows_artnet_controller.py` |
 | TCP Server | `utils/tcp/server.py` (to create) |
 
 ### Visualizer
@@ -423,9 +442,9 @@ Items to address when time permits:
 - Shows directory management
 - Audio file integration
 
-### v0.6 - ArtNet Preview (NEXT)
-- ArtNet output for preview
-- TCP server for visualizer
+### v0.6 - ArtNet Preview (IN PROGRESS - Dec 2025)
+- [x] ArtNet output for preview (Phase 12 complete)
+- [ ] TCP server for visualizer (Phase 13 next)
 
 ### v0.7 - Visualizer Alpha
 - TCP + ArtNet communication working
