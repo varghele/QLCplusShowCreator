@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QMainWindow, QFileDialog, QMessageBox
 from config.models import Configuration
 from utils.create_workspace import create_qlc_workspace
 from gui.Ui_MainWindow import Ui_MainWindow
-from gui.tabs import ConfigurationTab, FixturesTab, ShowsTab, StageTab
+from gui.tabs import ConfigurationTab, FixturesTab, ShowsTab, StageTab, StructureTab
 from gui.audio_settings_dialog import AudioSettingsDialog
 
 
@@ -52,6 +52,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.config_tab = ConfigurationTab(self.config, self)
         self.fixtures_tab = FixturesTab(self.config, self)
         self.stage_tab = StageTab(self.config, self)
+        self.structure_tab = StructureTab(self.config, self)
         self.shows_tab = ShowsTab(self.config, self)
 
         # Replace placeholder tabs with actual tab widgets
@@ -100,6 +101,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         new_layout.setContentsMargins(0, 0, 0, 0)
         new_layout.addWidget(self.stage_tab)
 
+        # Structure tab (tab_structure)
+        layout = self.tab_structure.layout()
+        if layout:
+            while layout.count():
+                item = layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
+            layout.deleteLater()
+
+        new_layout = QtWidgets.QVBoxLayout(self.tab_structure)
+        new_layout.setContentsMargins(0, 0, 0, 0)
+        new_layout.addWidget(self.structure_tab)
+
         # Shows tab (tab_2)
         layout = self.tab_2.layout()
         if layout:
@@ -118,7 +132,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Toolbar actions
         self.saveAction.triggered.connect(self.save_configuration)
         self.loadAction.triggered.connect(self.load_configuration)
-        self.loadShowsAction.triggered.connect(self.import_show_structure)
         self.importWorkspaceAction.triggered.connect(self.import_workspace)
         self.createWorkspaceAction.triggered.connect(self.create_workspace)
 
@@ -129,20 +142,82 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.actionCreateWorkspace.triggered.connect(self.create_workspace)
         self.actionExit.triggered.connect(self.close)
 
+        # Tab change handler
+        self.tabWidget.currentChanged.connect(self._on_tab_changed)
+
         # Settings menu actions
         self.actionAudioSettings.triggered.connect(self.open_audio_settings)
 
         # Help menu actions
         self.actionAbout.triggered.connect(self.show_about)
 
+    def _on_tab_changed(self, index):
+        """Handle tab change - notify tabs of activation."""
+        try:
+            print(f"DEBUG: Tab changed to index {index}")
+
+            # Map tab indices to tab widgets (check actual attribute names)
+            tab_map = {}
+
+            # Try to get the actual tab widgets
+            if hasattr(self, 'config_tab'):
+                tab_map[0] = self.config_tab
+            if hasattr(self, 'fixtures_tab'):
+                tab_map[1] = self.fixtures_tab
+            if hasattr(self, 'stage_tab'):
+                tab_map[2] = self.stage_tab
+            if hasattr(self, 'structure_tab'):
+                tab_map[3] = self.structure_tab
+            if hasattr(self, 'shows_tab'):
+                tab_map[4] = self.shows_tab
+
+            # Call on_tab_activated on the newly activated tab
+            if index in tab_map:
+                tab = tab_map[index]
+                if tab and hasattr(tab, 'on_tab_activated'):
+                    print(f"DEBUG: Calling on_tab_activated for tab {index}")
+                    tab.on_tab_activated()
+            else:
+                print(f"DEBUG: No handler for tab index {index}")
+        except Exception as e:
+            print(f"ERROR in _on_tab_changed: {e}")
+            import traceback
+            traceback.print_exc()
+
     def on_groups_changed(self):
         """Coordinate updates when fixture groups change
 
         Called by FixturesTab when groups are modified.
-        Propagates changes to dependent tabs (Stage and Shows).
+        Propagates changes to dependent tabs (Stage, Structure, and Shows).
         """
         self.stage_tab.update_from_config()
+        self.structure_tab.update_from_config()
         self.shows_tab.update_from_config()
+
+    def on_show_selected(self, show_name: str, source_tab: str):
+        """Coordinate show selection across tabs.
+
+        Called when a show is selected in either Structure or Shows tab.
+        Syncs the selection to the other tab.
+
+        Args:
+            show_name: Name of the selected show
+            source_tab: Which tab triggered the selection ('structure' or 'shows')
+        """
+        if source_tab == 'shows':
+            # Update structure tab to match
+            if self.structure_tab.show_combo.currentText() != show_name:
+                self.structure_tab.show_combo.blockSignals(True)
+                self.structure_tab.show_combo.setCurrentText(show_name)
+                self.structure_tab.show_combo.blockSignals(False)
+                self.structure_tab._load_show(show_name)
+        elif source_tab == 'structure':
+            # Update shows tab to match
+            if self.shows_tab.show_combo.currentText() != show_name:
+                self.shows_tab.show_combo.blockSignals(True)
+                self.shows_tab.show_combo.setCurrentText(show_name)
+                self.shows_tab.show_combo.blockSignals(False)
+                self.shows_tab._load_show(show_name)
 
     def save_configuration(self):
         """Save configuration to YAML file"""
@@ -151,6 +226,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.config_tab.save_to_config()
             self.fixtures_tab.save_to_config()
             self.stage_tab.save_to_config()
+            self.structure_tab.save_to_config()
             self.shows_tab.save_to_config()
 
             # Prompt for file path if not set
@@ -205,12 +281,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.config_tab.config = self.config
             self.fixtures_tab.config = self.config
             self.stage_tab.config = self.config
+            self.structure_tab.config = self.config
             self.shows_tab.config = self.config
 
             # Refresh all tabs
             self.config_tab.update_from_config()
             self.fixtures_tab.update_from_config()
             self.stage_tab.update_from_config()
+            self.structure_tab.update_from_config()
             self.shows_tab.update_from_config()
 
             QMessageBox.information(
@@ -250,12 +328,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.config_tab.config = self.config
             self.fixtures_tab.config = self.config
             self.stage_tab.config = self.config
+            self.structure_tab.config = self.config
             self.shows_tab.config = self.config
 
             # Refresh all tabs
             self.config_tab.update_from_config()
             self.fixtures_tab.update_from_config()
             self.stage_tab.update_from_config()
+            self.structure_tab.update_from_config()
             self.shows_tab.update_from_config()
 
             QMessageBox.information(
@@ -301,6 +381,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.config_tab.save_to_config()
             self.fixtures_tab.save_to_config()
             self.stage_tab.save_to_config()
+            self.structure_tab.save_to_config()
             self.shows_tab.save_to_config()
 
             # Create workspace

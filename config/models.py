@@ -516,6 +516,7 @@ class Configuration:
     universes: Dict[int, Universe] = field(default_factory=dict)
     spots: Dict[str, Spot] = field(default_factory=dict)
     workspace_path: Optional[str] = None
+    shows_directory: Optional[str] = None  # Directory where show CSV files and audio are stored
 
     @classmethod
     def from_workspace(cls, workspace_path: str) -> 'Configuration':

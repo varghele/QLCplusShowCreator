@@ -9,13 +9,13 @@ pandas>=2.0.0
 
 # Optional: Audio features
 # Uncomment if you need audio playback and analysis
-# pyaudio>=0.2.13
-# soundfile>=0.12.0
-# librosa>=0.10.0
+pyaudio>=0.2.13
+soundfile>=0.12.0
+librosa>=0.10.0
 
 # Optional: DMX USB device detection
 # Uncomment if you need USB DMX interface support
-# pyserial>=3.5
+pyserial>=3.5
 
 # Note: On Linux, you may need system packages for audio:
 # Ubuntu/Debian: sudo apt-get install portaudio19-dev
