@@ -1,0 +1,17 @@
+# QLC+ Visualizer - Additional Requirements
+# These are visualizer-specific dependencies beyond the main project requirements.
+#
+# The main project requirements (PyQt6, pandas, numpy, PyYAML) are inherited.
+# Install these for 3D rendering capabilities.
+
+# ModernGL - Modern OpenGL bindings for Python (Phase V4+)
+# Used for 3D stage rendering, fixtures, and volumetric beams
+moderngl>=5.8.0
+
+# PyGLM - OpenGL Mathematics library for Python (Phase V4+)
+# Used for matrix transformations, camera calculations
+PyGLM>=2.7.0
+
+# Pillow - Image processing (optional, for texture loading)
+# Used for fixture textures and gobo patterns
+Pillow>=10.0.0

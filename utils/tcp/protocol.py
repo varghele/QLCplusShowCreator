@@ -4,7 +4,7 @@
 import json
 from enum import Enum
 from typing import Dict, List, Any
-from config.models import Configuration, Fixture, Group
+from config.models import Configuration, Fixture, FixtureGroup
 
 
 class MessageType(Enum):
