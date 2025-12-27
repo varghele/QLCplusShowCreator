@@ -38,7 +38,8 @@ class VisualizerProtocol:
         message = {
             "type": MessageType.STAGE.value,
             "width": config.stage_width,
-            "height": config.stage_height
+            "height": config.stage_height,
+            "grid_size": config.grid_size
         }
         return json.dumps(message) + "\n"
 

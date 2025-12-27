@@ -26,6 +26,8 @@ from utils.fixture_utils import determine_fixture_type
 
 # Import visualizer modules
 from visualizer.tcp import VisualizerTCPClient
+from visualizer.artnet import ArtNetListener
+from visualizer.renderer import RenderEngine
 
 
 class VisualizerWindow(QMainWindow):
@@ -57,6 +59,11 @@ class VisualizerWindow(QMainWindow):
         self.tcp_client = VisualizerTCPClient()
         self._connect_tcp_signals()
 
+        # ArtNet listener for receiving DMX data
+        self.artnet_listener = ArtNetListener()
+        self._connect_artnet_signals()
+        self.artnet_listener.start()
+
         # Initialize UI (toolbar must be before statusbar due to connect_action reference)
         self._init_ui()
         self._init_toolbar()
@@ -76,6 +83,34 @@ class VisualizerWindow(QMainWindow):
         self.tcp_client.fixtures_received.connect(self.set_fixtures)
         self.tcp_client.groups_received.connect(self.set_groups)
         self.tcp_client.update_received.connect(self._on_config_update)
+
+    def _connect_artnet_signals(self):
+        """Connect ArtNet listener signals to UI handlers."""
+        self.artnet_listener.dmx_received.connect(self._on_dmx_received)
+        self.artnet_listener.receiving_started.connect(self._on_artnet_started)
+        self.artnet_listener.receiving_stopped.connect(self._on_artnet_stopped)
+        self.artnet_listener.error_occurred.connect(self._on_artnet_error)
+
+    def _on_dmx_received(self, universe: int, dmx_data: bytes):
+        """Handle DMX data received from ArtNet."""
+        # Store DMX data for rendering (Phase V4+)
+        # For now, just update the indicator
+        pass
+
+    def _on_artnet_started(self):
+        """Handle ArtNet receiving started."""
+        self._update_artnet_indicator(True)
+        print("ArtNet: Receiving DMX data")
+
+    def _on_artnet_stopped(self):
+        """Handle ArtNet receiving stopped."""
+        self._update_artnet_indicator(False)
+        print("ArtNet: No longer receiving DMX data")
+
+    def _on_artnet_error(self, error_msg: str):
+        """Handle ArtNet error."""
+        print(f"ArtNet error: {error_msg}")
+        self.statusbar.showMessage(f"ArtNet error: {error_msg}", 5000)
 
     def _on_tcp_connected(self):
         """Handle TCP connected event."""
@@ -108,30 +143,10 @@ class VisualizerWindow(QMainWindow):
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Placeholder for 3D viewport (Phase V4)
-        self.viewport_frame = QFrame()
-        self.viewport_frame.setFrameStyle(QFrame.Shape.StyledPanel)
-        self.viewport_frame.setStyleSheet("""
-            QFrame {
-                background-color: #1a1a2e;
-                border: 1px solid #333;
-            }
-        """)
-
-        # Viewport placeholder label
-        viewport_layout = QVBoxLayout(self.viewport_frame)
-        self.viewport_label = QLabel("3D Viewport\n\nPhase V4: ModernGL rendering will be added here")
-        self.viewport_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.viewport_label.setStyleSheet("""
-            QLabel {
-                color: #666;
-                font-size: 18px;
-                font-style: italic;
-            }
-        """)
-        viewport_layout.addWidget(self.viewport_label)
-
-        layout.addWidget(self.viewport_frame)
+        # 3D render engine
+        self.render_engine = RenderEngine(self)
+        self.render_engine.set_stage_size(self.stage_width, self.stage_height)
+        layout.addWidget(self.render_engine)
 
     def _init_statusbar(self):
         """Initialize the status bar with connection indicators."""
@@ -163,6 +178,16 @@ class VisualizerWindow(QMainWindow):
         self.stage_info_label = QLabel()
         self._update_stage_info()
         self.statusbar.addWidget(self.stage_info_label)
+
+        # FPS counter (right side)
+        self.fps_label = QLabel("FPS: --")
+        self.fps_label.setStyleSheet("color: #888;")
+        self.statusbar.addPermanentWidget(self.fps_label)
+
+        # Separator
+        separator3 = QLabel(" | ")
+        separator3.setStyleSheet("color: #666;")
+        self.statusbar.addPermanentWidget(separator3)
 
         # Fixture count (right side)
         self.fixture_count_label = QLabel("Fixtures: 0")
@@ -220,8 +245,10 @@ class VisualizerWindow(QMainWindow):
 
     def _update_status(self):
         """Periodic status update (called by timer)."""
-        # This will be expanded in Phase V2/V3 to check actual connection states
-        pass
+        # Update FPS display
+        if hasattr(self, 'render_engine') and self.render_engine:
+            fps = self.render_engine.get_fps()
+            self.fps_label.setText(f"FPS: {fps:.0f}")
 
     def _on_connect_clicked(self):
         """Handle connect/disconnect button click."""
@@ -234,23 +261,31 @@ class VisualizerWindow(QMainWindow):
 
     def _on_reset_view(self):
         """Reset camera to default position."""
-        # TODO: Phase V4 - Reset 3D camera
-        print("Reset view (3D camera will be added in Phase V4)")
+        if hasattr(self, 'render_engine') and self.render_engine:
+            self.render_engine.reset_camera()
+            print("Camera reset to default position")
 
     # --- Configuration Handling (will be called by TCP client in Phase V2) ---
 
-    def set_stage_dimensions(self, width: float, height: float):
+    def set_stage_dimensions(self, width: float, height: float, grid_size: float = 0.5):
         """
         Set stage dimensions from TCP message.
 
         Args:
             width: Stage width in meters
             height: Stage height in meters
+            grid_size: Grid spacing in meters
         """
         self.stage_width = width
         self.stage_height = height
         self._update_stage_info()
-        print(f"Stage dimensions updated: {width}m x {height}m")
+
+        # Update renderer stage size and grid
+        if hasattr(self, 'render_engine') and self.render_engine:
+            self.render_engine.set_stage_size(width, height)
+            self.render_engine.set_grid_size(grid_size)
+
+        print(f"Stage dimensions updated: {width}m x {height}m (grid: {grid_size}m)")
 
     def set_fixtures(self, fixtures_data: list):
         """
@@ -295,7 +330,14 @@ class VisualizerWindow(QMainWindow):
         if self.tcp_client:
             self.tcp_client.disconnect()
 
-        # TODO: Phase V3 - Stop ArtNet listener
+        # Stop ArtNet listener
+        if self.artnet_listener:
+            self.artnet_listener.stop()
+
+        # Cleanup renderer
+        if hasattr(self, 'render_engine') and self.render_engine:
+            self.render_engine.cleanup()
+
         event.accept()
 
 
@@ -319,8 +361,9 @@ def main():
 
         print("Visualizer window opened")
         print("  - TCP client ready (click Connect to link with Show Creator)")
-        print("  - ArtNet listener will be added in Phase V3")
-        print("  - 3D rendering will be added in Phase V4-V6")
+        print("  - ArtNet listener active on port 6454")
+        print("  - 3D renderer active (use mouse to orbit/pan/zoom)")
+        print("  - Camera controls: Left=Orbit, Right=Pan, Scroll=Zoom, Home=Reset")
 
         sys.exit(app.exec())
 

@@ -28,7 +28,7 @@ class VisualizerTCPClient(QObject):
     connection_error = pyqtSignal(str)
 
     # Configuration signals
-    stage_received = pyqtSignal(float, float)  # width, height
+    stage_received = pyqtSignal(float, float, float)  # width, height, grid_size
     fixtures_received = pyqtSignal(list)  # list of fixture dicts
     groups_received = pyqtSignal(list)  # list of group dicts
     update_received = pyqtSignal(str, dict)  # update_type, data
@@ -63,6 +63,7 @@ class VisualizerTCPClient(QObject):
         # Stored configuration
         self.stage_width: float = 10.0
         self.stage_height: float = 8.0
+        self.grid_size: float = 0.5
         self.fixtures: List[Dict] = []
         self.groups: List[Dict] = []
 
@@ -215,9 +216,10 @@ class VisualizerTCPClient(QObject):
         """Handle stage dimensions message."""
         self.stage_width = message.get('width', 10.0)
         self.stage_height = message.get('height', 8.0)
+        self.grid_size = message.get('grid_size', 0.5)
 
-        print(f"Stage: {self.stage_width}m x {self.stage_height}m")
-        self.stage_received.emit(self.stage_width, self.stage_height)
+        print(f"Stage: {self.stage_width}m x {self.stage_height}m (grid: {self.grid_size}m)")
+        self.stage_received.emit(self.stage_width, self.stage_height, self.grid_size)
 
     def _handle_fixtures(self, message: Dict[str, Any]):
         """Handle fixtures list message."""

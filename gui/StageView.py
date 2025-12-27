@@ -336,12 +336,14 @@ class StageView(QtWidgets.QGraphicsView):
             for y in range(self.padding, depth_px + self.padding + 1, grid_size_px):
                 painter.drawLine(self.padding, y, width_px + self.padding, y)
 
-            # Draw center lines (darker)
-            painter.setPen(QtGui.QPen(QtGui.QColor(100, 100, 100), 2))
-            # Vertical center line
-            painter.drawLine(int(center_x_px), self.padding, int(center_x_px), depth_px + self.padding)
-            # Horizontal center line
+            # Draw center lines with colors matching the 3D visualizer
+            # X axis (horizontal center line) - RED
+            painter.setPen(QtGui.QPen(QtGui.QColor(255, 80, 80), 2))
             painter.drawLine(self.padding, int(center_y_px), width_px + self.padding, int(center_y_px))
+
+            # Y axis (vertical center line / depth) - BLUE
+            painter.setPen(QtGui.QPen(QtGui.QColor(80, 80, 255), 2))
+            painter.drawLine(int(center_x_px), self.padding, int(center_x_px), depth_px + self.padding)
 
         # Draw dimension labels
         self._draw_dimension_labels(painter, width_px, depth_px, center_x_px, center_y_px)
