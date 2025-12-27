@@ -18,7 +18,7 @@ Successfully implemented TCP server for sending stage/fixture configuration to V
 JSON-based protocol with newline-delimited messages:
 
 **Message Types:**
-- ✅ `STAGE` - Stage dimensions (width, height)
+- ✅ `STAGE` - Stage dimensions (width, height, grid_size)
 - ✅ `FIXTURES` - Complete fixture list with:
   - Name, manufacturer, model, mode
   - Universe and DMX address
@@ -153,7 +153,7 @@ Server → Client: [TCP SYN-ACK]
 
 **2. Server sends configuration**
 ```json
-{"type":"stage","width":10.0,"height":8.0}\n
+{"type":"stage","width":10.0,"height":8.0,"grid_size":0.5}\n
 {"type":"fixtures","fixtures":[...]}\n
 {"type":"groups","groups":[...]}\n
 ```
@@ -200,7 +200,7 @@ Connecting to localhost:9000...
 Receiving configuration messages:
 
 [1] Message type: stage
-    Stage: 10.0m × 8.0m
+    Stage: 10.0m × 8.0m, Grid: 0.5m
 
 [2] Message type: fixtures
     Fixtures: 8 total

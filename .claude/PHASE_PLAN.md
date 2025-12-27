@@ -182,7 +182,7 @@ TCP server in Show Creator to send configuration to Visualizer:
 
 ## Current Phase
 
-No active development phase - ready for Phase 14 or Visualizer V1.
+**Phase V4: Complete** - Ready for Phase V5 (Fixture Rendering).
 
 ---
 
@@ -211,54 +211,62 @@ AI-assisted show generation:
 
 ## Visualizer Phases
 
-### Phase V1: Project Foundation (PLANNED - PRIORITY)
+### Phase V1: Project Foundation (COMPLETE - Dec 2025)
 
 Set up the Visualizer project structure:
 
-- [ ] Create `visualizer/` directory structure
-- [ ] Visualizer entry point (`visualizer/main.py`)
-- [ ] Import shared modules (`config/models.py`, `utils/fixture_utils.py`)
-- [ ] PyQt6 main window skeleton
-- [ ] Add ModernGL, PyGLM to requirements
+- [x] Create `visualizer/` directory structure
+- [x] Visualizer entry point (`visualizer/main.py`)
+- [x] Import shared modules (`config/models.py`, `utils/fixture_utils.py`)
+- [x] PyQt6 main window skeleton
+- [x] Add ModernGL, PyGLM to requirements
 
-**Files to create:**
+**Files created:**
 ```
 visualizer/
-├── main.py
-├── __init__.py
-└── requirements.txt (visualizer-specific deps)
+├── main.py              # Main window with toolbar, statusbar, viewport placeholder
+├── __init__.py          # Package init
+└── requirements.txt     # ModernGL, PyGLM, Pillow
 ```
 
-### Phase V2: TCP Client Integration (PLANNED - PRIORITY)
+### Phase V2: TCP Client Integration (COMPLETE - Dec 2025)
 
 Receive configuration from Show Creator:
 
-- [ ] TCP client implementation (`visualizer/tcp/client.py`)
-- [ ] Parse stage dimensions message
-- [ ] Parse fixture list message
-- [ ] Parse groups message
-- [ ] Handle connection/disconnection gracefully
-- [ ] Connection status UI (green/red indicator)
-- [ ] Store received config in local data structures
+- [x] TCP client implementation (`visualizer/tcp/client.py`)
+- [x] Parse stage dimensions message
+- [x] Parse fixture list message
+- [x] Parse groups message
+- [x] Handle connection/disconnection gracefully
+- [x] Connection status UI (green/red indicator in statusbar)
+- [x] Store received config in local data structures
+- [x] Launch Visualizer button in Stage tab
+- [x] Auto-start TCP server when launching Visualizer
 
-**Files to create:**
+**Files created:**
 ```
 visualizer/tcp/
 ├── __init__.py
-├── client.py
-└── protocol.py
+└── client.py            # VisualizerTCPClient with Qt signals
 ```
 
-### Phase V3: ArtNet Receiver (PLANNED)
+**Additional changes:**
+- `config/models.py`: Added `stage_width`, `stage_height` to Configuration
+- `gui/tabs/stage_tab.py`: Added Visualizer group with launch button and TCP status
+- `utils/tcp/protocol.py`: Fixed import (Group → FixtureGroup)
+
+### Phase V3: ArtNet Receiver (COMPLETE - Dec 2025)
 
 Receive live DMX values:
 
-- [ ] ArtNet UDP listener (`visualizer/artnet/listener.py`)
-- [ ] Parse ArtNet OpDmx packets
-- [ ] Support Universe 0 and 1 (configurable)
-- [ ] Thread-safe DMX value storage
-- [ ] Connection status detection (receiving/not receiving)
-- [ ] Handle both Show Creator and QLC+ as sources
+- [x] ArtNet UDP listener (`visualizer/artnet/listener.py`)
+- [x] Parse ArtNet OpDmx packets
+- [x] Support configurable universes (None = all)
+- [x] Thread-safe DMX value storage
+- [x] Connection status detection (receiving/not receiving with 2s timeout)
+- [x] Handle both Show Creator and QLC+ as sources
+- [x] Qt signals for thread-safe UI updates
+- [x] Packet statistics tracking
 
 **ArtNet OpDmx packet format:**
 - Bytes 0-7: "Art-Net\0"
@@ -267,39 +275,66 @@ Receive live DMX values:
 - Byte 16-17: Length (big-endian)
 - Bytes 18+: DMX data (up to 512 bytes)
 
-**Files to create:**
+**Files created:**
 ```
 visualizer/artnet/
 ├── __init__.py
-├── listener.py
-└── protocol.py
+└── listener.py          # ArtNetListener with Qt signals
 ```
 
-### Phase V4: 3D Rendering Foundation (PLANNED)
+### Phase V4: 3D Rendering Foundation (COMPLETE - Dec 2025)
 
 Basic OpenGL setup:
 
-- [ ] ModernGL context in PyQt6 (`visualizer/renderer/engine.py`)
-- [ ] Orbiting camera with mouse controls (`visualizer/renderer/camera.py`)
-- [ ] Stage floor with grid lines (`visualizer/renderer/stage.py`)
-- [ ] Dark background rendering
-- [ ] FPS counter
-- [ ] Window resize handling
+- [x] ModernGL context in PyQt6 (`visualizer/renderer/engine.py`)
+- [x] Orbiting camera with mouse controls (`visualizer/renderer/camera.py`)
+- [x] Stage floor with grid lines (`visualizer/renderer/stage.py`)
+- [x] Dark background rendering
+- [x] FPS counter
+- [x] Window resize handling
+- [x] Coordinate system gizmo in top-right corner (`visualizer/renderer/gizmo.py`)
+- [x] Colored axes matching Stage tab (X=red, Y=blue, Z=green)
+- [x] Live stage dimension updates via TCP
+- [x] Live grid size updates via TCP
+- [x] Colored center axes in Stage tab view
 
 **Camera controls:**
 - Left mouse drag: Orbit around stage center
-- Right mouse drag: Pan
+- Right mouse drag: Pan (also middle mouse)
 - Scroll wheel: Zoom
-- Home key: Reset view
+- Home key or R: Reset view
 
-**Files to create:**
+**Files created:**
 ```
 visualizer/renderer/
-├── __init__.py
-├── engine.py
-├── camera.py
-└── stage.py
+├── __init__.py          # Package exports
+├── engine.py            # RenderEngine (QOpenGLWidget with ModernGL)
+├── camera.py            # OrbitCamera (spherical coordinates, view/projection)
+├── stage.py             # StageRenderer (floor quad + grid lines with GLSL)
+└── gizmo.py             # CoordinateGizmo (XYZ axes indicator in corner)
 ```
+
+**Technical details:**
+- OpenGL 3.3 Core Profile with MSAA 4x
+- 60 FPS render target with QTimer
+- Stage grid with configurable spacing (synced via TCP)
+- Colored center axes: X=red (width), Y=blue (depth), Z=green (height)
+- PyGLM for matrix math (glm.lookAt, glm.perspective)
+- GLSL 330 shaders for floor and grid rendering
+- Qt FBO binding for correct ModernGL rendering in QOpenGLWidget
+- makeCurrent()/doneCurrent() for thread-safe OpenGL updates
+
+**Bug fixes applied:**
+- Fixed Qt FBO binding issue (grid not visible initially)
+- Fixed VBO memory leak when resizing stage
+- Fixed grid disappearing with odd stage dimensions (7m, 11m, etc.)
+- Fixed coordinate gizmo Y/Z axis swap to match stage convention
+
+**Additional changes:**
+- `config/models.py`: Added `grid_size` field to Configuration
+- `utils/tcp/protocol.py`: Stage message now includes `grid_size`
+- `gui/tabs/stage_tab.py`: Added colored axes (X=red, Y=blue) to 2D view
+- `gui/StageView.py`: Center lines now use colored axes
 
 ### Phase V5: Fixture Rendering (PLANNED)
 
@@ -428,8 +463,9 @@ Items to address when time permits:
 | Foundation | `visualizer/main.py` |
 | TCP Client | `visualizer/tcp/client.py` |
 | ArtNet | `visualizer/artnet/listener.py` |
-| Rendering | `visualizer/renderer/engine.py` |
-| Beams | `visualizer/renderer/beams.py` |
+| Rendering | `visualizer/renderer/engine.py`, `visualizer/renderer/stage.py`, `visualizer/renderer/camera.py` |
+| Gizmo | `visualizer/renderer/gizmo.py` |
+| Beams | `visualizer/renderer/beams.py` (planned) |
 
 ---
 
@@ -460,9 +496,9 @@ Items to address when time permits:
 - [x] ArtNet output for preview (Phase 12)
 - [x] TCP server for visualizer (Phase 13)
 
-### v0.7 - Visualizer Alpha
-- TCP + ArtNet communication working
-- Basic 3D rendering
+### v0.7 - Visualizer Alpha (ACHIEVED - Dec 2025)
+- [x] TCP + ArtNet communication working (Phase V2, V3)
+- [x] Basic 3D rendering (Phase V4)
 
 ### v0.8 - Visualizer Beta
 - Volumetric beams

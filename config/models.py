@@ -519,6 +519,7 @@ class Configuration:
     shows_directory: Optional[str] = None  # Directory where show CSV files and audio are stored
     stage_width: float = 10.0  # Stage width in meters
     stage_height: float = 6.0  # Stage depth in meters (called height for compatibility)
+    grid_size: float = 0.5  # Grid spacing in meters
 
     @classmethod
     def from_workspace(cls, workspace_path: str) -> 'Configuration':

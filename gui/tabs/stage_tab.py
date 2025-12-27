@@ -153,9 +153,7 @@ class StageTab(BaseTab):
         self.grid_toggle.stateChanged.connect(
             lambda state: self.stage_view.updateGrid(visible=bool(state))
         )
-        self.grid_size.valueChanged.connect(
-            lambda value: self.stage_view.updateGrid(size_m=value)
-        )
+        self.grid_size.valueChanged.connect(self._update_grid_size)
         self.snap_to_grid.stateChanged.connect(
             lambda state: self.stage_view.set_snap_to_grid(bool(state))
         )
@@ -172,14 +170,20 @@ class StageTab(BaseTab):
         if self.stage_view:
             self.stage_view.set_config(self.config)
 
-        # Load stage dimensions from config
+        # Load stage dimensions and grid size from config
         if self.config:
             self.stage_width.blockSignals(True)
             self.stage_height.blockSignals(True)
+            self.grid_size.blockSignals(True)
+
             self.stage_width.setValue(int(self.config.stage_width))
             self.stage_height.setValue(int(self.config.stage_height))
+            if hasattr(self.config, 'grid_size'):
+                self.grid_size.setValue(self.config.grid_size)
+
             self.stage_width.blockSignals(False)
             self.stage_height.blockSignals(False)
+            self.grid_size.blockSignals(False)
 
     def save_to_config(self):
         """Save fixture positions and spots back to configuration"""
@@ -199,6 +203,21 @@ class StageTab(BaseTab):
         if self.config:
             self.config.stage_width = float(width)
             self.config.stage_height = float(height)
+
+            # Notify TCP server if running (for live visualizer updates)
+            self._notify_tcp_update()
+
+    def _update_grid_size(self, value: float):
+        """Update grid size from spin box value"""
+        # Update StageView
+        self.stage_view.updateGrid(size_m=value)
+
+        # Update Configuration for TCP sync
+        if self.config:
+            self.config.grid_size = value
+
+            # Notify TCP server if running (for live visualizer updates)
+            self._notify_tcp_update()
 
     def _launch_visualizer(self):
         """Launch the 3D Visualizer application."""
@@ -357,3 +376,22 @@ class StageTab(BaseTab):
             else:
                 self.tcp_status_label.setText(f"Connected ({client_count})")
                 self.tcp_status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+
+    def _notify_tcp_update(self):
+        """Notify TCP server about configuration changes (for live visualizer updates)."""
+        try:
+            # Get shows_tab which hosts the TCP server
+            main_window = self.parent()
+            while main_window and not hasattr(main_window, 'shows_tab'):
+                main_window = main_window.parent()
+
+            if main_window and hasattr(main_window, 'shows_tab'):
+                shows_tab = main_window.shows_tab
+                tcp_server = getattr(shows_tab, 'tcp_server', None)
+
+                if tcp_server and tcp_server.is_running() and self.config:
+                    # Update the server's config and push to clients
+                    tcp_server.update_config(self.config)
+                    print(f"TCP: Sent stage update ({self.config.stage_width}m x {self.config.stage_height}m)")
+        except Exception as e:
+            print(f"Error notifying TCP server: {e}")
