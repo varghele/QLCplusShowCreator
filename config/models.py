@@ -517,6 +517,8 @@ class Configuration:
     spots: Dict[str, Spot] = field(default_factory=dict)
     workspace_path: Optional[str] = None
     shows_directory: Optional[str] = None  # Directory where show CSV files and audio are stored
+    stage_width: float = 10.0  # Stage width in meters
+    stage_height: float = 6.0  # Stage depth in meters (called height for compatibility)
 
     @classmethod
     def from_workspace(cls, workspace_path: str) -> 'Configuration':

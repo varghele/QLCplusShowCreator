@@ -1,6 +1,11 @@
 # gui/tabs/stage_tab.py
 
+import subprocess
+import sys
+import os
+
 from PyQt6 import QtWidgets
+from PyQt6.QtCore import QTimer
 from config.models import Configuration
 from .base_tab import BaseTab
 from gui.StageView import StageView
@@ -87,11 +92,41 @@ class StageTab(BaseTab):
         self.plot_stage_btn = QtWidgets.QPushButton("Plot Stage")
         plot_layout.addWidget(self.plot_stage_btn)
 
+        # Visualizer group
+        visualizer_group = QtWidgets.QGroupBox("3D Visualizer")
+        visualizer_layout = QtWidgets.QVBoxLayout(visualizer_group)
+
+        # Launch button
+        self.launch_visualizer_btn = QtWidgets.QPushButton("Launch Visualizer")
+        self.launch_visualizer_btn.setToolTip("Start the 3D Visualizer application")
+        visualizer_layout.addWidget(self.launch_visualizer_btn)
+
+        # TCP status indicator
+        tcp_status_layout = QtWidgets.QHBoxLayout()
+        tcp_status_layout.addWidget(QtWidgets.QLabel("TCP Server:"))
+        self.tcp_status_label = QtWidgets.QLabel()
+        self.tcp_status_label.setStyleSheet("font-weight: bold;")
+        tcp_status_layout.addWidget(self.tcp_status_label)
+        tcp_status_layout.addStretch()
+        visualizer_layout.addLayout(tcp_status_layout)
+
+        # Visualizer process reference
+        self.visualizer_process = None
+
+        # Timer to update TCP status
+        self.tcp_status_timer = QTimer()
+        self.tcp_status_timer.timeout.connect(self._update_tcp_status)
+        self.tcp_status_timer.start(1000)  # Update every second
+
+        # Initial status update
+        self._update_tcp_status()
+
         # Add groups to control panel in order
         control_layout.addWidget(dim_group)
         control_layout.addWidget(grid_group)
         control_layout.addWidget(spot_group)
         control_layout.addWidget(plot_group)
+        control_layout.addWidget(visualizer_group)
         control_layout.addStretch()
 
         # Create stage view area (right side)
@@ -129,10 +164,22 @@ class StageTab(BaseTab):
         self.add_spot_btn.clicked.connect(lambda: self.stage_view.add_spot())
         self.remove_item_btn.clicked.connect(self.stage_view.remove_selected_items)
 
+        # Visualizer controls
+        self.launch_visualizer_btn.clicked.connect(self._launch_visualizer)
+
     def update_from_config(self):
         """Refresh stage view from configuration"""
         if self.stage_view:
             self.stage_view.set_config(self.config)
+
+        # Load stage dimensions from config
+        if self.config:
+            self.stage_width.blockSignals(True)
+            self.stage_height.blockSignals(True)
+            self.stage_width.setValue(int(self.config.stage_width))
+            self.stage_height.setValue(int(self.config.stage_height))
+            self.stage_width.blockSignals(False)
+            self.stage_height.blockSignals(False)
 
     def save_to_config(self):
         """Save fixture positions and spots back to configuration"""
@@ -141,8 +188,172 @@ class StageTab(BaseTab):
 
     def _update_stage(self):
         """Update stage dimensions from spin box values"""
-        self.stage_view.updateStage(
-            self.stage_width.value(),
-            self.stage_height.value()
-        )
+        width = self.stage_width.value()
+        height = self.stage_height.value()
+
+        # Update StageView
+        self.stage_view.updateStage(width, height)
         self.stage_view.update_from_config()
+
+        # Update Configuration for TCP sync
+        if self.config:
+            self.config.stage_width = float(width)
+            self.config.stage_height = float(height)
+
+    def _launch_visualizer(self):
+        """Launch the 3D Visualizer application."""
+        # Check if visualizer is already running
+        if self.visualizer_process is not None:
+            poll_result = self.visualizer_process.poll()
+            if poll_result is None:
+                # Process is still running
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "Visualizer Running",
+                    "The Visualizer is already running."
+                )
+                return
+
+        # Check if TCP server is running, offer to start it if not
+        if not self._ensure_tcp_server_running():
+            return
+
+        # Get path to visualizer main.py
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        visualizer_path = os.path.join(project_root, "visualizer", "main.py")
+
+        if not os.path.exists(visualizer_path):
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Visualizer Not Found",
+                f"Could not find visualizer at:\n{visualizer_path}"
+            )
+            return
+
+        try:
+            # Launch visualizer as subprocess
+            self.visualizer_process = subprocess.Popen(
+                [sys.executable, visualizer_path],
+                cwd=project_root
+            )
+            print(f"Visualizer launched (PID: {self.visualizer_process.pid})")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Launch Error",
+                f"Failed to launch Visualizer:\n{str(e)}"
+            )
+
+    def _ensure_tcp_server_running(self) -> bool:
+        """
+        Ensure TCP server is running before launching visualizer.
+
+        Returns:
+            True if server is running (or was started), False if user cancelled
+        """
+        try:
+            main_window = self.window()
+            if not main_window:
+                return True  # Can't check, proceed anyway
+
+            shows_tab = getattr(main_window, 'shows_tab', None)
+            if not shows_tab:
+                return True  # Can't check, proceed anyway
+
+            tcp_server = getattr(shows_tab, 'tcp_server', None)
+
+            # Check if server is running
+            if tcp_server and tcp_server.is_running():
+                return True  # Already running
+
+            # Server not running - ask user if they want to start it
+            reply = QtWidgets.QMessageBox.question(
+                self,
+                "Start TCP Server?",
+                "The TCP server is not running.\n\n"
+                "The Visualizer needs the TCP server to receive stage configuration.\n\n"
+                "Start the TCP server now?",
+                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+                QtWidgets.QMessageBox.StandardButton.Yes
+            )
+
+            if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                # Start the TCP server via ShowsTab
+                try:
+                    # Use _on_tcp_toggle which handles all the init logic
+                    if hasattr(shows_tab, '_on_tcp_toggle'):
+                        shows_tab._on_tcp_toggle(True)
+
+                        # Update the checkbox in ShowsTab if it exists
+                        tcp_checkbox = getattr(shows_tab, 'tcp_checkbox', None)
+                        if tcp_checkbox:
+                            tcp_checkbox.blockSignals(True)
+                            tcp_checkbox.setChecked(True)
+                            tcp_checkbox.blockSignals(False)
+                    else:
+                        QtWidgets.QMessageBox.warning(
+                            self,
+                            "Cannot Start Server",
+                            "TCP server initialization not available.\n"
+                            "Please enable 'Visualizer Server' in the Shows tab."
+                        )
+                        return False
+
+                    # Verify it started
+                    tcp_server = getattr(shows_tab, 'tcp_server', None)
+                    if tcp_server and tcp_server.is_running():
+                        print("TCP server started successfully")
+                        self._update_tcp_status()
+                        return True
+                    else:
+                        QtWidgets.QMessageBox.warning(
+                            self,
+                            "Server Start Failed",
+                            "Failed to start TCP server.\n"
+                            "Please check the Shows tab for errors."
+                        )
+                        return False
+
+                except Exception as e:
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Server Start Failed",
+                        f"Failed to start TCP server:\n{str(e)}"
+                    )
+                    return False
+            else:
+                # User chose not to start server
+                return False
+
+        except Exception as e:
+            print(f"Error checking TCP server: {e}")
+            return True  # Proceed anyway on error
+
+    def _update_tcp_status(self):
+        """Update TCP server status indicator."""
+        # Try to get TCP server from ShowsTab via parent (MainWindow)
+        tcp_server = None
+        try:
+            # Navigate up to MainWindow via Qt parent hierarchy
+            main_window = self.window()
+            if main_window:
+                shows_tab = getattr(main_window, 'shows_tab', None)
+                if shows_tab:
+                    tcp_server = getattr(shows_tab, 'tcp_server', None)
+        except Exception:
+            pass
+
+        if tcp_server is None:
+            self.tcp_status_label.setText("Not initialized")
+            self.tcp_status_label.setStyleSheet("color: #666; font-weight: bold;")
+        elif not tcp_server.is_running():
+            self.tcp_status_label.setText("Stopped")
+            self.tcp_status_label.setStyleSheet("color: #f44336; font-weight: bold;")
+        else:
+            client_count = tcp_server.get_client_count()
+            if client_count == 0:
+                self.tcp_status_label.setText("Running (no clients)")
+                self.tcp_status_label.setStyleSheet("color: #2196F3; font-weight: bold;")
+            else:
+                self.tcp_status_label.setText(f"Connected ({client_count})")
+                self.tcp_status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
