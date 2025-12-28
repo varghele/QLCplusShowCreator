@@ -5,13 +5,23 @@ from math import sin, cos
 
 
 class FixtureItem(QGraphicsItem):
+    # Class-level settings for orientation display (controlled by stage_tab.py)
+    show_orientation_axes = False
+    show_all_axes = False
+
     def __init__(self, fixture_name, fixture_type, channel_color, parent=None):
         super().__init__(parent)
         self.fixture_name = fixture_name
         self.fixture_type = fixture_type
         self.channel_color = channel_color
-        self.rotation_angle = 0
+        self.rotation_angle = 0  # Yaw rotation
         self.z_height = 0
+
+        # Orientation fields (new)
+        self.mounting = "hanging"  # "hanging", "standing", "wall_left", "wall_right", "wall_back", "wall_front"
+        self.pitch = 0.0
+        self.roll = 0.0
+        self.orientation_uses_group_default = True
 
         # Enable dragging and mouse interaction
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
@@ -23,10 +33,6 @@ class FixtureItem(QGraphicsItem):
 
         # Text height
         self.text_height = 25  # Height reserved for text
-
-        # Rotation handle visibility
-        self.show_rotation_handle = False
-        self.rotation_handle_radius = 40
 
     def boundingRect(self):
         # Include the main fixture symbol plus text area
@@ -85,6 +91,16 @@ class FixtureItem(QGraphicsItem):
             painter.drawEllipse(QRectF(-self.size / 2, -self.size / 2, self.size, self.size))
         elif self.fixture_type == "BAR":
             painter.drawRect(QRectF(-self.size, -self.size / 4, self.size * 2, self.size / 2))
+        elif self.fixture_type == "SUNSTRIP":
+            # Sunstrip - similar to BAR but with small circles to represent bulbs
+            painter.drawRect(QRectF(-self.size, -self.size / 4, self.size * 2, self.size / 2))
+            # Draw small circles for bulbs
+            bulb_count = 5
+            bulb_spacing = (self.size * 1.6) / bulb_count
+            start_x = -self.size * 0.8 + bulb_spacing / 2
+            for i in range(bulb_count):
+                bulb_x = start_x + i * bulb_spacing
+                painter.drawEllipse(QRectF(bulb_x - 3, -3, 6, 6))
         elif self.fixture_type == "WASH":
             painter.drawRoundedRect(QRectF(-self.size / 2, -self.size / 2, self.size, self.size),
                                     self.size / 4, self.size / 4)
@@ -100,38 +116,16 @@ class FixtureItem(QGraphicsItem):
             ]
             painter.drawPolygon(triangle)
 
+        # Draw mounting indicator (colored dot/ring in center)
+        self._draw_mounting_indicator(painter)
+
         # Reset transformation for rotation handle and text
         painter.restore()  # Restore the original painter state
         painter.save()
 
-        # Draw rotation handle and angle text when hovered
-        if self.show_rotation_handle:
-            painter.setPen(QPen(Qt.GlobalColor.blue, 1))
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-
-            # Draw rotation circle
-            painter.drawEllipse(QRectF(-self.rotation_handle_radius / 2,
-                                       -self.rotation_handle_radius / 2,
-                                       self.rotation_handle_radius,
-                                       self.rotation_handle_radius))
-
-            # Draw rotation line
-            angle_rad = (self.rotation_angle + 90) * 3.14159 / 180
-            end_x = self.rotation_handle_radius / 2 * cos(angle_rad)
-            end_y = self.rotation_handle_radius / 2 * sin(angle_rad)
-            painter.drawLine(QPointF(0, 0), QPointF(end_x, end_y))
-
-            # Draw angle text
-            angle_text = f"{int(self.rotation_angle)}°"
-            font = painter.font()
-            font.setPointSize(8)
-            painter.setFont(font)
-
-            # Position the angle text above the fixture
-            text_width = QFontMetrics(font).horizontalAdvance(angle_text)
-            angle_text_rect = QRectF(-text_width / 2, -self.rotation_handle_radius - 20,
-                                     text_width, 20)
-            painter.drawText(angle_text_rect, Qt.AlignmentFlag.AlignCenter, angle_text)
+        # Draw orientation axes if enabled
+        if FixtureItem.show_orientation_axes and (FixtureItem.show_all_axes or self.isSelected()):
+            self._draw_orientation_axes(painter)
 
         painter.restore()
 
@@ -157,52 +151,155 @@ class FixtureItem(QGraphicsItem):
         painter.setPen(Qt.GlobalColor.black)
         painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
 
-    def hoverEnterEvent(self, event):
-        self.show_rotation_handle = True
-        self.update()
-
-    def hoverLeaveEvent(self, event):
-        self.show_rotation_handle = False
-        self.update()
-
     def wheelEvent(self, event):
-        """Handle mouse wheel events for rotating the fixture or changing z-height"""
-        if hasattr(event, 'angleDelta'):
-            delta = event.angleDelta().y()
-        else:
-            delta = event.delta()
-
-        delta = delta / 120.0
-
+        """Handle mouse wheel events for changing z-height (Shift+scroll)."""
         modifiers = event.modifiers()
+
+        # Only handle Z-height adjustment with Shift modifier
+        # Rotation is now handled via the Orientation Dialog
         if modifiers & Qt.KeyboardModifier.ShiftModifier:
-            # Z-height adjustment remains the same
+            if hasattr(event, 'angleDelta'):
+                delta = event.angleDelta().y()
+            else:
+                delta = event.delta()
+
+            delta = delta / 120.0
+
             z_step = 0.1
             if delta > 0:
                 self.z_height = max(0, self.z_height + z_step)
             else:
                 self.z_height = max(0, self.z_height - z_step)
+
+            self.update()
+
+            # Auto-save to config after z-height change
+            view = self.scene().views()[0]
+            if hasattr(view, 'save_positions_to_config'):
+                view.save_positions_to_config()
+
+            event.accept()
         else:
-            # Modified rotation behavior for -180 to 180 range
-            rotation_step = 5
-            new_angle = self.rotation_angle + (rotation_step if delta > 0 else -rotation_step)
+            # Pass to parent for default handling
+            event.ignore()
 
-            # Convert to -180 to 180 range
-            if new_angle > 180:
-                new_angle -= 360
-            elif new_angle < -180:
-                new_angle += 360
+    def _draw_mounting_indicator(self, painter):
+        """Draw mounting indicator based on mounting type.
 
-            self.rotation_angle = new_angle
+        - Blue dot/ring: Beam points down (hanging)
+        - Orange dot/ring: Beam points up (standing)
+        - Colored bar on edge: Wall mount (positioned on the wall side)
+        """
+        indicator_size = 8
 
-        self.update()
+        # Determine color based on mounting
+        if self.mounting == "hanging":
+            color = QColor(60, 120, 255)  # Blue for hanging (beam down)
+        elif self.mounting == "standing":
+            color = QColor(255, 140, 0)  # Orange for standing (beam up)
+        elif self.mounting in ("wall_left", "wall_right", "wall_back", "wall_front"):
+            color = QColor(100, 180, 100)  # Green for wall mounts
+        else:
+            color = QColor(128, 128, 128)  # Gray for unknown
 
-        # Auto-save to config after rotation/z-height change
-        view = self.scene().views()[0]
-        if hasattr(view, 'save_positions_to_config'):
-            view.save_positions_to_config()
+        # Check if this is a custom orientation (non-preset values)
+        is_custom = self._is_custom_orientation()
 
-        event.accept()
+        if self.mounting in ("wall_left", "wall_right", "wall_back", "wall_front"):
+            # Draw a bar on the wall side
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(color))
+
+            bar_width = 4
+            bar_length = self.size * 0.6
+
+            if self.mounting == "wall_back":
+                # Bar at the back (top in 2D view after rotation compensation)
+                painter.drawRect(QRectF(-bar_length/2, -self.size/2 - bar_width, bar_length, bar_width))
+            elif self.mounting == "wall_front":
+                # Bar at the front (bottom in 2D view)
+                painter.drawRect(QRectF(-bar_length/2, self.size/2, bar_length, bar_width))
+            elif self.mounting == "wall_left":
+                # Bar on the left
+                painter.drawRect(QRectF(-self.size/2 - bar_width, -bar_length/2, bar_width, bar_length))
+            elif self.mounting == "wall_right":
+                # Bar on the right
+                painter.drawRect(QRectF(self.size/2, -bar_length/2, bar_width, bar_length))
+        else:
+            # Draw a dot/ring in the center for hanging/standing
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(color))
+
+            if is_custom:
+                # Draw ring (hollow) for custom orientation
+                painter.setPen(QPen(color, 2))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawEllipse(QRectF(-indicator_size/2, -indicator_size/2, indicator_size, indicator_size))
+            else:
+                # Draw filled dot for preset orientation
+                painter.drawEllipse(QRectF(-indicator_size/2, -indicator_size/2, indicator_size, indicator_size))
+
+    def _is_custom_orientation(self) -> bool:
+        """Check if this fixture has a custom (non-preset) orientation.
+
+        Returns True if pitch or roll are non-zero, indicating user customization.
+        """
+        return abs(self.pitch) > 0.1 or abs(self.roll) > 0.1
+
+    def _draw_orientation_axes(self, painter):
+        """Draw orientation coordinate axes for the fixture.
+
+        Shows the fixture's local coordinate system in 2D:
+        - X axis (red): Solid arrow in viewing plane
+        - Y axis (green): Solid arrow in viewing plane
+        - Z axis (blue): Circle indicator (⊙ for out of page, ⊗ for into page)
+        """
+        axis_length = self.size * 0.6
+        arrow_size = 4
+
+        # Since we're in a 2D top-down view after yaw rotation has been applied:
+        # - X axis points to the right (red)
+        # - Y axis points up in the view (green)
+        # - Z axis points out of/into the page (blue)
+
+        # Draw X axis (red) - pointing right
+        painter.setPen(QPen(QColor(255, 80, 80), 2))
+        painter.drawLine(QPointF(0, 0), QPointF(axis_length, 0))
+        # Arrow head
+        painter.drawLine(QPointF(axis_length, 0), QPointF(axis_length - arrow_size, -arrow_size/2))
+        painter.drawLine(QPointF(axis_length, 0), QPointF(axis_length - arrow_size, arrow_size/2))
+
+        # Draw Y axis (green) - pointing up (which is negative Y in Qt coordinates)
+        painter.setPen(QPen(QColor(80, 200, 80), 2))
+        painter.drawLine(QPointF(0, 0), QPointF(0, -axis_length))
+        # Arrow head
+        painter.drawLine(QPointF(0, -axis_length), QPointF(-arrow_size/2, -axis_length + arrow_size))
+        painter.drawLine(QPointF(0, -axis_length), QPointF(arrow_size/2, -axis_length + arrow_size))
+
+        # Draw Z axis indicator (blue circle with dot or X)
+        z_indicator_size = 8
+        z_offset = axis_length * 0.4  # Position slightly offset from center
+
+        painter.setPen(QPen(QColor(80, 80, 255), 2))
+
+        # Determine Z direction based on mounting
+        if self.mounting == "hanging":
+            # Beam points down: Z into page (⊗)
+            painter.drawEllipse(QRectF(z_offset - z_indicator_size/2, z_offset - z_indicator_size/2,
+                                       z_indicator_size, z_indicator_size))
+            # Draw X inside
+            cross_size = z_indicator_size * 0.3
+            painter.drawLine(QPointF(z_offset - cross_size, z_offset - cross_size),
+                           QPointF(z_offset + cross_size, z_offset + cross_size))
+            painter.drawLine(QPointF(z_offset - cross_size, z_offset + cross_size),
+                           QPointF(z_offset + cross_size, z_offset - cross_size))
+        else:
+            # Beam points up or horizontal: Z out of page (⊙)
+            painter.drawEllipse(QRectF(z_offset - z_indicator_size/2, z_offset - z_indicator_size/2,
+                                       z_indicator_size, z_indicator_size))
+            # Draw dot inside
+            painter.setBrush(QBrush(QColor(80, 80, 255)))
+            painter.drawEllipse(QRectF(z_offset - 2, z_offset - 2, 4, 4))
 
 
 class SpotItem(QGraphicsItem):

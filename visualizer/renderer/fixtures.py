@@ -12,6 +12,17 @@ from abc import ABC, abstractmethod
 # Warm white color temperature (~2700K)
 WARM_WHITE_COLOR = (1.0, 0.85, 0.6)  # RGB approximation of warm white
 
+# Base rotations for each mounting preset (pitch, yaw in degrees)
+# These define the fixture's default orientation when mounted
+MOUNTING_BASE_ROTATIONS = {
+    'hanging': {'pitch': 90.0, 'yaw': 0.0},       # Beam points down (fixture base up)
+    'standing': {'pitch': -90.0, 'yaw': 0.0},     # Beam points up (fixture base down)
+    'wall_left': {'pitch': 0.0, 'yaw': -90.0},    # Beam points stage-right
+    'wall_right': {'pitch': 0.0, 'yaw': 90.0},    # Beam points stage-left
+    'wall_back': {'pitch': 0.0, 'yaw': 0.0},      # Beam points toward audience
+    'wall_front': {'pitch': 0.0, 'yaw': 180.0},   # Beam points toward back
+}
+
 
 class GeometryBuilder:
     """Utility class for building procedural geometry."""
@@ -336,7 +347,14 @@ class FixtureRenderer(ABC):
         # Extract common properties
         self.name = fixture_data.get('name', 'Unknown')
         self.position = fixture_data.get('position', {'x': 0, 'y': 0, 'z': 0})
-        self.rotation = fixture_data.get('rotation', 0.0)
+
+        # Extract orientation (new format with mounting preset)
+        orientation = fixture_data.get('orientation', {})
+        self.mounting = orientation.get('mounting', 'hanging')
+        self.yaw = orientation.get('yaw', 0.0)
+        self.pitch = orientation.get('pitch', 0.0)
+        self.roll = orientation.get('roll', 0.0)
+
         self.universe = fixture_data.get('universe', 1)
         self.address = fixture_data.get('address', 1)
         self.channel_mapping = fixture_data.get('channel_mapping', {})
@@ -378,8 +396,24 @@ class FixtureRenderer(ABC):
         pos = self.position
         model = glm.translate(model, glm.vec3(pos['x'], pos['z'], pos['y']))
 
-        # Rotate around Y axis (vertical)
-        model = glm.rotate(model, glm.radians(self.rotation), glm.vec3(0, 1, 0))
+        # Get base rotation from mounting preset
+        base = MOUNTING_BASE_ROTATIONS.get(self.mounting, {'pitch': 0.0, 'yaw': 0.0})
+        base_pitch = base['pitch']
+        base_yaw = base['yaw']
+
+        # Calculate total rotation angles (base + user adjustments)
+        total_yaw = base_yaw + self.yaw
+        total_pitch = base_pitch + self.pitch
+
+        # Apply rotations in ZYX (yaw-pitch-roll) order
+        # Yaw: rotation around Y axis (vertical/up axis in 3D space)
+        model = glm.rotate(model, glm.radians(total_yaw), glm.vec3(0, 1, 0))
+
+        # Pitch: rotation around X axis (tilt forward/backward)
+        model = glm.rotate(model, glm.radians(total_pitch), glm.vec3(1, 0, 0))
+
+        # Roll: rotation around Z axis (twist)
+        model = glm.rotate(model, glm.radians(self.roll), glm.vec3(0, 0, 1))
 
         return model
 
@@ -860,6 +894,28 @@ class MovingHeadRenderer(FixtureRenderer):
         self.head_depth = head_depth
         self.lens_radius = lens_radius
 
+        # Create front indicator (red triangle on head to show pan=0 reference)
+        indicator_size = head_width * 0.25
+        indicator_z = head_depth / 2 + 0.01  # Slightly in front of head
+        indicator_y_offset = head_height / 2 * 0.7  # Near top of head
+
+        # Triangle pointing up on the front face
+        indicator_verts = np.array([
+            0, indicator_y_offset + indicator_size * 0.4, indicator_z,  # Top
+            -indicator_size * 0.35, indicator_y_offset - indicator_size * 0.2, indicator_z,  # Bottom left
+            indicator_size * 0.35, indicator_y_offset - indicator_size * 0.2, indicator_z,  # Bottom right
+        ], dtype='f4')
+        indicator_norms = np.array([
+            0, 0, 1, 0, 0, 1, 0, 0, 1  # All pointing forward
+        ], dtype='f4')
+
+        self.indicator_vbo = self.ctx.buffer(indicator_verts.tobytes())
+        self.indicator_nbo = self.ctx.buffer(indicator_norms.tobytes())
+        self.indicator_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.indicator_vbo, '3f', 'in_position'), (self.indicator_nbo, '3f', 'in_normal')]
+        )
+
         # Create beam cone for light visualization
         self._create_beam_geometry()
 
@@ -913,7 +969,7 @@ class MovingHeadRenderer(FixtureRenderer):
         self.current_tilt = tilt_combined * self.tilt_max - self.tilt_max / 2
 
     def get_beam_direction(self) -> glm.vec3:
-        """Get the beam direction vector based on current pan/tilt."""
+        """Get the beam direction vector based on current pan/tilt and fixture orientation."""
         # Start with forward direction (0, 0, 1)
         direction = glm.vec3(0, 0, 1)
 
@@ -925,11 +981,19 @@ class MovingHeadRenderer(FixtureRenderer):
         pan_rad = glm.radians(self.current_pan)
         pan_mat = glm.rotate(glm.mat4(1.0), pan_rad, glm.vec3(0, 1, 0))
 
-        # Apply fixture rotation
-        rot_mat = glm.rotate(glm.mat4(1.0), glm.radians(self.rotation), glm.vec3(0, 1, 0))
+        # Apply full fixture orientation (mounting preset + user adjustments)
+        base = MOUNTING_BASE_ROTATIONS.get(self.mounting, {'pitch': 0.0, 'yaw': 0.0})
+        total_yaw = base['yaw'] + self.yaw
+        total_pitch = base['pitch'] + self.pitch
 
-        # Combine rotations
-        final_mat = rot_mat * pan_mat * tilt_mat
+        # Build fixture orientation matrix (yaw-pitch-roll order)
+        fixture_mat = glm.mat4(1.0)
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(total_yaw), glm.vec3(0, 1, 0))
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(total_pitch), glm.vec3(1, 0, 0))
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.roll), glm.vec3(0, 0, 1))
+
+        # Combine rotations: fixture orientation * pan * tilt
+        final_mat = fixture_mat * pan_mat * tilt_mat
         direction = glm.vec3(final_mat * glm.vec4(direction, 0.0))
 
         return glm.normalize(direction)
@@ -1001,6 +1065,13 @@ class MovingHeadRenderer(FixtureRenderer):
 
         self.lens_vao.render(moderngl.TRIANGLES)
 
+        # Render front indicator (red triangle showing pan=0)
+        if hasattr(self, 'indicator_vao') and self.indicator_vao:
+            self.program['base_color'].value = (0.9, 0.2, 0.2)  # Red
+            self.program['emissive_color'].value = (0.0, 0.0, 0.0)
+            self.program['emissive_strength'].value = 0.0
+            self.indicator_vao.render(moderngl.TRIANGLES)
+
         # Render beam if dimmer is on
         if dimmer > 0.01:
             self._render_beam(mvp, head_model, color, dimmer)
@@ -1060,6 +1131,7 @@ class MovingHeadRenderer(FixtureRenderer):
                      'yoke_vao', 'yoke_vbo', 'yoke_nbo',
                      'head_vao', 'head_vbo', 'head_nbo',
                      'lens_vao', 'lens_vbo', 'lens_nbo',
+                     'indicator_vao', 'indicator_vbo', 'indicator_nbo',
                      'beam_vao', 'beam_vbo', 'beam_abo', 'beam_program']:
             obj = getattr(self, attr, None)
             if obj:
@@ -1287,8 +1359,14 @@ class FixtureManager:
             if name in self.fixtures:
                 existing = self.fixtures[name]
                 # Check if fixture has changed significantly
-                if (existing.position != fixture_data.get('position') or
-                    existing.rotation != fixture_data.get('rotation', 0)):
+                new_orientation = fixture_data.get('orientation', {})
+                orientation_changed = (
+                    existing.mounting != new_orientation.get('mounting', 'hanging') or
+                    existing.yaw != new_orientation.get('yaw', 0.0) or
+                    existing.pitch != new_orientation.get('pitch', 0.0) or
+                    existing.roll != new_orientation.get('roll', 0.0)
+                )
+                if existing.position != fixture_data.get('position') or orientation_changed:
                     # Recreate fixture
                     existing.release()
                     self.fixtures[name] = self._create_fixture(fixture_data)

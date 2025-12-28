@@ -9,6 +9,8 @@ from PyQt6.QtCore import QTimer
 from config.models import Configuration
 from .base_tab import BaseTab
 from gui.StageView import StageView
+from gui.stage_items import FixtureItem
+from gui.dialogs.orientation_dialog import OrientationDialog
 
 
 class StageTab(BaseTab):
@@ -80,6 +82,7 @@ class StageTab(BaseTab):
         self.grid_size.setSingleStep(0.1)
 
         self.snap_to_grid = QtWidgets.QCheckBox("Snap to Grid")
+        self.snap_to_grid.setChecked(True)  # Enable by default
 
         grid_layout.addRow(self.grid_toggle)
         grid_layout.addRow("Grid Size (m):", self.grid_size)
@@ -94,6 +97,20 @@ class StageTab(BaseTab):
 
         spot_layout.addWidget(self.add_spot_btn)
         spot_layout.addWidget(self.remove_item_btn)
+
+        # Fixture Orientation group
+        orientation_group = QtWidgets.QGroupBox("Fixture Orientation")
+        orientation_layout = QtWidgets.QVBoxLayout(orientation_group)
+
+        self.show_axes_checkbox = QtWidgets.QCheckBox("Show orientation axes")
+        self.show_axes_checkbox.setToolTip("Show XYZ axes on fixtures when selected or hovered")
+
+        self.show_all_axes_checkbox = QtWidgets.QCheckBox("Show all axes")
+        self.show_all_axes_checkbox.setToolTip("Show axes on all fixtures (not just selected)")
+        self.show_all_axes_checkbox.setEnabled(False)  # Disabled until show_axes is checked
+
+        orientation_layout.addWidget(self.show_axes_checkbox)
+        orientation_layout.addWidget(self.show_all_axes_checkbox)
 
         # Plot stage group
         plot_group = QtWidgets.QGroupBox("Stage Plot")
@@ -135,6 +152,7 @@ class StageTab(BaseTab):
         control_layout.addWidget(dim_group)
         control_layout.addWidget(grid_group)
         control_layout.addWidget(spot_group)
+        control_layout.addWidget(orientation_group)
         control_layout.addWidget(plot_group)
         control_layout.addWidget(visualizer_group)
         control_layout.addStretch()
@@ -177,6 +195,13 @@ class StageTab(BaseTab):
 
         # Visualizer controls
         self.launch_visualizer_btn.clicked.connect(self._launch_visualizer)
+
+        # Orientation display controls
+        self.show_axes_checkbox.stateChanged.connect(self._on_show_axes_changed)
+        self.show_all_axes_checkbox.stateChanged.connect(self._on_show_all_axes_changed)
+
+        # Orientation dialog trigger from right-click menu
+        self.stage_view.set_orientation_requested.connect(self._on_set_orientation_requested)
 
     def update_from_config(self):
         """Refresh stage view from configuration"""
@@ -435,3 +460,89 @@ class StageTab(BaseTab):
                     tcp_server.update_config(self.config)
         except Exception as e:
             print(f"Error notifying TCP server: {e}")
+
+    def _on_show_axes_changed(self, state):
+        """Handle show orientation axes checkbox change."""
+        show_axes = bool(state)
+        FixtureItem.show_orientation_axes = show_axes
+
+        # Enable/disable "show all" checkbox based on main checkbox
+        self.show_all_axes_checkbox.setEnabled(show_axes)
+        if not show_axes:
+            self.show_all_axes_checkbox.setChecked(False)
+
+        # Trigger redraw of all fixtures
+        self.stage_view.viewport().update()
+
+    def _on_show_all_axes_changed(self, state):
+        """Handle show all axes checkbox change."""
+        FixtureItem.show_all_axes = bool(state)
+
+        # Trigger redraw of all fixtures
+        self.stage_view.viewport().update()
+
+    def _on_set_orientation_requested(self, fixture_items: list):
+        """Handle request to set orientation for selected fixtures."""
+        if not fixture_items:
+            return
+
+        # Store fixture items for deferred dialog opening
+        self._pending_orientation_fixtures = fixture_items
+
+        # Defer dialog opening to next event loop iteration to avoid context menu issues
+        QTimer.singleShot(0, self._open_orientation_dialog)
+
+    def _open_orientation_dialog(self):
+        """Open the orientation dialog (deferred from context menu)."""
+        fixture_items = getattr(self, '_pending_orientation_fixtures', None)
+        if not fixture_items:
+            return
+
+        self._pending_orientation_fixtures = None
+
+        # Open orientation dialog
+        dialog = OrientationDialog(fixture_items, self.config, self)
+
+        if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            # Get values from dialog
+            values = dialog.get_orientation_values()
+
+            # Apply to all selected fixture items
+            for fixture_item in fixture_items:
+                fixture_item.mounting = values['mounting']
+                fixture_item.rotation_angle = values['yaw']  # yaw maps to rotation_angle
+                fixture_item.pitch = values['pitch']
+                fixture_item.roll = values['roll']
+                fixture_item.z_height = values['z_height']
+                fixture_item.orientation_uses_group_default = False  # User set custom value
+                fixture_item.update()
+
+                # Update the config fixture
+                if self.config:
+                    config_fixture = next(
+                        (f for f in self.config.fixtures if f.name == fixture_item.fixture_name),
+                        None
+                    )
+                    if config_fixture:
+                        config_fixture.mounting = values['mounting']
+                        config_fixture.yaw = values['yaw']
+                        config_fixture.pitch = values['pitch']
+                        config_fixture.roll = values['roll']
+                        config_fixture.z = values['z_height']
+                        config_fixture.orientation_uses_group_default = False
+
+            # Apply to group default if checkbox was checked
+            if values['apply_to_group'] and self.config:
+                groups = set(f.group for f in fixture_items if hasattr(f, 'group') and f.group)
+                for group_name in groups:
+                    if group_name in self.config.groups:
+                        group = self.config.groups[group_name]
+                        group.default_mounting = values['mounting']
+                        group.default_yaw = values['yaw']
+                        group.default_pitch = values['pitch']
+                        group.default_roll = values['roll']
+                        group.default_z_height = values['z_height']
+
+            # Save changes and notify
+            self.stage_view.save_positions_to_config()
+            self._notify_tcp_update()

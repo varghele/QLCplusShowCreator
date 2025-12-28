@@ -24,14 +24,45 @@ class Fixture:
     model: str
     name: str
     group: str
-    direction: str
     current_mode: str
     available_modes: List[FixtureMode]
     type: str = "PAR"  # Default type if none specified
     x: float = 0.0     # X position in meters
     y: float = 0.0     # Y position in meters
     z: float = 0.0     # Z height in meters
-    rotation: float = 0.0  # Rotation angle in degrees (0-359)
+
+    # Orientation using Euler angles (degrees)
+    # Convention: Yaw (Z) -> Pitch (Y) -> Roll (X)
+    mounting: str = "hanging"  # "hanging", "standing", "wall_left", "wall_right", "wall_back", "wall_front"
+    yaw: float = 0.0           # Rotation around world Z (degrees, -180 to 180)
+    pitch: float = 0.0         # Rotation around local Y after yaw (degrees, -90 to 90)
+    roll: float = 0.0          # Rotation around local X after pitch (degrees, -180 to 180)
+
+    # Override flags (True = use own value, False = use group default)
+    orientation_uses_group_default: bool = True
+    z_uses_group_default: bool = True
+
+    def get_effective_orientation(self, group: Optional['FixtureGroup'] = None) -> tuple:
+        """
+        Get effective orientation values, considering group defaults if applicable.
+
+        Returns:
+            tuple: (mounting, yaw, pitch, roll)
+        """
+        if self.orientation_uses_group_default and group is not None:
+            return (
+                group.default_mounting,
+                group.default_yaw,
+                group.default_pitch,
+                group.default_roll
+            )
+        return (self.mounting, self.yaw, self.pitch, self.roll)
+
+    def get_effective_z(self, group: Optional['FixtureGroup'] = None) -> float:
+        """Get effective Z height, considering group default if applicable."""
+        if self.z_uses_group_default and group is not None:
+            return group.default_z_height
+        return self.z
 
 
 @dataclass
@@ -47,6 +78,13 @@ class FixtureGroup:
     fixtures: List[Fixture]
     color: str = '#808080'  # Default color for the group
     capabilities: Optional['FixtureGroupCapabilities'] = None  # Auto-detected sublane capabilities
+
+    # Group-level defaults for orientation
+    default_mounting: str = "hanging"
+    default_yaw: float = 0.0
+    default_pitch: float = 0.0
+    default_roll: float = 0.0
+    default_z_height: float = 3.0  # Default height in meters
 
 
 @dataclass
@@ -550,14 +588,19 @@ class Configuration:
                 model=fixture_data['Model'],
                 name=fixture_data['Name'],
                 group=fixture_data['Group'],
-                direction=fixture_data['Direction'],
                 current_mode=fixture_data['CurrentMode'],
                 available_modes=modes,
                 type=fixture_def['type'] if fixture_def else "PAR",  # Default to PAR if no definition found
                 x=fixture_data.get('X', 0.0),
                 y=fixture_data.get('Y', 0.0),
                 z=fixture_data.get('Z', 0.0),
-                rotation=fixture_data.get('Rotation', 0.0)
+                # Orientation defaults (from workspace, these are set to defaults)
+                mounting="hanging",
+                yaw=0.0,
+                pitch=0.0,
+                roll=0.0,
+                orientation_uses_group_default=True,
+                z_uses_group_default=True
             )
             config.fixtures.append(fixture)
 
@@ -659,6 +702,11 @@ class Configuration:
                 name: {
                     'name': group.name,
                     'color': group.color,
+                    'default_mounting': group.default_mounting,
+                    'default_yaw': group.default_yaw,
+                    'default_pitch': group.default_pitch,
+                    'default_roll': group.default_roll,
+                    'default_z_height': group.default_z_height,
                     'fixtures': [asdict(f) for f in group.fixtures]
                 }
                 for name, group in self.groups.items()
@@ -706,9 +754,14 @@ class Configuration:
                     )
                     modes.append(mode)
                 f_data['available_modes'] = modes
+
+            # Remove deprecated fields if present (direction, rotation)
+            f_data.pop('direction', None)
+            f_data.pop('rotation', None)
+
             fixtures.append(Fixture(**f_data))
 
-        # Handle groups with colors
+        # Handle groups with colors and orientation defaults
         groups = {}
         for name, group_data in data.get('groups', {}).items():
             group_fixtures = []
@@ -722,12 +775,23 @@ class Configuration:
                         )
                         modes.append(mode)
                     f_data['available_modes'] = modes
+
+                # Remove deprecated fields if present (direction, rotation)
+                f_data.pop('direction', None)
+                f_data.pop('rotation', None)
+
                 group_fixtures.append(Fixture(**f_data))
 
             groups[name] = FixtureGroup(
                 name=name,
                 fixtures=group_fixtures,
-                color=group_data.get('color', '#808080')  # Add default color if none specified
+                color=group_data.get('color', '#808080'),
+                # Orientation defaults
+                default_mounting=group_data.get('default_mounting', 'hanging'),
+                default_yaw=group_data.get('default_yaw', 0.0),
+                default_pitch=group_data.get('default_pitch', 0.0),
+                default_roll=group_data.get('default_roll', 0.0),
+                default_z_height=group_data.get('default_z_height', 3.0)
             )
 
         # Handle shows
@@ -971,7 +1035,6 @@ class Configuration:
                     'Model': model,
                     'Name': fixture.find("qlc:Name", ns).text,
                     'Group': group_name,
-                    'Direction': "",
                     'CurrentMode': current_mode,
                     'AvailableModes': available_modes,
                     'WorkspaceChannels': workspace_channels  # Store for validation

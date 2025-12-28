@@ -458,7 +458,12 @@ class VisualizerProtocol:
                     "y": fixture.y,
                     "z": fixture.z
                 },
-                "rotation": fixture.rotation,
+                "orientation": {
+                    "mounting": fixture.mounting,
+                    "yaw": fixture.yaw,
+                    "pitch": fixture.pitch,
+                    "roll": fixture.roll
+                },
                 # QXF-derived data for visualizer
                 "fixture_type": qxf_data.get('fixture_type', fixture.type),
                 "physical": qxf_data.get('physical', {'width': 0.3, 'height': 0.3, 'depth': 0.2}),

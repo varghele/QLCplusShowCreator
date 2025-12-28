@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 from utils.to_xml.shows_to_xml import calculate_step_timing
 import math
 from utils.effects_utils import find_closest_color_dmx, find_gobo_dmx_value, find_gobo_rotation_value, add_reset_step
+from utils.orientation import get_direction_for_tilt_calculation
 import random
 
 
@@ -87,12 +88,12 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
             # Derive half-ranges for calculations
             half_pan_range = pan_range / 2
 
-            # Get fixture position and direction from fixture object attributes
+            # Get fixture position and orientation from fixture object attributes
             fx = fixture.x
             fy = fixture.y
             fz = fixture.z
-            rotation = fixture.rotation + 90 # Fix, since code seemingly has rotated the fixtures by 90 deg
-            direction = fixture.direction.upper()
+            rotation = fixture.yaw + 90  # Fix, since code seemingly has rotated the fixtures by 90 deg
+            direction = get_direction_for_tilt_calculation(fixture.mounting)
 
             # Calculate vector from fixture to spot
             dx = spot.x - fx
@@ -294,12 +295,12 @@ def whirl(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, signature
         fixture = fixture_conf[i] if i < len(fixture_conf) else None
 
         if fixture:
-            # Get fixture position and direction from fixture object attributes
+            # Get fixture position and orientation from fixture object attributes
             fx = fixture.x
             fy = fixture.y
             fz = fixture.z
-            rotation = fixture.rotation + 90  # Fix, since code seemingly has rotated the fixtures by 90 deg
-            direction = fixture.direction.upper()
+            rotation = fixture.yaw + 90  # Fix, since code seemingly has rotated the fixtures by 90 deg
+            direction = get_direction_for_tilt_calculation(fixture.mounting)
 
             # For whirl effect, we'll set pan to aim at the audience
             # This means pointing fixtures toward the front of the stage
@@ -488,8 +489,8 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, signatu
                     # Tilt should be pointing upward for stars
                     tilt_angle = random.uniform(min_tilt, max_tilt)  # Random angle between min and max
 
-                    # Convert tilt angle to DMX based on fixture direction
-                    direction = fixture.direction.upper()
+                    # Convert tilt angle to DMX based on fixture mounting
+                    direction = get_direction_for_tilt_calculation(fixture.mounting)
                     if direction == 'UP':
                         # For UP fixtures, map the angle to DMX
                         tilt_dmx = int(tilt_angle * 255 / 90)  # Scale to DMX range
@@ -676,8 +677,8 @@ def wave_sweep(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, sign
                     # Keep tilt at a fixed angle for vertical waves
                     tilt_angle = 40  # 40° up from horizontal
 
-                # Convert tilt angle to DMX based on fixture direction
-                direction = fixture.direction.upper()
+                # Convert tilt angle to DMX based on fixture mounting
+                direction = get_direction_for_tilt_calculation(fixture.mounting)
                 if direction == 'UP':
                     # For UP fixtures
                     tilt_dmx = int(tilt_angle * 255 / 90)  # Scale to DMX range
@@ -829,12 +830,12 @@ def wave_sweep_fig8(start_step, fixture_def, mode_name, start_bpm, end_bpm=None,
             fixture = fixture_conf[i] if i < len(fixture_conf) else None
 
             if fixture:
-                # Get fixture position and direction from fixture object attributes
+                # Get fixture position and orientation from fixture object attributes
                 fx = fixture.x
                 fy = fixture.y
                 fz = fixture.z
-                rotation = fixture.rotation + 90  # Rotation adjustment
-                direction = fixture.direction.upper()
+                rotation = fixture.yaw + 90  # Rotation adjustment
+                direction = get_direction_for_tilt_calculation(fixture.mounting)
 
                 # Create unique phase offset for each fixture to make them asynchronous
                 fixture_offset = (i * wave_offset) % 1.0

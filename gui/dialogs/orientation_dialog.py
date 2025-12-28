@@ -1,0 +1,1722 @@
+# gui/dialogs/orientation_dialog.py
+# 3D Orientation Dialog for setting fixture orientation
+
+import math
+from typing import List, Optional, Tuple, Dict, Any
+
+import moderngl
+import glm
+import numpy as np
+
+from PyQt6.QtWidgets import (
+    QDialog, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QGroupBox, QLabel, QDoubleSpinBox, QPushButton,
+    QCheckBox, QWidget, QSizePolicy
+)
+from PyQt6.QtOpenGLWidgets import QOpenGLWidget
+from PyQt6.QtGui import QSurfaceFormat
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+
+
+class GeometryBuilder:
+    """Utility class for building procedural geometry (same as visualizer)."""
+
+    @staticmethod
+    def create_box(width: float, height: float, depth: float,
+                   center: Tuple[float, float, float] = (0, 0, 0)) -> Tuple[np.ndarray, np.ndarray]:
+        """Create a box mesh with vertices and normals."""
+        hw, hh, hd = width / 2, height / 2, depth / 2
+        cx, cy, cz = center
+
+        vertices = []
+        normals = []
+
+        # Front face (+Z)
+        vertices.extend([
+            cx - hw, cy - hh, cz + hd,
+            cx + hw, cy - hh, cz + hd,
+            cx + hw, cy + hh, cz + hd,
+            cx - hw, cy - hh, cz + hd,
+            cx + hw, cy + hh, cz + hd,
+            cx - hw, cy + hh, cz + hd,
+        ])
+        normals.extend([0, 0, 1] * 6)
+
+        # Back face (-Z)
+        vertices.extend([
+            cx + hw, cy - hh, cz - hd,
+            cx - hw, cy - hh, cz - hd,
+            cx - hw, cy + hh, cz - hd,
+            cx + hw, cy - hh, cz - hd,
+            cx - hw, cy + hh, cz - hd,
+            cx + hw, cy + hh, cz - hd,
+        ])
+        normals.extend([0, 0, -1] * 6)
+
+        # Right face (+X)
+        vertices.extend([
+            cx + hw, cy - hh, cz + hd,
+            cx + hw, cy - hh, cz - hd,
+            cx + hw, cy + hh, cz - hd,
+            cx + hw, cy - hh, cz + hd,
+            cx + hw, cy + hh, cz - hd,
+            cx + hw, cy + hh, cz + hd,
+        ])
+        normals.extend([1, 0, 0] * 6)
+
+        # Left face (-X)
+        vertices.extend([
+            cx - hw, cy - hh, cz - hd,
+            cx - hw, cy - hh, cz + hd,
+            cx - hw, cy + hh, cz + hd,
+            cx - hw, cy - hh, cz - hd,
+            cx - hw, cy + hh, cz + hd,
+            cx - hw, cy + hh, cz - hd,
+        ])
+        normals.extend([-1, 0, 0] * 6)
+
+        # Top face (+Y)
+        vertices.extend([
+            cx - hw, cy + hh, cz + hd,
+            cx + hw, cy + hh, cz + hd,
+            cx + hw, cy + hh, cz - hd,
+            cx - hw, cy + hh, cz + hd,
+            cx + hw, cy + hh, cz - hd,
+            cx - hw, cy + hh, cz - hd,
+        ])
+        normals.extend([0, 1, 0] * 6)
+
+        # Bottom face (-Y)
+        vertices.extend([
+            cx - hw, cy - hh, cz - hd,
+            cx + hw, cy - hh, cz - hd,
+            cx + hw, cy - hh, cz + hd,
+            cx - hw, cy - hh, cz - hd,
+            cx + hw, cy - hh, cz + hd,
+            cx - hw, cy - hh, cz + hd,
+        ])
+        normals.extend([0, -1, 0] * 6)
+
+        return np.array(vertices, dtype='f4'), np.array(normals, dtype='f4')
+
+    @staticmethod
+    def create_cylinder(radius: float, height: float, segments: int = 16,
+                        center: Tuple[float, float, float] = (0, 0, 0)) -> Tuple[np.ndarray, np.ndarray]:
+        """Create a cylinder mesh oriented along Y axis."""
+        cx, cy, cz = center
+        hh = height / 2
+
+        vertices = []
+        normals = []
+
+        # Side faces
+        for i in range(segments):
+            angle1 = 2 * math.pi * i / segments
+            angle2 = 2 * math.pi * (i + 1) / segments
+
+            x1, z1 = math.cos(angle1) * radius, math.sin(angle1) * radius
+            x2, z2 = math.cos(angle2) * radius, math.sin(angle2) * radius
+
+            # Triangle 1
+            vertices.extend([
+                cx + x1, cy - hh, cz + z1,
+                cx + x2, cy - hh, cz + z2,
+                cx + x2, cy + hh, cz + z2,
+            ])
+            normals.extend([
+                math.cos(angle1), 0, math.sin(angle1),
+                math.cos(angle2), 0, math.sin(angle2),
+                math.cos(angle2), 0, math.sin(angle2),
+            ])
+
+            # Triangle 2
+            vertices.extend([
+                cx + x1, cy - hh, cz + z1,
+                cx + x2, cy + hh, cz + z2,
+                cx + x1, cy + hh, cz + z1,
+            ])
+            normals.extend([
+                math.cos(angle1), 0, math.sin(angle1),
+                math.cos(angle2), 0, math.sin(angle2),
+                math.cos(angle1), 0, math.sin(angle1),
+            ])
+
+        # Top cap
+        for i in range(segments):
+            angle1 = 2 * math.pi * i / segments
+            angle2 = 2 * math.pi * (i + 1) / segments
+
+            x1, z1 = math.cos(angle1) * radius, math.sin(angle1) * radius
+            x2, z2 = math.cos(angle2) * radius, math.sin(angle2) * radius
+
+            vertices.extend([
+                cx, cy + hh, cz,
+                cx + x1, cy + hh, cz + z1,
+                cx + x2, cy + hh, cz + z2,
+            ])
+            normals.extend([0, 1, 0] * 3)
+
+        # Bottom cap
+        for i in range(segments):
+            angle1 = 2 * math.pi * i / segments
+            angle2 = 2 * math.pi * (i + 1) / segments
+
+            x1, z1 = math.cos(angle1) * radius, math.sin(angle1) * radius
+            x2, z2 = math.cos(angle2) * radius, math.sin(angle2) * radius
+
+            vertices.extend([
+                cx, cy - hh, cz,
+                cx + x2, cy - hh, cz + z2,
+                cx + x1, cy - hh, cz + z1,
+            ])
+            normals.extend([0, -1, 0] * 3)
+
+        return np.array(vertices, dtype='f4'), np.array(normals, dtype='f4')
+
+
+class OrientationPreviewWidget(QOpenGLWidget):
+    """
+    3D preview widget showing fixture orientation with gimbal rings.
+    Uses ModernGL for rendering.
+    """
+
+    # Signal emitted when orientation changes from ring dragging
+    orientation_changed = pyqtSignal(float, float, float)  # yaw, pitch, roll
+
+    def __init__(self, parent=None):
+        # Set OpenGL format before creating widget
+        fmt = QSurfaceFormat()
+        fmt.setVersion(3, 3)
+        fmt.setProfile(QSurfaceFormat.OpenGLContextProfile.CoreProfile)
+        fmt.setDepthBufferSize(24)
+        fmt.setSamples(4)
+        QSurfaceFormat.setDefaultFormat(fmt)
+
+        super().__init__(parent)
+
+        self.ctx: Optional[moderngl.Context] = None
+
+        # Orientation values
+        self.mounting = "hanging"
+        self.yaw = 0.0
+        self.pitch = 0.0
+        self.roll = 0.0
+
+        # Fixture type for rendering (default to MH)
+        self.fixture_type = "MH"
+        self.segment_count = 8  # Default segment count for bars/sunstrips
+
+        # Default colors and dimensions (will be set properly when geometry is created)
+        self.body_color = (0.15, 0.15, 0.18)
+        self.yoke_color = (0.15, 0.15, 0.18)
+        self.front_depth = 0.2
+
+        # Moving head specific dimensions (defaults)
+        self.mh_base_height = 0.08
+        self.mh_yoke_height = 0.2
+        self.mh_head_height = 0.18
+        self.mh_head_depth = 0.1
+
+        # Camera parameters
+        self.camera_distance = 4.0
+        self.camera_azimuth = 45.0
+        self.camera_elevation = 25.0
+
+        # Mouse tracking
+        self.last_mouse_pos = None
+        self.mouse_button = None
+        self.setMouseTracking(True)
+
+        # Ring dragging state
+        self.dragging_ring = None  # 'yaw', 'pitch', 'roll', or None
+        self.drag_start_angle = 0.0
+
+        # Render resources (all VAOs initialized to None)
+        self.fixture_program = None
+        self.fixture_vao = None
+        self.segment_vao = None
+        self.lamp_vao = None
+        self.lens_vao = None
+        self.base_vao = None
+        self.yoke_vao = None
+        self.head_vao = None
+        self.indicator_vao = None
+        self.ring_program = None
+        self.ring_vao = None
+        self.floor_program = None
+        self.floor_vao = None
+        self.wall_program = None
+        self.wall_vao = None
+        self.axes_vao = None
+        self.handle_vao = None
+
+        # Render timer
+        self.render_timer = QTimer()
+        self.render_timer.timeout.connect(self.update)
+        self.render_timer.start(33)  # ~30 FPS
+
+        self.setMinimumSize(300, 300)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+    def initializeGL(self):
+        """Initialize OpenGL context and resources."""
+        try:
+            self.ctx = moderngl.create_context(standalone=False)
+            self.ctx.enable(moderngl.DEPTH_TEST)
+            self.ctx.enable(moderngl.BLEND)
+            self.ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE_MINUS_SRC_ALPHA
+
+            self._create_fixture_geometry()
+            self._create_floor_geometry()
+            self._create_axes_geometry()
+            self._create_ring_geometry()
+            self._create_handle_geometry()
+
+        except Exception as e:
+            print(f"Failed to initialize OrientationPreviewWidget: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _create_fixture_geometry(self):
+        """Create fixture body geometry based on fixture type."""
+        # Shader for fixture body with emissive support (like visualizer)
+        vertex_shader = """
+            #version 330
+            uniform mat4 mvp;
+            uniform mat4 model;
+            in vec3 in_position;
+            in vec3 in_normal;
+            out vec3 v_normal;
+            out vec3 v_world_pos;
+            void main() {
+                gl_Position = mvp * vec4(in_position, 1.0);
+                v_normal = mat3(model) * in_normal;
+                v_world_pos = vec3(model * vec4(in_position, 1.0));
+            }
+        """
+        fragment_shader = """
+            #version 330
+            uniform vec3 base_color;
+            uniform vec3 emissive_color;
+            uniform float emissive_strength;
+            in vec3 v_normal;
+            in vec3 v_world_pos;
+            out vec4 fragColor;
+            void main() {
+                vec3 light_dir = normalize(vec3(0.5, 1.0, 0.3));
+                float diff = max(dot(normalize(v_normal), light_dir), 0.0);
+                vec3 ambient = base_color * 0.3;
+                vec3 diffuse = base_color * diff * 0.7;
+                vec3 emissive = emissive_color * emissive_strength;
+                vec3 final_color = ambient + diffuse + emissive;
+                fragColor = vec4(final_color, 1.0);
+            }
+        """
+        self.fixture_program = self.ctx.program(
+            vertex_shader=vertex_shader,
+            fragment_shader=fragment_shader
+        )
+
+        # Create geometry based on fixture type
+        self._update_fixture_geometry()
+
+    def set_fixture_type(self, fixture_type: str, segment_count: int = 8):
+        """Update the fixture type and recreate geometry."""
+        if fixture_type != self.fixture_type or segment_count != self.segment_count:
+            self.fixture_type = fixture_type
+            self.segment_count = segment_count
+            if self.ctx:
+                self._update_fixture_geometry()
+            self.update()
+
+    def _release_fixture_vaos(self):
+        """Release all fixture-related VAOs."""
+        vao_attrs = ['fixture_vao', 'indicator_vao', 'segment_vao', 'lens_vao',
+                     'base_vao', 'yoke_vao', 'head_vao', 'lamp_vao']
+        for attr in vao_attrs:
+            if hasattr(self, attr):
+                vao = getattr(self, attr)
+                if vao:
+                    try:
+                        vao.release()
+                    except:
+                        pass
+                setattr(self, attr, None)
+
+    def _update_fixture_geometry(self):
+        """Create/update fixture geometry based on current fixture_type."""
+        # Release old geometry
+        self._release_fixture_vaos()
+
+        # Create geometry based on type
+        if self.fixture_type == "BAR":
+            self._create_led_bar_geometry()
+        elif self.fixture_type == "SUNSTRIP":
+            self._create_sunstrip_geometry()
+        elif self.fixture_type == "PAR":
+            self._create_par_geometry()
+        elif self.fixture_type == "WASH":
+            self._create_wash_geometry()
+        elif self.fixture_type == "MH":
+            self._create_moving_head_geometry()
+        else:  # Default to MH
+            self._create_moving_head_geometry()
+
+    def _create_led_bar_geometry(self):
+        """Create LED Bar geometry with body and LED segments (like visualizer)."""
+        # Physical dimensions (scaled for preview)
+        width = 0.6
+        height = 0.08
+        depth = 0.1
+
+        # Body color (dark metal)
+        self.body_color = (0.15, 0.15, 0.18)
+
+        # Create bar body
+        body_verts, body_norms = GeometryBuilder.create_box(width, height, depth)
+        vbo = self.ctx.buffer(body_verts.tobytes())
+        nbo = self.ctx.buffer(body_norms.tobytes())
+        self.fixture_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(vbo, '3f', 'in_position'), (nbo, '3f', 'in_normal')]
+        )
+
+        # Create LED segment geometry (emitter surfaces on front)
+        segment_width = (width * 0.9) / self.segment_count
+        segment_height = height * 0.6
+        segment_depth = 0.015
+
+        segment_verts = []
+        segment_norms = []
+        start_x = -width * 0.45 + segment_width / 2
+
+        for i in range(self.segment_count):
+            x_offset = start_x + i * segment_width
+            verts, norms = GeometryBuilder.create_box(
+                segment_width * 0.85,
+                segment_height,
+                segment_depth,
+                center=(x_offset, 0, depth / 2 + segment_depth / 2)
+            )
+            segment_verts.extend(verts.tolist())
+            segment_norms.extend(norms.tolist())
+
+        segment_verts = np.array(segment_verts, dtype='f4')
+        segment_norms = np.array(segment_norms, dtype='f4')
+        seg_vbo = self.ctx.buffer(segment_verts.tobytes())
+        seg_nbo = self.ctx.buffer(segment_norms.tobytes())
+        self.segment_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(seg_vbo, '3f', 'in_position'), (seg_nbo, '3f', 'in_normal')]
+        )
+
+        # Create front indicator
+        self._create_front_indicator(depth / 2 + segment_depth + 0.01, height * 0.4)
+
+        self.front_depth = depth / 2 + segment_depth
+
+    def _create_sunstrip_geometry(self):
+        """Create Sunstrip geometry with body and lamp bulbs (like visualizer)."""
+        # Physical dimensions
+        width = 0.6
+        height = 0.06
+        depth = 0.08
+
+        self.body_color = (0.12, 0.12, 0.15)
+
+        # Create bar body
+        body_verts, body_norms = GeometryBuilder.create_box(width, height, depth)
+        vbo = self.ctx.buffer(body_verts.tobytes())
+        nbo = self.ctx.buffer(body_norms.tobytes())
+        self.fixture_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(vbo, '3f', 'in_position'), (nbo, '3f', 'in_normal')]
+        )
+
+        # Create lamp bulbs (cylinders)
+        lamp_radius = min(width / self.segment_count * 0.35, 0.025)
+        lamp_height = 0.02
+
+        lamp_verts = []
+        lamp_norms = []
+        spacing = width * 0.9 / self.segment_count
+        start_x = -width * 0.45 + spacing / 2
+
+        for i in range(self.segment_count):
+            x_offset = start_x + i * spacing
+            # Lamps on top of body (Y+ direction)
+            verts, norms = GeometryBuilder.create_cylinder(
+                lamp_radius, lamp_height, segments=12,
+                center=(x_offset, height / 2 + lamp_height / 2, 0)
+            )
+            lamp_verts.extend(verts.tolist())
+            lamp_norms.extend(norms.tolist())
+
+        lamp_verts = np.array(lamp_verts, dtype='f4')
+        lamp_norms = np.array(lamp_norms, dtype='f4')
+        lamp_vbo = self.ctx.buffer(lamp_verts.tobytes())
+        lamp_nbo = self.ctx.buffer(lamp_norms.tobytes())
+        self.lamp_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(lamp_vbo, '3f', 'in_position'), (lamp_nbo, '3f', 'in_normal')]
+        )
+
+        # Create front indicator
+        self._create_front_indicator(depth / 2 + 0.01, height * 0.3)
+
+        self.front_depth = depth / 2
+
+    def _create_par_geometry(self):
+        """Create PAR can geometry (cylinder with lens)."""
+        radius = 0.1
+        depth = 0.2
+
+        self.body_color = (0.1, 0.1, 0.12)
+
+        # Create body cylinder - cylinder is Y-oriented, we'll rotate in render
+        body_verts, body_norms = GeometryBuilder.create_cylinder(radius, depth, segments=24)
+        vbo = self.ctx.buffer(body_verts.tobytes())
+        nbo = self.ctx.buffer(body_norms.tobytes())
+        self.fixture_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(vbo, '3f', 'in_position'), (nbo, '3f', 'in_normal')]
+        )
+
+        # Create lens (front face) - smaller cylinder
+        lens_verts, lens_norms = GeometryBuilder.create_cylinder(
+            radius * 0.85, 0.02, segments=24,
+            center=(0, depth / 2 + 0.01, 0)
+        )
+        lens_vbo = self.ctx.buffer(lens_verts.tobytes())
+        lens_nbo = self.ctx.buffer(lens_norms.tobytes())
+        self.lens_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(lens_vbo, '3f', 'in_position'), (lens_nbo, '3f', 'in_normal')]
+        )
+
+        # Create front indicator
+        self._create_front_indicator(depth / 2 + 0.03, radius * 0.5)
+
+        self.front_depth = depth / 2
+        self.par_radius = radius
+        self.par_depth = depth
+
+    def _create_wash_geometry(self):
+        """Create Wash fixture geometry (box with lens panel)."""
+        width = 0.25
+        height = 0.15
+        depth = 0.18
+
+        self.body_color = (0.12, 0.12, 0.15)
+
+        # Create main body
+        body_verts, body_norms = GeometryBuilder.create_box(width, height, depth)
+        vbo = self.ctx.buffer(body_verts.tobytes())
+        nbo = self.ctx.buffer(body_norms.tobytes())
+        self.fixture_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(vbo, '3f', 'in_position'), (nbo, '3f', 'in_normal')]
+        )
+
+        # Create lens/front emitter
+        lens_width = width * 0.85
+        lens_height = height * 0.85
+        lens_depth = 0.02
+
+        lens_verts, lens_norms = GeometryBuilder.create_box(
+            lens_width, lens_height, lens_depth,
+            center=(0, 0, depth / 2 + lens_depth / 2)
+        )
+        lens_vbo = self.ctx.buffer(lens_verts.tobytes())
+        lens_nbo = self.ctx.buffer(lens_norms.tobytes())
+        self.lens_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(lens_vbo, '3f', 'in_position'), (lens_nbo, '3f', 'in_normal')]
+        )
+
+        # Create front indicator
+        self._create_front_indicator(depth / 2 + lens_depth + 0.01, height * 0.3)
+
+        self.front_depth = depth / 2 + lens_depth
+
+    def _create_moving_head_geometry(self):
+        """Create Moving Head geometry (base, yoke, head, lens) like visualizer."""
+        # Proportions
+        base_size = 0.2
+        base_height = 0.08
+
+        yoke_width = base_size * 0.15
+        yoke_height = 0.2
+        yoke_depth = base_size * 0.8
+
+        head_width = base_size * 0.7
+        head_height = 0.18
+        head_depth = base_size * 0.5
+
+        self.body_color = (0.1, 0.1, 0.12)
+        self.yoke_color = (0.15, 0.15, 0.18)
+
+        # Create base (cylinder)
+        base_verts, base_norms = GeometryBuilder.create_cylinder(
+            base_size / 2, base_height, segments=24,
+            center=(0, base_height / 2, 0)
+        )
+        base_vbo = self.ctx.buffer(base_verts.tobytes())
+        base_nbo = self.ctx.buffer(base_norms.tobytes())
+        self.base_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(base_vbo, '3f', 'in_position'), (base_nbo, '3f', 'in_normal')]
+        )
+
+        # Create yoke arms (two vertical pieces)
+        yoke_y = base_height + yoke_height / 2
+        left_yoke_verts, left_yoke_norms = GeometryBuilder.create_box(
+            yoke_width, yoke_height, yoke_depth,
+            center=(-head_width / 2 - yoke_width / 2, yoke_y, 0)
+        )
+        right_yoke_verts, right_yoke_norms = GeometryBuilder.create_box(
+            yoke_width, yoke_height, yoke_depth,
+            center=(head_width / 2 + yoke_width / 2, yoke_y, 0)
+        )
+        yoke_verts = np.concatenate([left_yoke_verts, right_yoke_verts])
+        yoke_norms = np.concatenate([left_yoke_norms, right_yoke_norms])
+
+        yoke_vbo = self.ctx.buffer(yoke_verts.tobytes())
+        yoke_nbo = self.ctx.buffer(yoke_norms.tobytes())
+        self.yoke_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(yoke_vbo, '3f', 'in_position'), (yoke_nbo, '3f', 'in_normal')]
+        )
+
+        # Create head (box)
+        head_verts, head_norms = GeometryBuilder.create_box(head_width, head_height, head_depth)
+        head_vbo = self.ctx.buffer(head_verts.tobytes())
+        head_nbo = self.ctx.buffer(head_norms.tobytes())
+        self.head_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(head_vbo, '3f', 'in_position'), (head_nbo, '3f', 'in_normal')]
+        )
+
+        # Create lens (cylinder on front of head)
+        lens_radius = min(head_width, head_height) * 0.35
+        lens_depth_val = 0.02
+
+        lens_verts, lens_norms = GeometryBuilder.create_cylinder(
+            lens_radius, lens_depth_val, segments=24,
+            center=(0, 0, head_depth / 2 + lens_depth_val / 2)
+        )
+        lens_vbo = self.ctx.buffer(lens_verts.tobytes())
+        lens_nbo = self.ctx.buffer(lens_norms.tobytes())
+        self.lens_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(lens_vbo, '3f', 'in_position'), (lens_nbo, '3f', 'in_normal')]
+        )
+
+        # Create front indicator (on head)
+        indicator_size = head_width * 0.25
+        indicator_z = head_depth / 2 + 0.01
+        indicator_y_offset = head_height / 2 * 0.7
+
+        indicator_verts = np.array([
+            0, indicator_y_offset + indicator_size * 0.4, indicator_z,
+            -indicator_size * 0.35, indicator_y_offset - indicator_size * 0.2, indicator_z,
+            indicator_size * 0.35, indicator_y_offset - indicator_size * 0.2, indicator_z,
+        ], dtype='f4')
+        indicator_norms = np.array([0, 0, 1, 0, 0, 1, 0, 0, 1], dtype='f4')
+
+        indicator_vbo = self.ctx.buffer(indicator_verts.tobytes())
+        indicator_nbo = self.ctx.buffer(indicator_norms.tobytes())
+        self.indicator_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(indicator_vbo, '3f', 'in_position'), (indicator_nbo, '3f', 'in_normal')]
+        )
+
+        # Store dimensions for positioning
+        self.mh_base_height = base_height
+        self.mh_yoke_height = yoke_height
+        self.mh_head_height = head_height
+        self.mh_head_depth = head_depth
+        self.front_depth = head_depth / 2
+
+    def _create_front_indicator(self, z_pos: float, size: float):
+        """Create a front indicator triangle at the given Z position."""
+        indicator_verts = np.array([
+            0, size * 0.8, z_pos,
+            -size * 0.6, -size * 0.4, z_pos,
+            size * 0.6, -size * 0.4, z_pos,
+        ], dtype='f4')
+        indicator_norms = np.array([0, 0, 1, 0, 0, 1, 0, 0, 1], dtype='f4')
+
+        indicator_vbo = self.ctx.buffer(indicator_verts.tobytes())
+        indicator_nbo = self.ctx.buffer(indicator_norms.tobytes())
+        self.indicator_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(indicator_vbo, '3f', 'in_position'), (indicator_nbo, '3f', 'in_normal')]
+        )
+
+    def _create_floor_geometry(self):
+        """Create floor grid and back wall geometry."""
+        vertex_shader = """
+            #version 330
+            uniform mat4 mvp;
+            in vec3 in_position;
+            in vec3 in_color;
+            out vec3 v_color;
+            void main() {
+                gl_Position = mvp * vec4(in_position, 1.0);
+                v_color = in_color;
+            }
+        """
+        fragment_shader = """
+            #version 330
+            in vec3 v_color;
+            out vec4 fragColor;
+            void main() {
+                fragColor = vec4(v_color, 0.5);
+            }
+        """
+        self.floor_program = self.ctx.program(
+            vertex_shader=vertex_shader,
+            fragment_shader=fragment_shader
+        )
+
+        # Create floor grid lines
+        vertices = []
+        colors = []
+        grid_size = 2.0
+        grid_step = 0.5
+
+        # Grid lines (gray)
+        x = -grid_size
+        while x <= grid_size + 0.01:
+            vertices.extend([[x, 0, -grid_size], [x, 0, grid_size]])
+            colors.extend([[0.4, 0.4, 0.4], [0.4, 0.4, 0.4]])
+            vertices.extend([[-grid_size, 0, x], [grid_size, 0, x]])
+            colors.extend([[0.4, 0.4, 0.4], [0.4, 0.4, 0.4]])
+            x += grid_step
+
+        vertices = np.array(vertices, dtype='f4').flatten()
+        colors = np.array(colors, dtype='f4').flatten()
+
+        vbo = self.ctx.buffer(vertices)
+        cbo = self.ctx.buffer(colors)
+
+        self.floor_vao = self.ctx.vertex_array(
+            self.floor_program,
+            [(vbo, '3f', 'in_position'), (cbo, '3f', 'in_color')]
+        )
+        self.floor_vertex_count = len(vertices) // 3
+
+        # Create back wall (behind the fixture at z=-2)
+        wall_shader_vert = """
+            #version 330
+            uniform mat4 mvp;
+            in vec3 in_position;
+            void main() {
+                gl_Position = mvp * vec4(in_position, 1.0);
+            }
+        """
+        wall_shader_frag = """
+            #version 330
+            out vec4 fragColor;
+            void main() {
+                fragColor = vec4(0.25, 0.25, 0.3, 0.6);
+            }
+        """
+        self.wall_program = self.ctx.program(
+            vertex_shader=wall_shader_vert,
+            fragment_shader=wall_shader_frag
+        )
+
+        # Back wall quad (at z = -2, spanning x and y)
+        wall_size = 2.0
+        wall_height = 3.0
+        wall_z = -2.0
+        wall_verts = [
+            [-wall_size, 0, wall_z], [wall_size, 0, wall_z],
+            [wall_size, wall_height, wall_z], [-wall_size, wall_height, wall_z]
+        ]
+        wall_indices = [0, 1, 2, 0, 2, 3]
+
+        wall_verts = np.array(wall_verts, dtype='f4').flatten()
+        wall_indices = np.array(wall_indices, dtype='i4')
+
+        wall_vbo = self.ctx.buffer(wall_verts)
+        wall_ibo = self.ctx.buffer(wall_indices)
+
+        self.wall_vao = self.ctx.vertex_array(
+            self.wall_program,
+            [(wall_vbo, '3f', 'in_position')],
+            wall_ibo
+        )
+
+    def _create_axes_geometry(self):
+        """Create coordinate axes geometry."""
+        # Reuse floor program
+        vertices = [
+            # X axis (red)
+            [0, 0, 0], [1, 0, 0],
+            # Y axis (green)
+            [0, 0, 0], [0, 1, 0],
+            # Z axis (blue)
+            [0, 0, 0], [0, 0, 1],
+        ]
+        colors = [
+            [1, 0.3, 0.3], [1, 0.3, 0.3],  # Red
+            [0.3, 1, 0.3], [0.3, 1, 0.3],  # Green
+            [0.3, 0.3, 1], [0.3, 0.3, 1],  # Blue
+        ]
+
+        vertices = np.array(vertices, dtype='f4').flatten()
+        colors = np.array(colors, dtype='f4').flatten()
+
+        vbo = self.ctx.buffer(vertices)
+        cbo = self.ctx.buffer(colors)
+
+        self.axes_vao = self.ctx.vertex_array(
+            self.floor_program,
+            [(vbo, '3f', 'in_position'), (cbo, '3f', 'in_color')]
+        )
+
+    def _create_ring_geometry(self):
+        """Create gimbal ring geometry."""
+        # Create circle vertices for rings
+        segments = 64
+        self.ring_vertices = []
+        for i in range(segments + 1):
+            angle = 2 * math.pi * i / segments
+            self.ring_vertices.append([math.cos(angle), math.sin(angle), 0])
+
+        vertices = np.array(self.ring_vertices, dtype='f4').flatten()
+        vbo = self.ctx.buffer(vertices)
+
+        # Simple line program for rings
+        vertex_shader = """
+            #version 330
+            uniform mat4 mvp;
+            uniform mat4 ring_transform;
+            in vec3 in_position;
+            void main() {
+                gl_Position = mvp * ring_transform * vec4(in_position, 1.0);
+            }
+        """
+        fragment_shader = """
+            #version 330
+            uniform vec3 ring_color;
+            out vec4 fragColor;
+            void main() {
+                fragColor = vec4(ring_color, 1.0);
+            }
+        """
+        self.ring_program = self.ctx.program(
+            vertex_shader=vertex_shader,
+            fragment_shader=fragment_shader
+        )
+
+        self.ring_vao = self.ctx.vertex_array(
+            self.ring_program,
+            [(vbo, '3f', 'in_position')]
+        )
+        self.ring_vertex_count = segments + 1
+
+    def _create_handle_geometry(self):
+        """Create handle geometry (small boxes) for ring dragging."""
+        # Create a small box for the handle
+        handle_size = 0.06
+
+        # Box vertices (centered at origin)
+        s = handle_size / 2
+        vertices = []
+        normals = []
+
+        # Front face
+        vertices.extend([[-s, -s, s], [s, -s, s], [s, s, s], [-s, -s, s], [s, s, s], [-s, s, s]])
+        normals.extend([[0, 0, 1]] * 6)
+        # Back face
+        vertices.extend([[s, -s, -s], [-s, -s, -s], [-s, s, -s], [s, -s, -s], [-s, s, -s], [s, s, -s]])
+        normals.extend([[0, 0, -1]] * 6)
+        # Top face
+        vertices.extend([[-s, s, s], [s, s, s], [s, s, -s], [-s, s, s], [s, s, -s], [-s, s, -s]])
+        normals.extend([[0, 1, 0]] * 6)
+        # Bottom face
+        vertices.extend([[-s, -s, -s], [s, -s, -s], [s, -s, s], [-s, -s, -s], [s, -s, s], [-s, -s, s]])
+        normals.extend([[0, -1, 0]] * 6)
+        # Right face
+        vertices.extend([[s, -s, s], [s, -s, -s], [s, s, -s], [s, -s, s], [s, s, -s], [s, s, s]])
+        normals.extend([[1, 0, 0]] * 6)
+        # Left face
+        vertices.extend([[-s, -s, -s], [-s, -s, s], [-s, s, s], [-s, -s, -s], [-s, s, s], [-s, s, -s]])
+        normals.extend([[-1, 0, 0]] * 6)
+
+        vertices = np.array(vertices, dtype='f4').flatten()
+        normals = np.array(normals, dtype='f4').flatten()
+
+        self.handle_vbo = self.ctx.buffer(vertices)
+        self.handle_nbo = self.ctx.buffer(normals)
+        self.handle_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(self.handle_vbo, '3f', 'in_position'), (self.handle_nbo, '3f', 'in_normal')]
+        )
+        self.handle_vertex_count = len(vertices) // 3
+
+    def set_orientation(self, mounting: str, yaw: float, pitch: float, roll: float):
+        """Update the displayed orientation."""
+        self.mounting = mounting
+        self.yaw = yaw
+        self.pitch = pitch
+        self.roll = roll
+        self.update()
+
+    def get_fixture_transform(self) -> glm.mat4:
+        """Get the fixture transformation matrix based on current orientation."""
+        # Start with identity
+        transform = glm.mat4(1.0)
+
+        # Get base rotation from mounting preset
+        base_pitch = {
+            'hanging': 90.0,
+            'standing': -90.0,
+            'wall_left': 0.0,
+            'wall_right': 0.0,
+            'wall_back': 0.0,
+            'wall_front': 0.0,
+        }.get(self.mounting, 0.0)
+
+        base_yaw = {
+            'wall_left': -90.0,
+            'wall_right': 90.0,
+            'wall_front': 180.0,
+        }.get(self.mounting, 0.0)
+
+        # Apply rotations in order: Yaw (Z) -> Pitch (Y) -> Roll (X)
+        total_yaw = base_yaw + self.yaw
+        total_pitch = base_pitch + self.pitch
+
+        # Apply yaw (rotation around Y axis - world up)
+        transform = glm.rotate(transform, glm.radians(total_yaw), glm.vec3(0, 1, 0))
+        # Apply pitch (rotation around X axis after yaw)
+        transform = glm.rotate(transform, glm.radians(total_pitch), glm.vec3(1, 0, 0))
+        # Apply roll (rotation around Z axis after pitch)
+        transform = glm.rotate(transform, glm.radians(self.roll), glm.vec3(0, 0, 1))
+
+        return transform
+
+    def get_view_projection(self) -> glm.mat4:
+        """Get the view-projection matrix."""
+        # Camera position from spherical coordinates
+        azimuth_rad = math.radians(self.camera_azimuth)
+        elevation_rad = math.radians(self.camera_elevation)
+
+        x = self.camera_distance * math.cos(elevation_rad) * math.sin(azimuth_rad)
+        y = self.camera_distance * math.sin(elevation_rad)
+        z = self.camera_distance * math.cos(elevation_rad) * math.cos(azimuth_rad)
+
+        eye = glm.vec3(x, y, z)
+        target = glm.vec3(0, 0.5, 0)  # Look at fixture center
+        up = glm.vec3(0, 1, 0)
+
+        view = glm.lookAt(eye, target, up)
+
+        aspect = self.width() / max(self.height(), 1)
+        projection = glm.perspective(glm.radians(45.0), aspect, 0.1, 100.0)
+
+        return projection * view
+
+    def resizeGL(self, width: int, height: int):
+        """Handle resize."""
+        pass  # Viewport set in paintGL
+
+    def paintGL(self):
+        """Render the scene."""
+        if not self.ctx:
+            return
+
+        # Bind Qt's FBO
+        qt_fbo_id = self.defaultFramebufferObject()
+        self.ctx.fbo = self.ctx.detect_framebuffer(qt_fbo_id)
+        self.ctx.fbo.use()
+        self.ctx.viewport = (0, 0, self.width(), self.height())
+
+        # Clear
+        self.ctx.fbo.clear(0.15, 0.15, 0.18, 1.0)
+
+        mvp = self.get_view_projection()
+        fixture_transform = self.get_fixture_transform()
+
+        # Render back wall first (behind everything)
+        if hasattr(self, 'wall_vao') and self.wall_vao and self.wall_program:
+            self.wall_program['mvp'].write(np.array(mvp.to_list(), dtype='f4').flatten().tobytes())
+            self.wall_vao.render()
+
+        # Render floor grid
+        if self.floor_vao and self.floor_program:
+            self.floor_program['mvp'].write(np.array(mvp.to_list(), dtype='f4').flatten().tobytes())
+            self.floor_vao.render(moderngl.LINES)
+
+        # Render gimbal rings
+        self._render_gimbal_rings(mvp, fixture_transform)
+
+        # Render fixture based on type
+        if self.fixture_type == "MH":
+            self._render_moving_head(mvp, fixture_transform)
+        elif self.fixture_type == "PAR":
+            self._render_par(mvp, fixture_transform)
+        elif self.fixture_type == "BAR":
+            self._render_led_bar(mvp, fixture_transform)
+        elif self.fixture_type == "SUNSTRIP":
+            self._render_sunstrip(mvp, fixture_transform)
+        elif self.fixture_type == "WASH":
+            self._render_wash(mvp, fixture_transform)
+        else:
+            self._render_moving_head(mvp, fixture_transform)
+
+        # Render beam direction indicator (cone pointing in Z direction)
+        self._render_beam_indicator(mvp, fixture_transform)
+
+    def _write_mvp_uniforms(self, mvp: glm.mat4, model: glm.mat4):
+        """Helper to write MVP and model matrices to shader."""
+        mvp_bytes = np.array([x for col in mvp.to_list() for x in col], dtype='f4').tobytes()
+        model_bytes = np.array([x for col in model.to_list() for x in col], dtype='f4').tobytes()
+        self.fixture_program['mvp'].write(mvp_bytes)
+        self.fixture_program['model'].write(model_bytes)
+
+    def _render_moving_head(self, mvp: glm.mat4, fixture_transform: glm.mat4):
+        """Render moving head fixture (like visualizer)."""
+        if not self.fixture_program:
+            return
+
+        body_color = self.body_color
+        yoke_color = self.yoke_color
+
+        # Render base
+        if self.base_vao:
+            base_mvp = mvp * fixture_transform
+            self._write_mvp_uniforms(base_mvp, fixture_transform)
+            self.fixture_program['base_color'].value = body_color
+            self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
+            self.fixture_program['emissive_strength'].value = 0.0
+            self.base_vao.render()
+
+        # Render yoke
+        if self.yoke_vao:
+            self.fixture_program['base_color'].value = yoke_color
+            self.yoke_vao.render()
+
+        # Render head
+        if self.head_vao:
+            # Head is positioned at the yoke height
+            head_y = getattr(self, 'mh_base_height', 0.08) + getattr(self, 'mh_yoke_height', 0.2) / 2
+            head_translate = glm.translate(glm.mat4(1.0), glm.vec3(0, head_y, 0))
+            head_model = fixture_transform * head_translate
+            head_mvp = mvp * head_model
+
+            self._write_mvp_uniforms(head_mvp, head_model)
+            self.fixture_program['base_color'].value = body_color
+            self.head_vao.render()
+
+            # Render lens with emissive (white glow)
+            if self.lens_vao:
+                self.fixture_program['base_color'].value = (0.2, 0.2, 0.2)
+                self.fixture_program['emissive_color'].value = (1.0, 1.0, 1.0)
+                self.fixture_program['emissive_strength'].value = 0.5
+                self.lens_vao.render()
+
+            # Render front indicator (red triangle)
+            if self.indicator_vao:
+                self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
+                self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
+                self.fixture_program['emissive_strength'].value = 0.0
+                self.indicator_vao.render()
+
+    def _render_par(self, mvp: glm.mat4, fixture_transform: glm.mat4):
+        """Render PAR can fixture."""
+        if not self.fixture_program:
+            return
+
+        body_color = self.body_color
+
+        # PAR cylinder is Y-oriented, rotate to Z-oriented
+        rotation = glm.rotate(glm.mat4(1.0), glm.radians(-90), glm.vec3(1, 0, 0))
+        model = fixture_transform * rotation
+        final_mvp = mvp * model
+
+        self._write_mvp_uniforms(final_mvp, model)
+        self.fixture_program['base_color'].value = body_color
+        self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
+        self.fixture_program['emissive_strength'].value = 0.0
+
+        if self.fixture_vao:
+            self.fixture_vao.render()
+
+        # Render lens with emissive
+        if self.lens_vao:
+            self.fixture_program['base_color'].value = (0.15, 0.15, 0.15)
+            self.fixture_program['emissive_color'].value = (1.0, 0.9, 0.8)
+            self.fixture_program['emissive_strength'].value = 0.4
+            self.lens_vao.render()
+
+        # Render front indicator
+        if self.indicator_vao:
+            # Need to transform indicator separately (not rotated like body)
+            ind_mvp = mvp * fixture_transform
+            self._write_mvp_uniforms(ind_mvp, fixture_transform)
+            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
+            self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
+            self.fixture_program['emissive_strength'].value = 0.0
+            self.indicator_vao.render()
+
+    def _render_led_bar(self, mvp: glm.mat4, fixture_transform: glm.mat4):
+        """Render LED bar fixture with segments."""
+        if not self.fixture_program:
+            return
+
+        body_color = self.body_color
+        fixture_mvp = mvp * fixture_transform
+
+        self._write_mvp_uniforms(fixture_mvp, fixture_transform)
+        self.fixture_program['base_color'].value = body_color
+        self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
+        self.fixture_program['emissive_strength'].value = 0.0
+
+        # Render body
+        if self.fixture_vao:
+            self.fixture_vao.render()
+
+        # Render LED segments with emissive color
+        if self.segment_vao:
+            self.fixture_program['base_color'].value = (0.1, 0.1, 0.1)
+            self.fixture_program['emissive_color'].value = (0.8, 0.9, 1.0)
+            self.fixture_program['emissive_strength'].value = 0.6
+            self.segment_vao.render()
+
+        # Render front indicator
+        if self.indicator_vao:
+            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
+            self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
+            self.fixture_program['emissive_strength'].value = 0.0
+            self.indicator_vao.render()
+
+    def _render_sunstrip(self, mvp: glm.mat4, fixture_transform: glm.mat4):
+        """Render sunstrip fixture with lamp bulbs."""
+        if not self.fixture_program:
+            return
+
+        body_color = self.body_color
+        fixture_mvp = mvp * fixture_transform
+
+        self._write_mvp_uniforms(fixture_mvp, fixture_transform)
+        self.fixture_program['base_color'].value = body_color
+        self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
+        self.fixture_program['emissive_strength'].value = 0.0
+
+        # Render body
+        if self.fixture_vao:
+            self.fixture_vao.render()
+
+        # Render lamp bulbs with warm white emissive
+        if self.lamp_vao:
+            self.fixture_program['base_color'].value = (0.9, 0.85, 0.7)
+            self.fixture_program['emissive_color'].value = (1.0, 0.85, 0.6)
+            self.fixture_program['emissive_strength'].value = 0.8
+            self.lamp_vao.render()
+
+        # Render front indicator
+        if self.indicator_vao:
+            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
+            self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
+            self.fixture_program['emissive_strength'].value = 0.0
+            self.indicator_vao.render()
+
+    def _render_wash(self, mvp: glm.mat4, fixture_transform: glm.mat4):
+        """Render wash fixture."""
+        if not self.fixture_program:
+            return
+
+        body_color = self.body_color
+        fixture_mvp = mvp * fixture_transform
+
+        self._write_mvp_uniforms(fixture_mvp, fixture_transform)
+        self.fixture_program['base_color'].value = body_color
+        self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
+        self.fixture_program['emissive_strength'].value = 0.0
+
+        # Render body
+        if self.fixture_vao:
+            self.fixture_vao.render()
+
+        # Render lens with emissive color
+        if self.lens_vao:
+            self.fixture_program['base_color'].value = (0.15, 0.15, 0.15)
+            self.fixture_program['emissive_color'].value = (0.9, 0.95, 1.0)
+            self.fixture_program['emissive_strength'].value = 0.5
+            self.lens_vao.render()
+
+        # Render front indicator
+        if self.indicator_vao:
+            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
+            self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
+            self.fixture_program['emissive_strength'].value = 0.0
+            self.indicator_vao.render()
+
+    def _render_gimbal_rings(self, mvp: glm.mat4, fixture_transform: glm.mat4):
+        """Render the gimbal rings around the fixture with handles."""
+        if not self.ring_vao or not self.ring_program:
+            return
+
+        ring_radius = 0.6
+
+        # Helper to write matrix to ring program
+        def write_ring_mvp(m):
+            mvp_bytes = np.array([x for col in m.to_list() for x in col], dtype='f4').tobytes()
+            self.ring_program['mvp'].write(mvp_bytes)
+
+        def write_ring_transform(m):
+            t_bytes = np.array([x for col in m.to_list() for x in col], dtype='f4').tobytes()
+            self.ring_program['ring_transform'].write(t_bytes)
+
+        # Yaw ring (blue) - around Y axis
+        yaw_transform = glm.scale(glm.mat4(1.0), glm.vec3(ring_radius))
+        yaw_transform = glm.rotate(glm.mat4(1.0), glm.radians(90), glm.vec3(1, 0, 0)) * yaw_transform
+        write_ring_mvp(mvp)
+        write_ring_transform(yaw_transform)
+        self.ring_program['ring_color'].value = (0.3, 0.3, 1.0)
+        self.ctx.line_width = 2.0
+        self.ring_vao.render(moderngl.LINE_STRIP)
+
+        # Pitch ring (green) - around X axis after yaw
+        pitch_base = glm.rotate(glm.mat4(1.0), glm.radians(self.yaw), glm.vec3(0, 1, 0))
+        pitch_transform = pitch_base * glm.rotate(glm.mat4(1.0), glm.radians(90), glm.vec3(0, 1, 0))
+        pitch_transform = pitch_transform * glm.scale(glm.mat4(1.0), glm.vec3(ring_radius * 0.9))
+        write_ring_transform(pitch_transform)
+        self.ring_program['ring_color'].value = (0.3, 1.0, 0.3)
+        self.ring_vao.render(moderngl.LINE_STRIP)
+
+        # Roll ring (red) - around Z axis after yaw and pitch
+        roll_transform = fixture_transform * glm.scale(glm.mat4(1.0), glm.vec3(ring_radius * 0.8))
+        write_ring_transform(roll_transform)
+        self.ring_program['ring_color'].value = (1.0, 0.3, 0.3)
+        self.ring_vao.render(moderngl.LINE_STRIP)
+
+        # Render handles on each ring
+        self._render_ring_handles(mvp, fixture_transform, ring_radius)
+
+    def _render_ring_handles(self, mvp: glm.mat4, fixture_transform: glm.mat4, ring_radius: float):
+        """Render draggable handles on each gimbal ring that rotate with the ring."""
+        if not self.handle_vao or not self.fixture_program:
+            return
+
+        # Reset emissive for handles
+        self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
+        self.fixture_program['emissive_strength'].value = 0.0
+
+        # Yaw handle (blue) - rotates around Y axis with current yaw
+        # The yaw ring is horizontal (XZ plane), handle starts at front and rotates with yaw
+        yaw_angle_rad = math.radians(self.yaw)
+        yaw_handle_pos = glm.vec3(
+            ring_radius * math.sin(yaw_angle_rad),
+            0,
+            ring_radius * math.cos(yaw_angle_rad)
+        )
+        yaw_handle_transform = glm.translate(glm.mat4(1.0), yaw_handle_pos)
+        yaw_handle_mvp = mvp * yaw_handle_transform
+        self._write_mvp_uniforms(yaw_handle_mvp, yaw_handle_transform)
+        self.fixture_program['base_color'].value = (0.4, 0.4, 1.0)
+        self.handle_vao.render()
+
+        # Pitch handle (green) - on pitch ring which is rotated by yaw, handle rotates with pitch
+        # Pitch ring is vertical (YZ plane after yaw rotation), handle moves with pitch angle
+        pitch_ring_radius = ring_radius * 0.9
+        pitch_angle_rad = math.radians(self.pitch)
+        # Handle position in pitch ring's local space (ring is in YZ plane)
+        pitch_handle_local = glm.vec3(
+            0,
+            pitch_ring_radius * math.cos(pitch_angle_rad),
+            pitch_ring_radius * math.sin(pitch_angle_rad)
+        )
+        # Apply yaw rotation to get world position
+        pitch_ring_base = glm.rotate(glm.mat4(1.0), glm.radians(self.yaw), glm.vec3(0, 1, 0))
+        pitch_handle_transform = pitch_ring_base * glm.translate(glm.mat4(1.0), pitch_handle_local)
+        pitch_handle_mvp = mvp * pitch_handle_transform
+        self._write_mvp_uniforms(pitch_handle_mvp, pitch_handle_transform)
+        self.fixture_program['base_color'].value = (0.4, 1.0, 0.4)
+        self.handle_vao.render()
+
+        # Roll handle (red) - on roll ring which follows full orientation, handle rotates with roll
+        roll_ring_radius = ring_radius * 0.8
+        roll_angle_rad = math.radians(self.roll)
+        # Handle position in roll ring's local space (ring is in XY plane after all rotations)
+        roll_handle_local = glm.vec3(
+            roll_ring_radius * math.cos(roll_angle_rad),
+            roll_ring_radius * math.sin(roll_angle_rad),
+            0
+        )
+        roll_handle_transform = fixture_transform * glm.translate(glm.mat4(1.0), roll_handle_local)
+        roll_handle_mvp = mvp * roll_handle_transform
+        self._write_mvp_uniforms(roll_handle_mvp, roll_handle_transform)
+        self.fixture_program['base_color'].value = (1.0, 0.4, 0.4)
+        self.handle_vao.render()
+
+    def _render_beam_indicator(self, mvp: glm.mat4, fixture_transform: glm.mat4):
+        """Render a line showing beam direction."""
+        if not self.axes_vao or not self.floor_program:
+            return
+
+        # Transform for beam direction (local Z axis)
+        beam_transform = fixture_transform * glm.scale(glm.mat4(1.0), glm.vec3(0.8))
+        beam_mvp = mvp * beam_transform
+
+        self.floor_program['mvp'].write(np.array(beam_mvp.to_list(), dtype='f4').flatten().tobytes())
+
+        # Only render Z axis (beam direction) with yellow color
+        vertices = np.array([[0, 0, 0], [0, 0, 1]], dtype='f4').flatten()
+        colors = np.array([[1, 1, 0], [1, 1, 0]], dtype='f4').flatten()
+
+        vbo = self.ctx.buffer(vertices)
+        cbo = self.ctx.buffer(colors)
+
+        beam_vao = self.ctx.vertex_array(
+            self.floor_program,
+            [(vbo, '3f', 'in_position'), (cbo, '3f', 'in_color')]
+        )
+        self.ctx.line_width = 3.0
+        beam_vao.render(moderngl.LINES)
+        beam_vao.release()
+        vbo.release()
+        cbo.release()
+
+    def _get_ring_at_position(self, pos) -> Optional[str]:
+        """
+        Detect which ring (if any) is at the given screen position.
+        Returns 'yaw', 'pitch', 'roll', or None.
+        """
+        if not self.ctx:
+            return None
+
+        # Get normalized device coordinates
+        x = (2.0 * pos.x() / self.width()) - 1.0
+        y = 1.0 - (2.0 * pos.y() / self.height())
+
+        # Get view-projection matrix for unprojecting
+        vp = self.get_view_projection()
+        vp_inv = glm.inverse(vp)
+
+        # Create ray from camera through the click point
+        near_point = vp_inv * glm.vec4(x, y, -1.0, 1.0)
+        far_point = vp_inv * glm.vec4(x, y, 1.0, 1.0)
+
+        near_point = glm.vec3(near_point) / near_point.w
+        far_point = glm.vec3(far_point) / far_point.w
+
+        ray_dir = glm.normalize(far_point - near_point)
+        ray_origin = near_point
+
+        # Check each ring for intersection (approximate with torus check)
+        ring_radius = 0.6
+        ring_thickness = 0.08  # How close to ring counts as hit
+
+        # Yaw ring (blue) - horizontal ring around Y axis at y=0
+        dist_to_yaw = self._distance_to_ring(ray_origin, ray_dir, glm.vec3(0, 1, 0), ring_radius)
+        if dist_to_yaw < ring_thickness:
+            return 'yaw'
+
+        # Pitch ring (green) - rotated based on current yaw
+        pitch_axis = glm.vec3(math.cos(math.radians(self.yaw)), 0, -math.sin(math.radians(self.yaw)))
+        dist_to_pitch = self._distance_to_ring(ray_origin, ray_dir, pitch_axis, ring_radius * 0.9)
+        if dist_to_pitch < ring_thickness:
+            return 'pitch'
+
+        # Roll ring (red) - follows full fixture orientation
+        fixture_transform = self.get_fixture_transform()
+        roll_axis = glm.vec3(fixture_transform * glm.vec4(0, 0, 1, 0))
+        dist_to_roll = self._distance_to_ring(ray_origin, ray_dir, roll_axis, ring_radius * 0.8)
+        if dist_to_roll < ring_thickness:
+            return 'roll'
+
+        return None
+
+    def _distance_to_ring(self, ray_origin: glm.vec3, ray_dir: glm.vec3,
+                          ring_normal: glm.vec3, ring_radius: float) -> float:
+        """Calculate approximate distance from ray to ring."""
+        # Find where ray intersects the plane of the ring
+        denom = glm.dot(ring_normal, ray_dir)
+        if abs(denom) < 0.001:
+            return float('inf')
+
+        t = -glm.dot(ring_normal, ray_origin) / denom
+        if t < 0:
+            return float('inf')
+
+        # Point on plane
+        point = ray_origin + ray_dir * t
+
+        # Distance from point to ring (distance from circle in plane)
+        dist_from_center = glm.length(point)
+        return abs(dist_from_center - ring_radius)
+
+    def mousePressEvent(self, event):
+        """Handle mouse press for camera control or ring dragging."""
+        self.last_mouse_pos = event.position()
+        self.mouse_button = event.button()
+
+        if event.button() == Qt.MouseButton.LeftButton:
+            # Check if clicking on a ring
+            ring = self._get_ring_at_position(event.position())
+            if ring:
+                self.dragging_ring = ring
+                self.drag_start_angle = getattr(self, ring, 0.0)
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            else:
+                self.dragging_ring = None
+
+    def mouseReleaseEvent(self, event):
+        """Handle mouse release."""
+        if self.dragging_ring:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.last_mouse_pos = None
+        self.mouse_button = None
+        self.dragging_ring = None
+
+    def mouseMoveEvent(self, event):
+        """Handle mouse move for camera orbit or ring dragging."""
+        if self.last_mouse_pos is None:
+            # Update cursor when hovering over rings
+            ring = self._get_ring_at_position(event.position())
+            if ring:
+                self.setCursor(Qt.CursorShape.OpenHandCursor)
+            else:
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+            return
+
+        pos = event.position()
+        delta_x = pos.x() - self.last_mouse_pos.x()
+        delta_y = pos.y() - self.last_mouse_pos.y()
+
+        if self.dragging_ring:
+            # Ring dragging - use horizontal mouse movement for angle change
+            angle_delta = delta_x * 0.5  # Sensitivity
+
+            if self.dragging_ring == 'yaw':
+                self.yaw = max(-180, min(180, self.yaw + angle_delta))
+            elif self.dragging_ring == 'pitch':
+                self.pitch = max(-90, min(90, self.pitch + angle_delta))
+            elif self.dragging_ring == 'roll':
+                self.roll = max(-180, min(180, self.roll + angle_delta))
+
+            # Emit signal to update spin boxes
+            self.orientation_changed.emit(self.yaw, self.pitch, self.roll)
+
+        elif self.mouse_button == Qt.MouseButton.LeftButton:
+            # Orbit camera
+            self.camera_azimuth -= delta_x * 0.5
+            self.camera_elevation += delta_y * 0.5
+            self.camera_elevation = max(5, min(85, self.camera_elevation))
+
+        elif self.mouse_button == Qt.MouseButton.RightButton:
+            # Zoom
+            self.camera_distance += delta_y * 0.02
+            self.camera_distance = max(2, min(10, self.camera_distance))
+
+        self.last_mouse_pos = pos
+        self.update()
+
+    def wheelEvent(self, event):
+        """Handle scroll for zoom."""
+        delta = event.angleDelta().y() / 120.0
+        self.camera_distance -= delta * 0.3
+        self.camera_distance = max(2, min(10, self.camera_distance))
+        self.update()
+
+    def cleanup(self):
+        """Release resources."""
+        self.render_timer.stop()
+        # Release fixture VAOs
+        self._release_fixture_vaos()
+        if self.ctx:
+            self.ctx.release()
+            self.ctx = None
+
+
+class OrientationDialog(QDialog):
+    """
+    Dialog for setting fixture orientation.
+
+    Provides a 3D preview with gimbal rings, preset buttons,
+    and fine-tuning controls for yaw, pitch, roll, and Z-height.
+    """
+
+    # Mounting preset definitions
+    PRESETS = {
+        'hanging': {'label': 'Hanging', 'tooltip': 'Fixture hanging from truss, beam pointing down'},
+        'standing': {'label': 'Standing', 'tooltip': 'Fixture on floor, beam pointing up'},
+        'wall_left': {'label': 'Wall-L', 'tooltip': 'Mounted on stage-left wall'},
+        'wall_right': {'label': 'Wall-R', 'tooltip': 'Mounted on stage-right wall'},
+        'wall_back': {'label': 'Wall-Back', 'tooltip': 'Mounted on back wall, beam toward audience'},
+        'wall_front': {'label': 'Wall-Front', 'tooltip': 'Mounted facing audience, beam toward back'},
+    }
+
+    def __init__(self, fixtures: List, config=None, parent=None):
+        """
+        Initialize orientation dialog.
+
+        Args:
+            fixtures: List of FixtureItem objects to configure
+            config: Configuration object for group lookups
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self.fixtures = fixtures
+        self.config = config
+
+        self.setWindowTitle("Set Orientation")
+        self.setMinimumSize(500, 550)
+
+        self._setup_ui()
+        self._connect_signals()
+        self._load_initial_values()
+
+    def _setup_ui(self):
+        """Set up the dialog UI."""
+        layout = QVBoxLayout(self)
+
+        # Info label
+        if len(self.fixtures) == 1:
+            info_text = f"Fixture: {self.fixtures[0].fixture_name}"
+        else:
+            info_text = f"Editing {len(self.fixtures)} fixtures"
+        info_label = QLabel(info_text)
+        info_label.setStyleSheet("font-weight: bold; font-size: 12px;")
+        layout.addWidget(info_label)
+
+        # 3D Preview
+        preview_group = QGroupBox("3D Preview")
+        preview_layout = QVBoxLayout(preview_group)
+        self.preview_widget = OrientationPreviewWidget()
+        preview_layout.addWidget(self.preview_widget)
+        layout.addWidget(preview_group, stretch=1)
+
+        # Presets
+        presets_group = QGroupBox("Presets")
+        presets_layout = QHBoxLayout(presets_group)
+
+        self.preset_buttons = {}
+        for preset_id, preset_info in self.PRESETS.items():
+            btn = QPushButton(preset_info['label'])
+            btn.setToolTip(preset_info['tooltip'])
+            btn.setCheckable(True)
+            btn.clicked.connect(lambda checked, p=preset_id: self._on_preset_clicked(p))
+            presets_layout.addWidget(btn)
+            self.preset_buttons[preset_id] = btn
+
+        layout.addWidget(presets_group)
+
+        # Fine adjustment
+        adjust_group = QGroupBox("Fine Adjustment")
+        adjust_layout = QGridLayout(adjust_group)
+
+        # Yaw
+        adjust_layout.addWidget(QLabel("Yaw:"), 0, 0)
+        self.yaw_spin = QDoubleSpinBox()
+        self.yaw_spin.setRange(-180, 180)
+        self.yaw_spin.setSuffix("°")
+        self.yaw_spin.setSingleStep(5)
+        self.yaw_spin.setToolTip("Rotation around vertical axis (blue ring)")
+        adjust_layout.addWidget(self.yaw_spin, 0, 1)
+
+        # Pitch
+        adjust_layout.addWidget(QLabel("Pitch:"), 0, 2)
+        self.pitch_spin = QDoubleSpinBox()
+        self.pitch_spin.setRange(-90, 90)
+        self.pitch_spin.setSuffix("°")
+        self.pitch_spin.setSingleStep(5)
+        self.pitch_spin.setToolTip("Tilt angle (green ring)")
+        adjust_layout.addWidget(self.pitch_spin, 0, 3)
+
+        # Roll
+        adjust_layout.addWidget(QLabel("Roll:"), 1, 0)
+        self.roll_spin = QDoubleSpinBox()
+        self.roll_spin.setRange(-180, 180)
+        self.roll_spin.setSuffix("°")
+        self.roll_spin.setSingleStep(5)
+        self.roll_spin.setToolTip("Rotation around beam axis (red ring)")
+        adjust_layout.addWidget(self.roll_spin, 1, 1)
+
+        # Z-height
+        adjust_layout.addWidget(QLabel("Z-Height:"), 1, 2)
+        self.z_spin = QDoubleSpinBox()
+        self.z_spin.setRange(0, 50)
+        self.z_spin.setSuffix(" m")
+        self.z_spin.setSingleStep(0.1)
+        self.z_spin.setDecimals(2)
+        self.z_spin.setToolTip("Height above stage floor")
+        adjust_layout.addWidget(self.z_spin, 1, 3)
+
+        layout.addWidget(adjust_group)
+
+        # Apply to group checkbox
+        self.apply_to_group_checkbox = QCheckBox("Apply to group default")
+        self.apply_to_group_checkbox.setToolTip(
+            "If checked, also updates the group's default orientation"
+        )
+        # Only enable if all fixtures are in the same group
+        groups = set(f.group for f in self.fixtures if hasattr(f, 'group') and f.group)
+        self.apply_to_group_checkbox.setEnabled(len(groups) == 1)
+        if len(groups) == 1:
+            self.apply_to_group_checkbox.setText(f"Apply to group default ({list(groups)[0]})")
+        layout.addWidget(self.apply_to_group_checkbox)
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(self.cancel_btn)
+
+        self.apply_btn = QPushButton("Apply")
+        self.apply_btn.setDefault(True)
+        self.apply_btn.clicked.connect(self.accept)
+        button_layout.addWidget(self.apply_btn)
+
+        layout.addLayout(button_layout)
+
+    def _connect_signals(self):
+        """Connect UI signals."""
+        self.yaw_spin.valueChanged.connect(self._on_values_changed)
+        self.pitch_spin.valueChanged.connect(self._on_values_changed)
+        self.roll_spin.valueChanged.connect(self._on_values_changed)
+
+        # Connect preview widget's ring drag signal to update spin boxes
+        self.preview_widget.orientation_changed.connect(self._on_preview_orientation_changed)
+
+    def _on_preview_orientation_changed(self, yaw: float, pitch: float, roll: float):
+        """Handle orientation change from ring dragging in preview widget."""
+        # Block signals to avoid feedback loop
+        self.yaw_spin.blockSignals(True)
+        self.pitch_spin.blockSignals(True)
+        self.roll_spin.blockSignals(True)
+
+        self.yaw_spin.setValue(yaw)
+        self.pitch_spin.setValue(pitch)
+        self.roll_spin.setValue(roll)
+
+        self.yaw_spin.blockSignals(False)
+        self.pitch_spin.blockSignals(False)
+        self.roll_spin.blockSignals(False)
+
+    def _load_initial_values(self):
+        """Load initial values from the first fixture."""
+        if not self.fixtures:
+            return
+
+        fixture = self.fixtures[0]
+
+        # Get fixture type and segment count from layout
+        fixture_type = getattr(fixture, 'fixture_type', 'MH')
+
+        # Look up segment count from fixture file if manufacturer/model available
+        segment_count = 8  # Default
+        manufacturer = getattr(fixture, 'manufacturer', None)
+        model = getattr(fixture, 'model', None)
+
+        if manufacturer and model:
+            from utils.fixture_utils import get_fixture_layout
+            layout = get_fixture_layout(manufacturer, model)
+            segment_count = layout.get('width', 1)
+
+        # Set fixture type with segment count
+        self.preview_widget.set_fixture_type(fixture_type, segment_count)
+
+        # Get orientation values
+        mounting = getattr(fixture, 'mounting', 'hanging')
+        yaw = getattr(fixture, 'rotation_angle', 0.0)  # rotation_angle is yaw in 2D view
+        pitch = getattr(fixture, 'pitch', 0.0)
+        roll = getattr(fixture, 'roll', 0.0)
+        z_height = getattr(fixture, 'z_height', 3.0)
+
+        # Block signals while setting values
+        self.yaw_spin.blockSignals(True)
+        self.pitch_spin.blockSignals(True)
+        self.roll_spin.blockSignals(True)
+        self.z_spin.blockSignals(True)
+
+        self.yaw_spin.setValue(yaw)
+        self.pitch_spin.setValue(pitch)
+        self.roll_spin.setValue(roll)
+        self.z_spin.setValue(z_height)
+
+        self.yaw_spin.blockSignals(False)
+        self.pitch_spin.blockSignals(False)
+        self.roll_spin.blockSignals(False)
+        self.z_spin.blockSignals(False)
+
+        # Update preset button
+        self._update_preset_selection(mounting)
+
+        # Update preview
+        self.preview_widget.set_orientation(mounting, yaw, pitch, roll)
+
+    def _on_preset_clicked(self, preset_id: str):
+        """Handle preset button click."""
+        # Update button states
+        self._update_preset_selection(preset_id)
+
+        # Reset fine adjustments to zero when switching presets
+        self.yaw_spin.blockSignals(True)
+        self.pitch_spin.blockSignals(True)
+        self.roll_spin.blockSignals(True)
+
+        self.yaw_spin.setValue(0)
+        self.pitch_spin.setValue(0)
+        self.roll_spin.setValue(0)
+
+        self.yaw_spin.blockSignals(False)
+        self.pitch_spin.blockSignals(False)
+        self.roll_spin.blockSignals(False)
+
+        # Update preview
+        self.preview_widget.set_orientation(preset_id, 0, 0, 0)
+
+    def _update_preset_selection(self, preset_id: str):
+        """Update preset button checked states."""
+        for pid, btn in self.preset_buttons.items():
+            btn.setChecked(pid == preset_id)
+
+    def _on_values_changed(self):
+        """Handle spin box value changes."""
+        # Get current preset
+        current_preset = 'hanging'
+        for pid, btn in self.preset_buttons.items():
+            if btn.isChecked():
+                current_preset = pid
+                break
+
+        # Update preview
+        self.preview_widget.set_orientation(
+            current_preset,
+            self.yaw_spin.value(),
+            self.pitch_spin.value(),
+            self.roll_spin.value()
+        )
+
+    def get_selected_mounting(self) -> str:
+        """Get the selected mounting preset."""
+        for pid, btn in self.preset_buttons.items():
+            if btn.isChecked():
+                return pid
+        return 'hanging'
+
+    def get_orientation_values(self) -> dict:
+        """Get all orientation values as a dictionary."""
+        return {
+            'mounting': self.get_selected_mounting(),
+            'yaw': self.yaw_spin.value(),
+            'pitch': self.pitch_spin.value(),
+            'roll': self.roll_spin.value(),
+            'z_height': self.z_spin.value(),
+            'apply_to_group': self.apply_to_group_checkbox.isChecked()
+        }
+
+    def closeEvent(self, event):
+        """Handle dialog close."""
+        self.preview_widget.cleanup()
+        super().closeEvent(event)

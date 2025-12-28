@@ -182,142 +182,13 @@ TCP server in Show Creator to send configuration to Visualizer:
 
 ## Current Phase
 
-### Phase 14: Fixture Orientation System (COMPLETE - Dec 2025)
-
-Rework the Stage tab to provide a proper 3D orientation system for fixtures, replacing the legacy direction values with a more flexible Euler angle-based approach.
-
-**Design Document:** `.claude/fixture_orientation_system_spec.md`
-
-#### Sub-Phase 14.1: Data Model Changes (COMPLETE - Dec 2025)
-- [x] Replace `direction` and `rotation` fields with `mounting`, `yaw`, `pitch`, `roll` in `Fixture` class
-- [x] Add `orientation_uses_group_default`, `z_uses_group_default` flags to `Fixture`
-- [x] Add `default_mounting`, `default_yaw`, `default_pitch`, `default_roll`, `default_z_height` to `FixtureGroup`
-- [x] Add `get_effective_orientation()` and `get_effective_z()` methods to `Fixture`
-- [x] Update serialization (`save()`, `load()`) for new fields
-- [x] Update all code referencing `fixture.direction` or `fixture.rotation`:
-  - [x] `gui/StageView.py` - Use `yaw` for 2D rotation
-  - [x] `gui/tabs/fixtures_tab.py` - Removed Direction column, updated fixture creation
-  - [x] `effects/moving_heads.py` - Use `mounting` and `yaw` in all 5 effects
-  - [x] `visualizer/renderer/fixtures.py` - Use `yaw` for fixture rotation
-  - [x] `utils/tcp/protocol.py` - Send `yaw` instead of `rotation`
-
-#### Sub-Phase 14.2: 2D Stage Plot Enhancements (COMPLETE - Dec 2025)
-- [x] Add mounting indicator to `FixtureItem` (colored dot/ring based on mounting type)
-  - Blue dot: Hanging (beam down)
-  - Orange dot: Standing (beam up)
-  - Green bar on edge: Wall mounts (positioned on wall side)
-- [x] Add hollow ring for custom (non-preset) orientations (non-zero pitch/roll)
-- [x] Implement optional coordinate axes rendering (toggle via checkbox)
-  - X axis (red), Y axis (green), Z axis (blue with ⊙/⊗ indicator)
-- [x] Add "Fixture Orientation" group to stage_tab.py left panel
-- [x] Add "Show orientation axes" checkbox
-- [x] Add "Show all axes" checkbox
-
-#### Sub-Phase 14.3: Multi-Select Support (COMPLETE - Dec 2025)
-- [x] Implement Ctrl+click multi-select in `StageView`
-- [x] Implement rectangle drag selection for multiple fixtures (rubber band selection)
-- [x] Add right-click context menu with "Set Orientation..." option
-  - Also added "Select All Fixtures" and "Deselect All" options
-- [x] Handle Shift+scroll for Z-height adjustment on multi-selection
-- [x] Added `set_orientation_requested` signal for future orientation dialog
-- [x] Added `get_selected_fixtures()` helper method
-
-#### Sub-Phase 14.4: 3D Orientation Popup Dialog (COMPLETE - Dec 2025)
-- [x] Create `gui/dialogs/orientation_dialog.py` dialog class
-- [x] Implement 3D preview widget using ModernGL (`OrientationPreviewWidget`)
-  - Fixture body rendering with lighting
-  - Floor grid for reference
-  - Beam direction indicator (yellow line)
-- [x] Implement gimbal ring rendering with color coding
-  - Blue ring: Yaw (rotation around Y)
-  - Green ring: Pitch (tilt)
-  - Red ring: Roll
-- [x] Mouse orbit/zoom camera controls for preview
-- [x] Implement preset buttons (Hanging, Standing, Wall-L/R/Back/Front)
-- [x] Add Yaw/Pitch/Roll spin boxes for fine adjustment
-- [x] Add Z-height input field
-- [x] Add "Apply to group default" checkbox (enabled only when all fixtures in same group)
-- [x] Handle single vs. multiple fixture selection modes
-- [x] Connected dialog to StageView via `set_orientation_requested` signal
-- [x] Apply orientation values to fixtures and config on dialog accept
-
-#### Sub-Phase 14.5: Effect System Updates (COMPLETE - Dec 2025)
-- [x] Created `utils/orientation.py` with rotation matrix utilities:
-  - `get_rotation_matrix()` - Build 3x3 rotation matrix from mounting + Euler angles
-  - `calculate_pan_tilt()` - Calculate pan/tilt to aim at world position
-  - `pan_tilt_to_dmx()` - Convert pan/tilt degrees to DMX values
-  - `get_beam_direction()` - Get beam direction vector in world space
-  - `get_fill_direction()` - Get strip fill direction in world space
-  - `get_direction_for_tilt_calculation()` - Legacy UP/DOWN for existing code
-- [x] Updated `effects/moving_heads.py` to use orientation utilities
-  - All 5 effect functions now use `get_direction_for_tilt_calculation()`
-  - Centralized direction logic instead of inline mapping
-- [x] `utils/artnet/dmx_manager.py` - No changes needed (uses relative pan/tilt, not position-based)
-
-#### Sub-Phase 14.6: Visualizer Integration (COMPLETE - Dec 2025)
-- [x] Update TCP protocol (`utils/tcp/protocol.py`) to send orientation data
-  - Changed `yaw` field to `orientation` object with `mounting`, `yaw`, `pitch`, `roll`
-- [x] Update Visualizer fixture renderers to use new orientation fields
-  - Added `MOUNTING_BASE_ROTATIONS` constant with presets
-  - Updated `FixtureRenderer.__init__` to extract orientation dict
-  - Updated `get_model_matrix()` to apply full rotation (yaw-pitch-roll order)
-  - Updated `FixtureManager.update_fixtures()` to detect orientation changes
-  - Updated `MovingHeadRenderer.get_beam_direction()` to use full orientation
-- [x] Verify beam direction matches configured orientation
-
-#### Sub-Phase 14.7: Cleanup (COMPLETE - Dec 2025)
-- [x] Remove "Direction" column from Fixtures tab (done in 14.1)
-- [x] Remove direction-related code from fixtures_tab.py (done in 14.1)
-- [x] Test saving and reloading config files with new orientation fields
-  - Fixtures saved via `asdict(f)` includes all new orientation fields
-  - Fixtures loaded via `Fixture(**f_data)` accepts new fields with defaults
-  - Deprecated `direction` and `rotation` fields explicitly removed on load
-
-#### Sub-Phase 14.8: Orientation Dialog Polish (COMPLETE - Dec 2025)
-- [x] Visualizer-style fixture rendering in orientation dialog
-  - LED Bar: Dark body with LED segment boxes (emissive glow)
-  - Sunstrip: Dark body with cylindrical lamp bulbs (warm white glow)
-  - PAR: Cylindrical body with lens
-  - Wash: Box body with lens panel
-  - Moving Head: Base cylinder, yoke arms, head box, lens
-- [x] Added `GeometryBuilder` class for procedural geometry (box, cylinder)
-- [x] Gimbal ring handles that rotate with current orientation
-- [x] Added back wall reference geometry
-- [x] Snap-to-grid enabled by default in Stage tab
-- [x] Fixed dialog close/reopen issue with QTimer.singleShot deferral
-- [x] Fixed hanging/standing orientation swap in mounting presets
-- [x] Removed legacy rotation on scroll (orientation via dialog only)
-
-#### Sub-Phase 14.9: Fixture Type Improvements (COMPLETE - Dec 2025)
-- [x] Added SUNSTRIP fixture type detection in `determine_fixture_type()`
-  - Checks XML `<Type>` tag for "sunstrip" or "LED Bar (Pixels)"
-  - Detects multi-segment fixtures (layout width > 1) without RGB
-- [x] Added `get_fixture_layout()` function to read segment count from QXF files
-- [x] Orientation dialog passes segment count to fixture geometry
-- [x] Added SUNSTRIP symbol rendering in 2D stage plot (bar with bulb circles)
-- [x] Fixed new fixture DMX address assignment
-  - Added `_find_next_available_address()` method
-  - Scans existing fixtures for used addresses
-  - Places new fixture at first available slot
-
-**Files created:**
-- `gui/dialogs/orientation_dialog.py` - 3D orientation popup with visualizer-style rendering
-- `utils/orientation.py` - Rotation matrix utilities
-
-**Files modified:**
-- `config/models.py` - Add new orientation fields
-- `gui/stage_items.py` - Add mounting indicators, axes rendering, SUNSTRIP symbol
-- `gui/StageView.py` - Multi-select, context menu, snap-to-grid default
-- `gui/tabs/stage_tab.py` - Left panel additions, dialog trigger, deferred opening
-- `gui/tabs/fixtures_tab.py` - Remove Direction column, add DMX address finder
-- `utils/tcp/protocol.py` - Send orientation data
-- `utils/fixture_utils.py` - Add SUNSTRIP detection, get_fixture_layout()
+**Phase V5: Complete** - Fixture rendering with color wheel and beam support working.
 
 ---
 
 ## Upcoming Phases (Show Creator)
 
-### Phase 15: Effects/Riffs System Enhancement (PLANNED)
+### Phase 14: Effects/Riffs System Enhancement (PLANNED)
 
 Improve the effects system with predefined sequences:
 
@@ -327,7 +198,7 @@ Improve the effects system with predefined sequences:
 - [ ] Riff templates per fixture type
 - [ ] User-defined riffs
 
-### Phase 16: Audio Analysis Integration (FUTURE)
+### Phase 15: Audio Analysis Integration (FUTURE)
 
 AI-assisted show generation:
 
@@ -547,11 +418,9 @@ Phase 12 (ArtNet Output) ──────────────────�
     ↓                                              │
 Phase 13 (TCP Server) ────────┐                    │
     ↓                         │                    │
-Phase 14 (Orientation) ◄──────┼────────────────────┤
-    ↓                         │                    │
-Phase 15 (Riffs)              │                    │
+Phase 14 (Riffs)              │                    │
     ↓                         ▼                    ▼
-Phase 16 (Audio)        Phase V1 (Foundation)
+Phase 15 (Audio)        Phase V1 (Foundation)
                               ↓
                         Phase V2 (TCP Client) ◄────┤
                               ↓                    │
@@ -565,11 +434,6 @@ Phase 16 (Audio)        Phase V1 (Foundation)
                               ↓
                         Phase V7 (UI Polish)
 ```
-
-**Phase 14 (Orientation) dependencies:**
-- Requires Phase 13 (TCP Server) for sending orientation data to Visualizer
-- Requires Visualizer Phase V5 (Fixtures) for 3D preview in orientation popup
-- Updates both Show Creator and Visualizer simultaneously
 
 **Critical path for Visualizer:**
 1. Phase 12 (ArtNet Output) - Show Creator must send DMX
@@ -601,13 +465,12 @@ Items to address when time permits:
 | Phase | Key Files |
 |-------|-----------|
 | Universe/Fixtures | `gui/tabs/configuration_tab.py`, `gui/tabs/fixtures_tab.py` |
-| Stage | `gui/tabs/stage_tab.py`, `gui/StageView.py`, `gui/stage_items.py` |
+| Stage | `gui/tabs/stage_tab.py`, `gui/StageView.py` |
 | Sublanes | `config/models.py`, `timeline_ui/light_block_widget.py` |
 | Export | `utils/to_xml/shows_to_xml.py` |
 | Show Structure | `timeline/song_structure.py`, `shows/*.csv` |
 | ArtNet Output | `utils/artnet/sender.py`, `utils/artnet/dmx_manager.py`, `utils/artnet/shows_artnet_controller.py` |
 | TCP Server | `utils/tcp/server.py`, `utils/tcp/protocol.py` |
-| Orientation | `gui/dialogs/orientation_dialog.py`, `gui/widgets/gimbal_widget.py`, `utils/orientation.py` |
 
 ### Visualizer
 
