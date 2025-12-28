@@ -11,6 +11,7 @@ from utils.create_workspace import create_qlc_workspace
 from gui.Ui_MainWindow import Ui_MainWindow
 from gui.tabs import ConfigurationTab, FixturesTab, ShowsTab, StageTab, StructureTab
 from gui.audio_settings_dialog import AudioSettingsDialog
+from gui.progress_manager import ProgressManager, set_progress_manager
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -43,6 +44,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Set up status indicator timer
         self._setup_status_timer()
+
+        # Initialize progress manager
+        self.progress_manager = ProgressManager(self)
+        set_progress_manager(self.progress_manager)
 
     def _setup_status_timer(self):
         """Set up timer for updating toolbar status indicators."""
@@ -246,7 +251,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """
         self.stage_tab.update_from_config()
         self.structure_tab.update_from_config()
-        self.shows_tab.update_from_config()
+        # Use lightweight update for shows tab - only update lane group combos
+        # instead of recreating all lanes (major performance improvement)
+        self.shows_tab.update_fixture_groups_only()
 
     def on_show_selected(self, show_name: str, source_tab: str):
         """Coordinate show selection across tabs.
@@ -316,20 +323,58 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def load_configuration(self):
         """Load configuration from YAML file"""
-        try:
-            file_path, _ = QFileDialog.getOpenFileName(
-                self,
-                "Load Configuration",
-                "",
-                "YAML Files (*.yaml);;All Files (*)"
-            )
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Configuration",
+            "",
+            "YAML Files (*.yaml);;All Files (*)"
+        )
 
-            if not file_path:
-                return
+        if not file_path:
+            return
+
+        # Store path for the delayed loader
+        self._pending_config_path = file_path
+
+        # Show progress dialog first
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import QTimer
+
+        dialog = self.progress_manager.start_modal(
+            "Loading Configuration",
+            "Opening file...",
+            maximum=8  # Steps: open, parse, pre-cache, 5 tabs
+        )
+
+        # Force the dialog to actually render before starting blocking operations
+        for _ in range(5):
+            QApplication.processEvents()
+
+        # Force repaint the dialog window
+        if dialog:
+            dialog.repaint()
+            QApplication.processEvents()
+
+        # Use a timer to delay the actual loading, giving the dialog time to fully render
+        QTimer.singleShot(100, self._do_load_configuration)
+
+    def _do_load_configuration(self):
+        """Perform the actual configuration loading (called after dialog is visible)."""
+        from PyQt6.QtWidgets import QApplication, QMessageBox
+
+        try:
+            file_path = self._pending_config_path
 
             # Load configuration
+            self.progress_manager.update_modal(1, "Parsing YAML configuration...")
+            QApplication.processEvents()
             self.config = Configuration.load(file_path)
             self.config_path = file_path
+
+            # Pre-load fixture definitions into cache to speed up tab switching
+            self.progress_manager.update_modal(2, "Loading fixture definitions...")
+            QApplication.processEvents()
+            self._preload_fixture_definitions()
 
             # Update all tabs with new configuration
             self.config_tab.config = self.config
@@ -339,11 +384,28 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.shows_tab.config = self.config
 
             # Refresh all tabs
+            self.progress_manager.update_modal(3, "Updating Configuration tab...")
+            QApplication.processEvents()
             self.config_tab.update_from_config()
+
+            self.progress_manager.update_modal(4, "Updating Fixtures tab...")
+            QApplication.processEvents()
             self.fixtures_tab.update_from_config()
+
+            self.progress_manager.update_modal(5, "Updating Stage tab...")
+            QApplication.processEvents()
             self.stage_tab.update_from_config()
+
+            self.progress_manager.update_modal(6, "Updating Structure tab...")
+            QApplication.processEvents()
             self.structure_tab.update_from_config()
+
+            self.progress_manager.update_modal(7, "Updating Shows tab...")
+            QApplication.processEvents()
             self.shows_tab.update_from_config()
+
+            self.progress_manager.update_modal(8, "Done!")
+            self.progress_manager.finish_modal()
 
             QMessageBox.information(
                 self,
@@ -353,6 +415,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print(f"Configuration loaded from {file_path}")
 
         except Exception as e:
+            self.progress_manager.finish_modal()
             QMessageBox.critical(
                 self,
                 "Error",
@@ -361,6 +424,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print(f"Error loading configuration: {e}")
             import traceback
             traceback.print_exc()
+
+    def _preload_fixture_definitions(self):
+        """Pre-load fixture definitions into cache for faster access."""
+        try:
+            from utils.fixture_utils import get_cached_fixture_definitions
+
+            # Collect all fixture models from configuration
+            models_in_config = set()
+            for fixture in self.config.fixtures:
+                models_in_config.add((fixture.manufacturer, fixture.model))
+            for group in self.config.groups.values():
+                for fixture in group.fixtures:
+                    models_in_config.add((fixture.manufacturer, fixture.model))
+
+            # Load into cache
+            if models_in_config:
+                get_cached_fixture_definitions(models_in_config)
+                print(f"Pre-loaded {len(models_in_config)} fixture definition(s) into cache")
+        except Exception as e:
+            print(f"Warning: Could not pre-load fixture definitions: {e}")
 
     def import_workspace(self):
         """Import configuration from QLC+ workspace file"""
@@ -375,8 +458,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             if not file_path:
                 return
 
+            # Show progress dialog
+            self.progress_manager.start_modal(
+                "Importing Workspace",
+                "Parsing QLC+ workspace file...",
+                maximum=7  # Steps: import, pre-cache, 5 tabs
+            )
+
             # Import from workspace
+            self.progress_manager.update_modal(1, "Importing fixtures and universes...")
             self.config = Configuration.from_workspace(file_path)
+
+            # Pre-load fixture definitions into cache
+            self.progress_manager.update_modal(2, "Loading fixture definitions...")
+            self._preload_fixture_definitions()
 
             # Update all tabs
             self.config_tab.config = self.config
@@ -386,11 +481,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.shows_tab.config = self.config
 
             # Refresh all tabs
+            self.progress_manager.update_modal(3, "Updating Configuration tab...")
             self.config_tab.update_from_config()
+
+            self.progress_manager.update_modal(4, "Updating Fixtures tab...")
             self.fixtures_tab.update_from_config()
+
+            self.progress_manager.update_modal(5, "Updating Stage tab...")
             self.stage_tab.update_from_config()
+
+            self.progress_manager.update_modal(6, "Updating Structure tab...")
             self.structure_tab.update_from_config()
+
+            self.progress_manager.update_modal(7, "Updating Shows tab...")
             self.shows_tab.update_from_config()
+
+            self.progress_manager.finish_modal()
 
             QMessageBox.information(
                 self,
@@ -400,6 +506,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print(f"Workspace imported from {file_path}")
 
         except Exception as e:
+            self.progress_manager.finish_modal()
             QMessageBox.critical(
                 self,
                 "Error",
@@ -431,7 +538,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def create_workspace(self):
         """Create QLC+ workspace file from configuration"""
         try:
+            # Show progress dialog
+            self.progress_manager.start_modal(
+                "Creating Workspace",
+                "Saving configuration...",
+                maximum=3  # Steps: save tabs, create workspace, done
+            )
+
             # Save all tabs to configuration first
+            self.progress_manager.update_modal(1, "Saving tab data...")
             self.config_tab.save_to_config()
             self.fixtures_tab.save_to_config()
             self.stage_tab.save_to_config()
@@ -439,7 +554,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.shows_tab.save_to_config()
 
             # Create workspace
+            self.progress_manager.update_modal(2, "Generating QLC+ workspace XML...")
             create_qlc_workspace(self.config)
+
+            self.progress_manager.update_modal(3, "Finalizing...")
+            self.progress_manager.finish_modal()
 
             workspace_path = os.path.join(self.project_root, 'workspace.qxw')
             QMessageBox.information(
@@ -450,6 +569,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print(f"Workspace created at {workspace_path}")
 
         except Exception as e:
+            self.progress_manager.finish_modal()
             QMessageBox.critical(
                 self,
                 "Error",

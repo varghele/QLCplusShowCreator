@@ -10,8 +10,9 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from config.models import Configuration, Show, ShowPart, TimelineData, LightBlock, ShowEffect
 from timeline.song_structure import SongStructure
 from timeline.light_lane import LightLane
-from utils.fixture_utils import load_fixture_definitions_from_qlc
+from utils.fixture_utils import load_fixture_definitions_from_qlc, get_cached_fixture_definitions
 from timeline_ui import (MasterTimelineContainer, LightLaneWidget, AudioLaneWidget)
+from gui.progress_manager import get_progress_manager
 from .base_tab import BaseTab
 
 # Try to import audio components - may not be available
@@ -347,6 +348,20 @@ class ShowsTab(BaseTab):
         # Load current show
         self._load_show(self.show_combo.currentText())
 
+    def update_fixture_groups_only(self):
+        """Lightweight update when only fixture groups changed.
+
+        Updates lane group combos without recreating the entire timeline.
+        Called by on_groups_changed for better performance.
+        """
+        fixture_groups = list(self.config.groups.keys())
+        for lane_widget in self.lane_widgets:
+            lane_widget.update_fixture_groups(fixture_groups)
+
+        # Update ArtNet controller fixture mappings so new fixtures are tracked
+        if self.artnet_controller:
+            self.artnet_controller.update_fixtures()
+
     def _on_show_changed(self, show_name: str):
         """Handle show selection change."""
         # Save current show before switching
@@ -435,10 +450,20 @@ class ShowsTab(BaseTab):
                 # No audio for this show, clear it
                 self.audio_lane.clear_audio()
 
-            # Create lane widgets
-            for lane_data in show.timeline_data.lanes:
+            # Create lane widgets with progress indicator
+            progress = get_progress_manager()
+            lane_count = len(show.timeline_data.lanes)
+            if progress and lane_count > 0:
+                progress.start_status(f"Loading {lane_count} lane(s)...", lane_count)
+
+            for i, lane_data in enumerate(show.timeline_data.lanes):
+                if progress:
+                    progress.update_status(i + 1, f"Loading lane {i + 1}/{lane_count}...")
                 runtime_lane = LightLane.from_data_model(lane_data)
                 self._add_lane_widget(runtime_lane)
+
+            if progress:
+                progress.finish_status()
 
             # Update ArtNet controller with loaded lanes
             if self.artnet_controller:
@@ -500,6 +525,11 @@ class ShowsTab(BaseTab):
             )
             return
 
+        # Show status indicator
+        progress = get_progress_manager()
+        if progress:
+            progress.start_status("Creating lane...", 0)  # Indeterminate
+
         # Create new lane with default name
         lane_num = len(self.lane_widgets) + 1
         fixture_groups = list(self.config.groups.keys())
@@ -507,6 +537,9 @@ class ShowsTab(BaseTab):
 
         lane = LightLane(f"Lane {lane_num}", default_group)
         self._add_lane_widget(lane)
+
+        if progress:
+            progress.finish_status()
 
     def _remove_lane_widget(self, lane_widget: LightLaneWidget):
         """Remove a lane widget."""

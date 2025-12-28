@@ -561,6 +561,8 @@ class LightLaneWidget(QFrame):
     def update_fixture_groups(self, fixture_groups: list):
         """Update the available fixture groups in the combo box.
 
+        Also refreshes capabilities since fixtures in groups may have changed.
+
         Args:
             fixture_groups: List of fixture group names
         """
@@ -578,3 +580,12 @@ class LightLaneWidget(QFrame):
             self.group_combo.setCurrentText(self.lane.fixture_group)
 
         self.group_combo.blockSignals(False)
+
+        # Clear capabilities cache for current group so it gets re-detected
+        # (fixtures in the group may have changed)
+        if self.config and self.lane.fixture_group in self.config.groups:
+            self.config.groups[self.lane.fixture_group].capabilities = None
+
+        # Refresh local capabilities (fixtures may have been added/removed from group)
+        self.capabilities = self._detect_group_capabilities()
+        self.timeline_widget.capabilities = self.capabilities

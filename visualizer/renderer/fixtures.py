@@ -936,6 +936,11 @@ class MovingHeadRenderer(FixtureRenderer):
 
     def render(self, mvp: glm.mat4):
         """Render the moving head with pan/tilt."""
+        # Ensure clean OpenGL state at start of render
+        # This prevents blend state from leaking from previous fixture's beam rendering
+        self.ctx.disable(moderngl.BLEND)
+        self.ctx.depth_mask = True
+
         base_model = self.get_model_matrix()
 
         # Render base (doesn't rotate with pan)

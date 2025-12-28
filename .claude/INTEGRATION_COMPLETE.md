@@ -407,6 +407,47 @@ sudo ufw allow out 6454/udp
 
 ---
 
+## Bug Fixes (December 2025)
+
+### Fix 1: First Fixture Transparency on Playback Start
+
+**Problem:**
+When clicking Play in the Shows tab, the first moving head fixture's body would become transparent/invisible in the Visualizer, while other fixtures rendered correctly.
+
+**Root Cause:**
+OpenGL blend state was leaking between frames. When a fixture's beam was rendered with blending enabled (`moderngl.BLEND`), and if there was any timing issue, the blend state could persist to the next frame, affecting the first fixture's solid body rendering.
+
+**Solution:**
+Added explicit OpenGL state reset at the start of `MovingHeadRenderer.render()`:
+
+```python
+def render(self, mvp: glm.mat4):
+    # Ensure clean OpenGL state at start of render
+    # This prevents blend state from leaking from previous fixture's beam rendering
+    self.ctx.disable(moderngl.BLEND)
+    self.ctx.depth_mask = True
+    # ... rest of render
+```
+
+**Files Changed:**
+- `visualizer/renderer/fixtures.py` - Added state reset in `MovingHeadRenderer.render()`
+
+### Fix 2: Fixtures Disappearing During Playback
+
+**Problem:**
+Fixtures not actively controlled by blocks would become invisible (DMX = 0) during playback.
+
+**Root Cause:**
+`update_dmx()` was calling `clear_all_dmx()` which set all DMX values to 0, then only applied values for fixtures with active blocks. Uncontrolled fixtures remained at 0.
+
+**Solution:**
+Changed `update_dmx()` to call `set_fixtures_visible()` instead of `clear_all_dmx()`, ensuring all fixtures start in a visible state before active blocks are applied.
+
+**Files Changed:**
+- `utils/artnet/dmx_manager.py` - Changed `clear_all_dmx()` to `set_fixtures_visible()` in `update_dmx()`
+
+---
+
 ## Known Issues & Solutions
 
 ### Issue 1: No DMX Output
@@ -513,7 +554,8 @@ sudo ufw allow out 6454/udp
 ---
 
 **Implementation Date:** December 2024
+**Last Updated:** December 2025 (Bug fixes for visualizer transparency)
 **Total Code:** ~1,800 lines
 **Files Created:** 8
-**Files Modified:** 3
+**Files Modified:** 5
 **Status:** ✅ PRODUCTION READY
