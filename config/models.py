@@ -814,6 +814,12 @@ class Configuration:
         """Scan QLC+ fixture definitions"""
         # Get QLC+ fixture directories
         qlc_fixture_dirs = []
+
+        # Add project custom_fixtures directory first (highest priority)
+        project_custom_fixtures = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'custom_fixtures')
+        if os.path.exists(project_custom_fixtures):
+            qlc_fixture_dirs.append(project_custom_fixtures)
+
         if sys.platform.startswith('linux'):
             qlc_fixture_dirs.extend([
                 '/usr/share/qlcplus/fixtures',
@@ -1017,4 +1023,49 @@ class Configuration:
         """Remove a universe configuration"""
         if universe_id in self.universes:
             del self.universes[universe_id]
+
+    def ensure_universes_for_fixtures(self):
+        """
+        Ensure universes exist for all fixtures.
+
+        Creates universes automatically based on fixture assignments if none exist.
+        Uses ArtNet broadcast output for visualizer compatibility.
+
+        Returns:
+            bool: True if universes were created, False if they already existed
+        """
+        if self.universes:
+            # Universes already configured
+            return False
+
+        if not self.fixtures:
+            # No fixtures, nothing to do
+            return False
+
+        # Collect all unique universe IDs from fixtures
+        universe_ids = set()
+        for fixture in self.fixtures:
+            universe_ids.add(fixture.universe)
+
+        # Create universes for each unique ID
+        for universe_id in sorted(universe_ids):
+            self.universes[universe_id] = Universe(
+                id=universe_id,
+                name=f"Universe {universe_id}",
+                output={
+                    'plugin': 'ArtNet',
+                    'line': '0',
+                    'parameters': {
+                        'ip': '255.255.255.255',  # Broadcast for visualizer
+                        'port': '6454',
+                        'subnet': '0',
+                        'universe': str(universe_id)
+                    }
+                }
+            )
+
+        if universe_ids:
+            print(f"Auto-created {len(universe_ids)} universe(s) for visualizer: {sorted(universe_ids)}")
+
+        return True
 

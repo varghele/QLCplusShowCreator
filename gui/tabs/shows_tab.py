@@ -10,6 +10,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from config.models import Configuration, Show, ShowPart, TimelineData, LightBlock, ShowEffect
 from timeline.song_structure import SongStructure
 from timeline.light_lane import LightLane
+from utils.fixture_utils import load_fixture_definitions_from_qlc
 from timeline_ui import (MasterTimelineContainer, LightLaneWidget, AudioLaneWidget)
 from .base_tab import BaseTab
 
@@ -463,6 +464,7 @@ class ShowsTab(BaseTab):
             lane_widget.scroll_position_changed.disconnect()
             lane_widget.zoom_changed.disconnect()
             lane_widget.playhead_moved.disconnect()
+            lane_widget.block_edited.disconnect()
             self.lanes_layout.removeWidget(lane_widget)
             lane_widget.deleteLater()
         self.lane_widgets.clear()
@@ -481,6 +483,7 @@ class ShowsTab(BaseTab):
         lane_widget.scroll_position_changed.connect(self._sync_scroll)
         lane_widget.zoom_changed.connect(self._on_external_zoom_changed)
         lane_widget.playhead_moved.connect(self._on_playhead_moved)
+        lane_widget.block_edited.connect(self.save_to_config)  # Auto-save on effect edit
 
         # Insert before the stretch
         self.lanes_layout.insertWidget(len(self.lane_widgets), lane_widget)
@@ -512,6 +515,7 @@ class ShowsTab(BaseTab):
             lane_widget.scroll_position_changed.disconnect()
             lane_widget.zoom_changed.disconnect()
             lane_widget.playhead_moved.disconnect()
+            lane_widget.block_edited.disconnect()
             self.lanes_layout.removeWidget(lane_widget)
             self.lane_widgets.remove(lane_widget)
             lane_widget.deleteLater()
@@ -842,8 +846,12 @@ class ShowsTab(BaseTab):
 
         if self.artnet_controller is None:
             try:
-                # Load fixture definitions
-                fixture_defs = Configuration._scan_fixture_definitions()
+                # Ensure universes exist for all fixtures (auto-create for visualizer if needed)
+                self.config.ensure_universes_for_fixtures()
+
+                # Load fixture definitions with full channel data
+                models_in_config = {(f.manufacturer, f.model) for f in self.config.fixtures}
+                fixture_defs = load_fixture_definitions_from_qlc(models_in_config)
 
                 # Create controller
                 self.artnet_controller = ShowsArtNetController(

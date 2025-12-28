@@ -39,6 +39,40 @@ class Ui_MainWindow(object):
         spacer.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
                              QtWidgets.QSizePolicy.Policy.Expanding)
         self.toolbar.addWidget(spacer)
+
+        # Status indicators container
+        status_container = QtWidgets.QWidget()
+        status_layout = QtWidgets.QHBoxLayout(status_container)
+        status_layout.setContentsMargins(0, 0, 10, 0)
+        status_layout.setSpacing(15)
+
+        # ArtNet status indicator
+        artnet_layout = QtWidgets.QHBoxLayout()
+        artnet_layout.setSpacing(4)
+        artnet_label = QtWidgets.QLabel("ArtNet:")
+        artnet_label.setStyleSheet("font-weight: bold; color: #888;")
+        self.artnet_status_indicator = QtWidgets.QLabel("OFF")
+        self.artnet_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
+        self.artnet_status_indicator.setToolTip("ArtNet DMX Output Status")
+        artnet_layout.addWidget(artnet_label)
+        artnet_layout.addWidget(self.artnet_status_indicator)
+        status_layout.addLayout(artnet_layout)
+
+        # TCP/Visualizer status indicator
+        tcp_layout = QtWidgets.QHBoxLayout()
+        tcp_layout.setSpacing(4)
+        tcp_label = QtWidgets.QLabel("Visualizer:")
+        tcp_label.setStyleSheet("font-weight: bold; color: #888;")
+        self.tcp_status_indicator = QtWidgets.QLabel("OFF")
+        self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
+        self.tcp_status_indicator.setToolTip("TCP Visualizer Server Status")
+        tcp_layout.addWidget(tcp_label)
+        tcp_layout.addWidget(self.tcp_status_indicator)
+        status_layout.addLayout(tcp_layout)
+
+        self.toolbar.addWidget(status_container)
+        self.toolbar.addSeparator()
+
         self.toolbar.addAction(self.importWorkspaceAction)
         self.toolbar.addAction(self.createWorkspaceAction)
 

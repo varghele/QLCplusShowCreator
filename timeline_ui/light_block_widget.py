@@ -17,6 +17,7 @@ class LightBlockWidget(QWidget):
     remove_requested = pyqtSignal(object)  # Emits self when delete requested
     position_changed = pyqtSignal(object, float)  # Emits (self, new_start_time)
     duration_changed = pyqtSignal(object, float)  # Emits (self, new_duration)
+    block_edited = pyqtSignal()  # Emitted when block content is edited (for auto-save)
 
     RESIZE_HANDLE_WIDTH = 8  # Pixels for resize handle area
 
@@ -1373,6 +1374,7 @@ class LightBlockWidget(QWidget):
         dialog = EffectBlockDialog(self.block, parent=self)
         if dialog.exec():
             self.update_display()
+            self.block_edited.emit()  # Trigger auto-save
 
     def open_sublane_dialog(self, sublane_type: str, sublane_block):
         """Open the appropriate dialog for a sublane block.
@@ -1402,6 +1404,7 @@ class LightBlockWidget(QWidget):
             # Mark effect as modified since sublane was changed
             self.block.modified = True
             self.update_display()
+            self.block_edited.emit()  # Trigger auto-save
 
     def _get_color_wheel_options(self):
         """Get color wheel options from fixture group if available.

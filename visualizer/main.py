@@ -93,9 +93,9 @@ class VisualizerWindow(QMainWindow):
 
     def _on_dmx_received(self, universe: int, dmx_data: bytes):
         """Handle DMX data received from ArtNet."""
-        # Store DMX data for rendering (Phase V4+)
-        # For now, just update the indicator
-        pass
+        # Update render engine with DMX data
+        if hasattr(self, 'render_engine') and self.render_engine:
+            self.render_engine.update_dmx(universe, dmx_data)
 
     def _on_artnet_started(self):
         """Handle ArtNet receiving started."""
@@ -296,6 +296,11 @@ class VisualizerWindow(QMainWindow):
         """
         self.fixtures = fixtures_data
         self._update_fixture_count()
+
+        # Update render engine with fixtures
+        if hasattr(self, 'render_engine') and self.render_engine:
+            self.render_engine.update_fixtures(fixtures_data)
+
         print(f"Loaded {len(fixtures_data)} fixtures")
 
     def set_groups(self, groups_data: list):
@@ -308,7 +313,7 @@ class VisualizerWindow(QMainWindow):
         self.groups = {g['name']: g for g in groups_data}
         print(f"Loaded {len(groups_data)} groups")
 
-    # --- DMX Handling (will be called by ArtNet listener in Phase V3) ---
+    # --- DMX Handling ---
 
     def update_dmx(self, universe: int, channels: bytes):
         """
@@ -318,7 +323,9 @@ class VisualizerWindow(QMainWindow):
             universe: DMX universe number
             channels: 512 bytes of DMX channel data
         """
-        # TODO: Phase V3 - Update fixture colors/positions from DMX
+        # Update render engine with DMX data
+        if hasattr(self, 'render_engine') and self.render_engine:
+            self.render_engine.update_dmx(universe, channels)
         self._update_artnet_indicator(True)
 
     def closeEvent(self, event):

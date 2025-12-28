@@ -159,12 +159,13 @@ class DMXManager:
     def _build_fixture_maps(self):
         """Build channel maps for all fixtures."""
         for fixture in self.config.fixtures:
-            # Get fixture definition
+            # Get fixture definition - keys are "manufacturer_model" strings
             fixture_key = f"{fixture.manufacturer}_{fixture.model}"
             fixture_def = self.fixture_definitions.get(fixture_key)
 
             if fixture_def:
                 self.fixture_maps[fixture.name] = FixtureChannelMap(fixture, fixture_def, self.config)
+                print(f"DMXManager: Mapped fixture '{fixture.name}' with {len(self.fixture_maps[fixture.name].dimmer_channels)} dimmer channels")
             else:
                 print(f"Warning: No fixture definition found for {fixture.name} ({fixture_key})")
 
@@ -339,16 +340,26 @@ class DMXManager:
                 universe, channel = fixture_map.get_absolute_address(ch_offset)
                 self.set_dmx_value(universe, channel, int(value))
 
-        # Set color wheel if RGB not available
-        if (not fixture_map.red_channels and
-            not fixture_map.green_channels and
-            not fixture_map.blue_channels and
-            fixture_map.color_wheel_channels):
-            # Map RGB to color wheel position
-            wheel_value = self._rgb_to_color_wheel(block.red, block.green, block.blue)
-            for ch_offset in fixture_map.color_wheel_channels:
-                universe, channel = fixture_map.get_absolute_address(ch_offset)
-                self.set_dmx_value(universe, channel, wheel_value)
+        # Set color wheel if fixture has one
+        if fixture_map.color_wheel_channels:
+            # Check if color mode is Wheel - use stored position directly
+            color_mode = getattr(block, 'color_mode', 'RGB')
+            if color_mode == 'Wheel':
+                # Use the color_wheel_position directly (already a DMX value)
+                wheel_value = getattr(block, 'color_wheel_position', 0)
+            elif (not fixture_map.red_channels and
+                  not fixture_map.green_channels and
+                  not fixture_map.blue_channels):
+                # No RGB channels, try to map RGB to color wheel
+                wheel_value = self._rgb_to_color_wheel(block.red, block.green, block.blue)
+            else:
+                # Has RGB channels, skip color wheel
+                wheel_value = None
+
+            if wheel_value is not None:
+                for ch_offset in fixture_map.color_wheel_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, int(wheel_value))
 
     def _apply_movement_block(self, fixture_map: FixtureChannelMap, block: MovementBlock, current_time: float):
         """Apply movement block to fixture channels with real-time shape calculation."""

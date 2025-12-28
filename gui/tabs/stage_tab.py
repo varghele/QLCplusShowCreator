@@ -28,6 +28,16 @@ class StageTab(BaseTab):
         """
         super().__init__(config, parent)
 
+        # Tab active state (for pausing TCP updates when not visible)
+        self._tab_active = False
+
+        # Throttle timer for TCP updates (avoid flooding during drag)
+        self._tcp_update_timer = QTimer()
+        self._tcp_update_timer.setSingleShot(True)
+        self._tcp_update_timer.setInterval(100)  # 100ms throttle
+        self._tcp_update_timer.timeout.connect(self._do_tcp_update)
+        self._tcp_update_pending = False
+
     def setup_ui(self):
         """Set up stage visualization UI"""
         # Create main layout for the tab
@@ -157,6 +167,9 @@ class StageTab(BaseTab):
         self.snap_to_grid.stateChanged.connect(
             lambda state: self.stage_view.set_snap_to_grid(bool(state))
         )
+
+        # Connect fixture changes to TCP update (for live visualizer sync)
+        self.stage_view.fixtures_changed.connect(self._notify_tcp_update)
 
         # Spot/mark controls
         self.add_spot_btn.clicked.connect(lambda: self.stage_view.add_spot())
@@ -377,8 +390,36 @@ class StageTab(BaseTab):
                 self.tcp_status_label.setText(f"Connected ({client_count})")
                 self.tcp_status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
 
+    def on_tab_activated(self):
+        """Called when stage tab becomes visible."""
+        self._tab_active = True
+        # Send current state to visualizer when tab becomes active
+        self._notify_tcp_update()
+
+    def on_tab_deactivated(self):
+        """Called when switching away from stage tab."""
+        self._tab_active = False
+        # Stop any pending updates
+        self._tcp_update_timer.stop()
+        self._tcp_update_pending = False
+
     def _notify_tcp_update(self):
-        """Notify TCP server about configuration changes (for live visualizer updates)."""
+        """Notify TCP server about configuration changes (throttled for live updates)."""
+        # Only send updates when tab is active (reduces lag when working on other tabs)
+        if not self._tab_active:
+            return
+
+        # Use throttle timer to avoid flooding during drag operations
+        self._tcp_update_pending = True
+        if not self._tcp_update_timer.isActive():
+            self._tcp_update_timer.start()
+
+    def _do_tcp_update(self):
+        """Actually send the TCP update (called by throttle timer)."""
+        if not self._tcp_update_pending:
+            return
+        self._tcp_update_pending = False
+
         try:
             # Get shows_tab which hosts the TCP server
             main_window = self.parent()
@@ -392,6 +433,5 @@ class StageTab(BaseTab):
                 if tcp_server and tcp_server.is_running() and self.config:
                     # Update the server's config and push to clients
                     tcp_server.update_config(self.config)
-                    print(f"TCP: Sent stage update ({self.config.stage_width}m x {self.config.stage_height}m)")
         except Exception as e:
             print(f"Error notifying TCP server: {e}")

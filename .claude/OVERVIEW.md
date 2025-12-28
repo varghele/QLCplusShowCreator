@@ -1,6 +1,6 @@
 # QLC+ Show Creator - Project Overview
 
-**Last Updated:** December 2024
+**Last Updated:** December 2025
 
 ---
 
@@ -31,7 +31,7 @@
 > - `config/models.py` - Core data models (shared)
 > - `utils/fixture_utils.py` - Fixture parsing (shared)
 >
-> **Current branch:** `refactorplustimeline`
+> **Current branch:** `visualizer`
 >
 > **Tech stack:** Python 3.12, PyQt6, ModernGL, pandas, numpy, PyYAML
 
@@ -257,28 +257,40 @@ This ensures consistency and reduces code duplication.
 
 ---
 
-## Current Status (December 2024)
+## Current Status (December 2025)
 
 ### Show Creator - Working
 - Universe configuration (E1.31, ArtNet, DMX USB)
 - Fixture import from QLC+ definitions
 - Fixture groups with color coding
 - Stage planning with visual placement
-- CSV-based show structure import
+- In-app show structure creation (Structure tab)
+- Shows directory management with audio file integration
 - Timeline with sublane-based effects
-- All sublane edit dialogs
+- All sublane edit dialogs (Dimmer, Colour, Movement, Special)
 - Copy/paste effects
 - Export to QLC+ workspace
+- ArtNet DMX output for live preview
+- TCP server for Visualizer communication
+- Auto-save effects on edit
+- Toolbar status indicators for TCP/ArtNet
+- Color wheel support with preset-to-wheel mapping
 
-### Show Creator - Needs Work
-- Universe configuration bugs
-- In-app show structure creation
-- ArtNet DMX output (for Visualizer)
-- TCP server for Visualizer
+### Visualizer - Working
+- TCP client receives stage/fixture configuration
+- ArtNet listener receives DMX data
+- 3D stage rendering with grid
+- Orbiting camera with mouse controls
+- Fixture rendering (PAR, LED Bar, Moving Head, Sunstrip)
+- Color wheel support for fixtures without RGB
+- Volumetric beam rendering for moving heads
+- Pan/tilt animation from DMX values
+- Launch from Stage tab button
 
-### Visualizer - Not Started
-- All components need implementation
-- Priority: TCP integration first, then rendering
+### Visualizer - Future Enhancements
+- Floor projection for beams
+- Advanced volumetric fog effects
+- More fixture types (Wash, etc.)
 
 ---
 

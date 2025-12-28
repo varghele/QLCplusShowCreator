@@ -4,6 +4,9 @@ from config.models import Spot
 
 
 class StageView(QtWidgets.QGraphicsView):
+    # Signal emitted when fixture positions/rotations/heights change
+    fixtures_changed = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.config = None  # Store configuration
@@ -180,6 +183,9 @@ class StageView(QtWidgets.QGraphicsView):
                 x_m, y_m = self.pixels_to_meters(pos.x(), pos.y())
                 self.config.spots[spot_name].x = x_m
                 self.config.spots[spot_name].y = y_m
+
+        # Emit signal to notify listeners (e.g., for TCP visualizer updates)
+        self.fixtures_changed.emit()
 
     def set_snap_to_grid(self, enabled):
         """Enable or disable snap to grid"""
