@@ -2,7 +2,51 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
-def load_fixture_definitions_from_qlc(models_in_config):
+# Module-level cache for fixture definitions to avoid repeated file system scans
+_fixture_definitions_cache = {}
+_cache_initialized = False
+
+
+def get_cached_fixture_definitions(models_in_config=None):
+    """
+    Get fixture definitions from cache, loading only if needed.
+
+    Args:
+        models_in_config: Set of (manufacturer, model) tuples to load.
+                         If None, returns all cached definitions.
+
+    Returns:
+        dict: Dictionary of fixture definitions
+    """
+    global _fixture_definitions_cache, _cache_initialized
+
+    if models_in_config is None:
+        return _fixture_definitions_cache
+
+    # Check if all requested models are already cached
+    missing_models = set()
+    for model_tuple in models_in_config:
+        key = f"{model_tuple[0]}_{model_tuple[1]}"
+        alt_key = f"{model_tuple[0]}_{model_tuple[1].replace(' ', '_')}"
+        if key not in _fixture_definitions_cache and alt_key not in _fixture_definitions_cache:
+            missing_models.add(model_tuple)
+
+    # Load missing models
+    if missing_models:
+        new_defs = load_fixture_definitions_from_qlc(missing_models, use_cache=False)
+        _fixture_definitions_cache.update(new_defs)
+
+    return _fixture_definitions_cache
+
+
+def clear_fixture_definitions_cache():
+    """Clear the fixture definitions cache (useful when fixture files change)."""
+    global _fixture_definitions_cache, _cache_initialized
+    _fixture_definitions_cache = {}
+    _cache_initialized = False
+
+
+def load_fixture_definitions_from_qlc(models_in_config, use_cache=True):
     """
     Loads fixture definitions from QLC+ fixture directories
 
@@ -214,7 +258,7 @@ def detect_fixture_group_capabilities(fixtures, fixture_definitions=None):
     Args:
         fixtures: List of Fixture objects in the group
         fixture_definitions: Optional dict of pre-loaded fixture definitions.
-                           If None, will scan from QLC+ directories.
+                           If None, will use cached definitions.
 
     Returns:
         FixtureGroupCapabilities object with detected capabilities
@@ -227,10 +271,10 @@ def detect_fixture_group_capabilities(fixtures, fixture_definitions=None):
 
     capabilities = FixtureGroupCapabilities()
 
-    # If no fixture definitions provided, scan them
+    # If no fixture definitions provided, use cache
     if fixture_definitions is None:
         models_in_config = {(f.manufacturer, f.model) for f in fixtures}
-        fixture_definitions = load_fixture_definitions_from_qlc(models_in_config)
+        fixture_definitions = get_cached_fixture_definitions(models_in_config)
 
     # Analyze each fixture in the group
     for fixture in fixtures:
@@ -287,10 +331,10 @@ def get_color_wheel_options(fixtures, fixture_definitions=None):
     Returns:
         List of (name, dmx_value, hex_color) tuples, or empty list if no color wheel
     """
-    # If no fixture definitions provided, scan them
+    # If no fixture definitions provided, use cache
     if fixture_definitions is None:
         models_in_config = {(f.manufacturer, f.model) for f in fixtures}
-        fixture_definitions = load_fixture_definitions_from_qlc(models_in_config)
+        fixture_definitions = get_cached_fixture_definitions(models_in_config)
 
     color_wheel_options = []
 

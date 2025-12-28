@@ -137,6 +137,11 @@ class DMXManager:
         for universe_id in config.universes.keys():
             self.dmx_state[universe_id] = bytearray(512)
 
+        # Also initialize universes for all fixtures (in case fixture uses unconfigured universe)
+        for fixture in config.fixtures:
+            if fixture.universe not in self.dmx_state:
+                self.dmx_state[fixture.universe] = bytearray(512)
+
         # Build fixture channel maps
         self.fixture_maps: Dict[str, FixtureChannelMap] = {}
         self._build_fixture_maps()
@@ -169,10 +174,72 @@ class DMXManager:
             else:
                 print(f"Warning: No fixture definition found for {fixture.name} ({fixture_key})")
 
+    def rebuild_fixture_maps(self):
+        """Rebuild fixture maps when fixtures are added, removed, or modified."""
+        self.fixture_maps.clear()
+        self._build_fixture_maps()
+
+        # Ensure all fixture universes are initialized in dmx_state
+        for fixture in self.config.fixtures:
+            if fixture.universe not in self.dmx_state:
+                self.dmx_state[fixture.universe] = bytearray(512)
+                print(f"DMXManager: Initialized universe {fixture.universe} for fixture {fixture.name}")
+
+        print(f"DMXManager: Rebuilt fixture maps, now tracking {len(self.fixture_maps)} fixtures")
+
     def clear_all_dmx(self):
         """Clear all DMX values to 0."""
         for universe_id in self.dmx_state.keys():
             self.dmx_state[universe_id] = bytearray(512)
+
+    def set_fixtures_visible(self):
+        """Set all fixtures to a visible idle state (dimmer at 255, white color, shutter open, centered)."""
+        for fixture_name, fixture_map in self.fixture_maps.items():
+            universe = fixture_map.universe
+
+            # Set dimmer to full
+            for ch_offset in fixture_map.dimmer_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 255)
+
+            # Set RGB to white
+            for ch_offset in fixture_map.red_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 255)
+            for ch_offset in fixture_map.green_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 255)
+            for ch_offset in fixture_map.blue_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 255)
+            for ch_offset in fixture_map.white_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 255)
+
+            # Open shutter (many moving heads need this to emit light)
+            for ch_offset in fixture_map.strobe_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 255)  # Usually 255 = open
+
+            # Set color wheel to first position (usually white/open)
+            for ch_offset in fixture_map.color_wheel_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 0)  # Usually 0 = white/open
+
+            # Reset pan/tilt to center position (127 = middle of 0-255 range)
+            for ch_offset in fixture_map.pan_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 127)
+            for ch_offset in fixture_map.tilt_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 127)
+            # Also reset fine channels to center
+            for ch_offset in fixture_map.pan_fine_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 127)
+            for ch_offset in fixture_map.tilt_fine_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 127)
 
     def set_dmx_value(self, universe: int, channel: int, value: int):
         """
@@ -241,8 +308,9 @@ class DMXManager:
         Args:
             current_time: Current playback time in seconds
         """
-        # Clear DMX state
-        self.clear_all_dmx()
+        # Set all fixtures to visible state first (instead of clearing to 0)
+        # This ensures fixtures not actively controlled remain visible
+        self.set_fixtures_visible()
 
         # Process each fixture group
         for group_name, group in self.config.groups.items():

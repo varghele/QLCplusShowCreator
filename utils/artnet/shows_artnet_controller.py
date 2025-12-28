@@ -76,6 +76,18 @@ class ShowsArtNetController(QObject):
         """
         self.light_lanes = lanes
 
+    def update_fixtures(self):
+        """
+        Rebuild fixture mappings when fixtures are added, removed, or modified.
+
+        Call this when fixtures change (e.g., after duplicating or adding fixtures).
+        """
+        self.dmx_manager.rebuild_fixture_maps()
+        # Also reset fixtures to visible state so new fixtures appear
+        self.dmx_manager.set_fixtures_visible()
+        self._send_all_universes()
+        print("ShowsArtNet: Fixture mappings updated")
+
     def enable_output(self):
         """Enable ArtNet output."""
         self.output_enabled = True
@@ -96,12 +108,15 @@ class ShowsArtNetController(QObject):
             print("ArtNet output started")
 
     def stop_playback(self):
-        """Stop ArtNet output and clear DMX."""
+        """Stop ArtNet output and reset fixtures to visible state."""
         self.update_timer.stop()
-        self.dmx_manager.clear_all_dmx()
-        self._send_all_universes()
+        # Reset fixtures to visible (full dimmer, white color) instead of blackout
+        self.dmx_manager.set_fixtures_visible()
+        # Send multiple packets to ensure visualizer receives the reset state
+        for _ in range(5):
+            self._send_all_universes()
         self.active_block_ids.clear()
-        print("ArtNet output stopped")
+        print("ArtNet output stopped - fixtures reset to visible")
 
     def pause_playback(self):
         """Pause ArtNet output."""

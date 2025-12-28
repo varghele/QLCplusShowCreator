@@ -7,7 +7,7 @@ from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLineEdit
 from PyQt6.QtGui import QFont
 from config.models import Configuration, Fixture, FixtureMode, FixtureGroup
-from utils.fixture_utils import determine_fixture_type
+from utils.fixture_utils import determine_fixture_type, get_cached_fixture_definitions
 from .base_tab import BaseTab
 
 
@@ -134,6 +134,8 @@ class FixturesTab(BaseTab):
 
     def update_from_config(self):
         """Refresh fixture table from configuration"""
+        # Disable visual updates during population to prevent row-by-row rendering
+        self.table.setUpdatesEnabled(False)
         # Block signals during population
         self.table.blockSignals(True)
         self.table.setRowCount(0)
@@ -272,6 +274,8 @@ class FixturesTab(BaseTab):
         # Re-enable signals and update colors
         self.table.blockSignals(False)
         self._update_row_colors()
+        # Re-enable visual updates now that all changes are complete
+        self.table.setUpdatesEnabled(True)
 
     def save_to_config(self, item=None):
         """Update configuration from table values"""
@@ -421,45 +425,51 @@ class FixturesTab(BaseTab):
 
     def _update_row_colors(self):
         """Apply group colors to table rows"""
-        for row in range(self.table.rowCount()):
-            group_combo = self.table.cellWidget(row, 7)
-            if group_combo:
-                group_name = group_combo.currentText()
-                if group_name and group_name != "Add New...":
-                    # Get or create color for group
-                    if group_name not in self.group_colors:
-                        self.group_colors[group_name] = self.predefined_colors[
-                            self.color_index % len(self.predefined_colors)]
-                        self.color_index += 1
+        # Disable updates during batch color changes to prevent row-by-row rendering
+        self.table.setUpdatesEnabled(False)
+        try:
+            for row in range(self.table.rowCount()):
+                group_combo = self.table.cellWidget(row, 7)
+                if group_combo:
+                    group_name = group_combo.currentText()
+                    if group_name and group_name != "Add New...":
+                        # Get or create color for group
+                        if group_name not in self.group_colors:
+                            self.group_colors[group_name] = self.predefined_colors[
+                                self.color_index % len(self.predefined_colors)]
+                            self.color_index += 1
 
-                    color = self.group_colors[group_name]
+                        color = self.group_colors[group_name]
 
-                    # Apply color to all cells in row
-                    for col in range(self.table.columnCount()):
-                        item = self.table.item(row, col)
-                        if not item and not self.table.cellWidget(row, col):
-                            self.table.setItem(row, col, QtWidgets.QTableWidgetItem(""))
+                        # Apply color to all cells in row
+                        for col in range(self.table.columnCount()):
+                            item = self.table.item(row, col)
+                            if not item and not self.table.cellWidget(row, col):
+                                self.table.setItem(row, col, QtWidgets.QTableWidgetItem(""))
 
-                        if item:
-                            item.setBackground(color)
+                            if item:
+                                item.setBackground(color)
 
-                        cell_widget = self.table.cellWidget(row, col)
-                        if cell_widget:
-                            cell_widget.setStyleSheet(f"background-color: {color.name()};")
+                            cell_widget = self.table.cellWidget(row, col)
+                            if cell_widget:
+                                cell_widget.setStyleSheet(f"background-color: {color.name()};")
 
-                    # Update group color in configuration
-                    if group_name in self.config.groups:
-                        self.config.groups[group_name].color = color.name()
-                else:
-                    # Reset color to white if no group
-                    white_color = QtGui.QColor(255, 255, 255)
-                    for col in range(self.table.columnCount()):
-                        item = self.table.item(row, col)
-                        if item:
-                            item.setBackground(white_color)
-                        cell_widget = self.table.cellWidget(row, col)
-                        if cell_widget:
-                            cell_widget.setStyleSheet("background-color: white;")
+                        # Update group color in configuration
+                        if group_name in self.config.groups:
+                            self.config.groups[group_name].color = color.name()
+                    else:
+                        # Reset color to white if no group
+                        white_color = QtGui.QColor(255, 255, 255)
+                        for col in range(self.table.columnCount()):
+                            item = self.table.item(row, col)
+                            if item:
+                                item.setBackground(white_color)
+                            cell_widget = self.table.cellWidget(row, col)
+                            if cell_widget:
+                                cell_widget.setStyleSheet("background-color: white;")
+        finally:
+            # Re-enable updates and trigger single repaint
+            self.table.setUpdatesEnabled(True)
 
     def _add_fixture(self):
         """Show dialog to add fixture from QLC+ definitions"""
@@ -611,6 +621,9 @@ class FixturesTab(BaseTab):
 
         # Add to configuration
         self.config.fixtures.append(new_fixture)
+
+        # Update fixture definitions cache so light lanes can detect capabilities
+        get_cached_fixture_definitions({(manufacturer, model)})
 
         # Refresh table
         self.update_from_config()
