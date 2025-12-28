@@ -94,7 +94,7 @@ class FixturesTab(BaseTab):
     def _setup_table(self):
         """Initialize table structure and properties"""
         headers = ['Universe', 'Address', 'Manufacturer', 'Model', 'Channels',
-                   'Mode', 'Name', 'Group', 'Direction']
+                   'Mode', 'Name', 'Group']
         self.table.setColumnCount(len(headers))
         self.table.setHorizontalHeaderLabels(headers)
 
@@ -117,7 +117,6 @@ class FixturesTab(BaseTab):
         self.table.setColumnWidth(5, 140)  # Mode
         self.table.setColumnWidth(6, 140)  # Name
         self.table.setColumnWidth(7, 140)  # Group
-        self.table.setColumnWidth(8, 80)   # Direction
 
         # Table properties
         self.table.setSortingEnabled(True)
@@ -255,22 +254,6 @@ class FixturesTab(BaseTab):
             group_combo.currentTextChanged.connect(create_group_handler(row, group_combo))
             self.table.setCellWidget(row, 7, group_combo)
 
-            # Direction combo box
-            direction_combo = QtWidgets.QComboBox()
-            direction_combo.addItems(["", "↑", "↓", "⊙", "⊗"])
-            display_value = ""
-            if fixture.direction == "UP":
-                display_value = "↑"
-            elif fixture.direction == "DOWN":
-                display_value = "↓"
-            elif fixture.direction == "TOWARD":
-                display_value = "⊙"
-            elif fixture.direction == "AWAY":
-                display_value = "⊗"
-            direction_combo.setCurrentText(display_value)
-            direction_combo.currentIndexChanged.connect(self.save_to_config)
-            self.table.setCellWidget(row, 8, direction_combo)
-
         # Re-enable signals and update colors
         self.table.blockSignals(False)
         self._update_row_colors()
@@ -326,21 +309,6 @@ class FixturesTab(BaseTab):
                     fixture.group = group_name
                 else:
                     fixture.group = ""
-
-            # Update direction
-            direction_combo = self.table.cellWidget(row, 8)
-            if direction_combo and isinstance(direction_combo, QtWidgets.QComboBox):
-                display_value = direction_combo.currentText()
-                if display_value == "↑":
-                    fixture.direction = "UP"
-                elif display_value == "↓":
-                    fixture.direction = "DOWN"
-                elif display_value == "⊙":
-                    fixture.direction = "TOWARD"
-                elif display_value == "⊗":
-                    fixture.direction = "AWAY"
-                else:
-                    fixture.direction = "NONE"
 
         self._update_groups()
 
@@ -578,6 +546,59 @@ class FixturesTab(BaseTab):
             import traceback
             traceback.print_exc()
 
+    def _find_next_available_address(self, channel_count: int) -> tuple:
+        """Find the next available DMX address that can fit the given channel count.
+
+        Returns:
+            tuple: (universe, address) for the next available slot
+        """
+        # Build a map of used addresses per universe
+        used_addresses = {}  # universe -> list of (start, end) tuples
+
+        for fixture in self.config.fixtures:
+            universe = fixture.universe
+            if universe not in used_addresses:
+                used_addresses[universe] = []
+
+            # Get channel count for this fixture's current mode
+            fixture_channels = 1
+            for mode in fixture.available_modes:
+                if mode.name == fixture.current_mode:
+                    fixture_channels = mode.channels
+                    break
+
+            start = fixture.address
+            end = fixture.address + fixture_channels - 1
+            used_addresses[universe].append((start, end))
+
+        # Try to find space in existing universes first
+        for universe in range(1, 17):
+            if universe not in used_addresses:
+                # Empty universe, use address 1
+                return (universe, 1)
+
+            # Sort ranges by start address
+            ranges = sorted(used_addresses[universe], key=lambda x: x[0])
+
+            # Check if there's space at the beginning
+            if ranges[0][0] > channel_count:
+                return (universe, 1)
+
+            # Check for gaps between fixtures
+            for i in range(len(ranges) - 1):
+                gap_start = ranges[i][1] + 1
+                gap_end = ranges[i + 1][0] - 1
+                if gap_end - gap_start + 1 >= channel_count:
+                    return (universe, gap_start)
+
+            # Check if there's space after the last fixture
+            last_end = ranges[-1][1]
+            if last_end + channel_count <= 512:
+                return (universe, last_end + 1)
+
+        # Fallback to universe 1, address 1 if all universes are somehow full
+        return (1, 1)
+
     def _process_fixture_selection(self, selected_item):
         """Process selected fixture and add to configuration"""
         fixture_path = selected_item.data(QtCore.Qt.ItemDataRole.UserRole)
@@ -598,15 +619,18 @@ class FixturesTab(BaseTab):
             for mode in modes
         ]
 
+        # Find next available DMX address
+        first_mode_channels = mode_data[0]['channels'] if mode_data else 1
+        universe, address = self._find_next_available_address(first_mode_channels)
+
         # Create fixture object
         new_fixture = Fixture(
-            universe=1,
-            address=1,
+            universe=universe,
+            address=address,
             manufacturer=manufacturer,
             model=model,
             name=model,
             group="",
-            direction="",
             current_mode=mode_data[0]['name'],
             available_modes=[
                 FixtureMode(name=mode['name'], channels=mode['channels'])
@@ -615,8 +639,7 @@ class FixturesTab(BaseTab):
             type=fixture_type,
             x=0.0,
             y=0.0,
-            z=0.0,
-            rotation=0.0
+            z=0.0
         )
 
         # Add to configuration
@@ -706,7 +729,6 @@ class FixturesTab(BaseTab):
             model=original_fixture.model,
             name=f"{original_fixture.name} (Copy)",
             group=original_fixture.group,
-            direction=original_fixture.direction,
             current_mode=original_fixture.current_mode,
             available_modes=[
                 FixtureMode(name=mode.name, channels=mode.channels)
@@ -716,7 +738,13 @@ class FixturesTab(BaseTab):
             x=original_fixture.x,
             y=original_fixture.y,
             z=original_fixture.z,
-            rotation=original_fixture.rotation
+            # Copy orientation settings
+            mounting=original_fixture.mounting,
+            yaw=original_fixture.yaw,
+            pitch=original_fixture.pitch,
+            roll=original_fixture.roll,
+            orientation_uses_group_default=original_fixture.orientation_uses_group_default,
+            z_uses_group_default=original_fixture.z_uses_group_default
         )
 
         # Add to configuration

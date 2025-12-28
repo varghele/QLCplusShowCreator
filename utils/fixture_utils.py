@@ -210,6 +210,31 @@ def determine_fixture_type(fixture_def):
     """
     ns = {'': 'http://www.qlcplus.org/FixtureDefinition'}
 
+    def _find_element(parent, tag):
+        """Find element with or without namespace."""
+        elem = parent.find(tag, ns)
+        if elem is None:
+            elem = parent.find(tag)
+        return elem
+
+    # First check the XML Type tag for explicit type hints
+    type_elem = _find_element(fixture_def, './/Type')
+    xml_type = type_elem.text.lower() if type_elem is not None and type_elem.text else ""
+
+    # Check for layout (indicates multi-segment fixture)
+    physical = _find_element(fixture_def, './/Physical')
+    layout_width = 1
+    if physical is not None:
+        layout = _find_element(physical, 'Layout')
+        if layout is not None:
+            layout_width = int(layout.get('Width', 1))
+
+    # Check for sunstrip/LED bar in type tag
+    if 'sunstrip' in xml_type or ('led bar' in xml_type and 'pixel' in xml_type):
+        return "SUNSTRIP"
+    if 'led bar' in xml_type:
+        return "BAR"
+
     # Initialize sets for channel types
     movement_channels = set()
     color_channels = set()
@@ -247,6 +272,9 @@ def determine_fixture_type(fixture_def):
             return "WASH"
         else:
             return "BAR"
+    elif layout_width > 1:
+        # Multi-segment fixture without RGB - likely a sunstrip or similar
+        return "SUNSTRIP"
     else:
         return "PAR"  # Default type
 
@@ -420,3 +448,96 @@ def _infer_color_from_name(name):
             return hex_value
 
     return None
+
+
+def get_fixture_layout(manufacturer: str, model: str) -> dict:
+    """
+    Get the layout (segment count) for a fixture from its QXF file.
+
+    Args:
+        manufacturer: Fixture manufacturer name
+        model: Fixture model name
+
+    Returns:
+        dict with 'width' and 'height' keys (defaults to 1, 1 if not found)
+    """
+    ns = {'': 'http://www.qlcplus.org/FixtureDefinition'}
+    default_layout = {'width': 1, 'height': 1}
+
+    # Get QLC+ fixture directories based on OS
+    qlc_fixture_dirs = []
+
+    # Project's custom_fixtures folder first
+    project_custom_fixtures = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'custom_fixtures')
+    if os.path.exists(project_custom_fixtures):
+        qlc_fixture_dirs.append(project_custom_fixtures)
+
+    if sys.platform.startswith('linux'):
+        qlc_fixture_dirs.append(os.path.expanduser('~/.qlcplus/Fixtures'))
+        qlc_fixture_dirs.append('/usr/share/qlcplus/Fixtures')
+    elif sys.platform == 'win32':
+        qlc_fixture_dirs.append(os.path.join(os.path.expanduser('~'), 'QLC+', 'Fixtures'))
+        qlc_fixture_dirs.append('C:\\QLC+\\Fixtures')
+        qlc_fixture_dirs.append('C:\\QLC+5\\Fixtures')
+    elif sys.platform == 'darwin':
+        qlc_fixture_dirs.append(os.path.expanduser('~/Library/Application Support/QLC+/Fixtures'))
+        qlc_fixture_dirs.append('/Applications/QLC+.app/Contents/Resources/Fixtures')
+
+    def _find_element(parent, tag, ns):
+        """Find element with or without namespace."""
+        elem = parent.find(tag, ns)
+        if elem is None:
+            elem = parent.find(tag)
+        return elem
+
+    def _check_fixture_file(fixture_path):
+        """Check if this is the right fixture and return layout if found."""
+        try:
+            tree = ET.parse(fixture_path)
+            root = tree.getroot()
+
+            file_manufacturer = _find_element(root, './/Manufacturer', ns)
+            file_model = _find_element(root, './/Model', ns)
+
+            if file_manufacturer is None or file_model is None:
+                return None
+
+            if file_manufacturer.text == manufacturer and file_model.text == model:
+                # Found the fixture, get layout
+                physical = _find_element(root, './/Physical', ns)
+                if physical is not None:
+                    layout = _find_element(physical, 'Layout', ns)
+                    if layout is not None:
+                        return {
+                            'width': int(layout.get('Width', 1)),
+                            'height': int(layout.get('Height', 1))
+                        }
+                return default_layout
+
+        except Exception:
+            pass
+
+        return None
+
+    # Search through fixture directories
+    for dir_path in qlc_fixture_dirs:
+        if not os.path.exists(dir_path):
+            continue
+
+        for item in os.listdir(dir_path):
+            item_path = os.path.join(dir_path, item)
+
+            if item.endswith('.qxf') and os.path.isfile(item_path):
+                result = _check_fixture_file(item_path)
+                if result is not None:
+                    return result
+
+            elif os.path.isdir(item_path):
+                for fixture_file in os.listdir(item_path):
+                    if fixture_file.endswith('.qxf'):
+                        fixture_path = os.path.join(item_path, fixture_file)
+                        result = _check_fixture_file(fixture_path)
+                        if result is not None:
+                            return result
+
+    return default_layout

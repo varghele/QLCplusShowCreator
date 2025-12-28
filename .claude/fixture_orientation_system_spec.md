@@ -2,15 +2,19 @@
 
 ## Overview
 
-This document describes the design for a fixture orientation system for a QLC+ light show creator application. The system allows users to define the 3D orientation of lighting fixtures (moving heads, strips, washes, PARs, blinders) in a user-friendly way, while maintaining the mathematical precision needed for accurate effect calculations and 3D visualization.
+This document describes the design for a fixture orientation system for the QLC+ Show Creator application. The system allows users to define the 3D orientation of lighting fixtures (moving heads, strips, washes, PARs, blinders) in a user-friendly way, while maintaining the mathematical precision needed for accurate effect calculations and 3D visualization.
+
+**Note:** This spec has been updated to align with the existing codebase structure.
 
 ## Tech Stack
 
 - Python 3.12
 - PyQt6 (UI framework)
-- ModernGL (3D rendering)
+- ModernGL (3D rendering - Visualizer)
 - pandas, numpy (data handling)
 - PyYAML (configuration)
+
+---
 
 ## Core Concepts
 
@@ -19,10 +23,12 @@ This document describes the design for a fixture orientation system for a QLC+ l
 Each fixture type has a defined local coordinate system that describes its orientation in 3D space. The user's task is to specify how this local coordinate system maps to the world/stage coordinate system.
 
 #### World Coordinate System (Stage)
-- **+X**: Stage left (from audience perspective)
-- **+Y**: Upstage (toward back wall)
+- **+X**: Stage right (from audience perspective, positive to the right)
+- **+Y**: Upstage (toward back wall, positive toward back)
 - **+Z**: Up (toward ceiling)
 - **Origin**: Center of stage floor
+
+**Note:** This matches the existing Stage tab coordinate system where (0,0) is center stage.
 
 #### Fixture Local Coordinate System
 
@@ -45,55 +51,83 @@ Each fixture type has a defined local coordinate system that describes its orien
 - **Z-axis (blue)**: Points where the beam goes
 - **X-axis (red)** and **Y-axis (green)**: Form a plane orthogonal to Z (orientation around Z is arbitrary)
 
-### Orientation Storage
-
-Orientations are stored internally as quaternions or rotation matrices for mathematical operations. The UI presents this as either:
-1. Presets (common mounting scenarios)
-2. Euler angles via 3D gimbal manipulation
-
 ---
 
-## Group-Level Defaults with Individual Overrides
+## Data Model Changes
 
-### Concept
+### Updated `Fixture` Class (config/models.py)
 
-Fixture groups have default values for:
-- **Orientation** (quaternion/rotation matrix)
-- **Z-height** (meters above stage floor)
-
-When a fixture is added to a group, it inherits these defaults. Individual fixtures can override the group defaults when needed.
-
-### Data Model
+Replace the existing `direction` and `rotation` fields with the new orientation system:
 
 ```python
-class FixtureGroup:
-    name: str
-    default_orientation: Quaternion  # or rotation matrix
-    default_z_height: float  # meters
-    fixtures: List[Fixture]
-
+@dataclass
 class Fixture:
-    id: str
-    fixture_type: FixtureType
-    position_x: float  # stage coordinates
-    position_y: float  # stage coordinates
-    
-    # Override flags
-    orientation_override: Optional[Quaternion]  # None = use group default
-    z_height_override: Optional[float]  # None = use group default
-    
+    universe: int
+    address: int
+    manufacturer: str
+    model: str
+    name: str
+    group: str
+    current_mode: str
+    available_modes: List[FixtureMode]
+    type: str = "PAR"       # "PAR", "MH", "WASH", "BAR"
+    x: float = 0.0          # X position in meters (center-based)
+    y: float = 0.0          # Y position in meters (center-based)
+    z: float = 0.0          # Z height in meters (individual value, or uses group default)
+
+    # Orientation using Euler angles (degrees)
+    # Convention: Yaw (Z) -> Pitch (Y) -> Roll (X)
+    mounting: str = "hanging"       # "hanging", "standing", "wall_left", "wall_right", "wall_back", "wall_front"
+    yaw: float = 0.0                # Rotation around world Z (degrees, -180 to 180)
+    pitch: float = 0.0              # Rotation around local Y after yaw (degrees, -90 to 90)
+    roll: float = 0.0               # Rotation around local X after pitch (degrees, -180 to 180)
+
+    # Override flags (True = use own value, False = use group default)
+    orientation_uses_group_default: bool = True
+    z_uses_group_default: bool = True
+
     @property
-    def orientation(self) -> Quaternion:
-        return self.orientation_override or self.group.default_orientation
-    
+    def effective_mounting(self) -> str:
+        """Get mounting, considering group default if applicable."""
+        if self.orientation_uses_group_default and self.group:
+            # Will need to look up group default at runtime
+            return self.mounting  # Placeholder - actual implementation uses group lookup
+        return self.mounting
+
     @property
-    def z_height(self) -> float:
-        return self.z_height_override if self.z_height_override is not None else self.group.default_z_height
+    def effective_z(self) -> float:
+        """Get Z height, considering group default if applicable."""
+        if self.z_uses_group_default and self.group:
+            # Will need to look up group default at runtime
+            return self.z  # Placeholder - actual implementation uses group lookup
+        return self.z
 ```
 
-### UI Indication
+### Updated `FixtureGroup` Class (config/models.py)
 
-In the 2D plot, fixtures with overridden values could show a subtle indicator (e.g., small dot or different border style) to distinguish them from fixtures using group defaults.
+Add group-level orientation defaults:
+
+```python
+@dataclass
+class FixtureGroup:
+    name: str
+    fixtures: List[Fixture]
+    color: str = '#808080'
+    capabilities: Optional['FixtureGroupCapabilities'] = None
+
+    # Group-level defaults for orientation
+    default_mounting: str = "hanging"
+    default_yaw: float = 0.0
+    default_pitch: float = 0.0
+    default_roll: float = 0.0
+    default_z_height: float = 3.0   # Default height in meters
+```
+
+### Fields to Remove
+
+Remove these legacy fields from `Fixture`:
+- `direction` - replaced by `mounting`
+- `rotation` - replaced by `yaw`
 
 ---
 
@@ -101,63 +135,80 @@ In the 2D plot, fixtures with overridden values could show a subtle indicator (e
 
 Common mounting scenarios are provided as one-click presets:
 
-| Preset | Base Direction | Beam Direction | Description |
-|--------|---------------|----------------|-------------|
-| **Hanging** | Up (+Z) | Down (-Z) | Fixture hanging from truss/ceiling |
-| **Standing** | Down (-Z) | Up (+Z) | Fixture standing on floor |
-| **Wall-Left** | Stage right (-X) | Stage left (+X) | Base against stage-right wall |
-| **Wall-Right** | Stage left (+X) | Stage right (-X) | Base against stage-left wall |
-| **Wall-Back** | Downstage (-Y) | Upstage (+Y) | Base against back wall, beam toward audience |
-| **Wall-Front** | Upstage (+Y) | Downstage (-Y) | Base toward audience, beam toward stage |
+| Preset | Mounting Value | Base Pitch | Base Yaw | Description |
+|--------|---------------|------------|----------|-------------|
+| **Hanging** | `"hanging"` | -90° | 0° | Fixture hanging from truss, beam down |
+| **Standing** | `"standing"` | +90° | 0° | Fixture on floor, beam up |
+| **Wall-Left** | `"wall_left"` | 0° | -90° | Base against stage-right wall |
+| **Wall-Right** | `"wall_right"` | 0° | +90° | Base against stage-left wall |
+| **Wall-Back** | `"wall_back"` | 0° | 0° | Base against back wall, beam toward audience |
+| **Wall-Front** | `"wall_front"` | 0° | 180° | Base toward audience, beam toward back |
 
-Each preset sets the initial orientation. Users can then adjust the yaw (rotation around the fixture's Z-axis) to set which direction the front plate faces.
+Each preset sets the initial orientation (base pitch + yaw). Users can then fine-tune with additional yaw/pitch/roll adjustments.
 
 ---
 
 ## User Interface
 
-### 2D Stage Plot
+### Stage Tab - 2D Stage Plot
 
-The 2D plot is a top-down view of the stage where users position fixtures.
+The 2D plot is a top-down view of the stage where users position fixtures. We will **extend** the existing `StageView` and `FixtureItem` classes.
 
 #### Fixture Icons
 
-**Shape indicates mounting type:**
-- **Circle**: Hanging (base up) or wall-mounted
-- **Square**: Standing (base down)
+**Current Implementation** (gui/stage_items.py):
+- PAR: Circle
+- BAR: Wide rectangle
+- MH: Circle with triangle indicator
+- WASH: Rounded rectangle
 
-**Visual elements:**
-- **Blue bar**: Wall mount indicator, positioned on the side where the base is attached
-- **Dashed border**: Custom/non-preset orientation
-- **Coordinate axes**: Show local X (red), Y (green), Z (blue) axes using engineering drawing conventions
+**Proposed Changes:**
+Add visual indicators for mounting type:
+- **Blue dot/ring**: Beam points down (hanging)
+- **Orange dot/ring**: Beam points up (standing)
+- **Blue bar on edge**: Wall mount (positioned on the wall side)
+- **Dashed border**: Custom orientation (not a standard preset)
 
-**Coordinate axes representation:**
-- **Solid arrow**: Axis lies in the viewing plane (horizontal in world space)
-- **⊙ (dot in circle)**: Axis points out of the page (up, +Z world)
-- **⊗ (X in circle)**: Axis points into the page (down, -Z world)
-- **Dashed arrow**: Axis at an angle to the viewing plane
+**Coordinate axes (optional, toggle in left panel):**
+- Show when fixture is selected or hovered
+- Use engineering drawing conventions:
+  - **Solid arrow**: Axis lies in the viewing plane (horizontal)
+  - **⊙ (dot in circle)**: Axis points out of the page (up, +Z world)
+  - **⊗ (X in circle)**: Axis points into the page (down, -Z world)
 
-**Z-height label**: Shown as text near the fixture (e.g., "Z: 3.5m")
-
-#### Axes Visibility
-
-- **Default**: Coordinate axes are only visible when a fixture is selected or hovered
-- **Toggle option**: A checkbox in the left panel labeled "Show all axes" displays coordinate axes for all fixtures when enabled
+**Z-height label**: Already implemented, shows as "Z: 3.5m" text
 
 #### Interactions
 
-| Action | Behavior |
-|--------|----------|
-| Left-click fixture | Select single fixture (deselects others) |
-| Left-click + drag fixture | Move fixture position on stage |
-| Ctrl+click fixture | Add/remove fixture from selection |
-| Rectangle drag on empty space | Select multiple fixtures in rectangle |
-| Right-click on selection | Open context menu with "Set Orientation..." |
-| Shift+mousewheel | Adjust Z-height of all selected fixtures |
+| Action | Current | Proposed |
+|--------|---------|----------|
+| Left-click fixture | Select (works) | Keep same |
+| Left-click + drag fixture | Move position (works) | Keep same |
+| Ctrl+click fixture | Not implemented | Add/remove from multi-selection |
+| Rectangle drag on empty space | Not implemented | Select multiple fixtures |
+| Right-click on selection | Not implemented | Context menu with "Set Orientation..." |
+| Scroll wheel | Rotate yaw (works) | Keep same |
+| Shift+scroll wheel | Adjust Z-height (works) | Keep same |
 
-#### Removed Interactions
+### Stage Tab - Left Panel Additions
 
-- **Ctrl+mousewheel rotation**: Removed. Yaw adjustment is now handled through the 3D orientation popup.
+Add to the existing control panel in `stage_tab.py`:
+
+```
++------------------------------------------+
+| Stage Dimensions (existing)              |
++------------------------------------------+
+| Grid Settings (existing)                 |
++------------------------------------------+
+| Stage Marks (existing)                   |
++------------------------------------------+
+| Fixture Orientation                      |  <-- NEW GROUP
+|   [x] Show orientation axes              |
+|   [ ] Show all axes (not just selected)  |
++------------------------------------------+
+| 3D Visualizer (existing)                 |
++------------------------------------------+
+```
 
 ### 3D Orientation Popup
 
@@ -188,7 +239,14 @@ Opened via right-click → "Set Orientation..." on selected fixtures.
 |  [Hanging] [Standing] [Wall-L] [Wall-R]          |
 |  [Wall-Back] [Wall-Front]                        |
 |                                                  |
+|  Fine Adjustment:                                |
+|  Yaw:   [____0.0____]°  (or drag blue ring)      |
+|  Pitch: [____0.0____]°  (or drag green ring)     |
+|  Roll:  [____0.0____]°  (or drag red ring)       |
+|                                                  |
 |  Z-Height: [____3.5____] m                       |
+|                                                  |
+|  [ ] Apply to group default                      |
 |                                                  |
 |  [Cancel]                          [Apply]       |
 +--------------------------------------------------+
@@ -196,42 +254,68 @@ Opened via right-click → "Set Orientation..." on selected fixtures.
 
 #### 3D Preview Features
 
-1. **Fixture model**: Shows the actual 3D model of the fixture (reuses existing visualizer rendering)
+1. **Fixture model**: Reuse existing Visualizer fixture rendering (MovingHeadRenderer, etc.)
 
 2. **Gimbal rotation rings**: Three colored rings around the fixture
-   - **Red ring**: Rotate around X-axis
-   - **Green ring**: Rotate around Y-axis  
-   - **Blue ring**: Rotate around Z-axis
+   - **Blue ring**: Rotate around Z-axis (yaw)
+   - **Green ring**: Rotate around Y-axis (pitch)
+   - **Red ring**: Rotate around X-axis (roll)
    - Dragging a ring rotates the fixture around that axis
 
 3. **Reference geometry**:
    - **Floor**: Gray grid plane showing the stage floor
    - **Back wall**: Subtle vertical plane indicating upstage direction
 
-4. **Mini coordinate system**: Small XYZ axes indicator in the corner showing world orientation (helps user understand which way is up/front/left)
+4. **Mini coordinate system**: Small XYZ axes indicator in the corner
 
 #### Behavior
 
-- **Single fixture selected**: Popup shows that fixture's current orientation. On Apply, updates only that fixture.
-- **Multiple fixtures selected**: Popup shows group default orientation (or first selected fixture's orientation). On Apply, updates all selected fixtures.
-- **Preset buttons**: Clicking a preset immediately updates the 3D preview. User can then fine-tune with gimbal before applying.
-- **Z-Height field**: Numeric input for setting height. Updates all selected fixtures on Apply.
+- **Single fixture selected**: Popup shows that fixture's current orientation
+- **Multiple fixtures selected**: Popup shows group default (or first selected fixture). On Apply, updates all selected fixtures
+- **"Apply to group default" checkbox**: If checked, also updates the group's default orientation
+- **Preset buttons**: Clicking a preset immediately updates the 3D preview and angle fields
 
 ---
 
-## Changes to Existing UI
+## Changes to Existing Files
 
-### Fixtures Tab
+### `config/models.py`
 
-The "Fixtures" tab where users add and remove fixtures should have the following changes:
+1. Add new fields to `Fixture`: `mounting`, `yaw`, `pitch`, `roll`, `orientation_uses_group_default`, `z_uses_group_default`
+2. Add new fields to `FixtureGroup`: `default_mounting`, `default_yaw`, `default_pitch`, `default_roll`, `default_z_height`
+3. Add `rotation` property for backwards compatibility
+4. Update `to_dict()` and `from_dict()` methods
+5. Add migration logic for `direction` → `mounting` conversion
 
-**Remove:**
-- "Orientation" column (no longer set here)
+### `gui/stage_items.py`
 
-**Keep:**
-- All other fixture properties (name, type, DMX address, etc.)
+1. Add mounting indicator rendering (colored dot/ring)
+2. Add optional coordinate axes rendering
+3. Add dashed border for custom orientations
+4. Keep existing fixture type shapes (PAR=circle, MH=circle+triangle, etc.)
 
-**Note:** Fixture orientation is now exclusively set in the Stage tab via the 2D plot and 3D orientation popup.
+### `gui/tabs/stage_tab.py`
+
+1. Add "Fixture Orientation" group to left panel with checkboxes
+2. Add right-click context menu handler for fixtures
+3. Add multi-select support (Ctrl+click, rectangle selection)
+4. Add orientation popup dialog trigger
+
+### `gui/StageView.py`
+
+1. Add multi-selection support
+2. Add rectangle selection handler
+3. Pass orientation display preferences to fixture items
+
+### `gui/tabs/fixtures_tab.py`
+
+1. **Remove "Direction" column** (orientation now set in Stage tab)
+2. Or: Keep for backwards compatibility but make read-only, showing mounting preset name
+
+### New Files
+
+1. `gui/dialogs/orientation_dialog.py` - The 3D orientation popup
+2. `gui/widgets/gimbal_widget.py` - 3D gimbal preview widget (uses ModernGL)
 
 ---
 
@@ -241,34 +325,80 @@ The "Fixtures" tab where users add and remove fixtures should have the following
 
 Effects generate target positions or patterns in world space. For each fixture, the system must transform these to fixture-local space to calculate correct DMX values.
 
+The existing `utils/artnet/dmx_manager.py` calculates pan/tilt values. Update to use the new orientation:
+
 ```python
-def calculate_pan_tilt(fixture: Fixture, target_world_position: Vector3) -> Tuple[float, float]:
+import numpy as np
+
+def get_rotation_matrix(mounting: str, yaw: float, pitch: float, roll: float) -> np.ndarray:
+    """
+    Build rotation matrix from mounting preset and Euler angles.
+    Uses ZYX (yaw-pitch-roll) convention.
+    """
+    # Convert to radians
+    yaw_rad = np.radians(yaw)
+    pitch_rad = np.radians(pitch)
+    roll_rad = np.radians(roll)
+
+    # Base rotation from mounting preset
+    base_pitch = {
+        'hanging': -90,
+        'standing': 90,
+        'wall_left': 0,
+        'wall_right': 0,
+        'wall_back': 0,
+        'wall_front': 0,
+    }.get(mounting, 0)
+
+    base_yaw = {
+        'wall_left': -90,
+        'wall_right': 90,
+        'wall_front': 180,
+    }.get(mounting, 0)
+
+    # Add base rotation to user adjustments
+    total_yaw = np.radians(base_yaw + yaw)
+    total_pitch = np.radians(base_pitch + pitch)
+    total_roll = np.radians(roll)
+
+    # Build rotation matrices
+    Rz = np.array([
+        [np.cos(total_yaw), -np.sin(total_yaw), 0],
+        [np.sin(total_yaw), np.cos(total_yaw), 0],
+        [0, 0, 1]
+    ])
+    Ry = np.array([
+        [np.cos(total_pitch), 0, np.sin(total_pitch)],
+        [0, 1, 0],
+        [-np.sin(total_pitch), 0, np.cos(total_pitch)]
+    ])
+    Rx = np.array([
+        [1, 0, 0],
+        [0, np.cos(total_roll), -np.sin(total_roll)],
+        [0, np.sin(total_roll), np.cos(total_roll)]
+    ])
+
+    return Rz @ Ry @ Rx
+
+def calculate_pan_tilt(fixture, target_world_position: np.ndarray) -> tuple:
     """
     Calculate pan and tilt values for a moving head to point at a world position.
-    
-    Args:
-        fixture: The fixture with its position and orientation
-        target_world_position: The target point in world coordinates
-    
-    Returns:
-        Tuple of (pan_degrees, tilt_degrees)
     """
     # Get vector from fixture to target in world space
-    fixture_world_pos = Vector3(fixture.position_x, fixture.position_y, fixture.z_height)
-    direction_world = (target_world_position - fixture_world_pos).normalized()
-    
-    # Transform direction to fixture's local space
-    # fixture.orientation is the rotation from local to world
-    # We need the inverse to go from world to local
-    inverse_orientation = fixture.orientation.inverse()
-    direction_local = inverse_orientation.rotate(direction_world)
-    
+    fixture_pos = np.array([fixture.x, fixture.y, fixture.z])
+    direction_world = target_world_position - fixture_pos
+    direction_world = direction_world / np.linalg.norm(direction_world)
+
+    # Get fixture's rotation matrix (world to local transform is the inverse/transpose)
+    R = get_rotation_matrix(fixture.mounting, fixture.yaw, fixture.pitch, fixture.roll)
+    direction_local = R.T @ direction_world
+
     # Calculate pan and tilt from local direction
-    # In local space: Z is forward (beam), X is front plate reference, Y is perpendicular
-    pan = atan2(direction_local.y, direction_local.x)  # Angle in XY plane
-    tilt = acos(direction_local.z)  # Angle from Z axis
-    
-    return (degrees(pan), degrees(tilt))
+    # In local space: Z is forward (beam), X is right, Y is up
+    pan = np.degrees(np.arctan2(direction_local[0], direction_local[2]))
+    tilt = np.degrees(np.arcsin(-direction_local[1]))
+
+    return (pan, tilt)
 ```
 
 ### Strip Fixture Fill Direction
@@ -276,64 +406,115 @@ def calculate_pan_tilt(fixture: Fixture, target_world_position: Vector3) -> Tupl
 For strip fixtures, the orientation determines fill direction:
 
 ```python
-def get_fill_direction(strip_fixture: Fixture) -> Vector3:
+def get_fill_direction(strip_fixture) -> np.ndarray:
     """
     Get the fill direction for a strip fixture in world space.
     Fill goes along the local X-axis (pixel 1 to pixel N).
     """
-    local_x = Vector3(1, 0, 0)
-    return strip_fixture.orientation.rotate(local_x)
+    R = get_rotation_matrix(
+        strip_fixture.mounting,
+        strip_fixture.yaw,
+        strip_fixture.pitch,
+        strip_fixture.roll
+    )
+    local_x = np.array([1, 0, 0])
+    return R @ local_x
 ```
 
 ---
 
 ## Implementation Checklist
 
-### Data Model Changes
-- [ ] Add `default_orientation` and `default_z_height` to `FixtureGroup`
-- [ ] Add `orientation_override` and `z_height_override` to `Fixture`
-- [ ] Remove old orientation fields ("up", "down", "towards", "away", rotation angle)
-- [ ] Add properties for resolved orientation and z_height
+**Status: ALL PHASES COMPLETE (Dec 2025)**
 
-### 2D Plot Changes
-- [ ] Update fixture icon rendering to show shapes based on mounting type
-- [ ] Implement coordinate axes rendering (with ⊙/⊗ symbols)
-- [ ] Add hover/selection state for axes visibility
-- [ ] Add "Show all axes" toggle checkbox in left panel
-- [ ] Implement multi-select (Ctrl+click, rectangle selection)
-- [ ] Implement Shift+mousewheel for Z-height adjustment on selection
-- [ ] Remove Ctrl+mousewheel rotation behavior
-- [ ] Add right-click context menu with "Set Orientation..."
-- [ ] Add Z-height label rendering
+### Phase 1: Data Model Changes ✓
+- [x] Replace `direction` and `rotation` fields with `mounting`, `yaw`, `pitch`, `roll` in `Fixture`
+- [x] Add `orientation_uses_group_default`, `z_uses_group_default` flags to `Fixture`
+- [x] Add `default_mounting`, `default_yaw`, `default_pitch`, `default_roll`, `default_z_height` to `FixtureGroup`
+- [x] Add `get_effective_orientation()` and `get_effective_z()` methods to `Fixture`
+- [x] Update `Fixture.to_dict()` and `from_dict()` for serialization
+- [x] Update `FixtureGroup` serialization
+- [x] Update all code that references `fixture.direction` or `fixture.rotation`
 
-### 3D Orientation Popup
-- [ ] Create popup dialog with PyQt6
-- [ ] Implement 3D preview using ModernGL (reuse visualizer code)
-- [ ] Implement gimbal ring rendering and interaction
-- [ ] Add reference floor and back wall geometry
-- [ ] Add mini coordinate system indicator
-- [ ] Implement preset buttons
-- [ ] Add Z-height numeric input
-- [ ] Handle single vs. multiple fixture selection
+### Phase 2: 2D Plot Changes ✓
+- [x] Add mounting indicator to `FixtureItem` (colored dot/ring based on mounting)
+- [x] Add hollow ring for custom orientations (non-zero pitch/roll)
+- [x] Implement coordinate axes rendering (optional, toggle via checkbox)
+- [x] Add "Fixture Orientation" group to stage_tab.py left panel
+- [x] Add "Show orientation axes" checkbox
+- [x] Add "Show all axes" checkbox
+- [x] Add SUNSTRIP symbol rendering (bar with bulb circles)
 
-### Fixtures Tab Changes
-- [ ] Remove "Orientation" column from fixtures table
+### Phase 3: Multi-Select Support ✓
+- [x] Implement Ctrl+click multi-select in StageView
+- [x] Implement rectangle drag selection (rubber band)
+- [x] Add right-click context menu with "Set Orientation..."
+- [x] Handle Shift+scroll for Z-height on multi-selection
 
-### Effect System Changes
-- [ ] Update pan/tilt calculations to use new orientation system
-- [ ] Update strip fill effects to use orientation for direction
-- [ ] Test all position-dependent effects with various orientations
+### Phase 4: 3D Orientation Popup ✓
+- [x] Create `orientation_dialog.py` dialog class
+- [x] Implement 3D preview widget using ModernGL
+- [x] Implement gimbal ring rendering with draggable handles
+- [x] Add reference floor grid and back wall geometry
+- [x] Implement preset buttons (Hanging, Standing, Wall-L/R/Back/Front)
+- [x] Add Yaw/Pitch/Roll spin boxes with ring drag sync
+- [x] Add Z-height input
+- [x] Add "Apply to group default" checkbox
+- [x] Handle single vs. multiple fixture selection
+- [x] Visualizer-style fixture rendering (LED segments, lamp bulbs, etc.)
+- [x] Segment count from QXF layout for bars/sunstrips
 
-### Migration
-- [ ] Write migration code to convert old orientation values to new quaternion system
-- [ ] Handle edge cases (custom rotations, etc.)
+### Phase 5: Effect System Updates ✓
+- [x] Add `get_rotation_matrix()` utility function in `utils/orientation.py`
+- [x] Add `calculate_pan_tilt()`, `pan_tilt_to_dmx()` utilities
+- [x] Add `get_beam_direction()`, `get_fill_direction()` utilities
+- [x] Add `get_direction_for_tilt_calculation()` for legacy compatibility
+- [x] Updated `effects/moving_heads.py` to use orientation utilities
+
+### Phase 6: Visualizer Updates ✓
+- [x] Update TCP protocol to send orientation data (mounting, yaw, pitch, roll)
+- [x] Update fixture renderers to use new orientation
+- [x] Added `MOUNTING_BASE_ROTATIONS` constant
+- [x] Verify beam direction matches orientation
+
+### Phase 7: Fixtures Tab Cleanup ✓
+- [x] Remove "Direction" column from fixtures table
+- [x] Remove direction-related code from fixtures_tab.py
+- [x] Add `_find_next_available_address()` for new fixture DMX assignment
+
+### Phase 8: Additional Improvements ✓
+- [x] Snap-to-grid enabled by default
+- [x] Fixed dialog close/reopen issue with event deferral
+- [x] Fixed hanging/standing orientation swap
+- [x] Removed legacy rotation on scroll
+- [x] Added SUNSTRIP fixture type detection
+- [x] Added `get_fixture_layout()` for segment count lookup
 
 ---
 
-## Visual Reference
+## TCP Protocol Updates
 
-See accompanying SVG files:
-- `fixture_2d_plot_with_axes.svg`: Complete reference for 2D plot icon representations
+Update `utils/tcp/protocol.py` to include orientation data:
+
+```python
+def create_fixtures_message(config):
+    fixtures_data = []
+    for fixture in config.fixtures:
+        fixtures_data.append({
+            'name': fixture.name,
+            'type': fixture.type,
+            'x': fixture.x,
+            'y': fixture.y,
+            'z': fixture.z,
+            # NEW: Orientation fields
+            'mounting': getattr(fixture, 'mounting', 'hanging'),
+            'yaw': getattr(fixture, 'yaw', fixture.rotation),  # Fallback to rotation
+            'pitch': getattr(fixture, 'pitch', 0.0),
+            'roll': getattr(fixture, 'roll', 0.0),
+            # ... existing fields ...
+        })
+    return {'type': 'fixtures', 'fixtures': fixtures_data}
+```
 
 ---
 
@@ -345,3 +526,4 @@ See accompanying SVG files:
 4. **Visual feedback during adjustment**: Show beam direction preview in 2D plot while adjusting in 3D popup
 5. **Keyboard shortcuts**: Quick preset application (e.g., H for Hanging, S for Standing)
 6. **Guardrails**: If user feedback indicates issues with incompatible orientations in groups, implement warnings or constraints
+7. **Quaternion storage**: If Euler angle gimbal lock becomes problematic in the future, consider using quaternions for internal storage while keeping Euler UI

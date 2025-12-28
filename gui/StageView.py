@@ -7,6 +7,9 @@ class StageView(QtWidgets.QGraphicsView):
     # Signal emitted when fixture positions/rotations/heights change
     fixtures_changed = QtCore.pyqtSignal()
 
+    # Signal emitted when user requests to set orientation for selected fixtures
+    set_orientation_requested = QtCore.pyqtSignal(list)  # List of FixtureItem
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.config = None  # Store configuration
@@ -18,7 +21,12 @@ class StageView(QtWidgets.QGraphicsView):
         self.setAcceptDrops(True)
 
         # Globally track if snapping is enabled
-        self.snap_enabled = False
+        self.snap_enabled = True  # Enabled by default
+
+        # Rectangle selection state
+        self._rubber_band = None
+        self._rubber_band_origin = None
+        self._is_rubber_band_selecting = False
 
         # Stage properties (in meters)
         self.stage_width_m = 10.0  # Default 10m
@@ -125,9 +133,15 @@ class StageView(QtWidgets.QGraphicsView):
                 x_px, y_px = self.meters_to_pixels(fixture.x, fixture.y)
                 fixture_item.setPos(x_px, y_px)
 
-                # Set z-height and rotation directly from fixture properties
+                # Set z-height and yaw rotation directly from fixture properties
                 fixture_item.z_height = fixture.z
-                fixture_item.rotation_angle = fixture.rotation
+                fixture_item.rotation_angle = fixture.yaw  # Use yaw for 2D rotation
+
+                # Set orientation fields
+                fixture_item.mounting = fixture.mounting
+                fixture_item.pitch = fixture.pitch
+                fixture_item.roll = fixture.roll
+                fixture_item.orientation_uses_group_default = fixture.orientation_uses_group_default
 
                 # Store additional properties
                 fixture_item.universe = fixture.universe
@@ -135,7 +149,6 @@ class StageView(QtWidgets.QGraphicsView):
                 fixture_item.manufacturer = fixture.manufacturer
                 fixture_item.model = fixture.model
                 fixture_item.group = fixture.group
-                fixture_item.direction = fixture.direction
                 fixture_item.current_mode = fixture.current_mode
                 fixture_item.available_modes = fixture.available_modes
 
@@ -174,7 +187,7 @@ class StageView(QtWidgets.QGraphicsView):
                 config_fixture.x = x_m
                 config_fixture.y = y_m
                 config_fixture.z = fixture_item.z_height
-                config_fixture.rotation = fixture_item.rotation_angle
+                config_fixture.yaw = fixture_item.rotation_angle  # Use yaw for 2D rotation
 
         # Save spot positions
         for spot_name, spot_item in self.spots.items():
@@ -442,4 +455,152 @@ class StageView(QtWidgets.QGraphicsView):
         """Handle window resize"""
         super().resizeEvent(event)
         self.updateStage()
+
+    def mousePressEvent(self, event):
+        """Handle mouse press for rubber band selection and context menu."""
+        # Check if clicking on empty space (not on an item)
+        item_at_pos = self.itemAt(event.pos())
+
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+            if item_at_pos is None:
+                # Start rubber band selection on empty space
+                self._rubber_band_origin = event.pos()
+                if self._rubber_band is None:
+                    self._rubber_band = QtWidgets.QRubberBand(
+                        QtWidgets.QRubberBand.Shape.Rectangle, self
+                    )
+                self._rubber_band.setGeometry(QtCore.QRect(self._rubber_band_origin, QtCore.QSize()))
+                self._rubber_band.show()
+                self._is_rubber_band_selecting = True
+
+                # Clear selection if not holding Ctrl
+                if not (event.modifiers() & QtCore.Qt.KeyboardModifier.ControlModifier):
+                    self.scene.clearSelection()
+            else:
+                # Clicking on an item - let default behavior handle it
+                # But handle Ctrl+click for toggle selection
+                if event.modifiers() & QtCore.Qt.KeyboardModifier.ControlModifier:
+                    if isinstance(item_at_pos, (FixtureItem, SpotItem)):
+                        item_at_pos.setSelected(not item_at_pos.isSelected())
+                        event.accept()
+                        return
+
+        elif event.button() == QtCore.Qt.MouseButton.RightButton:
+            # Show context menu
+            self._show_context_menu(event.pos())
+            event.accept()
+            return
+
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        """Handle mouse move for rubber band selection."""
+        if self._is_rubber_band_selecting and self._rubber_band is not None:
+            self._rubber_band.setGeometry(
+                QtCore.QRect(self._rubber_band_origin, event.pos()).normalized()
+            )
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Handle mouse release to complete rubber band selection."""
+        if event.button() == QtCore.Qt.MouseButton.LeftButton and self._is_rubber_band_selecting:
+            if self._rubber_band is not None:
+                # Get the selection rectangle in scene coordinates
+                rubber_rect = self._rubber_band.geometry()
+                scene_rect = self.mapToScene(rubber_rect).boundingRect()
+
+                # Select all items within the rectangle
+                items_in_rect = self.scene.items(scene_rect)
+                for item in items_in_rect:
+                    if isinstance(item, (FixtureItem, SpotItem)):
+                        item.setSelected(True)
+
+                self._rubber_band.hide()
+            self._is_rubber_band_selecting = False
+            self._rubber_band_origin = None
+        else:
+            super().mouseReleaseEvent(event)
+
+    def _show_context_menu(self, pos):
+        """Show context menu for selected fixtures."""
+        # Get selected fixture items
+        selected_fixtures = [
+            item for item in self.scene.selectedItems()
+            if isinstance(item, FixtureItem)
+        ]
+
+        if not selected_fixtures:
+            # Check if right-clicking on a fixture that's not selected
+            item_at_pos = self.itemAt(pos)
+            if isinstance(item_at_pos, FixtureItem):
+                # Select this fixture
+                self.scene.clearSelection()
+                item_at_pos.setSelected(True)
+                selected_fixtures = [item_at_pos]
+
+        if not selected_fixtures:
+            return  # No fixtures to show menu for
+
+        # Create context menu
+        menu = QtWidgets.QMenu(self)
+
+        # Set Orientation action
+        orientation_action = menu.addAction("Set Orientation...")
+        orientation_action.setEnabled(len(selected_fixtures) > 0)
+
+        menu.addSeparator()
+
+        # Select All action
+        select_all_action = menu.addAction("Select All Fixtures")
+
+        # Deselect All action
+        deselect_action = menu.addAction("Deselect All")
+
+        # Execute menu
+        action = menu.exec(self.mapToGlobal(pos))
+
+        if action == orientation_action:
+            # Emit signal to open orientation dialog
+            self.set_orientation_requested.emit(selected_fixtures)
+        elif action == select_all_action:
+            for fixture_item in self.fixtures.values():
+                fixture_item.setSelected(True)
+        elif action == deselect_action:
+            self.scene.clearSelection()
+
+    def wheelEvent(self, event):
+        """Handle wheel event for multi-selection Z-height adjustment."""
+        # Check if we have multiple fixtures selected
+        selected_fixtures = [
+            item for item in self.scene.selectedItems()
+            if isinstance(item, FixtureItem)
+        ]
+
+        # If Shift is held and we have selected fixtures, adjust Z-height for all
+        if (event.modifiers() & QtCore.Qt.KeyboardModifier.ShiftModifier) and len(selected_fixtures) > 1:
+            delta = event.angleDelta().y() / 120.0
+            z_step = 0.1
+
+            for fixture_item in selected_fixtures:
+                if delta > 0:
+                    fixture_item.z_height = max(0, fixture_item.z_height + z_step)
+                else:
+                    fixture_item.z_height = max(0, fixture_item.z_height - z_step)
+                fixture_item.update()
+
+            # Save changes
+            self.save_positions_to_config()
+            event.accept()
+            return
+
+        # Otherwise, let the item handle it (single selection) or default behavior
+        super().wheelEvent(event)
+
+    def get_selected_fixtures(self):
+        """Get list of currently selected FixtureItem objects."""
+        return [
+            item for item in self.scene.selectedItems()
+            if isinstance(item, FixtureItem)
+        ]
 
