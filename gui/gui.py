@@ -5,6 +5,7 @@ import os
 import sys
 from PyQt6 import QtWidgets
 from PyQt6.QtWidgets import QMainWindow, QFileDialog, QMessageBox
+from PyQt6.QtCore import QTimer
 from config.models import Configuration
 from utils.create_workspace import create_qlc_workspace
 from gui.Ui_MainWindow import Ui_MainWindow
@@ -39,6 +40,50 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Connect application-level signals
         self._connect_signals()
+
+        # Set up status indicator timer
+        self._setup_status_timer()
+
+    def _setup_status_timer(self):
+        """Set up timer for updating toolbar status indicators."""
+        self.status_timer = QTimer()
+        self.status_timer.timeout.connect(self._update_toolbar_status)
+        self.status_timer.start(1000)  # Update every second
+        # Initial update
+        self._update_toolbar_status()
+
+    def _update_toolbar_status(self):
+        """Update ArtNet and TCP status indicators in toolbar."""
+        # Update ArtNet status
+        artnet_controller = getattr(self.shows_tab, 'artnet_controller', None)
+        artnet_enabled = getattr(self.shows_tab, 'artnet_enabled', False)
+
+        if artnet_controller and artnet_enabled:
+            self.artnet_status_indicator.setText("ON")
+            self.artnet_status_indicator.setStyleSheet("font-weight: bold; color: #4CAF50;")
+            self.artnet_status_indicator.setToolTip("ArtNet DMX Output: Enabled")
+        else:
+            self.artnet_status_indicator.setText("OFF")
+            self.artnet_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
+            self.artnet_status_indicator.setToolTip("ArtNet DMX Output: Disabled")
+
+        # Update TCP status
+        tcp_server = getattr(self.shows_tab, 'tcp_server', None)
+
+        if tcp_server and tcp_server.is_running():
+            client_count = tcp_server.get_client_count()
+            if client_count > 0:
+                self.tcp_status_indicator.setText(f"{client_count}")
+                self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #4CAF50;")
+                self.tcp_status_indicator.setToolTip(f"TCP Visualizer Server: {client_count} client(s) connected")
+            else:
+                self.tcp_status_indicator.setText("ON")
+                self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #2196F3;")
+                self.tcp_status_indicator.setToolTip("TCP Visualizer Server: Running, no clients")
+        else:
+            self.tcp_status_indicator.setText("OFF")
+            self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
+            self.tcp_status_indicator.setToolTip("TCP Visualizer Server: Not running")
 
     def _initialize_paths(self):
         """Initialize project paths"""
@@ -152,7 +197,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.actionAbout.triggered.connect(self.show_about)
 
     def _on_tab_changed(self, index):
-        """Handle tab change - notify tabs of activation."""
+        """Handle tab change - notify tabs of activation/deactivation."""
         try:
             print(f"DEBUG: Tab changed to index {index}")
 
@@ -170,6 +215,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 tab_map[3] = self.structure_tab
             if hasattr(self, 'shows_tab'):
                 tab_map[4] = self.shows_tab
+
+            # Call on_tab_deactivated on the previous tab
+            if hasattr(self, '_current_tab_index') and self._current_tab_index in tab_map:
+                prev_tab = tab_map[self._current_tab_index]
+                if prev_tab and hasattr(prev_tab, 'on_tab_deactivated'):
+                    prev_tab.on_tab_deactivated()
+
+            # Store current tab index
+            self._current_tab_index = index
 
             # Call on_tab_activated on the newly activated tab
             if index in tab_map:

@@ -13,6 +13,7 @@ from PyQt6.QtGui import QSurfaceFormat
 from .camera import OrbitCamera
 from .stage import StageRenderer
 from .gizmo import CoordinateGizmo
+from .fixtures import FixtureManager
 
 
 class RenderEngine(QOpenGLWidget):
@@ -48,6 +49,7 @@ class RenderEngine(QOpenGLWidget):
         # Renderers (created in initializeGL)
         self.stage_renderer: Optional[StageRenderer] = None
         self.gizmo_renderer: Optional[CoordinateGizmo] = None
+        self.fixture_manager: Optional[FixtureManager] = None
 
         # Stage dimensions
         self.stage_width = 10.0
@@ -101,6 +103,9 @@ class RenderEngine(QOpenGLWidget):
 
             # Create coordinate gizmo
             self.gizmo_renderer = CoordinateGizmo(self.ctx)
+
+            # Create fixture manager
+            self.fixture_manager = FixtureManager(self.ctx)
 
             # Set camera to fit stage
             self.camera.set_stage_size(self.stage_width, self.stage_height)
@@ -165,7 +170,10 @@ class RenderEngine(QOpenGLWidget):
         if self.stage_renderer:
             self.stage_renderer.render(mvp)
 
-        # TODO: Phase V5 - Render fixtures
+        # Render fixtures
+        if self.fixture_manager:
+            self.fixture_manager.render(mvp)
+
         # TODO: Phase V6 - Render beams
 
         # Render coordinate gizmo (always on top, in corner)
@@ -226,6 +234,29 @@ class RenderEngine(QOpenGLWidget):
             self.doneCurrent()
             print(f"RenderEngine: Grid size updated to {grid_size}m")
 
+    def update_fixtures(self, fixtures_data: list):
+        """
+        Update fixtures from TCP data.
+
+        Args:
+            fixtures_data: List of fixture dictionaries from TCP message
+        """
+        if self.fixture_manager:
+            self.makeCurrent()
+            self.fixture_manager.update_fixtures(fixtures_data)
+            self.doneCurrent()
+
+    def update_dmx(self, universe: int, dmx_data: bytes):
+        """
+        Update fixture DMX values from ArtNet data.
+
+        Args:
+            universe: Universe number
+            dmx_data: 512 bytes of DMX data
+        """
+        if self.fixture_manager:
+            self.fixture_manager.update_dmx(universe, dmx_data)
+
     def reset_camera(self):
         """Reset camera to default position."""
         self.camera.reset()
@@ -283,6 +314,10 @@ class RenderEngine(QOpenGLWidget):
         """Release GPU resources."""
         if self.render_timer:
             self.render_timer.stop()
+
+        if self.fixture_manager:
+            self.fixture_manager.release()
+            self.fixture_manager = None
 
         if self.stage_renderer:
             self.stage_renderer.release()

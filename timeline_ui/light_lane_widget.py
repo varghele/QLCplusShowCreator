@@ -22,6 +22,7 @@ class LightLaneWidget(QFrame):
     scroll_position_changed = pyqtSignal(int)  # Emits horizontal scroll position
     zoom_changed = pyqtSignal(float)  # Emits zoom factor
     playhead_moved = pyqtSignal(float)  # Emits playhead position
+    block_edited = pyqtSignal()  # Emitted when any block is edited (for auto-save)
 
     def __init__(self, lane: LightLane, fixture_groups: list = None, parent=None, config=None):
         """Create a new light lane widget.
@@ -353,6 +354,7 @@ class LightLaneWidget(QFrame):
         block_widget.remove_requested.connect(self.remove_light_block_widget)
         block_widget.position_changed.connect(self.on_block_position_changed)
         block_widget.duration_changed.connect(self.on_block_duration_changed)
+        block_widget.block_edited.connect(self.block_edited)  # Forward to lane signal
 
         self.light_block_widgets.append(block_widget)
         block_widget.show()

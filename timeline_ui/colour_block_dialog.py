@@ -248,11 +248,55 @@ class ColourBlockDialog(QDialog):
         layout.addWidget(buttons)
 
     def _apply_preset(self, r, g, b, w):
-        """Apply a preset color to the sliders."""
+        """Apply a preset color to the sliders and update wheel position."""
         self.sliders["red"][0].setValue(r)
         self.sliders["green"][0].setValue(g)
         self.sliders["blue"][0].setValue(b)
         self.sliders["white"][0].setValue(w)
+
+        # Also update wheel position to closest match (if wheel available)
+        if self.color_wheel_options and hasattr(self, 'wheel_combo'):
+            closest_index = self._find_closest_wheel_color(r, g, b)
+            if closest_index >= 0:
+                self.wheel_combo.blockSignals(True)
+                self.wheel_combo.setCurrentIndex(closest_index)
+                self.wheel_combo.blockSignals(False)
+
+    def _find_closest_wheel_color(self, r: int, g: int, b: int) -> int:
+        """Find the closest color wheel position to the given RGB values.
+
+        Args:
+            r, g, b: RGB values (0-255)
+
+        Returns:
+            Index of closest color in wheel_combo, or -1 if no wheel
+        """
+        if not self.color_wheel_options:
+            return -1
+
+        min_distance = float('inf')
+        closest_index = 0
+
+        for i, (name, dmx_value, hex_color) in enumerate(self.color_wheel_options):
+            # Parse hex color to RGB
+            if hex_color and hex_color.startswith('#'):
+                try:
+                    wheel_r = int(hex_color[1:3], 16)
+                    wheel_g = int(hex_color[3:5], 16)
+                    wheel_b = int(hex_color[5:7], 16)
+
+                    # Calculate Euclidean distance
+                    distance = ((r - wheel_r) ** 2 +
+                               (g - wheel_g) ** 2 +
+                               (b - wheel_b) ** 2) ** 0.5
+
+                    if distance < min_distance:
+                        min_distance = distance
+                        closest_index = i
+                except (ValueError, IndexError):
+                    continue
+
+        return closest_index
 
     def _on_wheel_changed(self, index):
         """Handle color wheel selection change."""
@@ -307,6 +351,14 @@ class ColourBlockDialog(QDialog):
             self.sliders["blue"][0].setValue(color.blue())
             # Reset white when picking a color
             self.sliders["white"][0].setValue(0)
+
+            # Also update wheel position to closest match (if wheel available)
+            if self.color_wheel_options and hasattr(self, 'wheel_combo'):
+                closest_index = self._find_closest_wheel_color(color.red(), color.green(), color.blue())
+                if closest_index >= 0:
+                    self.wheel_combo.blockSignals(True)
+                    self.wheel_combo.setCurrentIndex(closest_index)
+                    self.wheel_combo.blockSignals(False)
 
     def load_current_values(self):
         """Load current block values into the dialog."""

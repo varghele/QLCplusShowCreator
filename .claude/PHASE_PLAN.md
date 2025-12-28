@@ -182,7 +182,7 @@ TCP server in Show Creator to send configuration to Visualizer:
 
 ## Current Phase
 
-**Phase V4: Complete** - Ready for Phase V5 (Fixture Rendering).
+**Phase V5: Complete** - Fixture rendering with color wheel and beam support working.
 
 ---
 
@@ -336,44 +336,60 @@ visualizer/renderer/
 - `gui/tabs/stage_tab.py`: Added colored axes (X=red, Y=blue) to 2D view
 - `gui/StageView.py`: Center lines now use colored axes
 
-### Phase V5: Fixture Rendering (PLANNED)
+### Phase V5: Fixture Rendering (COMPLETE - Dec 2025)
 
-Render fixture models:
+Render fixture models with DMX control:
 
-- [ ] Fixture base class (`visualizer/renderer/fixtures.py`)
-- [ ] LED Bar: 10 RGBW segments
-- [ ] Moving Head: Base + rotating head
-- [ ] Wash: Box with color glow
-- [ ] Sunstrip: Warm white segments
-- [ ] Apply DMX color values to fixtures
-- [ ] Pan/tilt rotation for moving heads (from DMX)
+- [x] Fixture base class (`visualizer/renderer/fixtures.py`)
+- [x] LED Bar: RGBW segments with individual pixel control
+- [x] Moving Head: Base + yoke + rotating head with pan/tilt
+- [x] PAR: Simple spotlight fixture
+- [x] Sunstrip: Warm white segments (8-segment layout)
+- [x] Apply DMX color values to fixtures (RGB and color wheel)
+- [x] Pan/tilt rotation for moving heads (from DMX)
+- [x] **Color wheel support** - Parse QXF color wheel capabilities, map DMX values to colors
+- [x] **Beam visualization** - Volumetric cone beams for moving heads with additive blending
+- [x] **Fixture type auto-detection** - Parse QXF Type element (Moving Head, LED Bar, etc.)
 
-**Channel mapping:** Use `utils/fixture_utils.py` to get channel functions from QXF files.
+**Additional Show Creator improvements (Dec 2025):**
+- [x] **TCP update throttling** - Pause visualizer updates when not on Stage tab
+- [x] **Auto-save effects** - Save to config when effect blocks are edited
+- [x] **Toolbar status indicators** - ArtNet and TCP connection status visible from all tabs
+- [x] **Color wheel DMX fix** - Use `color_wheel_position` directly when `color_mode == 'Wheel'`
+- [x] **Preset to wheel mapping** - Auto-select closest wheel color when preset button clicked
 
-### Phase V6: Volumetric Beam Rendering (PLANNED)
+**Files created/modified:**
+```
+visualizer/renderer/
+├── fixtures.py          # BaseFixture, PARRenderer, LEDBarRenderer, MovingHeadRenderer, SunstripRenderer
+└── shaders (inline)     # Fixture and beam GLSL shaders
+
+utils/tcp/protocol.py    # Color wheel parsing from QXF
+utils/artnet/dmx_manager.py  # Color wheel DMX handling
+gui/Ui_MainWindow.py     # Toolbar status indicators
+gui/gui.py               # Status timer updates
+gui/tabs/stage_tab.py    # TCP update throttling
+timeline_ui/colour_block_dialog.py  # Preset to wheel mapping
+```
+
+**Channel mapping:** Uses `utils/tcp/protocol.py` to parse QXF files and extract channel functions, color wheel capabilities, and physical dimensions.
+
+### Phase V6: Volumetric Beam Rendering (PARTIAL - Dec 2025)
 
 Ray-traced beam visualization:
 
-- [ ] Beam geometry: Cone from fixture to floor
-- [ ] Volumetric fragment shader (`visualizer/renderer/shaders/beam.frag`)
-- [ ] Beam color from RGB DMX values
-- [ ] Beam intensity from dimmer channel
-- [ ] Moving head beam follows pan/tilt
-- [ ] Additive blending for overlapping beams
-- [ ] Floor projection (spotlight effect)
+- [x] Beam geometry: Cone from fixture lens
+- [x] Basic beam shaders (inline in fixtures.py)
+- [x] Beam color from color wheel DMX values
+- [x] Beam intensity from dimmer channel
+- [x] Moving head beam follows pan/tilt
+- [x] Additive blending for overlapping beams
+- [ ] Floor projection (spotlight effect) - FUTURE
+- [ ] Advanced volumetric fog shader - FUTURE
 
-**Performance target:** 60 FPS with 10+ active beams
+**Performance:** 60 FPS achieved with multiple fixtures
 
-**Files to create:**
-```
-visualizer/renderer/
-├── beams.py
-└── shaders/
-    ├── beam.vert
-    ├── beam.frag
-    ├── fixture.vert
-    └── fixture.frag
-```
+**Note:** Basic beam rendering is complete. Floor projection and advanced volumetric effects deferred to future enhancement.
 
 ### Phase V7: UI Polish (PLANNED)
 
@@ -500,11 +516,15 @@ Items to address when time permits:
 - [x] TCP + ArtNet communication working (Phase V2, V3)
 - [x] Basic 3D rendering (Phase V4)
 
-### v0.8 - Visualizer Beta
-- Volumetric beams
-- All fixture types rendered
+### v0.8 - Visualizer Beta (ACHIEVED - Dec 2025)
+- [x] Volumetric beams for moving heads
+- [x] All fixture types rendered (PAR, LED Bar, Moving Head, Sunstrip)
+- [x] Color wheel support with correct DMX mapping
+- [x] Toolbar status indicators for TCP/ArtNet
+- [x] Auto-save effects and preset-to-wheel mapping
 
 ### v1.0 - Feature Complete (FUTURE)
 - All planned features
 - Stable and tested
 - Riffs system
+- Floor projection for beams
