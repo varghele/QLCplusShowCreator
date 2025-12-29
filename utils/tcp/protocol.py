@@ -194,19 +194,20 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
         # Also support default namespace for some ElementTree versions
         ns_default = {'': 'http://www.qlcplus.org/FixtureDefinition'}
 
-        # Parse fixture type from <Type> element
+        # Parse fixture type from <Type> element (initial hint, may be refined by channel analysis)
         type_elem = _find_element(root, './/Type', ns)
-        if type_elem is not None:
-            type_text = type_elem.text or ''
-            if 'Moving Head' in type_text:
-                result['fixture_type'] = 'MH'
-            elif 'LED Bar' in type_text:
-                # Distinguish between RGBW bars and sunstrips
-                result['fixture_type'] = 'BAR'
-            elif 'Color Changer' in type_text or 'Wash' in type_text.lower():
-                result['fixture_type'] = 'WASH'
-            else:
-                result['fixture_type'] = 'PAR'
+        type_text = type_elem.text if type_elem is not None else ''
+        is_led_bar_type = 'LED Bar' in type_text or 'Sunstrip' in type_text.lower()
+
+        # Initial type based on XML (will be refined after channel analysis)
+        if 'Moving Head' in type_text:
+            result['fixture_type'] = 'MH'
+        elif 'Color Changer' in type_text or 'Wash' in type_text.lower():
+            result['fixture_type'] = 'WASH'
+        elif is_led_bar_type:
+            result['fixture_type'] = 'BAR'  # May be refined to WASH or SUNSTRIP later
+        else:
+            result['fixture_type'] = 'PAR'
 
         # Parse Physical section
         physical = _find_element(root, './/Physical', ns)
@@ -319,18 +320,25 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
 
             result['modes'][mode_name_attr] = mode_channels
 
-        # Check if this is a sunstrip (dimmer-only LED bar)
+        # Refine fixture type based on channel analysis for LED bar types
         if result['fixture_type'] == 'BAR':
-            # Check if it has RGB channels or just dimmers
+            # Check if it has RGB channels and/or dimmer
             has_rgb = False
+            has_dimmer = False
             for mode_data in result['modes'].values():
                 for func in mode_data.values():
                     if func in ('red', 'green', 'blue'):
                         has_rgb = True
-                        break
-                if has_rgb:
+                    if func == 'dimmer':
+                        has_dimmer = True
+                if has_rgb and has_dimmer:
                     break
-            if not has_rgb:
+
+            # RGB + dimmer = WASH fixture, not a simple LED bar
+            if has_rgb and has_dimmer:
+                result['fixture_type'] = 'WASH'
+            elif not has_rgb:
+                # No RGB = dimmer-only sunstrip
                 result['fixture_type'] = 'SUNSTRIP'
 
         _fixture_definition_cache[cache_key] = result
