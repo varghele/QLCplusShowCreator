@@ -1075,8 +1075,7 @@ class SunstripRenderer(FixtureRenderer):
             ]
         )
 
-        # Create individual lamp bulbs (cylinders)
-        # Lamps face +Z direction (up) as per reference.md
+        # Create individual lamp bulbs (cylinders) - lamps face +Z (up)
         lamp_radius = min(self.width / self.segment_cols * 0.35, 0.03)
         lamp_height = 0.02
 
@@ -1251,7 +1250,7 @@ class SunstripRenderer(FixtureRenderer):
 
         for i in range(self.segment_cols):
             x_offset = self.lamp_start_x + i * self.lamp_spacing
-            # Beam starts at top of lamp, extends upward along +Z (as per reference.md)
+            # Beam starts at top of lamp, extends upward along +Z
             base_verts, base_alphas = GeometryBuilder.create_beam_cylinder(
                 beam_radius, beam_length, segments=8
             )
@@ -1261,7 +1260,7 @@ class SunstripRenderer(FixtureRenderer):
             for j in range(0, len(base_verts), 3):
                 x, y, z = base_verts[j], base_verts[j+1], base_verts[j+2]
                 new_x = x + x_offset
-                new_y = y  # No rotation needed
+                new_y = y
                 new_z = z + self.depth / 2 + 0.02  # Start above lamp face (+Z)
                 all_beam_verts.extend([new_x, new_y, new_z])
 
