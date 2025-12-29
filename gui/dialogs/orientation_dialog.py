@@ -416,11 +416,16 @@ class OrientationPreviewWidget(QOpenGLWidget):
         self.front_depth = depth / 2 + segment_depth
 
     def _create_sunstrip_geometry(self):
-        """Create Sunstrip geometry with body and lamp bulbs (like visualizer)."""
+        """Create Sunstrip geometry with body and lamp bulbs (matching visualizer).
+
+        Uses Z-up coordinate system per reference.md:
+        - Bar extends along X axis
+        - Lamps face +Z direction (up)
+        """
         # Physical dimensions
-        width = 0.6
-        height = 0.06
-        depth = 0.08
+        width = 0.6   # X dimension (bar length)
+        height = 0.06  # Y dimension (toward audience)
+        depth = 0.08   # Z dimension (up)
 
         self.body_color = (0.12, 0.12, 0.15)
 
@@ -433,7 +438,7 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(vbo, '3f', 'in_position'), (nbo, '3f', 'in_normal')]
         )
 
-        # Create lamp bulbs (cylinders)
+        # Create lamp bulbs (cylinders) - lamps face +Z (up) per reference.md
         lamp_radius = min(width / self.segment_count * 0.35, 0.025)
         lamp_height = 0.02
 
@@ -444,13 +449,22 @@ class OrientationPreviewWidget(QOpenGLWidget):
 
         for i in range(self.segment_count):
             x_offset = start_x + i * spacing
-            # Lamps on top of body (Y+ direction)
-            verts, norms = GeometryBuilder.create_cylinder(
+            # Create cylinder (Y-oriented by default), then rotate to face +Z
+            verts_raw, norms_raw = GeometryBuilder.create_cylinder(
                 lamp_radius, lamp_height, segments=12,
-                center=(x_offset, height / 2 + lamp_height / 2, 0)
+                center=(0, 0, 0)
             )
-            lamp_verts.extend(verts.tolist())
-            lamp_norms.extend(norms.tolist())
+            # Rotate -90° around X to point +Z, then translate to lamp position
+            # Rotation: (x, y, z) -> (x, -z, y)
+            for j in range(0, len(verts_raw), 3):
+                x, y, z = verts_raw[j], verts_raw[j+1], verts_raw[j+2]
+                new_x = x + x_offset
+                new_y = -z
+                new_z = y + depth / 2 + lamp_height / 2
+                lamp_verts.extend([new_x, new_y, new_z])
+            for j in range(0, len(norms_raw), 3):
+                nx, ny, nz = norms_raw[j], norms_raw[j+1], norms_raw[j+2]
+                lamp_norms.extend([nx, -nz, ny])
 
         lamp_verts = np.array(lamp_verts, dtype='f4')
         lamp_norms = np.array(lamp_norms, dtype='f4')
@@ -461,20 +475,38 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(lamp_vbo, '3f', 'in_position'), (lamp_nbo, '3f', 'in_normal')]
         )
 
-        # Create front indicator
-        self._create_front_indicator(depth / 2 + 0.01, height * 0.3)
+        # Create coordinate axes on top of fixture (matching visualizer)
+        self._create_bar_coordinate_axes(depth / 2 + 0.01, width)
 
         self.front_depth = depth / 2
 
     def _create_par_geometry(self):
-        """Create PAR can geometry (cylinder with lens)."""
+        """Create PAR can geometry (cylinder with lens) matching visualizer.
+
+        Uses Z-up coordinate system per reference.md:
+        - Cylindrical body extends along Z axis
+        - Lens/beam faces +Z direction
+        """
         radius = 0.1
         depth = 0.2
 
         self.body_color = (0.1, 0.1, 0.12)
 
-        # Create body cylinder - cylinder is Y-oriented, we'll rotate in render
-        body_verts, body_norms = GeometryBuilder.create_cylinder(radius, depth, segments=24)
+        # Create body cylinder - rotate from Y-oriented to Z-oriented
+        body_verts_raw, body_norms_raw = GeometryBuilder.create_cylinder(radius, depth, segments=24)
+
+        # Rotate -90° around X: (x, y, z) -> (x, -z, y)
+        body_verts = []
+        body_norms = []
+        for i in range(0, len(body_verts_raw), 3):
+            x, y, z = body_verts_raw[i], body_verts_raw[i+1], body_verts_raw[i+2]
+            body_verts.extend([x, -z, y])
+        for i in range(0, len(body_norms_raw), 3):
+            nx, ny, nz = body_norms_raw[i], body_norms_raw[i+1], body_norms_raw[i+2]
+            body_norms.extend([nx, -nz, ny])
+
+        body_verts = np.array(body_verts, dtype='f4')
+        body_norms = np.array(body_norms, dtype='f4')
         vbo = self.ctx.buffer(body_verts.tobytes())
         nbo = self.ctx.buffer(body_norms.tobytes())
         self.fixture_vao = self.ctx.vertex_array(
@@ -482,11 +514,24 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(vbo, '3f', 'in_position'), (nbo, '3f', 'in_normal')]
         )
 
-        # Create lens (front face) - smaller cylinder
-        lens_verts, lens_norms = GeometryBuilder.create_cylinder(
+        # Create lens (front face at +Z)
+        lens_verts_raw, lens_norms_raw = GeometryBuilder.create_cylinder(
             radius * 0.85, 0.02, segments=24,
-            center=(0, depth / 2 + 0.01, 0)
+            center=(0, 0, 0)
         )
+
+        # Rotate -90° around X and translate to +Z face
+        lens_verts = []
+        lens_norms = []
+        for i in range(0, len(lens_verts_raw), 3):
+            x, y, z = lens_verts_raw[i], lens_verts_raw[i+1], lens_verts_raw[i+2]
+            lens_verts.extend([x, -z, y + depth / 2 + 0.01])
+        for i in range(0, len(lens_norms_raw), 3):
+            nx, ny, nz = lens_norms_raw[i], lens_norms_raw[i+1], lens_norms_raw[i+2]
+            lens_norms.extend([nx, -nz, ny])
+
+        lens_verts = np.array(lens_verts, dtype='f4')
+        lens_norms = np.array(lens_norms, dtype='f4')
         lens_vbo = self.ctx.buffer(lens_verts.tobytes())
         lens_nbo = self.ctx.buffer(lens_norms.tobytes())
         self.lens_vao = self.ctx.vertex_array(
@@ -494,15 +539,20 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(lens_vbo, '3f', 'in_position'), (lens_nbo, '3f', 'in_normal')]
         )
 
-        # Create front indicator
-        self._create_front_indicator(depth / 2 + 0.03, radius * 0.5)
+        # Create coordinate axes on top of fixture
+        self._create_par_coordinate_axes(depth / 2 + 0.01)
 
         self.front_depth = depth / 2
         self.par_radius = radius
         self.par_depth = depth
 
     def _create_wash_geometry(self):
-        """Create Wash fixture geometry (box with lens panel)."""
+        """Create Wash fixture geometry (box with lens panel) matching visualizer.
+
+        Uses Z-up coordinate system per reference.md:
+        - Body lies in X-Y plane
+        - Lens/beam faces +Z direction
+        """
         width = 0.25
         height = 0.15
         depth = 0.18
@@ -518,7 +568,7 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(vbo, '3f', 'in_position'), (nbo, '3f', 'in_normal')]
         )
 
-        # Create lens/front emitter
+        # Create lens/front emitter (on +Z face)
         lens_width = width * 0.85
         lens_height = height * 0.85
         lens_depth = 0.02
@@ -534,8 +584,8 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(lens_vbo, '3f', 'in_position'), (lens_nbo, '3f', 'in_normal')]
         )
 
-        # Create front indicator
-        self._create_front_indicator(depth / 2 + lens_depth + 0.01, height * 0.3)
+        # Create coordinate axes on top of fixture
+        self._create_wash_coordinate_axes(depth / 2 + lens_depth + 0.01)
 
         self.front_depth = depth / 2 + lens_depth
 
@@ -810,6 +860,328 @@ class OrientationPreviewWidget(QOpenGLWidget):
         self.indicator_vao = self.ctx.vertex_array(
             self.fixture_program,
             [(indicator_vbo, '3f', 'in_position'), (indicator_nbo, '3f', 'in_normal')]
+        )
+
+    def _create_bar_coordinate_axes(self, axis_origin_z: float, bar_width: float):
+        """Create coordinate axes for bar fixtures (Sunstrip, LED Bar).
+
+        Args:
+            axis_origin_z: Z position for axis origin (top of fixture)
+            bar_width: Width of bar to scale axes appropriately
+        """
+        axis_length = max(bar_width, 0.3) + 0.1
+        axis_thickness = 0.008
+        arrow_length = 0.06
+        arrow_width = 0.04
+
+        # X-AXIS (Red) - pointing along +X
+        x_shaft_verts, x_shaft_norms = GeometryBuilder.create_box(
+            axis_length, axis_thickness, axis_thickness,
+            center=(axis_length / 2, 0, axis_origin_z)
+        )
+        arrow_tip_x = axis_length + arrow_length
+        arrow_base_x = axis_length
+        x_arrow_verts = np.array([
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+        ], dtype='f4')
+        x_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [0, -1, 0] * 3 + [0, 1, 0] * 3, dtype='f4')
+        x_axis_verts = np.concatenate([x_shaft_verts, x_arrow_verts])
+        x_axis_norms = np.concatenate([x_shaft_norms, x_arrow_norms])
+
+        x_axis_vbo = self.ctx.buffer(x_axis_verts.tobytes())
+        x_axis_nbo = self.ctx.buffer(x_axis_norms.tobytes())
+        self.bar_x_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(x_axis_vbo, '3f', 'in_position'), (x_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Y-AXIS (Blue) - pointing along +Y
+        y_shaft_verts, y_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_length, axis_thickness,
+            center=(0, axis_length / 2, axis_origin_z)
+        )
+        arrow_tip_y = axis_length + arrow_length
+        arrow_base_y = axis_length
+        y_arrow_verts = np.array([
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+        ], dtype='f4')
+        y_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        y_axis_verts = np.concatenate([y_shaft_verts, y_arrow_verts])
+        y_axis_norms = np.concatenate([y_shaft_norms, y_arrow_norms])
+
+        y_axis_vbo = self.ctx.buffer(y_axis_verts.tobytes())
+        y_axis_nbo = self.ctx.buffer(y_axis_norms.tobytes())
+        self.bar_y_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(y_axis_vbo, '3f', 'in_position'), (y_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Z-AXIS (Green) - pointing along +Z (up)
+        z_shaft_verts, z_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_thickness, axis_length,
+            center=(0, 0, axis_origin_z + axis_length / 2)
+        )
+        arrow_tip_z = axis_origin_z + axis_length + arrow_length
+        arrow_base_z = axis_origin_z + axis_length
+        z_arrow_verts = np.array([
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+        ], dtype='f4')
+        z_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        z_axis_verts = np.concatenate([z_shaft_verts, z_arrow_verts])
+        z_axis_norms = np.concatenate([z_shaft_norms, z_arrow_norms])
+
+        z_axis_vbo = self.ctx.buffer(z_axis_verts.tobytes())
+        z_axis_nbo = self.ctx.buffer(z_axis_norms.tobytes())
+        self.bar_z_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(z_axis_vbo, '3f', 'in_position'), (z_axis_nbo, '3f', 'in_normal')]
+        )
+
+    def _create_par_coordinate_axes(self, axis_origin_z: float):
+        """Create coordinate axes for PAR fixture.
+
+        Args:
+            axis_origin_z: Z position for axis origin (top of fixture)
+        """
+        axis_length = 0.4
+        axis_thickness = 0.008
+        arrow_length = 0.06
+        arrow_width = 0.04
+
+        # X-AXIS (Red)
+        x_shaft_verts, x_shaft_norms = GeometryBuilder.create_box(
+            axis_length, axis_thickness, axis_thickness,
+            center=(axis_length / 2, 0, axis_origin_z)
+        )
+        arrow_tip_x = axis_length + arrow_length
+        arrow_base_x = axis_length
+        x_arrow_verts = np.array([
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+        ], dtype='f4')
+        x_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [0, -1, 0] * 3 + [0, 1, 0] * 3, dtype='f4')
+        x_axis_verts = np.concatenate([x_shaft_verts, x_arrow_verts])
+        x_axis_norms = np.concatenate([x_shaft_norms, x_arrow_norms])
+
+        x_axis_vbo = self.ctx.buffer(x_axis_verts.tobytes())
+        x_axis_nbo = self.ctx.buffer(x_axis_norms.tobytes())
+        self.par_x_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(x_axis_vbo, '3f', 'in_position'), (x_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Y-AXIS (Blue)
+        y_shaft_verts, y_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_length, axis_thickness,
+            center=(0, axis_length / 2, axis_origin_z)
+        )
+        arrow_tip_y = axis_length + arrow_length
+        arrow_base_y = axis_length
+        y_arrow_verts = np.array([
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+        ], dtype='f4')
+        y_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        y_axis_verts = np.concatenate([y_shaft_verts, y_arrow_verts])
+        y_axis_norms = np.concatenate([y_shaft_norms, y_arrow_norms])
+
+        y_axis_vbo = self.ctx.buffer(y_axis_verts.tobytes())
+        y_axis_nbo = self.ctx.buffer(y_axis_norms.tobytes())
+        self.par_y_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(y_axis_vbo, '3f', 'in_position'), (y_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Z-AXIS (Green)
+        z_shaft_verts, z_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_thickness, axis_length,
+            center=(0, 0, axis_origin_z + axis_length / 2)
+        )
+        arrow_tip_z = axis_origin_z + axis_length + arrow_length
+        arrow_base_z = axis_origin_z + axis_length
+        z_arrow_verts = np.array([
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+        ], dtype='f4')
+        z_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        z_axis_verts = np.concatenate([z_shaft_verts, z_arrow_verts])
+        z_axis_norms = np.concatenate([z_shaft_norms, z_arrow_norms])
+
+        z_axis_vbo = self.ctx.buffer(z_axis_verts.tobytes())
+        z_axis_nbo = self.ctx.buffer(z_axis_norms.tobytes())
+        self.par_z_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(z_axis_vbo, '3f', 'in_position'), (z_axis_nbo, '3f', 'in_normal')]
+        )
+
+    def _create_wash_coordinate_axes(self, axis_origin_z: float):
+        """Create coordinate axes for Wash fixture.
+
+        Args:
+            axis_origin_z: Z position for axis origin (top of fixture)
+        """
+        axis_length = 0.4
+        axis_thickness = 0.008
+        arrow_length = 0.06
+        arrow_width = 0.04
+
+        # X-AXIS (Red)
+        x_shaft_verts, x_shaft_norms = GeometryBuilder.create_box(
+            axis_length, axis_thickness, axis_thickness,
+            center=(axis_length / 2, 0, axis_origin_z)
+        )
+        arrow_tip_x = axis_length + arrow_length
+        arrow_base_x = axis_length
+        x_arrow_verts = np.array([
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+        ], dtype='f4')
+        x_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [0, -1, 0] * 3 + [0, 1, 0] * 3, dtype='f4')
+        x_axis_verts = np.concatenate([x_shaft_verts, x_arrow_verts])
+        x_axis_norms = np.concatenate([x_shaft_norms, x_arrow_norms])
+
+        x_axis_vbo = self.ctx.buffer(x_axis_verts.tobytes())
+        x_axis_nbo = self.ctx.buffer(x_axis_norms.tobytes())
+        self.wash_x_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(x_axis_vbo, '3f', 'in_position'), (x_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Y-AXIS (Blue)
+        y_shaft_verts, y_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_length, axis_thickness,
+            center=(0, axis_length / 2, axis_origin_z)
+        )
+        arrow_tip_y = axis_length + arrow_length
+        arrow_base_y = axis_length
+        y_arrow_verts = np.array([
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+        ], dtype='f4')
+        y_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        y_axis_verts = np.concatenate([y_shaft_verts, y_arrow_verts])
+        y_axis_norms = np.concatenate([y_shaft_norms, y_arrow_norms])
+
+        y_axis_vbo = self.ctx.buffer(y_axis_verts.tobytes())
+        y_axis_nbo = self.ctx.buffer(y_axis_norms.tobytes())
+        self.wash_y_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(y_axis_vbo, '3f', 'in_position'), (y_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Z-AXIS (Green)
+        z_shaft_verts, z_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_thickness, axis_length,
+            center=(0, 0, axis_origin_z + axis_length / 2)
+        )
+        arrow_tip_z = axis_origin_z + axis_length + arrow_length
+        arrow_base_z = axis_origin_z + axis_length
+        z_arrow_verts = np.array([
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+        ], dtype='f4')
+        z_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        z_axis_verts = np.concatenate([z_shaft_verts, z_arrow_verts])
+        z_axis_norms = np.concatenate([z_shaft_norms, z_arrow_norms])
+
+        z_axis_vbo = self.ctx.buffer(z_axis_verts.tobytes())
+        z_axis_nbo = self.ctx.buffer(z_axis_norms.tobytes())
+        self.wash_z_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(z_axis_vbo, '3f', 'in_position'), (z_axis_nbo, '3f', 'in_normal')]
         )
 
     def _create_floor_geometry(self):
@@ -1204,18 +1576,18 @@ class OrientationPreviewWidget(QOpenGLWidget):
                 self.lens_vao.render()
 
     def _render_par(self, mvp: glm.mat4, fixture_transform: glm.mat4):
-        """Render PAR can fixture."""
+        """Render PAR can fixture.
+
+        Geometry already has lens facing +Z per reference.md.
+        No additional rotation needed.
+        """
         if not self.fixture_program:
             return
 
         body_color = self.body_color
+        fixture_mvp = mvp * fixture_transform
 
-        # PAR cylinder is Y-oriented, rotate to Z-oriented
-        rotation = glm.rotate(glm.mat4(1.0), glm.radians(-90), glm.vec3(1, 0, 0))
-        model = fixture_transform * rotation
-        final_mvp = mvp * model
-
-        self._write_mvp_uniforms(final_mvp, model)
+        self._write_mvp_uniforms(fixture_mvp, fixture_transform)
         self.fixture_program['base_color'].value = body_color
         self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
         self.fixture_program['emissive_strength'].value = 0.0
@@ -1223,22 +1595,23 @@ class OrientationPreviewWidget(QOpenGLWidget):
         if self.fixture_vao:
             self.fixture_vao.render()
 
+        # Render coordinate axes (X=Red, Y=Blue, Z=Green)
+        if hasattr(self, 'par_x_axis_vao') and self.par_x_axis_vao:
+            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
+            self.par_x_axis_vao.render()
+        if hasattr(self, 'par_y_axis_vao') and self.par_y_axis_vao:
+            self.fixture_program['base_color'].value = (0.2, 0.4, 0.9)
+            self.par_y_axis_vao.render()
+        if hasattr(self, 'par_z_axis_vao') and self.par_z_axis_vao:
+            self.fixture_program['base_color'].value = (0.2, 0.8, 0.2)
+            self.par_z_axis_vao.render()
+
         # Render lens with emissive
         if self.lens_vao:
             self.fixture_program['base_color'].value = (0.15, 0.15, 0.15)
             self.fixture_program['emissive_color'].value = (1.0, 0.9, 0.8)
             self.fixture_program['emissive_strength'].value = 0.4
             self.lens_vao.render()
-
-        # Render front indicator
-        if self.indicator_vao:
-            # Need to transform indicator separately (not rotated like body)
-            ind_mvp = mvp * fixture_transform
-            self._write_mvp_uniforms(ind_mvp, fixture_transform)
-            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
-            self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
-            self.fixture_program['emissive_strength'].value = 0.0
-            self.indicator_vao.render()
 
     def _render_led_bar(self, mvp: glm.mat4, fixture_transform: glm.mat4):
         """Render LED bar fixture with segments."""
@@ -1272,7 +1645,10 @@ class OrientationPreviewWidget(QOpenGLWidget):
             self.indicator_vao.render()
 
     def _render_sunstrip(self, mvp: glm.mat4, fixture_transform: glm.mat4):
-        """Render sunstrip fixture with lamp bulbs."""
+        """Render sunstrip fixture with lamp bulbs.
+
+        Lamps face +Z (up) per reference.md.
+        """
         if not self.fixture_program:
             return
 
@@ -1287,6 +1663,17 @@ class OrientationPreviewWidget(QOpenGLWidget):
         # Render body
         if self.fixture_vao:
             self.fixture_vao.render()
+
+        # Render coordinate axes (X=Red, Y=Blue, Z=Green)
+        if hasattr(self, 'bar_x_axis_vao') and self.bar_x_axis_vao:
+            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
+            self.bar_x_axis_vao.render()
+        if hasattr(self, 'bar_y_axis_vao') and self.bar_y_axis_vao:
+            self.fixture_program['base_color'].value = (0.2, 0.4, 0.9)
+            self.bar_y_axis_vao.render()
+        if hasattr(self, 'bar_z_axis_vao') and self.bar_z_axis_vao:
+            self.fixture_program['base_color'].value = (0.2, 0.8, 0.2)
+            self.bar_z_axis_vao.render()
 
         # Render lamp bulbs with warm white emissive
         if self.lamp_vao:
@@ -1295,15 +1682,11 @@ class OrientationPreviewWidget(QOpenGLWidget):
             self.fixture_program['emissive_strength'].value = 0.8
             self.lamp_vao.render()
 
-        # Render front indicator
-        if self.indicator_vao:
-            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
-            self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
-            self.fixture_program['emissive_strength'].value = 0.0
-            self.indicator_vao.render()
-
     def _render_wash(self, mvp: glm.mat4, fixture_transform: glm.mat4):
-        """Render wash fixture."""
+        """Render wash fixture.
+
+        Lens faces +Z (up) per reference.md.
+        """
         if not self.fixture_program:
             return
 
@@ -1319,19 +1702,23 @@ class OrientationPreviewWidget(QOpenGLWidget):
         if self.fixture_vao:
             self.fixture_vao.render()
 
+        # Render coordinate axes (X=Red, Y=Blue, Z=Green)
+        if hasattr(self, 'wash_x_axis_vao') and self.wash_x_axis_vao:
+            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
+            self.wash_x_axis_vao.render()
+        if hasattr(self, 'wash_y_axis_vao') and self.wash_y_axis_vao:
+            self.fixture_program['base_color'].value = (0.2, 0.4, 0.9)
+            self.wash_y_axis_vao.render()
+        if hasattr(self, 'wash_z_axis_vao') and self.wash_z_axis_vao:
+            self.fixture_program['base_color'].value = (0.2, 0.8, 0.2)
+            self.wash_z_axis_vao.render()
+
         # Render lens with emissive color
         if self.lens_vao:
             self.fixture_program['base_color'].value = (0.15, 0.15, 0.15)
             self.fixture_program['emissive_color'].value = (0.9, 0.95, 1.0)
             self.fixture_program['emissive_strength'].value = 0.5
             self.lens_vao.render()
-
-        # Render front indicator
-        if self.indicator_vao:
-            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
-            self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
-            self.fixture_program['emissive_strength'].value = 0.0
-            self.indicator_vao.render()
 
     def _render_gimbal_rings(self, mvp: glm.mat4, fixture_transform: glm.mat4):
         """Render the gimbal rings around the fixture with handles."""
