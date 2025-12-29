@@ -547,7 +547,7 @@ class OrientationPreviewWidget(QOpenGLWidget):
         self.par_depth = depth
 
     def _create_wash_geometry(self):
-        """Create Wash fixture geometry (box with lens panel) matching visualizer.
+        """Create Wash fixture geometry (box with lens panel) matching visualizer exactly.
 
         Uses Z-up coordinate system per reference.md:
         - Body lies in X-Y plane
@@ -559,7 +559,7 @@ class OrientationPreviewWidget(QOpenGLWidget):
 
         self.body_color = (0.12, 0.12, 0.15)
 
-        # Create main body
+        # Create main body (same as visualizer)
         body_verts, body_norms = GeometryBuilder.create_box(width, height, depth)
         vbo = self.ctx.buffer(body_verts.tobytes())
         nbo = self.ctx.buffer(body_norms.tobytes())
@@ -568,7 +568,7 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(vbo, '3f', 'in_position'), (nbo, '3f', 'in_normal')]
         )
 
-        # Create lens/front emitter (on +Z face)
+        # Create lens/front emitter (on +Z face, same as visualizer)
         lens_width = width * 0.85
         lens_height = height * 0.85
         lens_depth = 0.02
@@ -584,8 +584,8 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(lens_vbo, '3f', 'in_position'), (lens_nbo, '3f', 'in_normal')]
         )
 
-        # Create coordinate axes on top of fixture
-        self._create_wash_coordinate_axes(depth / 2 + lens_depth + 0.01)
+        # Create coordinate axes (same position as visualizer: depth/2 + 0.01)
+        self._create_wash_coordinate_axes(depth / 2 + 0.01)
 
         self.front_depth = depth / 2 + lens_depth
 

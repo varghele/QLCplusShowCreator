@@ -229,11 +229,8 @@ def determine_fixture_type(fixture_def):
         if layout is not None:
             layout_width = int(layout.get('Width', 1))
 
-    # Check for sunstrip/LED bar in type tag
-    if 'sunstrip' in xml_type or ('led bar' in xml_type and 'pixel' in xml_type):
-        return "SUNSTRIP"
-    if 'led bar' in xml_type:
-        return "BAR"
+    # Detect if this is an LED bar type from XML (may be overridden by channel analysis)
+    is_led_bar_type = 'led bar' in xml_type or 'sunstrip' in xml_type
 
     # Initialize sets for channel types
     movement_channels = set()
@@ -264,14 +261,18 @@ def determine_fixture_type(fixture_def):
                   for color in ['Red', 'Green', 'Blue'])
     has_dimmer = len(dimmer_channels) > 0
 
-    # Return fixture type
+    # Return fixture type based on channel analysis first
     if has_movement:
         return "MH"  # Moving Head
     elif has_rgbw or has_rgb:
+        # RGB/RGBW fixtures: WASH if has dimmer, BAR if not
         if has_dimmer:
             return "WASH"
         else:
             return "BAR"
+    elif is_led_bar_type:
+        # LED bar type without RGB - likely a sunstrip (dimmer-only)
+        return "SUNSTRIP"
     elif layout_width > 1:
         # Multi-segment fixture without RGB - likely a sunstrip or similar
         return "SUNSTRIP"
