@@ -245,6 +245,121 @@ class GeometryBuilder:
 
         return np.array(vertices, dtype='f4'), np.array(alphas, dtype='f4')
 
+    @staticmethod
+    def create_beam_cylinder(radius: float, length: float, segments: int = 12) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Create a cylindrical beam mesh for volumetric lighting.
+
+        The cylinder starts at origin and extends along +Z axis.
+        Alpha fades from 1.0 at origin to 0.0 at the end.
+
+        Args:
+            radius: Radius of the cylinder
+            length: Length of the cylinder
+            segments: Number of segments around circumference
+
+        Returns:
+            Tuple of (vertices, alphas) as numpy arrays
+        """
+        vertices = []
+        alphas = []
+
+        # Create cylinder sides with fading alpha
+        for i in range(segments):
+            angle1 = 2 * math.pi * i / segments
+            angle2 = 2 * math.pi * (i + 1) / segments
+
+            x1, y1 = math.cos(angle1) * radius, math.sin(angle1) * radius
+            x2, y2 = math.cos(angle2) * radius, math.sin(angle2) * radius
+
+            # Two triangles per segment (quad)
+            # Triangle 1: near edge to far edge
+            vertices.extend([x1, y1, 0])  # Near 1
+            alphas.append(1.0)
+            vertices.extend([x2, y2, 0])  # Near 2
+            alphas.append(1.0)
+            vertices.extend([x2, y2, length])  # Far 2
+            alphas.append(0.0)
+
+            # Triangle 2
+            vertices.extend([x1, y1, 0])  # Near 1
+            alphas.append(1.0)
+            vertices.extend([x2, y2, length])  # Far 2
+            alphas.append(0.0)
+            vertices.extend([x1, y1, length])  # Far 1
+            alphas.append(0.0)
+
+        # End cap (bright)
+        for i in range(segments):
+            angle1 = 2 * math.pi * i / segments
+            angle2 = 2 * math.pi * (i + 1) / segments
+
+            x1, y1 = math.cos(angle1) * radius, math.sin(angle1) * radius
+            x2, y2 = math.cos(angle2) * radius, math.sin(angle2) * radius
+
+            vertices.extend([0, 0, 0])  # Center
+            alphas.append(1.0)
+            vertices.extend([x1, y1, 0])
+            alphas.append(1.0)
+            vertices.extend([x2, y2, 0])
+            alphas.append(1.0)
+
+        return np.array(vertices, dtype='f4'), np.array(alphas, dtype='f4')
+
+    @staticmethod
+    def create_beam_box(width: float, height: float, length: float) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Create a rectangular beam mesh for volumetric lighting.
+
+        The box starts at origin and extends along +Z axis.
+        Alpha fades from 1.0 at origin to 0.0 at the end.
+
+        Args:
+            width: Width of the beam (X axis)
+            height: Height of the beam (Y axis)
+            length: Length of the beam (Z axis)
+
+        Returns:
+            Tuple of (vertices, alphas) as numpy arrays
+        """
+        hw, hh = width / 2, height / 2
+        vertices = []
+        alphas = []
+
+        # Four sides of the box with fading alpha
+
+        # Top face (+Y)
+        vertices.extend([-hw, hh, 0, hw, hh, 0, hw, hh, length])  # Tri 1
+        alphas.extend([1.0, 1.0, 0.0])
+        vertices.extend([-hw, hh, 0, hw, hh, length, -hw, hh, length])  # Tri 2
+        alphas.extend([1.0, 0.0, 0.0])
+
+        # Bottom face (-Y)
+        vertices.extend([hw, -hh, 0, -hw, -hh, 0, -hw, -hh, length])  # Tri 1
+        alphas.extend([1.0, 1.0, 0.0])
+        vertices.extend([hw, -hh, 0, -hw, -hh, length, hw, -hh, length])  # Tri 2
+        alphas.extend([1.0, 0.0, 0.0])
+
+        # Right face (+X)
+        vertices.extend([hw, -hh, 0, hw, hh, 0, hw, hh, length])  # Tri 1
+        alphas.extend([1.0, 1.0, 0.0])
+        vertices.extend([hw, -hh, 0, hw, hh, length, hw, -hh, length])  # Tri 2
+        alphas.extend([1.0, 0.0, 0.0])
+
+        # Left face (-X)
+        vertices.extend([-hw, hh, 0, -hw, -hh, 0, -hw, -hh, length])  # Tri 1
+        alphas.extend([1.0, 1.0, 0.0])
+        vertices.extend([-hw, hh, 0, -hw, -hh, length, -hw, hh, length])  # Tri 2
+        alphas.extend([1.0, 0.0, 0.0])
+
+        # Front face (near end, z=0) - bright
+        vertices.extend([-hw, -hh, 0, hw, -hh, 0, hw, hh, 0])  # Tri 1
+        alphas.extend([1.0, 1.0, 1.0])
+        vertices.extend([-hw, -hh, 0, hw, hh, 0, -hw, hh, 0])  # Tri 2
+        alphas.extend([1.0, 1.0, 1.0])
+
+        return np.array(vertices, dtype='f4'), np.array(alphas, dtype='f4')
+
 
 # Shared shader for fixture body rendering
 FIXTURE_VERTEX_SHADER = """
@@ -383,6 +498,13 @@ class FixtureRenderer(ABC):
         self.vbo: Optional[moderngl.Buffer] = None
         self.nbo: Optional[moderngl.Buffer] = None
 
+        # Beam resources (optional, created by _create_glow_beam)
+        self.beam_program: Optional[moderngl.Program] = None
+        self.beam_vao: Optional[moderngl.VertexArray] = None
+        self.beam_vbo: Optional[moderngl.Buffer] = None
+        self.beam_abo: Optional[moderngl.Buffer] = None
+        self.beam_vertex_count: int = 0
+
     def get_model_matrix(self) -> glm.mat4:
         """Get the model transformation matrix for this fixture."""
         # Start with identity
@@ -471,6 +593,87 @@ class FixtureRenderer(ABC):
         # Default to 0 (off) when no DMX received, not 255
         return self.dmx_values.get('dimmer', 0) / 255.0
 
+    def _create_glow_beam(self, beam_length: float = 0.8, beam_angle: float = 40.0):
+        """
+        Create a short glow beam for non-moving-head fixtures.
+
+        Args:
+            beam_length: Length of the beam in meters (default 0.8m - short glow)
+            beam_angle: Beam spread angle in degrees (default 40 - wide spread)
+        """
+        # Create beam shader program
+        self.beam_program = self.ctx.program(
+            vertex_shader=BEAM_VERTEX_SHADER,
+            fragment_shader=BEAM_FRAGMENT_SHADER
+        )
+
+        # Calculate beam radius at end based on angle
+        beam_radius = beam_length * math.tan(math.radians(beam_angle / 2))
+
+        beam_verts, beam_alphas = GeometryBuilder.create_beam_cone(
+            beam_radius, beam_length, segments=16
+        )
+
+        self.beam_vbo = self.ctx.buffer(beam_verts.tobytes())
+        self.beam_abo = self.ctx.buffer(beam_alphas.tobytes())
+
+        self.beam_vao = self.ctx.vertex_array(
+            self.beam_program,
+            [
+                (self.beam_vbo, '3f', 'in_position'),
+                (self.beam_abo, '1f', 'in_alpha'),
+            ]
+        )
+        self.beam_vertex_count = len(beam_verts) // 3
+
+    def _render_glow_beam(self, mvp: glm.mat4, model: glm.mat4,
+                          color: Tuple[float, float, float], dimmer: float,
+                          beam_offset_z: float = 0.0):
+        """
+        Render a short glow beam.
+
+        Args:
+            mvp: View-projection matrix
+            model: Model matrix for the fixture
+            color: RGB color tuple (0-1 range)
+            dimmer: Dimmer value (0-1 range)
+            beam_offset_z: Offset along Z axis to position beam at lens
+        """
+        if not self.beam_vao or dimmer < 0.01:
+            return
+
+        try:
+            # Offset beam to start at lens position
+            beam_offset = glm.translate(glm.mat4(1.0), glm.vec3(0, 0, beam_offset_z))
+            beam_model = model * beam_offset
+
+            beam_mvp = mvp * beam_model
+            mvp_bytes = np.array([x for col in beam_mvp.to_list() for x in col], dtype='f4').tobytes()
+
+            # Enable additive blending
+            self.ctx.enable(moderngl.BLEND)
+            self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
+            self.ctx.depth_mask = False
+
+            self.beam_program['mvp'].write(mvp_bytes)
+            self.beam_program['beam_color'].value = color
+            # Lower intensity than MH beams for subtlety
+            self.beam_program['beam_intensity'].value = dimmer * 0.6
+
+            self.beam_vao.render(moderngl.TRIANGLES)
+
+            # Restore state
+            self.ctx.depth_mask = True
+            self.ctx.disable(moderngl.BLEND)
+
+        except Exception as e:
+            # Restore state on error
+            try:
+                self.ctx.depth_mask = True
+                self.ctx.disable(moderngl.BLEND)
+            except:
+                pass
+
     @abstractmethod
     def render(self, mvp: glm.mat4):
         """Render the fixture."""
@@ -486,6 +689,15 @@ class FixtureRenderer(ABC):
             self.nbo.release()
         if self.program:
             self.program.release()
+        # Release beam resources
+        if self.beam_vao:
+            self.beam_vao.release()
+        if self.beam_vbo:
+            self.beam_vbo.release()
+        if self.beam_abo:
+            self.beam_abo.release()
+        if self.beam_program:
+            self.beam_program.release()
 
 
 class LEDBarRenderer(FixtureRenderer):
@@ -497,6 +709,7 @@ class LEDBarRenderer(FixtureRenderer):
     def __init__(self, ctx: moderngl.Context, fixture_data: Dict[str, Any]):
         super().__init__(ctx, fixture_data)
         self._create_geometry()
+        self._create_segment_beams()
 
     def _create_geometry(self):
         """Create bar body and segment geometry."""
@@ -557,8 +770,176 @@ class LEDBarRenderer(FixtureRenderer):
         self.segment_vertex_count = len(segment_verts) // 3
         self.vertices_per_segment = self.segment_vertex_count // self.segment_cols
 
+        # Store segment dimensions for beam creation
+        self.segment_width = segment_width
+        self.segment_height = segment_height
+        self.segment_start_x = start_x
+
+        # Create coordinate axes for debugging orientation
+        # For bar fixtures, make axes longer than bar width for visibility
+        self._create_coordinate_axes(axis_origin_z=self.depth / 2 + 0.01)
+
+    def _create_coordinate_axes(self, axis_origin_z: float):
+        """Create coordinate axes for debugging fixture orientation.
+
+        Args:
+            axis_origin_z: Z position for axis origin (top of fixture)
+        """
+        # Axis length should exceed bar width for visibility
+        axis_length = max(self.width, self.height) + 0.1  # Exceed bar dimensions
+        axis_thickness = 0.008
+        arrow_length = 0.06
+        arrow_width = 0.04
+
+        # X-AXIS (Red) - pointing along +X
+        x_shaft_verts, x_shaft_norms = GeometryBuilder.create_box(
+            axis_length, axis_thickness, axis_thickness,
+            center=(axis_length / 2, 0, axis_origin_z)
+        )
+        arrow_tip_x = axis_length + arrow_length
+        arrow_base_x = axis_length
+        x_arrow_verts = np.array([
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+        ], dtype='f4')
+        x_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [0, -1, 0] * 3 + [0, 1, 0] * 3, dtype='f4')
+        x_axis_verts = np.concatenate([x_shaft_verts, x_arrow_verts])
+        x_axis_norms = np.concatenate([x_shaft_norms, x_arrow_norms])
+
+        self.x_axis_vbo = self.ctx.buffer(x_axis_verts.tobytes())
+        self.x_axis_nbo = self.ctx.buffer(x_axis_norms.tobytes())
+        self.x_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.x_axis_vbo, '3f', 'in_position'), (self.x_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Y-AXIS (Blue) - pointing along +Y
+        y_shaft_verts, y_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_length, axis_thickness,
+            center=(0, axis_length / 2, axis_origin_z)
+        )
+        arrow_tip_y = axis_length + arrow_length
+        arrow_base_y = axis_length
+        y_arrow_verts = np.array([
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+        ], dtype='f4')
+        y_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        y_axis_verts = np.concatenate([y_shaft_verts, y_arrow_verts])
+        y_axis_norms = np.concatenate([y_shaft_norms, y_arrow_norms])
+
+        self.y_axis_vbo = self.ctx.buffer(y_axis_verts.tobytes())
+        self.y_axis_nbo = self.ctx.buffer(y_axis_norms.tobytes())
+        self.y_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.y_axis_vbo, '3f', 'in_position'), (self.y_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Z-AXIS (Green) - pointing along +Z (up)
+        z_shaft_verts, z_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_thickness, axis_length,
+            center=(0, 0, axis_origin_z + axis_length / 2)
+        )
+        arrow_tip_z = axis_origin_z + axis_length + arrow_length
+        arrow_base_z = axis_origin_z + axis_length
+        z_arrow_verts = np.array([
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+        ], dtype='f4')
+        z_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        z_axis_verts = np.concatenate([z_shaft_verts, z_arrow_verts])
+        z_axis_norms = np.concatenate([z_shaft_norms, z_arrow_norms])
+
+        self.z_axis_vbo = self.ctx.buffer(z_axis_verts.tobytes())
+        self.z_axis_nbo = self.ctx.buffer(z_axis_norms.tobytes())
+        self.z_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.z_axis_vbo, '3f', 'in_position'), (self.z_axis_nbo, '3f', 'in_normal')]
+        )
+
+    def _create_segment_beams(self):
+        """Create per-segment rectangular beams."""
+        self.beam_program = self.ctx.program(
+            vertex_shader=BEAM_VERTEX_SHADER,
+            fragment_shader=BEAM_FRAGMENT_SHADER
+        )
+
+        beam_length = 0.3  # Max 0.3m as specified
+        beam_width = self.segment_width * 0.7
+        beam_height = self.segment_height * 0.7
+
+        # Create beam geometry for all segments
+        all_beam_verts = []
+        all_beam_alphas = []
+
+        for i in range(self.segment_cols):
+            x_offset = self.segment_start_x + i * self.segment_width
+            # Beams extend from front of segment (+Z direction)
+            base_verts, base_alphas = GeometryBuilder.create_beam_box(
+                beam_width, beam_height, beam_length
+            )
+
+            # Translate beam to segment position
+            for j in range(0, len(base_verts), 3):
+                x, y, z = base_verts[j], base_verts[j+1], base_verts[j+2]
+                new_x = x + x_offset
+                new_y = y  # Centered vertically
+                new_z = z + self.depth / 2 + 0.02  # Start just in front of segment
+                all_beam_verts.extend([new_x, new_y, new_z])
+
+            all_beam_alphas.extend(base_alphas)
+
+        self.segment_beam_vbo = self.ctx.buffer(np.array(all_beam_verts, dtype='f4').tobytes())
+        self.segment_beam_abo = self.ctx.buffer(np.array(all_beam_alphas, dtype='f4').tobytes())
+
+        self.segment_beam_vao = self.ctx.vertex_array(
+            self.beam_program,
+            [
+                (self.segment_beam_vbo, '3f', 'in_position'),
+                (self.segment_beam_abo, '1f', 'in_alpha'),
+            ]
+        )
+
+        # Calculate vertices per beam
+        single_beam_verts, _ = GeometryBuilder.create_beam_box(beam_width, beam_height, beam_length)
+        self.vertices_per_beam = len(single_beam_verts) // 3
+
     def render(self, mvp: glm.mat4):
         """Render the LED bar."""
+        # Reset OpenGL state to prevent transparency issues from previous beam rendering
+        self.ctx.disable(moderngl.BLEND)
+        self.ctx.depth_mask = True
+
         model = self.get_model_matrix()
         final_mvp = mvp * model
 
@@ -574,6 +955,17 @@ class LEDBarRenderer(FixtureRenderer):
         self.program['emissive_color'].value = (0.0, 0.0, 0.0)
         self.program['emissive_strength'].value = 0.0
         self.vao.render(moderngl.TRIANGLES)
+
+        # Render coordinate axes
+        if hasattr(self, 'x_axis_vao') and self.x_axis_vao:
+            self.program['base_color'].value = (0.9, 0.2, 0.2)  # Red
+            self.x_axis_vao.render(moderngl.TRIANGLES)
+        if hasattr(self, 'y_axis_vao') and self.y_axis_vao:
+            self.program['base_color'].value = (0.2, 0.4, 0.9)  # Blue
+            self.y_axis_vao.render(moderngl.TRIANGLES)
+        if hasattr(self, 'z_axis_vao') and self.z_axis_vao:
+            self.program['base_color'].value = (0.2, 0.8, 0.2)  # Green
+            self.z_axis_vao.render(moderngl.TRIANGLES)
 
         # Render segments with their colors
         color = self.get_color()
@@ -596,6 +988,35 @@ class LEDBarRenderer(FixtureRenderer):
 
         self.segment_vao.render(moderngl.TRIANGLES)
 
+        # Render beams for all segments (single color for LED bar)
+        if dimmer > 0.01:
+            self._render_segment_beams(mvp, model, color, dimmer)
+
+    def _render_segment_beams(self, mvp: glm.mat4, model: glm.mat4,
+                               color: Tuple[float, float, float], dimmer: float):
+        """Render beams for all segments with the same color/intensity."""
+        if not hasattr(self, 'segment_beam_vao') or not self.segment_beam_vao:
+            return
+
+        # Enable additive blending
+        self.ctx.enable(moderngl.BLEND)
+        self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
+        self.ctx.depth_mask = False
+
+        final_mvp = mvp * model
+        mvp_bytes = np.array([x for col in final_mvp.to_list() for x in col], dtype='f4').tobytes()
+
+        self.beam_program['mvp'].write(mvp_bytes)
+        self.beam_program['beam_color'].value = color
+        self.beam_program['beam_intensity'].value = dimmer * 0.6
+
+        # Render all segment beams at once (same color for all)
+        self.segment_beam_vao.render(moderngl.TRIANGLES)
+
+        # Restore state
+        self.ctx.depth_mask = True
+        self.ctx.disable(moderngl.BLEND)
+
     def release(self):
         """Release GPU resources."""
         super().release()
@@ -605,6 +1026,20 @@ class LEDBarRenderer(FixtureRenderer):
             self.segment_vbo.release()
         if hasattr(self, 'segment_nbo') and self.segment_nbo:
             self.segment_nbo.release()
+        # Segment beam resources
+        if hasattr(self, 'segment_beam_vao') and self.segment_beam_vao:
+            self.segment_beam_vao.release()
+        if hasattr(self, 'segment_beam_vbo') and self.segment_beam_vbo:
+            self.segment_beam_vbo.release()
+        if hasattr(self, 'segment_beam_abo') and self.segment_beam_abo:
+            self.segment_beam_abo.release()
+        # Coordinate axes resources
+        for attr in ['x_axis_vao', 'x_axis_vbo', 'x_axis_nbo',
+                     'y_axis_vao', 'y_axis_vbo', 'y_axis_nbo',
+                     'z_axis_vao', 'z_axis_vbo', 'z_axis_nbo']:
+            obj = getattr(self, attr, None)
+            if obj:
+                obj.release()
 
 
 class SunstripRenderer(FixtureRenderer):
@@ -615,6 +1050,7 @@ class SunstripRenderer(FixtureRenderer):
     def __init__(self, ctx: moderngl.Context, fixture_data: Dict[str, Any]):
         super().__init__(ctx, fixture_data)
         self._create_geometry()
+        self._create_segment_beams()
 
     def _create_geometry(self):
         """Create sunstrip body and lamp geometry."""
@@ -640,6 +1076,7 @@ class SunstripRenderer(FixtureRenderer):
         )
 
         # Create individual lamp bulbs (cylinders)
+        # Lamps face +Z direction (up) as per reference.md
         lamp_radius = min(self.width / self.segment_cols * 0.35, 0.03)
         lamp_height = 0.02
 
@@ -651,12 +1088,22 @@ class SunstripRenderer(FixtureRenderer):
 
         for i in range(self.segment_cols):
             x_offset = start_x + i * spacing
-            verts, norms = GeometryBuilder.create_cylinder(
+            # Create cylinder (Y-oriented by default), then rotate to face +Z
+            verts_raw, norms_raw = GeometryBuilder.create_cylinder(
                 lamp_radius, lamp_height, segments=12,
-                center=(x_offset, self.height / 2 + lamp_height / 2, 0)
+                center=(0, 0, 0)
             )
-            lamp_verts.extend(verts)
-            lamp_norms.extend(norms)
+            # Rotate -90° around X to point +Z, then translate to lamp position
+            # Rotation: (x, y, z) -> (x, -z, y)
+            for j in range(0, len(verts_raw), 3):
+                x, y, z = verts_raw[j], verts_raw[j+1], verts_raw[j+2]
+                new_x = x + x_offset
+                new_y = -z
+                new_z = y + self.depth / 2 + lamp_height / 2
+                lamp_verts.extend([new_x, new_y, new_z])
+            for j in range(0, len(norms_raw), 3):
+                nx, ny, nz = norms_raw[j], norms_raw[j+1], norms_raw[j+2]
+                lamp_norms.extend([nx, -nz, ny])
 
         self.lamp_vbo = self.ctx.buffer(np.array(lamp_verts, dtype='f4').tobytes())
         self.lamp_nbo = self.ctx.buffer(np.array(lamp_norms, dtype='f4').tobytes())
@@ -671,8 +1118,176 @@ class SunstripRenderer(FixtureRenderer):
         self.lamp_vertex_count = len(lamp_verts) // 3
         self.vertices_per_lamp = self.lamp_vertex_count // self.segment_cols
 
+        # Store lamp positions and radius for beam rendering
+        self.lamp_radius = lamp_radius
+        self.lamp_spacing = spacing
+        self.lamp_start_x = start_x
+
+        # Create coordinate axes for debugging orientation
+        # For bar fixtures, make axes longer than bar width for visibility
+        self._create_coordinate_axes(axis_origin_z=self.depth / 2 + 0.01)
+
+    def _create_coordinate_axes(self, axis_origin_z: float):
+        """Create coordinate axes for debugging fixture orientation.
+
+        Args:
+            axis_origin_z: Z position for axis origin (top of fixture)
+        """
+        # Axis length should exceed bar width for visibility
+        axis_length = max(self.width, self.height) + 0.1  # Exceed bar dimensions
+        axis_thickness = 0.008
+        arrow_length = 0.06
+        arrow_width = 0.04
+
+        # X-AXIS (Red) - pointing along +X
+        x_shaft_verts, x_shaft_norms = GeometryBuilder.create_box(
+            axis_length, axis_thickness, axis_thickness,
+            center=(axis_length / 2, 0, axis_origin_z)
+        )
+        arrow_tip_x = axis_length + arrow_length
+        arrow_base_x = axis_length
+        x_arrow_verts = np.array([
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+        ], dtype='f4')
+        x_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [0, -1, 0] * 3 + [0, 1, 0] * 3, dtype='f4')
+        x_axis_verts = np.concatenate([x_shaft_verts, x_arrow_verts])
+        x_axis_norms = np.concatenate([x_shaft_norms, x_arrow_norms])
+
+        self.x_axis_vbo = self.ctx.buffer(x_axis_verts.tobytes())
+        self.x_axis_nbo = self.ctx.buffer(x_axis_norms.tobytes())
+        self.x_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.x_axis_vbo, '3f', 'in_position'), (self.x_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Y-AXIS (Blue) - pointing along +Y
+        y_shaft_verts, y_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_length, axis_thickness,
+            center=(0, axis_length / 2, axis_origin_z)
+        )
+        arrow_tip_y = axis_length + arrow_length
+        arrow_base_y = axis_length
+        y_arrow_verts = np.array([
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+        ], dtype='f4')
+        y_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        y_axis_verts = np.concatenate([y_shaft_verts, y_arrow_verts])
+        y_axis_norms = np.concatenate([y_shaft_norms, y_arrow_norms])
+
+        self.y_axis_vbo = self.ctx.buffer(y_axis_verts.tobytes())
+        self.y_axis_nbo = self.ctx.buffer(y_axis_norms.tobytes())
+        self.y_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.y_axis_vbo, '3f', 'in_position'), (self.y_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Z-AXIS (Green) - pointing along +Z (up)
+        z_shaft_verts, z_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_thickness, axis_length,
+            center=(0, 0, axis_origin_z + axis_length / 2)
+        )
+        arrow_tip_z = axis_origin_z + axis_length + arrow_length
+        arrow_base_z = axis_origin_z + axis_length
+        z_arrow_verts = np.array([
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+        ], dtype='f4')
+        z_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        z_axis_verts = np.concatenate([z_shaft_verts, z_arrow_verts])
+        z_axis_norms = np.concatenate([z_shaft_norms, z_arrow_norms])
+
+        self.z_axis_vbo = self.ctx.buffer(z_axis_verts.tobytes())
+        self.z_axis_nbo = self.ctx.buffer(z_axis_norms.tobytes())
+        self.z_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.z_axis_vbo, '3f', 'in_position'), (self.z_axis_nbo, '3f', 'in_normal')]
+        )
+
+    def _create_segment_beams(self):
+        """Create per-segment cylindrical beams for each lamp."""
+        self.beam_program = self.ctx.program(
+            vertex_shader=BEAM_VERTEX_SHADER,
+            fragment_shader=BEAM_FRAGMENT_SHADER
+        )
+
+        beam_length = 0.3  # Max 0.3m as specified
+        beam_radius = self.lamp_radius * 0.8  # Slightly smaller than lamp
+
+        # Create beam geometry for all segments
+        all_beam_verts = []
+        all_beam_alphas = []
+
+        for i in range(self.segment_cols):
+            x_offset = self.lamp_start_x + i * self.lamp_spacing
+            # Beam starts at top of lamp, extends upward along +Z (as per reference.md)
+            base_verts, base_alphas = GeometryBuilder.create_beam_cylinder(
+                beam_radius, beam_length, segments=8
+            )
+
+            # Transform beam vertices to lamp position
+            # Beam already extends along +Z, just translate to position
+            for j in range(0, len(base_verts), 3):
+                x, y, z = base_verts[j], base_verts[j+1], base_verts[j+2]
+                new_x = x + x_offset
+                new_y = y  # No rotation needed
+                new_z = z + self.depth / 2 + 0.02  # Start above lamp face (+Z)
+                all_beam_verts.extend([new_x, new_y, new_z])
+
+            all_beam_alphas.extend(base_alphas)
+
+        self.segment_beam_vbo = self.ctx.buffer(np.array(all_beam_verts, dtype='f4').tobytes())
+        self.segment_beam_abo = self.ctx.buffer(np.array(all_beam_alphas, dtype='f4').tobytes())
+
+        self.segment_beam_vao = self.ctx.vertex_array(
+            self.beam_program,
+            [
+                (self.segment_beam_vbo, '3f', 'in_position'),
+                (self.segment_beam_abo, '1f', 'in_alpha'),
+            ]
+        )
+
+        # Calculate vertices per beam for individual rendering
+        single_beam_verts, _ = GeometryBuilder.create_beam_cylinder(beam_radius, beam_length, segments=8)
+        self.vertices_per_beam = len(single_beam_verts) // 3
+
     def render(self, mvp: glm.mat4):
         """Render the sunstrip with per-segment dimming."""
+        # Reset OpenGL state to prevent transparency issues from previous beam rendering
+        self.ctx.disable(moderngl.BLEND)
+        self.ctx.depth_mask = True
+
         model = self.get_model_matrix()
         final_mvp = mvp * model
 
@@ -687,6 +1302,17 @@ class SunstripRenderer(FixtureRenderer):
         self.program['emissive_color'].value = (0.0, 0.0, 0.0)
         self.program['emissive_strength'].value = 0.0
         self.vao.render(moderngl.TRIANGLES)
+
+        # Render coordinate axes
+        if hasattr(self, 'x_axis_vao') and self.x_axis_vao:
+            self.program['base_color'].value = (0.9, 0.2, 0.2)  # Red
+            self.x_axis_vao.render(moderngl.TRIANGLES)
+        if hasattr(self, 'y_axis_vao') and self.y_axis_vao:
+            self.program['base_color'].value = (0.2, 0.4, 0.9)  # Blue
+            self.y_axis_vao.render(moderngl.TRIANGLES)
+        if hasattr(self, 'z_axis_vao') and self.z_axis_vao:
+            self.program['base_color'].value = (0.2, 0.8, 0.2)  # Green
+            self.z_axis_vao.render(moderngl.TRIANGLES)
 
         # Render each lamp segment with its own dimmer value
         self.program['base_color'].value = (0.9, 0.85, 0.7)  # Bulb glass color
@@ -718,6 +1344,45 @@ class SunstripRenderer(FixtureRenderer):
                 first=first_vertex
             )
 
+        # Render per-segment beams
+        self._render_segment_beams(mvp, model, segment_values)
+
+    def _render_segment_beams(self, mvp: glm.mat4, model: glm.mat4, segment_values: List[int]):
+        """Render individual beams for each segment."""
+        if not hasattr(self, 'segment_beam_vao') or not self.segment_beam_vao:
+            return
+
+        # Enable additive blending for beams
+        self.ctx.enable(moderngl.BLEND)
+        self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
+        self.ctx.depth_mask = False
+
+        final_mvp = mvp * model
+        mvp_bytes = np.array([x for col in final_mvp.to_list() for x in col], dtype='f4').tobytes()
+        self.beam_program['mvp'].write(mvp_bytes)
+
+        # Render each segment's beam with its own intensity
+        for i in range(self.segment_cols):
+            if i < len(segment_values):
+                dimmer = segment_values[i] / 255.0
+            else:
+                dimmer = self.get_dimmer()
+
+            if dimmer > 0.01:
+                self.beam_program['beam_color'].value = WARM_WHITE_COLOR
+                self.beam_program['beam_intensity'].value = dimmer * 0.7
+
+                first_vertex = i * self.vertices_per_beam
+                self.segment_beam_vao.render(
+                    moderngl.TRIANGLES,
+                    vertices=self.vertices_per_beam,
+                    first=first_vertex
+                )
+
+        # Restore state
+        self.ctx.depth_mask = True
+        self.ctx.disable(moderngl.BLEND)
+
     def release(self):
         """Release GPU resources."""
         super().release()
@@ -727,6 +1392,20 @@ class SunstripRenderer(FixtureRenderer):
             self.lamp_vbo.release()
         if hasattr(self, 'lamp_nbo') and self.lamp_nbo:
             self.lamp_nbo.release()
+        # Segment beam resources
+        if hasattr(self, 'segment_beam_vao') and self.segment_beam_vao:
+            self.segment_beam_vao.release()
+        if hasattr(self, 'segment_beam_vbo') and self.segment_beam_vbo:
+            self.segment_beam_vbo.release()
+        if hasattr(self, 'segment_beam_abo') and self.segment_beam_abo:
+            self.segment_beam_abo.release()
+        # Coordinate axes resources
+        for attr in ['x_axis_vao', 'x_axis_vbo', 'x_axis_nbo',
+                     'y_axis_vao', 'y_axis_vbo', 'y_axis_nbo',
+                     'z_axis_vao', 'z_axis_vbo', 'z_axis_nbo']:
+            obj = getattr(self, attr, None)
+            if obj:
+                obj.release()
 
 
 class MovingHeadRenderer(FixtureRenderer):
@@ -804,7 +1483,17 @@ class MovingHeadRenderer(FixtureRenderer):
         return color
 
     def _create_geometry(self):
-        """Create base, yoke, and head geometry."""
+        """Create base, yoke, and head geometry.
+
+        Coordinate system (Z-up, matching global stage coordinates):
+        - X-Y plane: horizontal (base plate)
+        - Z: vertical (up)
+        - At Pan=0, Tilt=0: beam points +X
+        - Pan: rotation around Z-axis (vertical)
+        - Tilt: rotation around yoke's local Y-axis
+
+        See reference.md for full coordinate system documentation.
+        """
         self.program = self.ctx.program(
             vertex_shader=FIXTURE_VERTEX_SHADER,
             fragment_shader=FIXTURE_FRAGMENT_SHADER
@@ -812,20 +1501,22 @@ class MovingHeadRenderer(FixtureRenderer):
 
         # Proportions based on physical dimensions
         base_size = min(self.width, self.depth)
-        base_height = self.height * 0.25
+        base_thickness = self.height * 0.15  # Thickness in Z direction (up)
 
-        yoke_width = base_size * 0.15
-        yoke_height = self.height * 0.5
-        yoke_depth = base_size * 0.8
+        yoke_thickness = base_size * 0.15  # Thickness of yoke arms
+        yoke_height = self.height * 0.5  # Height in Z direction (up)
+        yoke_depth = base_size * 0.8  # Depth along X (forward direction at Pan=0)
 
-        head_width = base_size * 0.7
-        head_height = self.height * 0.45
-        head_depth = base_size * 0.5
+        # Head dimensions in local space (before pan/tilt):
+        # X = forward/back (toward lens), Y = left/right (tilt axis), Z = up/down
+        head_size_x = base_size * 0.5  # Forward/back dimension
+        head_size_y = base_size * 0.7  # Left/right dimension (tilt axis)
+        head_size_z = self.height * 0.45  # Up/down dimension
 
-        # Create base (cylinder)
-        base_verts, base_norms = GeometryBuilder.create_cylinder(
-            base_size / 2, base_height, segments=24,
-            center=(0, base_height / 2, 0)
+        # Create base (rectangular box in X-Y plane, Z is thickness/up)
+        base_verts, base_norms = GeometryBuilder.create_box(
+            base_size, base_size, base_thickness,
+            center=(0, 0, base_thickness / 2)
         )
         self.base_vbo = self.ctx.buffer(base_verts.tobytes())
         self.base_nbo = self.ctx.buffer(base_norms.tobytes())
@@ -835,15 +1526,133 @@ class MovingHeadRenderer(FixtureRenderer):
         )
         self.base_vertex_count = len(base_verts) // 3
 
-        # Create yoke arms (two vertical pieces)
-        yoke_y = base_height + yoke_height / 2
+        # Create coordinate axes on base for debugging orientation
+        # Origin at center of base top surface
+        axis_origin_z = base_thickness + 0.01
+        axis_length = 0.4  # 40cm axes for visibility
+        axis_thickness = 0.008  # Thin lines
+        arrow_length = 0.06  # Arrow head length
+        arrow_width = 0.04  # Arrow head width
+
+        # X-AXIS (Red) - pointing along +X (beam direction at Pan=0, Tilt=0)
+        x_shaft_verts, x_shaft_norms = GeometryBuilder.create_box(
+            axis_length, axis_thickness, axis_thickness,
+            center=(axis_length / 2, 0, axis_origin_z)
+        )
+        arrow_tip_x = axis_length + arrow_length
+        arrow_base_x = axis_length
+        x_arrow_verts = np.array([
+            # 4 triangular faces of pyramid pointing +X
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+        ], dtype='f4')
+        x_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [0, 0, -1] * 3 + [0, 0, 1] * 3, dtype='f4')
+        x_axis_verts = np.concatenate([x_shaft_verts, x_arrow_verts])
+        x_axis_norms = np.concatenate([x_shaft_norms, x_arrow_norms])
+
+        self.x_axis_vbo = self.ctx.buffer(x_axis_verts.tobytes())
+        self.x_axis_nbo = self.ctx.buffer(x_axis_norms.tobytes())
+        self.x_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.x_axis_vbo, '3f', 'in_position'), (self.x_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Y-AXIS (Blue) - pointing along +Y (toward audience)
+        y_shaft_verts, y_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_length, axis_thickness,
+            center=(0, axis_length / 2, axis_origin_z)
+        )
+        arrow_tip_y = axis_length + arrow_length
+        arrow_base_y = axis_length
+        y_arrow_verts = np.array([
+            # 4 triangular faces of pyramid pointing +Y
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+        ], dtype='f4')
+        y_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        y_axis_verts = np.concatenate([y_shaft_verts, y_arrow_verts])
+        y_axis_norms = np.concatenate([y_shaft_norms, y_arrow_norms])
+
+        self.y_axis_vbo = self.ctx.buffer(y_axis_verts.tobytes())
+        self.y_axis_nbo = self.ctx.buffer(y_axis_norms.tobytes())
+        self.y_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.y_axis_vbo, '3f', 'in_position'), (self.y_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Z-AXIS (Green) - pointing along +Z (up)
+        z_shaft_verts, z_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_thickness, axis_length,
+            center=(0, 0, axis_origin_z + axis_length / 2)
+        )
+        arrow_tip_z = axis_origin_z + axis_length + arrow_length
+        arrow_base_z = axis_origin_z + axis_length
+        z_arrow_verts = np.array([
+            # 4 triangular faces of pyramid pointing +Z (up)
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+        ], dtype='f4')
+        z_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        z_axis_verts = np.concatenate([z_shaft_verts, z_arrow_verts])
+        z_axis_norms = np.concatenate([z_shaft_norms, z_arrow_norms])
+
+        self.z_axis_vbo = self.ctx.buffer(z_axis_verts.tobytes())
+        self.z_axis_nbo = self.ctx.buffer(z_axis_norms.tobytes())
+        self.z_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.z_axis_vbo, '3f', 'in_position'), (self.z_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Create yoke arms (two pieces extending up in Z, on +Y and -Y sides)
+        # At Pan=0, head faces +X and tilts around Y axis
+        # So yoke arms are positioned on ±Y to allow tilting
+        yoke_z = base_thickness + yoke_height / 2
         left_yoke_verts, left_yoke_norms = GeometryBuilder.create_box(
-            yoke_width, yoke_height, yoke_depth,
-            center=(-head_width / 2 - yoke_width / 2, yoke_y, 0)
+            yoke_depth, yoke_thickness, yoke_height,  # X, Y, Z dimensions
+            center=(0, -head_size_y / 2 - yoke_thickness / 2, yoke_z)
         )
         right_yoke_verts, right_yoke_norms = GeometryBuilder.create_box(
-            yoke_width, yoke_height, yoke_depth,
-            center=(head_width / 2 + yoke_width / 2, yoke_y, 0)
+            yoke_depth, yoke_thickness, yoke_height,  # X, Y, Z dimensions
+            center=(0, head_size_y / 2 + yoke_thickness / 2, yoke_z)
         )
         yoke_verts = np.concatenate([left_yoke_verts, right_yoke_verts])
         yoke_norms = np.concatenate([left_yoke_norms, right_yoke_norms])
@@ -856,10 +1665,11 @@ class MovingHeadRenderer(FixtureRenderer):
         )
         self.yoke_vertex_count = len(yoke_verts) // 3
 
-        # Create head (box, will be rotated for tilt)
-        # Head is created at origin, transformed during render
+        # Create head (box, will be rotated for tilt around Y-axis)
+        # Head created at origin, transformed during render
+        # Lens faces +X direction at default position
         head_verts, head_norms = GeometryBuilder.create_box(
-            head_width, head_height, head_depth
+            head_size_x, head_size_y, head_size_z
         )
         self.head_vbo = self.ctx.buffer(head_verts.tobytes())
         self.head_nbo = self.ctx.buffer(head_norms.tobytes())
@@ -869,16 +1679,35 @@ class MovingHeadRenderer(FixtureRenderer):
         )
         self.head_vertex_count = len(head_verts) // 3
 
-        # Create lens (cylinder on front of head)
-        lens_radius = min(head_width, head_height) * 0.35
+        # Create lens (cylinder facing +X direction)
+        lens_radius = min(head_size_y, head_size_z) * 0.35
         lens_depth = 0.02
 
-        lens_verts, lens_norms = GeometryBuilder.create_cylinder(
+        # Create cylinder (Y-oriented by default)
+        lens_verts_raw, lens_norms_raw = GeometryBuilder.create_cylinder(
             lens_radius, lens_depth, segments=24,
-            center=(0, 0, head_depth / 2 + lens_depth / 2)
+            center=(0, 0, 0)
         )
-        # Rotate lens to face forward (cylinder is Y-oriented, need Z-oriented)
-        # We'll handle this in the shader by storing it correctly
+
+        # Rotate lens to face +X (cylinder Y-axis -> X-axis)
+        # Rotation -90° around Z: (x, y, z) -> (y, -x, z)
+        lens_verts = []
+        lens_norms = []
+        for i in range(0, len(lens_verts_raw), 3):
+            x, y, z = lens_verts_raw[i], lens_verts_raw[i+1], lens_verts_raw[i+2]
+            # Rotate -90° around Z, then offset to +X face of head
+            new_x = y + head_size_x / 2 + lens_depth / 2
+            new_y = -x
+            new_z = z
+            lens_verts.extend([new_x, new_y, new_z])
+
+        for i in range(0, len(lens_norms_raw), 3):
+            nx, ny, nz = lens_norms_raw[i], lens_norms_raw[i+1], lens_norms_raw[i+2]
+            lens_norms.extend([ny, -nx, nz])
+
+        lens_verts = np.array(lens_verts, dtype='f4')
+        lens_norms = np.array(lens_norms, dtype='f4')
+
         self.lens_vbo = self.ctx.buffer(lens_verts.tobytes())
         self.lens_nbo = self.ctx.buffer(lens_norms.tobytes())
         self.lens_vao = self.ctx.vertex_array(
@@ -887,34 +1716,15 @@ class MovingHeadRenderer(FixtureRenderer):
         )
         self.lens_vertex_count = len(lens_verts) // 3
 
-        # Store dimensions for head positioning
-        self.base_height = base_height
-        self.yoke_height = yoke_height
-        self.head_height = head_height
-        self.head_depth = head_depth
+        # Store dimensions for head positioning (Z-up coordinate system)
+        self.base_thickness = base_thickness  # Height of base in Z
+        self.base_size = base_size
+        self.yoke_height = yoke_height  # Height of yoke in Z direction
+        self.head_size_x = head_size_x  # Head size along X (beam direction at Pan=0)
+        self.head_size_y = head_size_y  # Head size along Y (tilt axis)
+        self.head_size_z = head_size_z  # Head size along Z (up/down)
         self.lens_radius = lens_radius
-
-        # Create front indicator (red triangle on head to show pan=0 reference)
-        indicator_size = head_width * 0.25
-        indicator_z = head_depth / 2 + 0.01  # Slightly in front of head
-        indicator_y_offset = head_height / 2 * 0.7  # Near top of head
-
-        # Triangle pointing up on the front face
-        indicator_verts = np.array([
-            0, indicator_y_offset + indicator_size * 0.4, indicator_z,  # Top
-            -indicator_size * 0.35, indicator_y_offset - indicator_size * 0.2, indicator_z,  # Bottom left
-            indicator_size * 0.35, indicator_y_offset - indicator_size * 0.2, indicator_z,  # Bottom right
-        ], dtype='f4')
-        indicator_norms = np.array([
-            0, 0, 1, 0, 0, 1, 0, 0, 1  # All pointing forward
-        ], dtype='f4')
-
-        self.indicator_vbo = self.ctx.buffer(indicator_verts.tobytes())
-        self.indicator_nbo = self.ctx.buffer(indicator_norms.tobytes())
-        self.indicator_vao = self.ctx.vertex_array(
-            self.program,
-            [(self.indicator_vbo, '3f', 'in_position'), (self.indicator_nbo, '3f', 'in_normal')]
-        )
+        self.lens_depth = lens_depth
 
         # Create beam cone for light visualization
         self._create_beam_geometry()
@@ -961,36 +1771,43 @@ class MovingHeadRenderer(FixtureRenderer):
         tilt_fine = self.dmx_values.get('tilt_fine', 0)
         tilt_combined = (tilt_coarse * 256 + tilt_fine) / 65535.0
 
-        # Map to actual angle range
-        # Pan: centered at 0, ranges from -pan_max/2 to +pan_max/2
-        self.current_pan = (pan_combined - 0.5) * self.pan_max
+        # Map to rotation angles using fixture's pan_max and tilt_max
+        # Pan=0: 0°, Pan=255: pan_max degrees
+        self.current_pan = pan_combined * self.pan_max
 
-        # Tilt: 0 = pointing up, goes down to tilt_max
-        self.current_tilt = tilt_combined * self.tilt_max - self.tilt_max / 2
+        # Tilt=0: 0° (forward), Tilt=255: tilt_max degrees
+        self.current_tilt = tilt_combined * self.tilt_max
 
     def get_beam_direction(self) -> glm.vec3:
-        """Get the beam direction vector based on current pan/tilt and fixture orientation."""
-        # Start with forward direction (0, 0, 1)
-        direction = glm.vec3(0, 0, 1)
+        """Get the beam direction vector based on current pan/tilt and fixture orientation.
 
-        # Apply tilt (rotation around X axis)
-        tilt_rad = glm.radians(self.current_tilt)
-        tilt_mat = glm.rotate(glm.mat4(1.0), tilt_rad, glm.vec3(1, 0, 0))
+        Z-up coordinate system:
+        - At Pan=0, Tilt=0: beam points +X
+        - Pan rotates around Z
+        - Tilt rotates around Y
+        """
+        # Start with forward direction (+X at Pan=0, Tilt=0)
+        direction = glm.vec3(1, 0, 0)
 
-        # Apply pan (rotation around Y axis)
+        # Apply tilt (rotation around Y axis, negated to go +X toward +Z)
+        # Tilt=0: forward (+X), increasing tilt -> up (+Z)
+        tilt_rad = glm.radians(-self.current_tilt)
+        tilt_mat = glm.rotate(glm.mat4(1.0), tilt_rad, glm.vec3(0, 1, 0))
+
+        # Apply pan (rotation around Z axis)
         pan_rad = glm.radians(self.current_pan)
-        pan_mat = glm.rotate(glm.mat4(1.0), pan_rad, glm.vec3(0, 1, 0))
+        pan_mat = glm.rotate(glm.mat4(1.0), pan_rad, glm.vec3(0, 0, 1))
 
         # Apply full fixture orientation (mounting preset + user adjustments)
         base = MOUNTING_BASE_ROTATIONS.get(self.mounting, {'pitch': 0.0, 'yaw': 0.0})
         total_yaw = base['yaw'] + self.yaw
         total_pitch = base['pitch'] + self.pitch
 
-        # Build fixture orientation matrix (yaw-pitch-roll order)
+        # Build fixture orientation matrix (Z-up: yaw around Z, pitch around X)
         fixture_mat = glm.mat4(1.0)
-        fixture_mat = glm.rotate(fixture_mat, glm.radians(total_yaw), glm.vec3(0, 1, 0))
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(total_yaw), glm.vec3(0, 0, 1))
         fixture_mat = glm.rotate(fixture_mat, glm.radians(total_pitch), glm.vec3(1, 0, 0))
-        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.roll), glm.vec3(0, 0, 1))
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.roll), glm.vec3(0, 1, 0))
 
         # Combine rotations: fixture orientation * pan * tilt
         final_mat = fixture_mat * pan_mat * tilt_mat
@@ -1020,8 +1837,27 @@ class MovingHeadRenderer(FixtureRenderer):
 
         self.base_vao.render(moderngl.TRIANGLES)
 
-        # Yoke rotates with pan
-        pan_rotation = glm.rotate(glm.mat4(1.0), glm.radians(self.current_pan), glm.vec3(0, 1, 0))
+        # Render coordinate axes on base (don't rotate with pan)
+        # X-axis (Red)
+        if hasattr(self, 'x_axis_vao') and self.x_axis_vao:
+            self.program['base_color'].value = (0.9, 0.2, 0.2)  # Red
+            self.x_axis_vao.render(moderngl.TRIANGLES)
+
+        # Y-axis (Blue)
+        if hasattr(self, 'y_axis_vao') and self.y_axis_vao:
+            self.program['base_color'].value = (0.2, 0.4, 0.9)  # Blue
+            self.y_axis_vao.render(moderngl.TRIANGLES)
+
+        # Z-axis (Green)
+        if hasattr(self, 'z_axis_vao') and self.z_axis_vao:
+            self.program['base_color'].value = (0.2, 0.8, 0.2)  # Green
+            self.z_axis_vao.render(moderngl.TRIANGLES)
+
+        # Reset color for next parts
+        self.program['base_color'].value = self.BODY_COLOR
+
+        # Yoke rotates with pan (around Z-axis in Z-up coordinate system)
+        pan_rotation = glm.rotate(glm.mat4(1.0), glm.radians(self.current_pan), glm.vec3(0, 0, 1))
         yoke_model = base_model * pan_rotation
 
         yoke_mvp = mvp * yoke_model
@@ -1035,11 +1871,14 @@ class MovingHeadRenderer(FixtureRenderer):
         self.yoke_vao.render(moderngl.TRIANGLES)
 
         # Head rotates with pan and tilt
-        # Position head in yoke, then apply tilt
-        head_y = self.base_height + self.yoke_height / 2
-        head_translate = glm.translate(glm.mat4(1.0), glm.vec3(0, head_y, 0))
+        # Position head in yoke (Z direction), then apply tilt (around Y-axis)
+        head_z = self.base_thickness + self.yoke_height / 2
+        head_translate = glm.translate(glm.mat4(1.0), glm.vec3(0, 0, head_z))
 
-        tilt_rotation = glm.rotate(glm.mat4(1.0), glm.radians(self.current_tilt), glm.vec3(1, 0, 0))
+        # Tilt rotates around Y-axis (in yoke's local space after pan)
+        # Tilt=0: beam forward (+X in yoke space), increasing tilt -> beam up (+Z)
+        # Negative rotation around Y to go from +X toward +Z
+        tilt_rotation = glm.rotate(glm.mat4(1.0), glm.radians(-self.current_tilt), glm.vec3(0, 1, 0))
 
         head_model = base_model * pan_rotation * head_translate * tilt_rotation
 
@@ -1065,13 +1904,6 @@ class MovingHeadRenderer(FixtureRenderer):
 
         self.lens_vao.render(moderngl.TRIANGLES)
 
-        # Render front indicator (red triangle showing pan=0)
-        if hasattr(self, 'indicator_vao') and self.indicator_vao:
-            self.program['base_color'].value = (0.9, 0.2, 0.2)  # Red
-            self.program['emissive_color'].value = (0.0, 0.0, 0.0)
-            self.program['emissive_strength'].value = 0.0
-            self.indicator_vao.render(moderngl.TRIANGLES)
-
         # Render beam if dimmer is on
         if dimmer > 0.01:
             self._render_beam(mvp, head_model, color, dimmer)
@@ -1084,13 +1916,14 @@ class MovingHeadRenderer(FixtureRenderer):
             if not hasattr(self, 'beam_vao') or self.beam_vao is None:
                 return
 
-            # Beam starts at lens position and extends in tilt direction
-            # Offset beam to start at lens front
-            beam_offset = glm.translate(glm.mat4(1.0), glm.vec3(0, 0, self.head_depth / 2 + 0.02))
+            # Beam starts at lens front face and extends outward
+            # In Z-up system: lens is on +X face of head
+            # Beam cone geometry extends along +Z by default, so rotate +90° around Y to point along +X
+            beam_rotation = glm.rotate(glm.mat4(1.0), glm.radians(90), glm.vec3(0, 1, 0))
+            beam_offset = glm.translate(glm.mat4(1.0), glm.vec3(self.head_size_x / 2 + self.lens_depth, 0, 0))
 
-            # Rotate beam to point along Z axis (our beam cone extends along +Z)
-            # Since the head already has tilt applied, beam just needs to extend forward
-            beam_model = head_model * beam_offset
+            # Apply: head transform -> move to lens position -> rotate beam to point +X
+            beam_model = head_model * beam_offset * beam_rotation
 
             beam_mvp = mvp * beam_model
             mvp_bytes = np.array([x for col in beam_mvp.to_list() for x in col], dtype='f4').tobytes()
@@ -1128,10 +1961,12 @@ class MovingHeadRenderer(FixtureRenderer):
         """Release GPU resources."""
         super().release()
         for attr in ['base_vao', 'base_vbo', 'base_nbo',
+                     'x_axis_vao', 'x_axis_vbo', 'x_axis_nbo',
+                     'y_axis_vao', 'y_axis_vbo', 'y_axis_nbo',
+                     'z_axis_vao', 'z_axis_vbo', 'z_axis_nbo',
                      'yoke_vao', 'yoke_vbo', 'yoke_nbo',
                      'head_vao', 'head_vbo', 'head_nbo',
                      'lens_vao', 'lens_vbo', 'lens_nbo',
-                     'indicator_vao', 'indicator_vbo', 'indicator_nbo',
                      'beam_vao', 'beam_vbo', 'beam_abo', 'beam_program']:
             obj = getattr(self, attr, None)
             if obj:
@@ -1146,6 +1981,7 @@ class WashRenderer(FixtureRenderer):
     def __init__(self, ctx: moderngl.Context, fixture_data: Dict[str, Any]):
         super().__init__(ctx, fixture_data)
         self._create_geometry()
+        self._create_rectangular_beam()
 
     def _create_geometry(self):
         """Create wash fixture body and lens."""
@@ -1183,8 +2019,159 @@ class WashRenderer(FixtureRenderer):
             [(self.lens_vbo, '3f', 'in_position'), (self.lens_nbo, '3f', 'in_normal')]
         )
 
+        # Store lens dimensions for beam
+        self.lens_width = lens_width
+        self.lens_height = lens_height
+
+        # Create coordinate axes for debugging orientation
+        self._create_coordinate_axes(axis_origin_z=self.depth / 2 + 0.01)
+
+    def _create_coordinate_axes(self, axis_origin_z: float):
+        """Create coordinate axes for debugging fixture orientation.
+
+        Args:
+            axis_origin_z: Z position for axis origin (top of fixture)
+        """
+        axis_length = 0.4  # 40cm axes for visibility
+        axis_thickness = 0.008
+        arrow_length = 0.06
+        arrow_width = 0.04
+
+        # X-AXIS (Red) - pointing along +X
+        x_shaft_verts, x_shaft_norms = GeometryBuilder.create_box(
+            axis_length, axis_thickness, axis_thickness,
+            center=(axis_length / 2, 0, axis_origin_z)
+        )
+        arrow_tip_x = axis_length + arrow_length
+        arrow_base_x = axis_length
+        x_arrow_verts = np.array([
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+        ], dtype='f4')
+        x_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [0, -1, 0] * 3 + [0, 1, 0] * 3, dtype='f4')
+        x_axis_verts = np.concatenate([x_shaft_verts, x_arrow_verts])
+        x_axis_norms = np.concatenate([x_shaft_norms, x_arrow_norms])
+
+        self.x_axis_vbo = self.ctx.buffer(x_axis_verts.tobytes())
+        self.x_axis_nbo = self.ctx.buffer(x_axis_norms.tobytes())
+        self.x_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.x_axis_vbo, '3f', 'in_position'), (self.x_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Y-AXIS (Blue) - pointing along +Y
+        y_shaft_verts, y_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_length, axis_thickness,
+            center=(0, axis_length / 2, axis_origin_z)
+        )
+        arrow_tip_y = axis_length + arrow_length
+        arrow_base_y = axis_length
+        y_arrow_verts = np.array([
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+        ], dtype='f4')
+        y_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        y_axis_verts = np.concatenate([y_shaft_verts, y_arrow_verts])
+        y_axis_norms = np.concatenate([y_shaft_norms, y_arrow_norms])
+
+        self.y_axis_vbo = self.ctx.buffer(y_axis_verts.tobytes())
+        self.y_axis_nbo = self.ctx.buffer(y_axis_norms.tobytes())
+        self.y_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.y_axis_vbo, '3f', 'in_position'), (self.y_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Z-AXIS (Green) - pointing along +Z (up)
+        z_shaft_verts, z_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_thickness, axis_length,
+            center=(0, 0, axis_origin_z + axis_length / 2)
+        )
+        arrow_tip_z = axis_origin_z + axis_length + arrow_length
+        arrow_base_z = axis_origin_z + axis_length
+        z_arrow_verts = np.array([
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+        ], dtype='f4')
+        z_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        z_axis_verts = np.concatenate([z_shaft_verts, z_arrow_verts])
+        z_axis_norms = np.concatenate([z_shaft_norms, z_arrow_norms])
+
+        self.z_axis_vbo = self.ctx.buffer(z_axis_verts.tobytes())
+        self.z_axis_nbo = self.ctx.buffer(z_axis_norms.tobytes())
+        self.z_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.z_axis_vbo, '3f', 'in_position'), (self.z_axis_nbo, '3f', 'in_normal')]
+        )
+
+    def _create_rectangular_beam(self):
+        """Create rectangular beam for wash fixture."""
+        self.beam_program = self.ctx.program(
+            vertex_shader=BEAM_VERTEX_SHADER,
+            fragment_shader=BEAM_FRAGMENT_SHADER
+        )
+
+        beam_length = 0.3  # Max 0.3m as specified
+        beam_width = self.lens_width * 0.8
+        beam_height = self.lens_height * 0.8
+
+        # Beam extends from front of lens along +Z
+        beam_verts, beam_alphas = GeometryBuilder.create_beam_box(
+            beam_width, beam_height, beam_length
+        )
+
+        # Offset beam to start just in front of lens
+        offset_verts = []
+        for i in range(0, len(beam_verts), 3):
+            x, y, z = beam_verts[i], beam_verts[i+1], beam_verts[i+2]
+            offset_verts.extend([x, y, z + self.depth / 2 + 0.03])
+
+        self.wash_beam_vbo = self.ctx.buffer(np.array(offset_verts, dtype='f4').tobytes())
+        self.wash_beam_abo = self.ctx.buffer(beam_alphas.tobytes())
+
+        self.wash_beam_vao = self.ctx.vertex_array(
+            self.beam_program,
+            [
+                (self.wash_beam_vbo, '3f', 'in_position'),
+                (self.wash_beam_abo, '1f', 'in_alpha'),
+            ]
+        )
+
     def render(self, mvp: glm.mat4):
         """Render the wash fixture."""
+        # Reset OpenGL state to prevent transparency issues from previous beam rendering
+        self.ctx.disable(moderngl.BLEND)
+        self.ctx.depth_mask = True
+
         model = self.get_model_matrix()
         final_mvp = mvp * model
 
@@ -1199,6 +2186,17 @@ class WashRenderer(FixtureRenderer):
         self.program['emissive_color'].value = (0.0, 0.0, 0.0)
         self.program['emissive_strength'].value = 0.0
         self.vao.render(moderngl.TRIANGLES)
+
+        # Render coordinate axes
+        if hasattr(self, 'x_axis_vao') and self.x_axis_vao:
+            self.program['base_color'].value = (0.9, 0.2, 0.2)  # Red
+            self.x_axis_vao.render(moderngl.TRIANGLES)
+        if hasattr(self, 'y_axis_vao') and self.y_axis_vao:
+            self.program['base_color'].value = (0.2, 0.4, 0.9)  # Blue
+            self.y_axis_vao.render(moderngl.TRIANGLES)
+        if hasattr(self, 'z_axis_vao') and self.z_axis_vao:
+            self.program['base_color'].value = (0.2, 0.8, 0.2)  # Green
+            self.z_axis_vao.render(moderngl.TRIANGLES)
 
         # Render lens with color
         color = self.get_color()
@@ -1220,6 +2218,34 @@ class WashRenderer(FixtureRenderer):
 
         self.lens_vao.render(moderngl.TRIANGLES)
 
+        # Render beam when lit
+        if dimmer > 0.01:
+            self._render_rectangular_beam(mvp, model, color, dimmer)
+
+    def _render_rectangular_beam(self, mvp: glm.mat4, model: glm.mat4,
+                                  color: Tuple[float, float, float], dimmer: float):
+        """Render the rectangular beam."""
+        if not hasattr(self, 'wash_beam_vao') or not self.wash_beam_vao:
+            return
+
+        # Enable additive blending
+        self.ctx.enable(moderngl.BLEND)
+        self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
+        self.ctx.depth_mask = False
+
+        final_mvp = mvp * model
+        mvp_bytes = np.array([x for col in final_mvp.to_list() for x in col], dtype='f4').tobytes()
+
+        self.beam_program['mvp'].write(mvp_bytes)
+        self.beam_program['beam_color'].value = color
+        self.beam_program['beam_intensity'].value = dimmer * 0.6
+
+        self.wash_beam_vao.render(moderngl.TRIANGLES)
+
+        # Restore state
+        self.ctx.depth_mask = True
+        self.ctx.disable(moderngl.BLEND)
+
     def release(self):
         """Release GPU resources."""
         super().release()
@@ -1229,6 +2255,20 @@ class WashRenderer(FixtureRenderer):
             self.lens_vbo.release()
         if hasattr(self, 'lens_nbo') and self.lens_nbo:
             self.lens_nbo.release()
+        # Beam resources
+        if hasattr(self, 'wash_beam_vao') and self.wash_beam_vao:
+            self.wash_beam_vao.release()
+        if hasattr(self, 'wash_beam_vbo') and self.wash_beam_vbo:
+            self.wash_beam_vbo.release()
+        if hasattr(self, 'wash_beam_abo') and self.wash_beam_abo:
+            self.wash_beam_abo.release()
+        # Coordinate axes resources
+        for attr in ['x_axis_vao', 'x_axis_vbo', 'x_axis_nbo',
+                     'y_axis_vao', 'y_axis_vbo', 'y_axis_nbo',
+                     'z_axis_vao', 'z_axis_vbo', 'z_axis_nbo']:
+            obj = getattr(self, attr, None)
+            if obj:
+                obj.release()
 
 
 class PARRenderer(FixtureRenderer):
@@ -1239,19 +2279,40 @@ class PARRenderer(FixtureRenderer):
     def __init__(self, ctx: moderngl.Context, fixture_data: Dict[str, Any]):
         super().__init__(ctx, fixture_data)
         self._create_geometry()
+        self._create_cylindrical_beam()
 
     def _create_geometry(self):
-        """Create PAR can body and lens."""
+        """Create PAR can body and lens.
+
+        According to reference.md:
+        - Cylindrical body extends along Z axis
+        - Lens/beam faces +Z direction
+        """
         self.program = self.ctx.program(
             vertex_shader=FIXTURE_VERTEX_SHADER,
             fragment_shader=FIXTURE_FRAGMENT_SHADER
         )
 
-        # PAR can is a cylinder
+        # PAR can is a cylinder extending along Z axis (per reference.md)
         radius = min(self.width, self.height) / 2
-        body_verts, body_norms = GeometryBuilder.create_cylinder(
+
+        # Create Y-oriented cylinder, then rotate to Z-oriented
+        body_verts_raw, body_norms_raw = GeometryBuilder.create_cylinder(
             radius, self.depth, segments=24
         )
+
+        # Rotate -90° around X: (x, y, z) -> (x, -z, y)
+        body_verts = []
+        body_norms = []
+        for i in range(0, len(body_verts_raw), 3):
+            x, y, z = body_verts_raw[i], body_verts_raw[i+1], body_verts_raw[i+2]
+            body_verts.extend([x, -z, y])
+        for i in range(0, len(body_norms_raw), 3):
+            nx, ny, nz = body_norms_raw[i], body_norms_raw[i+1], body_norms_raw[i+2]
+            body_norms.extend([nx, -nz, ny])
+
+        body_verts = np.array(body_verts, dtype='f4')
+        body_norms = np.array(body_norms, dtype='f4')
 
         self.vbo = self.ctx.buffer(body_verts.tobytes())
         self.nbo = self.ctx.buffer(body_norms.tobytes())
@@ -1260,11 +2321,25 @@ class PARRenderer(FixtureRenderer):
             [(self.vbo, '3f', 'in_position'), (self.nbo, '3f', 'in_normal')]
         )
 
-        # Create lens (front face)
-        lens_verts, lens_norms = GeometryBuilder.create_cylinder(
+        # Create lens (front face at +Z)
+        lens_verts_raw, lens_norms_raw = GeometryBuilder.create_cylinder(
             radius * 0.85, 0.02, segments=24,
-            center=(0, self.depth / 2 + 0.01, 0)
+            center=(0, 0, 0)
         )
+
+        # Rotate -90° around X and translate to +Z face
+        lens_verts = []
+        lens_norms = []
+        for i in range(0, len(lens_verts_raw), 3):
+            x, y, z = lens_verts_raw[i], lens_verts_raw[i+1], lens_verts_raw[i+2]
+            # Rotate and translate to top (+Z)
+            lens_verts.extend([x, -z, y + self.depth / 2 + 0.01])
+        for i in range(0, len(lens_norms_raw), 3):
+            nx, ny, nz = lens_norms_raw[i], lens_norms_raw[i+1], lens_norms_raw[i+2]
+            lens_norms.extend([nx, -nz, ny])
+
+        lens_verts = np.array(lens_verts, dtype='f4')
+        lens_norms = np.array(lens_norms, dtype='f4')
 
         self.lens_vbo = self.ctx.buffer(lens_verts.tobytes())
         self.lens_nbo = self.ctx.buffer(lens_norms.tobytes())
@@ -1273,14 +2348,171 @@ class PARRenderer(FixtureRenderer):
             [(self.lens_vbo, '3f', 'in_position'), (self.lens_nbo, '3f', 'in_normal')]
         )
 
+        # Store lens radius for beam
+        self.lens_radius = radius * 0.85
+        self.par_radius = radius
+
+        # Create coordinate axes for debugging orientation (Z-up space)
+        self._create_coordinate_axes(axis_origin_z=self.depth / 2 + 0.01)
+
+    def _create_coordinate_axes(self, axis_origin_z: float):
+        """Create coordinate axes for debugging fixture orientation.
+
+        PAR uses Z-up coordinate system per reference.md:
+        - Body extends along Z axis
+        - Lens/beam faces +Z direction
+
+        Args:
+            axis_origin_z: Z position for axis origin (top of fixture)
+        """
+        axis_length = 0.4  # 40cm axes for visibility
+        axis_thickness = 0.008
+        arrow_length = 0.06
+        arrow_width = 0.04
+
+        # X-AXIS (Red) - pointing along +X
+        x_shaft_verts, x_shaft_norms = GeometryBuilder.create_box(
+            axis_length, axis_thickness, axis_thickness,
+            center=(axis_length / 2, 0, axis_origin_z)
+        )
+        arrow_tip_x = axis_length + arrow_length
+        arrow_base_x = axis_length
+        x_arrow_verts = np.array([
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+        ], dtype='f4')
+        x_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [0, -1, 0] * 3 + [0, 1, 0] * 3, dtype='f4')
+        x_axis_verts = np.concatenate([x_shaft_verts, x_arrow_verts])
+        x_axis_norms = np.concatenate([x_shaft_norms, x_arrow_norms])
+
+        self.x_axis_vbo = self.ctx.buffer(x_axis_verts.tobytes())
+        self.x_axis_nbo = self.ctx.buffer(x_axis_norms.tobytes())
+        self.x_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.x_axis_vbo, '3f', 'in_position'), (self.x_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Y-AXIS (Blue) - pointing along +Y (toward audience)
+        y_shaft_verts, y_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_length, axis_thickness,
+            center=(0, axis_length / 2, axis_origin_z)
+        )
+        arrow_tip_y = axis_length + arrow_length
+        arrow_base_y = axis_length
+        y_arrow_verts = np.array([
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+        ], dtype='f4')
+        y_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        y_axis_verts = np.concatenate([y_shaft_verts, y_arrow_verts])
+        y_axis_norms = np.concatenate([y_shaft_norms, y_arrow_norms])
+
+        self.y_axis_vbo = self.ctx.buffer(y_axis_verts.tobytes())
+        self.y_axis_nbo = self.ctx.buffer(y_axis_norms.tobytes())
+        self.y_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.y_axis_vbo, '3f', 'in_position'), (self.y_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Z-AXIS (Green) - pointing along +Z (up, same as beam direction)
+        z_shaft_verts, z_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_thickness, axis_length,
+            center=(0, 0, axis_origin_z + axis_length / 2)
+        )
+        arrow_tip_z = axis_origin_z + axis_length + arrow_length
+        arrow_base_z = axis_origin_z + axis_length
+        z_arrow_verts = np.array([
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+        ], dtype='f4')
+        z_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        z_axis_verts = np.concatenate([z_shaft_verts, z_arrow_verts])
+        z_axis_norms = np.concatenate([z_shaft_norms, z_arrow_norms])
+
+        self.z_axis_vbo = self.ctx.buffer(z_axis_verts.tobytes())
+        self.z_axis_nbo = self.ctx.buffer(z_axis_norms.tobytes())
+        self.z_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.z_axis_vbo, '3f', 'in_position'), (self.z_axis_nbo, '3f', 'in_normal')]
+        )
+
+    def _create_cylindrical_beam(self):
+        """Create cylindrical beam for PAR fixture.
+
+        Beam extends along +Z (up) per reference.md.
+        """
+        self.beam_program = self.ctx.program(
+            vertex_shader=BEAM_VERTEX_SHADER,
+            fragment_shader=BEAM_FRAGMENT_SHADER
+        )
+
+        beam_length = 0.3  # Max 0.3m as specified
+        beam_radius = self.lens_radius * 0.8
+
+        # Beam already extends along +Z, just translate to lens position
+        beam_verts, beam_alphas = GeometryBuilder.create_beam_cylinder(
+            beam_radius, beam_length, segments=12
+        )
+
+        # Offset beam to start at lens position (lens is at z = depth/2 + 0.01)
+        offset_verts = []
+        for i in range(0, len(beam_verts), 3):
+            x, y, z = beam_verts[i], beam_verts[i+1], beam_verts[i+2]
+            # Beam starts at lens, extends along +Z
+            offset_verts.extend([x, y, z + self.depth / 2 + 0.02])
+
+        self.par_beam_vbo = self.ctx.buffer(np.array(offset_verts, dtype='f4').tobytes())
+        self.par_beam_abo = self.ctx.buffer(beam_alphas.tobytes())
+
+        self.par_beam_vao = self.ctx.vertex_array(
+            self.beam_program,
+            [
+                (self.par_beam_vbo, '3f', 'in_position'),
+                (self.par_beam_abo, '1f', 'in_alpha'),
+            ]
+        )
+
     def render(self, mvp: glm.mat4):
-        """Render the PAR can."""
+        """Render the PAR can.
+
+        Geometry already has lens facing +Z per reference.md.
+        No additional rotation needed.
+        """
+        # Reset OpenGL state to prevent transparency issues from previous beam rendering
+        self.ctx.disable(moderngl.BLEND)
+        self.ctx.depth_mask = True
+
         model = self.get_model_matrix()
-
-        # Rotate to lay horizontally (PAR typically faces forward)
-        rotation = glm.rotate(glm.mat4(1.0), glm.radians(-90), glm.vec3(1, 0, 0))
-        model = model * rotation
-
         final_mvp = mvp * model
 
         mvp_bytes = np.array([x for col in final_mvp.to_list() for x in col], dtype='f4').tobytes()
@@ -1294,6 +2526,17 @@ class PARRenderer(FixtureRenderer):
         self.program['emissive_color'].value = (0.0, 0.0, 0.0)
         self.program['emissive_strength'].value = 0.0
         self.vao.render(moderngl.TRIANGLES)
+
+        # Render coordinate axes (rendered with same rotation as body)
+        if hasattr(self, 'x_axis_vao') and self.x_axis_vao:
+            self.program['base_color'].value = (0.9, 0.2, 0.2)  # Red
+            self.x_axis_vao.render(moderngl.TRIANGLES)
+        if hasattr(self, 'y_axis_vao') and self.y_axis_vao:
+            self.program['base_color'].value = (0.2, 0.4, 0.9)  # Blue
+            self.y_axis_vao.render(moderngl.TRIANGLES)
+        if hasattr(self, 'z_axis_vao') and self.z_axis_vao:
+            self.program['base_color'].value = (0.2, 0.8, 0.2)  # Green
+            self.z_axis_vao.render(moderngl.TRIANGLES)
 
         # Render lens with color
         color = self.get_color()
@@ -1314,6 +2557,34 @@ class PARRenderer(FixtureRenderer):
 
         self.lens_vao.render(moderngl.TRIANGLES)
 
+        # Render beam when lit
+        if dimmer > 0.01:
+            self._render_cylindrical_beam(mvp, model, color, dimmer)
+
+    def _render_cylindrical_beam(self, mvp: glm.mat4, model: glm.mat4,
+                                  color: Tuple[float, float, float], dimmer: float):
+        """Render the cylindrical beam."""
+        if not hasattr(self, 'par_beam_vao') or not self.par_beam_vao:
+            return
+
+        # Enable additive blending
+        self.ctx.enable(moderngl.BLEND)
+        self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
+        self.ctx.depth_mask = False
+
+        final_mvp = mvp * model
+        mvp_bytes = np.array([x for col in final_mvp.to_list() for x in col], dtype='f4').tobytes()
+
+        self.beam_program['mvp'].write(mvp_bytes)
+        self.beam_program['beam_color'].value = color
+        self.beam_program['beam_intensity'].value = dimmer * 0.6
+
+        self.par_beam_vao.render(moderngl.TRIANGLES)
+
+        # Restore state
+        self.ctx.depth_mask = True
+        self.ctx.disable(moderngl.BLEND)
+
     def release(self):
         """Release GPU resources."""
         super().release()
@@ -1323,6 +2594,20 @@ class PARRenderer(FixtureRenderer):
             self.lens_vbo.release()
         if hasattr(self, 'lens_nbo') and self.lens_nbo:
             self.lens_nbo.release()
+        # Beam resources
+        if hasattr(self, 'par_beam_vao') and self.par_beam_vao:
+            self.par_beam_vao.release()
+        if hasattr(self, 'par_beam_vbo') and self.par_beam_vbo:
+            self.par_beam_vbo.release()
+        if hasattr(self, 'par_beam_abo') and self.par_beam_abo:
+            self.par_beam_abo.release()
+        # Coordinate axes resources
+        for attr in ['x_axis_vao', 'x_axis_vbo', 'x_axis_nbo',
+                     'y_axis_vao', 'y_axis_vbo', 'y_axis_nbo',
+                     'z_axis_vao', 'z_axis_vbo', 'z_axis_nbo']:
+            obj = getattr(self, attr, None)
+            if obj:
+                obj.release()
 
 
 class FixtureManager:

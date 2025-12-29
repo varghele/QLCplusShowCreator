@@ -540,26 +540,41 @@ class OrientationPreviewWidget(QOpenGLWidget):
         self.front_depth = depth / 2 + lens_depth
 
     def _create_moving_head_geometry(self):
-        """Create Moving Head geometry (base, yoke, head, lens) like visualizer."""
-        # Proportions
-        base_size = 0.2
-        base_height = 0.08
+        """Create Moving Head geometry (base, yoke, head, lens) matching visualizer exactly.
 
-        yoke_width = base_size * 0.15
-        yoke_height = 0.2
-        yoke_depth = base_size * 0.8
+        Uses Z-up coordinate system matching the visualizer:
+        - X-Y plane: horizontal (base plate)
+        - Z: vertical (up)
+        - At Pan=0, Tilt=0: beam points +X
 
-        head_width = base_size * 0.7
-        head_height = 0.18
-        head_depth = base_size * 0.5
+        See reference.md for full coordinate system documentation.
+        """
+        # Use same proportions as visualizer (scaled for dialog)
+        # Simulating a fixture with width=0.3, depth=0.3, height=0.4
+        width = 0.3
+        depth = 0.3
+        height = 0.4
+
+        base_size = min(width, depth)
+        base_thickness = height * 0.15  # Thickness in Z direction (up)
+
+        yoke_thickness = base_size * 0.15  # Thickness of yoke arms
+        yoke_height = height * 0.5  # Height in Z direction (up)
+        yoke_depth = base_size * 0.8  # Depth along X (forward direction at Pan=0)
+
+        # Head dimensions in local space (before pan/tilt):
+        # X = forward/back (toward lens), Y = left/right (tilt axis), Z = up/down
+        head_size_x = base_size * 0.5  # Forward/back dimension
+        head_size_y = base_size * 0.7  # Left/right dimension (tilt axis)
+        head_size_z = height * 0.45  # Up/down dimension
 
         self.body_color = (0.1, 0.1, 0.12)
         self.yoke_color = (0.15, 0.15, 0.18)
 
-        # Create base (cylinder)
-        base_verts, base_norms = GeometryBuilder.create_cylinder(
-            base_size / 2, base_height, segments=24,
-            center=(0, base_height / 2, 0)
+        # Create base (rectangular box in X-Y plane, Z is thickness/up)
+        base_verts, base_norms = GeometryBuilder.create_box(
+            base_size, base_size, base_thickness,
+            center=(0, 0, base_thickness / 2)
         )
         base_vbo = self.ctx.buffer(base_verts.tobytes())
         base_nbo = self.ctx.buffer(base_norms.tobytes())
@@ -568,15 +583,151 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(base_vbo, '3f', 'in_position'), (base_nbo, '3f', 'in_normal')]
         )
 
-        # Create yoke arms (two vertical pieces)
-        yoke_y = base_height + yoke_height / 2
+        # Create coordinate axes on base for debugging orientation (matching visualizer)
+        axis_origin_z = base_thickness + 0.01
+        axis_length = 0.4  # Same as visualizer: 40cm axes for visibility
+        axis_thickness = 0.008  # Same as visualizer
+        arrow_length = 0.06  # Arrow head length
+        arrow_width = 0.04  # Arrow head width
+
+        # X-AXIS (Red) - pointing along +X (beam direction at Pan=0, Tilt=0)
+        x_shaft_verts, x_shaft_norms = GeometryBuilder.create_box(
+            axis_length, axis_thickness, axis_thickness,
+            center=(axis_length / 2, 0, axis_origin_z)
+        )
+        arrow_tip_x = axis_length + arrow_length
+        arrow_base_x = axis_length
+        x_arrow_verts = np.array([
+            # 4 triangular faces of pyramid pointing +X
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+        ], dtype='f4')
+        x_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [0, 0, -1] * 3 + [0, 0, 1] * 3, dtype='f4')
+        x_axis_verts = np.concatenate([x_shaft_verts, x_arrow_verts])
+        x_axis_norms = np.concatenate([x_shaft_norms, x_arrow_norms])
+
+        x_axis_vbo = self.ctx.buffer(x_axis_verts.tobytes())
+        x_axis_nbo = self.ctx.buffer(x_axis_norms.tobytes())
+        self.mh_x_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(x_axis_vbo, '3f', 'in_position'), (x_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Y-AXIS (Blue) - pointing along +Y (toward audience)
+        y_shaft_verts, y_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_length, axis_thickness,
+            center=(0, axis_length / 2, axis_origin_z)
+        )
+        arrow_tip_y = axis_length + arrow_length
+        arrow_base_y = axis_length
+        y_arrow_verts = np.array([
+            # 4 triangular faces of pyramid pointing +Y
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+        ], dtype='f4')
+        y_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        y_axis_verts = np.concatenate([y_shaft_verts, y_arrow_verts])
+        y_axis_norms = np.concatenate([y_shaft_norms, y_arrow_norms])
+
+        y_axis_vbo = self.ctx.buffer(y_axis_verts.tobytes())
+        y_axis_nbo = self.ctx.buffer(y_axis_norms.tobytes())
+        self.mh_y_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(y_axis_vbo, '3f', 'in_position'), (y_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Z-AXIS (Green) - pointing along +Z (up)
+        z_shaft_verts, z_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_thickness, axis_length,
+            center=(0, 0, axis_origin_z + axis_length / 2)
+        )
+        arrow_tip_z = axis_origin_z + axis_length + arrow_length
+        arrow_base_z = axis_origin_z + axis_length
+        z_arrow_verts = np.array([
+            # 4 triangular faces of pyramid pointing +Z (up)
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+        ], dtype='f4')
+        z_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        z_axis_verts = np.concatenate([z_shaft_verts, z_arrow_verts])
+        z_axis_norms = np.concatenate([z_shaft_norms, z_arrow_norms])
+
+        z_axis_vbo = self.ctx.buffer(z_axis_verts.tobytes())
+        z_axis_nbo = self.ctx.buffer(z_axis_norms.tobytes())
+        self.mh_z_axis_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(z_axis_vbo, '3f', 'in_position'), (z_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Create indicator triangle on base
+        indicator_size = base_size * 0.25
+        indicator_z = base_thickness + 0.005
+        indicator_x = base_size / 2 * 0.7
+
+        indicator_verts = np.array([
+            indicator_x + indicator_size * 0.4, 0, indicator_z,
+            indicator_x - indicator_size * 0.2, -indicator_size * 0.35, indicator_z,
+            indicator_x - indicator_size * 0.2, indicator_size * 0.35, indicator_z,
+        ], dtype='f4')
+        indicator_norms = np.array([0, 0, 1, 0, 0, 1, 0, 0, 1], dtype='f4')
+
+        indicator_vbo = self.ctx.buffer(indicator_verts.tobytes())
+        indicator_nbo = self.ctx.buffer(indicator_norms.tobytes())
+        self.indicator_vao = self.ctx.vertex_array(
+            self.fixture_program,
+            [(indicator_vbo, '3f', 'in_position'), (indicator_nbo, '3f', 'in_normal')]
+        )
+
+        # Create yoke arms (two pieces extending up in Z, on +Y and -Y sides)
+        # At Pan=0, head faces +X and tilts around Y axis
+        # So yoke arms are positioned on ±Y to allow tilting
+        yoke_z = base_thickness + yoke_height / 2
         left_yoke_verts, left_yoke_norms = GeometryBuilder.create_box(
-            yoke_width, yoke_height, yoke_depth,
-            center=(-head_width / 2 - yoke_width / 2, yoke_y, 0)
+            yoke_depth, yoke_thickness, yoke_height,  # X, Y, Z dimensions
+            center=(0, -head_size_y / 2 - yoke_thickness / 2, yoke_z)
         )
         right_yoke_verts, right_yoke_norms = GeometryBuilder.create_box(
-            yoke_width, yoke_height, yoke_depth,
-            center=(head_width / 2 + yoke_width / 2, yoke_y, 0)
+            yoke_depth, yoke_thickness, yoke_height,  # X, Y, Z dimensions
+            center=(0, head_size_y / 2 + yoke_thickness / 2, yoke_z)
         )
         yoke_verts = np.concatenate([left_yoke_verts, right_yoke_verts])
         yoke_norms = np.concatenate([left_yoke_norms, right_yoke_norms])
@@ -588,8 +739,12 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(yoke_vbo, '3f', 'in_position'), (yoke_nbo, '3f', 'in_normal')]
         )
 
-        # Create head (box)
-        head_verts, head_norms = GeometryBuilder.create_box(head_width, head_height, head_depth)
+        # Create head (box, will be rotated for tilt around Y-axis)
+        # Head created at origin, transformed during render
+        # Lens faces +X direction at default position
+        head_verts, head_norms = GeometryBuilder.create_box(
+            head_size_x, head_size_y, head_size_z
+        )
         head_vbo = self.ctx.buffer(head_verts.tobytes())
         head_nbo = self.ctx.buffer(head_norms.tobytes())
         self.head_vao = self.ctx.vertex_array(
@@ -597,14 +752,35 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(head_vbo, '3f', 'in_position'), (head_nbo, '3f', 'in_normal')]
         )
 
-        # Create lens (cylinder on front of head)
-        lens_radius = min(head_width, head_height) * 0.35
-        lens_depth_val = 0.02
+        # Create lens (cylinder facing +X direction)
+        lens_radius = min(head_size_y, head_size_z) * 0.35
+        lens_depth = 0.02
 
-        lens_verts, lens_norms = GeometryBuilder.create_cylinder(
-            lens_radius, lens_depth_val, segments=24,
-            center=(0, 0, head_depth / 2 + lens_depth_val / 2)
+        # Create cylinder (Y-oriented by default)
+        lens_verts_raw, lens_norms_raw = GeometryBuilder.create_cylinder(
+            lens_radius, lens_depth, segments=24,
+            center=(0, 0, 0)
         )
+
+        # Rotate lens to face +X (cylinder Y-axis -> X-axis)
+        # Rotation -90° around Z: (x, y, z) -> (y, -x, z)
+        lens_verts = []
+        lens_norms = []
+        for i in range(0, len(lens_verts_raw), 3):
+            x, y, z = lens_verts_raw[i], lens_verts_raw[i+1], lens_verts_raw[i+2]
+            # Rotate -90° around Z, then offset to +X face of head
+            new_x = y + head_size_x / 2 + lens_depth / 2
+            new_y = -x
+            new_z = z
+            lens_verts.extend([new_x, new_y, new_z])
+
+        for i in range(0, len(lens_norms_raw), 3):
+            nx, ny, nz = lens_norms_raw[i], lens_norms_raw[i+1], lens_norms_raw[i+2]
+            lens_norms.extend([ny, -nx, nz])
+
+        lens_verts = np.array(lens_verts, dtype='f4')
+        lens_norms = np.array(lens_norms, dtype='f4')
+
         lens_vbo = self.ctx.buffer(lens_verts.tobytes())
         lens_nbo = self.ctx.buffer(lens_norms.tobytes())
         self.lens_vao = self.ctx.vertex_array(
@@ -612,31 +788,13 @@ class OrientationPreviewWidget(QOpenGLWidget):
             [(lens_vbo, '3f', 'in_position'), (lens_nbo, '3f', 'in_normal')]
         )
 
-        # Create front indicator (on head)
-        indicator_size = head_width * 0.25
-        indicator_z = head_depth / 2 + 0.01
-        indicator_y_offset = head_height / 2 * 0.7
-
-        indicator_verts = np.array([
-            0, indicator_y_offset + indicator_size * 0.4, indicator_z,
-            -indicator_size * 0.35, indicator_y_offset - indicator_size * 0.2, indicator_z,
-            indicator_size * 0.35, indicator_y_offset - indicator_size * 0.2, indicator_z,
-        ], dtype='f4')
-        indicator_norms = np.array([0, 0, 1, 0, 0, 1, 0, 0, 1], dtype='f4')
-
-        indicator_vbo = self.ctx.buffer(indicator_verts.tobytes())
-        indicator_nbo = self.ctx.buffer(indicator_norms.tobytes())
-        self.indicator_vao = self.ctx.vertex_array(
-            self.fixture_program,
-            [(indicator_vbo, '3f', 'in_position'), (indicator_nbo, '3f', 'in_normal')]
-        )
-
-        # Store dimensions for positioning
-        self.mh_base_height = base_height
-        self.mh_yoke_height = yoke_height
-        self.mh_head_height = head_height
-        self.mh_head_depth = head_depth
-        self.front_depth = head_depth / 2
+        # Store dimensions for positioning (Z-up coordinate system)
+        self.mh_base_thickness = base_thickness  # Height of base in Z
+        self.mh_yoke_height = yoke_height  # Height of yoke in Z direction
+        self.mh_head_size_x = head_size_x  # Head size along X (beam direction)
+        self.mh_head_size_y = head_size_y  # Head size along Y (tilt axis)
+        self.mh_head_size_z = head_size_z  # Head size along Z (up/down)
+        self.front_depth = head_size_x / 2
 
     def _create_front_indicator(self, z_pos: float, size: float):
         """Create a front indicator triangle at the given Z position."""
@@ -981,7 +1139,13 @@ class OrientationPreviewWidget(QOpenGLWidget):
         self.fixture_program['model'].write(model_bytes)
 
     def _render_moving_head(self, mvp: glm.mat4, fixture_transform: glm.mat4):
-        """Render moving head fixture (like visualizer)."""
+        """Render moving head fixture (like visualizer).
+
+        Uses Z-up coordinate system:
+        - Base plate in X-Y plane, Z is up
+        - Head positioned in Z direction (above base and yoke)
+        - Lens faces +X direction
+        """
         if not self.fixture_program:
             return
 
@@ -997,16 +1161,34 @@ class OrientationPreviewWidget(QOpenGLWidget):
             self.fixture_program['emissive_strength'].value = 0.0
             self.base_vao.render()
 
+        # Render indicator on base (red triangle)
+        if self.indicator_vao:
+            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
+            self.indicator_vao.render()
+
+        # Render coordinate axes (X=Red, Y=Blue, Z=Green)
+        if hasattr(self, 'mh_x_axis_vao') and self.mh_x_axis_vao:
+            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)  # Red
+            self.mh_x_axis_vao.render()
+        if hasattr(self, 'mh_y_axis_vao') and self.mh_y_axis_vao:
+            self.fixture_program['base_color'].value = (0.2, 0.4, 0.9)  # Blue
+            self.mh_y_axis_vao.render()
+        if hasattr(self, 'mh_z_axis_vao') and self.mh_z_axis_vao:
+            self.fixture_program['base_color'].value = (0.2, 0.8, 0.2)  # Green
+            self.mh_z_axis_vao.render()
+
         # Render yoke
         if self.yoke_vao:
             self.fixture_program['base_color'].value = yoke_color
             self.yoke_vao.render()
 
-        # Render head
+        # Render head (positioned in Z direction)
         if self.head_vao:
-            # Head is positioned at the yoke height
-            head_y = getattr(self, 'mh_base_height', 0.08) + getattr(self, 'mh_yoke_height', 0.2) / 2
-            head_translate = glm.translate(glm.mat4(1.0), glm.vec3(0, head_y, 0))
+            # Head is positioned at yoke height (Z direction)
+            base_thickness = getattr(self, 'mh_base_thickness', 0.04)
+            yoke_height = getattr(self, 'mh_yoke_height', 0.2)
+            head_z = base_thickness + yoke_height / 2
+            head_translate = glm.translate(glm.mat4(1.0), glm.vec3(0, 0, head_z))
             head_model = fixture_transform * head_translate
             head_mvp = mvp * head_model
 
@@ -1020,13 +1202,6 @@ class OrientationPreviewWidget(QOpenGLWidget):
                 self.fixture_program['emissive_color'].value = (1.0, 1.0, 1.0)
                 self.fixture_program['emissive_strength'].value = 0.5
                 self.lens_vao.render()
-
-            # Render front indicator (red triangle)
-            if self.indicator_vao:
-                self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
-                self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
-                self.fixture_program['emissive_strength'].value = 0.0
-                self.indicator_vao.render()
 
     def _render_par(self, mvp: glm.mat4, fixture_transform: glm.mat4):
         """Render PAR can fixture."""
