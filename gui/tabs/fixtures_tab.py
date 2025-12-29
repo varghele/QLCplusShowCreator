@@ -645,8 +645,65 @@ class FixturesTab(BaseTab):
         # Add to configuration
         self.config.fixtures.append(new_fixture)
 
-        # Update fixture definitions cache so light lanes can detect capabilities
-        get_cached_fixture_definitions({(manufacturer, model)})
+        # Check if this fixture model is already cached
+        from utils.fixture_utils import _fixture_definitions_cache
+        fixture_key = f"{manufacturer}_{model}"
+        alt_key = f"{manufacturer}_{model.replace(' ', '_')}"
+        needs_caching = fixture_key not in _fixture_definitions_cache and alt_key not in _fixture_definitions_cache
+
+        if needs_caching:
+            # Show loading dialog with animated progress bar
+            # Run the slow operation in a thread so animation keeps moving
+            loading_dialog = QtWidgets.QDialog(self)
+            loading_dialog.setWindowTitle("Loading Fixture")
+            loading_dialog.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
+            loading_dialog.setFixedSize(320, 100)
+            loading_dialog.setWindowFlags(
+                loading_dialog.windowFlags() & ~QtCore.Qt.WindowType.WindowCloseButtonHint
+            )
+
+            layout = QtWidgets.QVBoxLayout(loading_dialog)
+            layout.setContentsMargins(20, 15, 20, 15)
+
+            label = QtWidgets.QLabel(f"Loading {manufacturer} {model}...")
+            label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(label)
+
+            # Indeterminate progress bar (animated)
+            progress_bar = QtWidgets.QProgressBar()
+            progress_bar.setMinimum(0)
+            progress_bar.setMaximum(0)  # This makes it indeterminate/animated
+            progress_bar.setTextVisible(False)
+            layout.addWidget(progress_bar)
+
+            loading_dialog.show()
+            QtWidgets.QApplication.processEvents()
+
+            # Run caching in a background thread
+            from PyQt6.QtCore import QThread, pyqtSignal
+
+            class CacheWorker(QThread):
+                finished = pyqtSignal()
+
+                def __init__(self, mfr, mdl):
+                    super().__init__()
+                    self.mfr = mfr
+                    self.mdl = mdl
+
+                def run(self):
+                    get_cached_fixture_definitions({(self.mfr, self.mdl)})
+                    self.finished.emit()
+
+            worker = CacheWorker(manufacturer, model)
+            worker.finished.connect(loading_dialog.accept)
+            worker.start()
+
+            # Block until worker finishes (but event loop keeps running for animation)
+            loading_dialog.exec()
+            worker.wait()  # Ensure thread is fully done
+        else:
+            # Already cached, no need for loading dialog
+            get_cached_fixture_definitions({(manufacturer, model)})
 
         # Refresh table
         self.update_from_config()
