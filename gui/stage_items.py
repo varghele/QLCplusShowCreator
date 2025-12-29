@@ -69,7 +69,12 @@ class FixtureItem(QGraphicsItem):
 
         # Apply rotation transformation
         painter.translate(0, 0)  # Translate to center point
-        painter.rotate(self.rotation_angle + 90)  # Rotate by current angle, Add 90 degrees to make 0 point downwards
+        # For bar-type fixtures, use rotation_angle directly (no offset)
+        # so that yaw=90 (bar's X along stage Z) shows as vertical in 2D
+        if self.fixture_type in ("BAR", "SUNSTRIP"):
+            painter.rotate(self.rotation_angle)
+        else:
+            painter.rotate(self.rotation_angle + 90)  # Add 90 degrees to make 0 point downwards
 
         # Set smaller font size
         font = painter.font()
@@ -90,17 +95,24 @@ class FixtureItem(QGraphicsItem):
         if self.fixture_type == "PAR":
             painter.drawEllipse(QRectF(-self.size / 2, -self.size / 2, self.size, self.size))
         elif self.fixture_type == "BAR":
-            painter.drawRect(QRectF(-self.size, -self.size / 4, self.size * 2, self.size / 2))
+            # LED Bar - simple elongated rectangle
+            bar_height = self.size / 3
+            bar_width = self.size * 2
+            painter.drawRect(QRectF(-self.size, -bar_height / 2, bar_width, bar_height))
         elif self.fixture_type == "SUNSTRIP":
-            # Sunstrip - similar to BAR but with small circles to represent bulbs
-            painter.drawRect(QRectF(-self.size, -self.size / 4, self.size * 2, self.size / 2))
-            # Draw small circles for bulbs
+            # Sunstrip - elongated rectangle with lamp circles
+            bar_height = self.size / 3
+            bar_width = self.size * 2
+            painter.drawRect(QRectF(-self.size, -bar_height / 2, bar_width, bar_height))
+            # Draw lamp circles inside the bar
             bulb_count = 5
-            bulb_spacing = (self.size * 1.6) / bulb_count
-            start_x = -self.size * 0.8 + bulb_spacing / 2
+            bulb_spacing = (bar_width * 0.85) / bulb_count
+            start_x = -self.size * 0.85 + bulb_spacing / 2
+            bulb_radius = 3
             for i in range(bulb_count):
                 bulb_x = start_x + i * bulb_spacing
-                painter.drawEllipse(QRectF(bulb_x - 3, -3, 6, 6))
+                painter.drawEllipse(QRectF(bulb_x - bulb_radius, -bulb_radius,
+                                          bulb_radius * 2, bulb_radius * 2))
         elif self.fixture_type == "WASH":
             painter.drawRoundedRect(QRectF(-self.size / 2, -self.size / 2, self.size, self.size),
                                     self.size / 4, self.size / 4)
