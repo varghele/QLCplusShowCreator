@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsEllipseItem, QGraphicsView
 from PyQt6.QtCore import Qt, QRectF, QPointF
 from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QFontMetrics, QFont
-from math import sin, cos
+from math import sin, cos, radians, atan2, sqrt
 
 
 class FixtureItem(QGraphicsItem):
@@ -69,10 +69,11 @@ class FixtureItem(QGraphicsItem):
 
         # Apply rotation transformation
         painter.translate(0, 0)  # Translate to center point
-        # For bar-type fixtures, use rotation_angle directly (no offset)
-        # so that yaw=90 (bar's X along stage Z) shows as vertical in 2D
+        # For bar-type fixtures, calculate 2D rotation from full 3D orientation
+        # This correctly projects the fixture's length onto the top-down view
         if self.fixture_type in ("BAR", "SUNSTRIP"):
-            painter.rotate(self.rotation_angle)
+            rotation_2d = self._get_2d_rotation_angle()
+            painter.rotate(rotation_2d)
         else:
             painter.rotate(self.rotation_angle + 90)  # Add 90 degrees to make 0 point downwards
 
@@ -257,6 +258,74 @@ class FixtureItem(QGraphicsItem):
         Returns True if pitch or roll are non-zero, indicating user customization.
         """
         return abs(self.pitch) > 0.1 or abs(self.roll) > 0.1
+
+    def _get_2d_rotation_angle(self) -> float:
+        """Calculate the 2D rotation angle for top-down view based on full 3D orientation.
+
+        For bar-type fixtures (BAR, SUNSTRIP), this computes where the fixture's
+        local X-axis (its length) projects onto the floor plane (XZ in 3D world).
+
+        Coordinate systems:
+        - 3D World: X = stage right, Y = up (height), Z = toward audience (depth)
+        - 2D Stage view (top-down): X = stage right, Y = toward audience (maps to 3D Z)
+
+        Returns:
+            Rotation angle in degrees for the 2D painter rotation.
+        """
+        # Get orientation angles in radians
+        yaw_rad = radians(self.rotation_angle)  # rotation_angle stores yaw
+        pitch_rad = radians(self.pitch)
+        roll_rad = radians(self.roll)
+
+        # Start with local X-axis unit vector (1, 0, 0)
+        # This represents the "length" direction of the fixture
+
+        # Apply rotations in order: Yaw (Y) -> Pitch (X) -> Roll (Z)
+        # We compute where local X ends up in world space
+
+        # After Yaw rotation around Y-axis:
+        # x' = x*cos(yaw) + z*sin(yaw)
+        # y' = y
+        # z' = -x*sin(yaw) + z*cos(yaw)
+        # For (1, 0, 0): (cos(yaw), 0, -sin(yaw))
+        x1 = cos(yaw_rad)
+        y1 = 0.0
+        z1 = -sin(yaw_rad)
+
+        # After Pitch rotation around X-axis:
+        # x'' = x'
+        # y'' = y'*cos(pitch) - z'*sin(pitch)
+        # z'' = y'*sin(pitch) + z'*cos(pitch)
+        x2 = x1
+        y2 = y1 * cos(pitch_rad) - z1 * sin(pitch_rad)
+        z2 = y1 * sin(pitch_rad) + z1 * cos(pitch_rad)
+
+        # After Roll rotation around Z-axis:
+        # x''' = x''*cos(roll) - y''*sin(roll)
+        # y''' = x''*sin(roll) + y''*cos(roll)
+        # z''' = z''
+        x3 = x2 * cos(roll_rad) - y2 * sin(roll_rad)
+        y3 = x2 * sin(roll_rad) + y2 * cos(roll_rad)
+        z3 = z2  # Z is unchanged by roll around Z
+
+        # Project onto floor plane (XZ in 3D world = XY in 2D stage view)
+        # x3 = world X (stage left/right)
+        # z3 = world Z (stage depth, becomes Y in 2D view)
+
+        # Handle near-zero projection (fixture's length pointing straight up/down)
+        proj_length = sqrt(x3 * x3 + z3 * z3)
+        if proj_length < 0.01:
+            # Fixture's length is nearly vertical (pointing up or down)
+            # Show as vertical in 2D (rotated 90° from yaw)
+            return self.rotation_angle + 90
+
+        # Calculate angle in degrees
+        # atan2(z, x) gives angle from positive X-axis toward positive Z
+        # In 2D stage view: positive Z (toward audience) is negative Y on screen
+        # So we negate z3 to match screen coordinates
+        angle = atan2(-z3, x3) * 180.0 / 3.14159265359
+
+        return angle
 
     def _draw_orientation_axes(self, painter):
         """Draw orientation coordinate axes for the fixture.

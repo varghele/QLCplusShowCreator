@@ -1398,34 +1398,21 @@ class OrientationPreviewWidget(QOpenGLWidget):
         self.update()
 
     def get_fixture_transform(self) -> glm.mat4:
-        """Get the fixture transformation matrix based on current orientation."""
+        """Get the fixture transformation matrix based on current orientation.
+
+        Uses absolute yaw/pitch/roll values directly - no base rotation added.
+        The preset values already contain the complete orientation.
+        """
         # Start with identity
         transform = glm.mat4(1.0)
 
-        # Get base rotation from mounting preset
-        base_pitch = {
-            'hanging': 90.0,
-            'standing': -90.0,
-            'wall_left': 0.0,
-            'wall_right': 0.0,
-            'wall_back': 0.0,
-            'wall_front': 0.0,
-        }.get(self.mounting, 0.0)
-
-        base_yaw = {
-            'wall_left': -90.0,
-            'wall_right': 90.0,
-            'wall_front': 180.0,
-        }.get(self.mounting, 0.0)
-
-        # Apply rotations in order: Yaw (Z) -> Pitch (Y) -> Roll (X)
-        total_yaw = base_yaw + self.yaw
-        total_pitch = base_pitch + self.pitch
+        # Apply rotations in order: Yaw (Y) -> Pitch (X) -> Roll (Z)
+        # yaw, pitch, roll are now absolute world-space values
 
         # Apply yaw (rotation around Y axis - world up)
-        transform = glm.rotate(transform, glm.radians(total_yaw), glm.vec3(0, 1, 0))
+        transform = glm.rotate(transform, glm.radians(self.yaw), glm.vec3(0, 1, 0))
         # Apply pitch (rotation around X axis after yaw)
-        transform = glm.rotate(transform, glm.radians(total_pitch), glm.vec3(1, 0, 0))
+        transform = glm.rotate(transform, glm.radians(self.pitch), glm.vec3(1, 0, 0))
         # Apply roll (rotation around Z axis after pitch)
         transform = glm.rotate(transform, glm.radians(self.roll), glm.vec3(0, 0, 1))
 
@@ -2014,6 +2001,19 @@ class OrientationDialog(QDialog):
         'wall_right': {'label': 'Wall-R', 'tooltip': 'Mounted on stage-right wall'},
         'wall_back': {'label': 'Wall-Back', 'tooltip': 'Mounted on back wall, beam toward audience'},
         'wall_front': {'label': 'Wall-Front', 'tooltip': 'Mounted facing audience, beam toward back'},
+        'custom': {'label': 'Custom', 'tooltip': 'Custom orientation (manually adjusted)'},
+    }
+
+    # Absolute orientation values for each preset (yaw, pitch, roll)
+    # These are the actual world-space angles, not relative adjustments
+    PRESET_VALUES = {
+        'hanging': (0.0, 90.0, 0.0),      # Beam pointing down (-Z world)
+        'standing': (0.0, -90.0, 0.0),    # Beam pointing up (+Z world)
+        'wall_left': (-90.0, 0.0, 0.0),   # Beam pointing stage-right (+X world)
+        'wall_right': (90.0, 0.0, 0.0),   # Beam pointing stage-left (-X world)
+        'wall_back': (0.0, 0.0, 0.0),     # Beam pointing toward audience (-Y world)
+        'wall_front': (180.0, 0.0, 0.0),  # Beam pointing toward back (+Y world)
+        'custom': None,  # No predefined values for custom
     }
 
     def __init__(self, fixtures: List, config=None, parent=None):
@@ -2084,14 +2084,30 @@ class OrientationDialog(QDialog):
         self.yaw_spin.setToolTip("Rotation around vertical axis (blue ring)")
         adjust_layout.addWidget(self.yaw_spin, 0, 1)
 
+        # Yaw +90 button (blue)
+        self.yaw_90_btn = QPushButton("+90°")
+        self.yaw_90_btn.setToolTip("Rotate yaw by +90°")
+        self.yaw_90_btn.setStyleSheet("background-color: #4466CC; color: white; font-weight: bold;")
+        self.yaw_90_btn.setFixedWidth(50)
+        self.yaw_90_btn.clicked.connect(lambda: self._rotate_by_90('yaw'))
+        adjust_layout.addWidget(self.yaw_90_btn, 0, 2)
+
         # Pitch
-        adjust_layout.addWidget(QLabel("Pitch:"), 0, 2)
+        adjust_layout.addWidget(QLabel("Pitch:"), 0, 3)
         self.pitch_spin = QDoubleSpinBox()
         self.pitch_spin.setRange(-90, 90)
         self.pitch_spin.setSuffix("°")
         self.pitch_spin.setSingleStep(5)
         self.pitch_spin.setToolTip("Tilt angle (green ring)")
-        adjust_layout.addWidget(self.pitch_spin, 0, 3)
+        adjust_layout.addWidget(self.pitch_spin, 0, 4)
+
+        # Pitch +90 button (green)
+        self.pitch_90_btn = QPushButton("+90°")
+        self.pitch_90_btn.setToolTip("Rotate pitch by +90°")
+        self.pitch_90_btn.setStyleSheet("background-color: #44AA44; color: white; font-weight: bold;")
+        self.pitch_90_btn.setFixedWidth(50)
+        self.pitch_90_btn.clicked.connect(lambda: self._rotate_by_90('pitch'))
+        adjust_layout.addWidget(self.pitch_90_btn, 0, 5)
 
         # Roll
         adjust_layout.addWidget(QLabel("Roll:"), 1, 0)
@@ -2102,15 +2118,23 @@ class OrientationDialog(QDialog):
         self.roll_spin.setToolTip("Rotation around beam axis (red ring)")
         adjust_layout.addWidget(self.roll_spin, 1, 1)
 
+        # Roll +90 button (red)
+        self.roll_90_btn = QPushButton("+90°")
+        self.roll_90_btn.setToolTip("Rotate roll by +90°")
+        self.roll_90_btn.setStyleSheet("background-color: #CC4444; color: white; font-weight: bold;")
+        self.roll_90_btn.setFixedWidth(50)
+        self.roll_90_btn.clicked.connect(lambda: self._rotate_by_90('roll'))
+        adjust_layout.addWidget(self.roll_90_btn, 1, 2)
+
         # Z-height
-        adjust_layout.addWidget(QLabel("Z-Height:"), 1, 2)
+        adjust_layout.addWidget(QLabel("Z-Height:"), 1, 3)
         self.z_spin = QDoubleSpinBox()
         self.z_spin.setRange(0, 50)
         self.z_spin.setSuffix(" m")
         self.z_spin.setSingleStep(0.1)
         self.z_spin.setDecimals(2)
         self.z_spin.setToolTip("Height above stage floor")
-        adjust_layout.addWidget(self.z_spin, 1, 3)
+        adjust_layout.addWidget(self.z_spin, 1, 4, 1, 2)  # Span 2 columns
 
         layout.addWidget(adjust_group)
 
@@ -2165,6 +2189,10 @@ class OrientationDialog(QDialog):
         self.pitch_spin.blockSignals(False)
         self.roll_spin.blockSignals(False)
 
+        # Check if values match a preset and update selection
+        matched_preset = self._find_matching_preset(yaw, pitch, roll)
+        self._update_preset_selection(matched_preset)
+
     def _load_initial_values(self):
         """Load initial values from the first fixture."""
         if not self.fixtures:
@@ -2195,6 +2223,13 @@ class OrientationDialog(QDialog):
         roll = getattr(fixture, 'roll', 0.0)
         z_height = getattr(fixture, 'z_height', 3.0)
 
+        # Backward compatibility: if yaw/pitch/roll are all zero and mounting is set,
+        # convert from old relative system to new absolute system
+        if yaw == 0.0 and pitch == 0.0 and roll == 0.0 and mounting in self.PRESET_VALUES:
+            preset_values = self.PRESET_VALUES.get(mounting)
+            if preset_values:
+                yaw, pitch, roll = preset_values
+
         # Block signals while setting values
         self.yaw_spin.blockSignals(True)
         self.pitch_spin.blockSignals(True)
@@ -2211,32 +2246,42 @@ class OrientationDialog(QDialog):
         self.roll_spin.blockSignals(False)
         self.z_spin.blockSignals(False)
 
-        # Update preset button
-        self._update_preset_selection(mounting)
+        # Find which preset matches the values (or 'custom' if none)
+        matched_preset = self._find_matching_preset(yaw, pitch, roll)
+        self._update_preset_selection(matched_preset)
 
-        # Update preview
-        self.preview_widget.set_orientation(mounting, yaw, pitch, roll)
+        # Update preview with absolute values
+        self.preview_widget.set_orientation(matched_preset, yaw, pitch, roll)
 
     def _on_preset_clicked(self, preset_id: str):
         """Handle preset button click."""
+        # Don't do anything special when clicking Custom - it's auto-selected
+        if preset_id == 'custom':
+            self._update_preset_selection(preset_id)
+            return
+
         # Update button states
         self._update_preset_selection(preset_id)
 
-        # Reset fine adjustments to zero when switching presets
+        # Get the absolute values for this preset
+        preset_values = self.PRESET_VALUES.get(preset_id, (0.0, 0.0, 0.0))
+        yaw, pitch, roll = preset_values
+
+        # Set spinboxes to actual preset values
         self.yaw_spin.blockSignals(True)
         self.pitch_spin.blockSignals(True)
         self.roll_spin.blockSignals(True)
 
-        self.yaw_spin.setValue(0)
-        self.pitch_spin.setValue(0)
-        self.roll_spin.setValue(0)
+        self.yaw_spin.setValue(yaw)
+        self.pitch_spin.setValue(pitch)
+        self.roll_spin.setValue(roll)
 
         self.yaw_spin.blockSignals(False)
         self.pitch_spin.blockSignals(False)
         self.roll_spin.blockSignals(False)
 
-        # Update preview
-        self.preview_widget.set_orientation(preset_id, 0, 0, 0)
+        # Update preview with absolute values
+        self.preview_widget.set_orientation(preset_id, yaw, pitch, roll)
 
     def _update_preset_selection(self, preset_id: str):
         """Update preset button checked states."""
@@ -2245,20 +2290,52 @@ class OrientationDialog(QDialog):
 
     def _on_values_changed(self):
         """Handle spin box value changes."""
-        # Get current preset
-        current_preset = 'hanging'
-        for pid, btn in self.preset_buttons.items():
-            if btn.isChecked():
-                current_preset = pid
-                break
+        yaw = self.yaw_spin.value()
+        pitch = self.pitch_spin.value()
+        roll = self.roll_spin.value()
 
-        # Update preview
-        self.preview_widget.set_orientation(
-            current_preset,
-            self.yaw_spin.value(),
-            self.pitch_spin.value(),
-            self.roll_spin.value()
-        )
+        # Check if current values match any preset
+        matched_preset = self._find_matching_preset(yaw, pitch, roll)
+        self._update_preset_selection(matched_preset)
+
+        # Update preview with absolute values
+        self.preview_widget.set_orientation(matched_preset, yaw, pitch, roll)
+
+    def _find_matching_preset(self, yaw: float, pitch: float, roll: float) -> str:
+        """Find which preset matches the given values, or 'custom' if none match."""
+        tolerance = 0.1  # Small tolerance for floating point comparison
+
+        for preset_id, values in self.PRESET_VALUES.items():
+            if values is None:  # Skip 'custom' preset
+                continue
+            preset_yaw, preset_pitch, preset_roll = values
+            if (abs(yaw - preset_yaw) < tolerance and
+                abs(pitch - preset_pitch) < tolerance and
+                abs(roll - preset_roll) < tolerance):
+                return preset_id
+
+        return 'custom'
+
+    def _rotate_by_90(self, axis: str):
+        """Rotate the specified axis by +90 degrees, wrapping to stay in valid range."""
+        if axis == 'yaw':
+            new_value = self.yaw_spin.value() + 90
+            # Wrap to -180 to 180 range
+            if new_value > 180:
+                new_value -= 360
+            self.yaw_spin.setValue(new_value)
+        elif axis == 'pitch':
+            new_value = self.pitch_spin.value() + 90
+            # Wrap to -90 to 90 range
+            if new_value > 90:
+                new_value -= 180
+            self.pitch_spin.setValue(new_value)
+        elif axis == 'roll':
+            new_value = self.roll_spin.value() + 90
+            # Wrap to -180 to 180 range
+            if new_value > 180:
+                new_value -= 360
+            self.roll_spin.setValue(new_value)
 
     def get_selected_mounting(self) -> str:
         """Get the selected mounting preset."""
