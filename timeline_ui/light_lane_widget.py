@@ -44,7 +44,7 @@ class LightLaneWidget(QFrame):
         self.capabilities = self._detect_group_capabilities()
         self.num_sublanes = self._count_sublanes()
         self.sublane_height = 50  # Height per sublane in pixels
-        self.min_lane_height = 95  # Minimum height to accommodate control panel
+        self.min_lane_height = 105  # Minimum height to accommodate control panel
 
         self.setFrameStyle(QFrame.Shape.Box)
         self.setLineWidth(1)
@@ -221,6 +221,7 @@ class LightLaneWidget(QFrame):
 
         # Add Block button
         self.add_block_button = QPushButton("Add Block")
+        self.add_block_button.setMinimumHeight(25)
         self.add_block_button.clicked.connect(self.add_light_block)
         self.add_block_button.setStyleSheet("""
             QPushButton {
@@ -229,7 +230,7 @@ class LightLaneWidget(QFrame):
                 font-weight: bold;
                 border: none;
                 border-radius: 3px;
-                padding: 5px 10px;
+                padding: 3px 10px;
             }
             QPushButton:hover {
                 background-color: #66BB6A;

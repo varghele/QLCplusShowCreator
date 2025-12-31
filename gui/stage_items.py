@@ -35,8 +35,9 @@ class FixtureItem(QGraphicsItem):
         self.text_height = 25  # Height reserved for text
 
     def boundingRect(self):
-        # Include the main fixture symbol plus text area
-        return QRectF(-self.size / 2, -self.size / 2, self.size, self.size + self.text_height)
+        # Include the main fixture symbol plus text area (wider for long names)
+        text_width = max(self.size * 3, 100)  # At least 100px wide for text
+        return QRectF(-text_width / 2, -self.size / 2, text_width, self.size + self.text_height)
 
     def mouseMoveEvent(self, event):
         """Handle mouse movement for dragging fixtures"""
@@ -142,27 +143,25 @@ class FixtureItem(QGraphicsItem):
 
         painter.restore()
 
-        # Draw text (not rotated)
-        text = f"{self.fixture_name}\nZ:{self.z_height:.1f}"
-        text_rect = QRectF(-self.size / 2, self.size / 2, self.size, self.text_height)
+        # Draw text (not rotated) - name and Z-height separately
+        text_width = max(self.size * 3, 100)
 
-        # Find the right font size that fits
+        # Draw fixture name (regular font)
         font = painter.font()
-        font_size = 10
-        while font_size > 6:
-            font.setPointSize(font_size)
-            painter.setFont(font)
-            metrics = QFontMetrics(font)
-            text_bounds = metrics.boundingRect(text_rect.toRect(),
-                                               Qt.AlignmentFlag.AlignCenter, text)
-            if text_bounds.height() <= text_rect.height() and \
-                    text_bounds.width() <= text_rect.width():
-                break
-            font_size -= 1
-
-        # Draw the text
+        font.setPointSize(8)
+        font.setBold(False)
+        painter.setFont(font)
         painter.setPen(Qt.GlobalColor.black)
-        painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
+
+        name_rect = QRectF(-text_width / 2, self.size / 2, text_width, 12)
+        painter.drawText(name_rect, Qt.AlignmentFlag.AlignCenter, self.fixture_name)
+
+        # Draw Z-height (bold font)
+        font.setBold(True)
+        painter.setFont(font)
+
+        z_rect = QRectF(-text_width / 2, self.size / 2 + 11, text_width, 12)
+        painter.drawText(z_rect, Qt.AlignmentFlag.AlignCenter, f"Z: {self.z_height:.1f}m")
 
     def wheelEvent(self, event):
         """Handle mouse wheel events for changing z-height (Shift+scroll)."""
