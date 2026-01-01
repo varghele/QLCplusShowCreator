@@ -360,6 +360,47 @@ class GeometryBuilder:
 
         return np.array(vertices, dtype='f4'), np.array(alphas, dtype='f4')
 
+    @staticmethod
+    def create_floor_projection_disk(segments: int = 32) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Create a unit disk for floor projection.
+
+        The disk is centered at origin in the XZ plane (Y=0) with radius 1.
+        It will be scaled and positioned via model matrix during rendering.
+
+        Args:
+            segments: Number of segments around circumference
+
+        Returns:
+            Tuple of (vertices, uvs) as numpy arrays
+            - vertices: XYZ positions (Y=0 for all)
+            - uvs: UV coordinates for gradient calculation
+        """
+        vertices = []
+        uvs = []
+
+        # Create triangular fan from center
+        for i in range(segments):
+            angle1 = 2 * math.pi * i / segments
+            angle2 = 2 * math.pi * (i + 1) / segments
+
+            x1, z1 = math.cos(angle1), math.sin(angle1)
+            x2, z2 = math.cos(angle2), math.sin(angle2)
+
+            # Center vertex
+            vertices.extend([0, 0, 0])
+            uvs.extend([0.5, 0.5])
+
+            # Edge vertex 1
+            vertices.extend([x1, 0, z1])
+            uvs.extend([(x1 + 1) / 2, (z1 + 1) / 2])
+
+            # Edge vertex 2
+            vertices.extend([x2, 0, z2])
+            uvs.extend([(x2 + 1) / 2, (z2 + 1) / 2])
+
+        return np.array(vertices, dtype='f4'), np.array(uvs, dtype='f4')
+
 
 # Shared shader for fixture body rendering
 FIXTURE_VERTEX_SHADER = """
@@ -444,6 +485,55 @@ void main() {
 }
 """
 
+# Floor projection shader for spotlight effect
+FLOOR_PROJECTION_VERTEX_SHADER = """
+#version 330
+
+in vec3 in_position;
+in vec2 in_uv;
+
+out vec2 v_uv;
+
+uniform mat4 mvp;
+
+void main() {
+    gl_Position = mvp * vec4(in_position, 1.0);
+    v_uv = in_uv;
+}
+"""
+
+FLOOR_PROJECTION_FRAGMENT_SHADER = """
+#version 330
+
+in vec2 v_uv;
+
+out vec4 fragColor;
+
+uniform vec3 projection_color;
+uniform float projection_intensity;
+uniform float distance_falloff;
+
+void main() {
+    // Calculate distance from center (0.5, 0.5) in UV space
+    vec2 centered = v_uv - vec2(0.5);
+    float dist = length(centered) * 2.0;  // Normalize to 0-1 range
+
+    // Soft gaussian-like falloff from center
+    // Use smoothstep for soft edge transition
+    float soft_edge = 1.0 - smoothstep(0.0, 1.0, dist);
+
+    // Add extra softness with gaussian-like curve
+    float gaussian = exp(-dist * dist * 1.5);
+
+    // Combine for nice soft spotlight effect
+    float alpha = soft_edge * gaussian * projection_intensity * distance_falloff;
+
+    // Output with good visibility (alpha up to 0.9 for bright center)
+    alpha = clamp(alpha, 0.0, 0.9);
+    fragColor = vec4(projection_color, alpha);
+}
+"""
+
 
 class FixtureRenderer(ABC):
     """Base class for fixture renderers."""
@@ -518,21 +608,17 @@ class FixtureRenderer(ABC):
         pos = self.position
         model = glm.translate(model, glm.vec3(pos['x'], pos['z'], pos['y']))
 
-        # Get base rotation from mounting preset
-        base = MOUNTING_BASE_ROTATIONS.get(self.mounting, {'pitch': 0.0, 'yaw': 0.0})
-        base_pitch = base['pitch']
-        base_yaw = base['yaw']
+        # Use yaw/pitch/roll directly as absolute values
+        # The orientation dialog sends complete orientation values that already
+        # include the mounting preset rotation (e.g., hanging = pitch 90°)
+        # Do NOT add base rotation from MOUNTING_BASE_ROTATIONS - that would double-count
 
-        # Calculate total rotation angles (base + user adjustments)
-        total_yaw = base_yaw + self.yaw
-        total_pitch = base_pitch + self.pitch
-
-        # Apply rotations in ZYX (yaw-pitch-roll) order
+        # Apply rotations in YXZ order (yaw-pitch-roll)
         # Yaw: rotation around Y axis (vertical/up axis in 3D space)
-        model = glm.rotate(model, glm.radians(total_yaw), glm.vec3(0, 1, 0))
+        model = glm.rotate(model, glm.radians(self.yaw), glm.vec3(0, 1, 0))
 
         # Pitch: rotation around X axis (tilt forward/backward)
-        model = glm.rotate(model, glm.radians(total_pitch), glm.vec3(1, 0, 0))
+        model = glm.rotate(model, glm.radians(self.pitch), glm.vec3(1, 0, 0))
 
         # Roll: rotation around Z axis (twist)
         model = glm.rotate(model, glm.radians(self.roll), glm.vec3(0, 0, 1))
@@ -1756,6 +1842,111 @@ class MovingHeadRenderer(FixtureRenderer):
         )
         self.beam_vertex_count = len(beam_verts) // 3
 
+        # Create floor projection geometry
+        self._create_floor_projection_geometry()
+
+    def _create_floor_projection_geometry(self):
+        """Create floor projection disk geometry for spotlight effect."""
+        self.floor_proj_program = self.ctx.program(
+            vertex_shader=FLOOR_PROJECTION_VERTEX_SHADER,
+            fragment_shader=FLOOR_PROJECTION_FRAGMENT_SHADER
+        )
+
+        # Create unit disk (will be scaled/positioned via model matrix)
+        proj_verts, proj_uvs = GeometryBuilder.create_floor_projection_disk(segments=32)
+
+        self.floor_proj_vbo = self.ctx.buffer(proj_verts.tobytes())
+        self.floor_proj_ubo = self.ctx.buffer(proj_uvs.tobytes())
+
+        self.floor_proj_vao = self.ctx.vertex_array(
+            self.floor_proj_program,
+            [
+                (self.floor_proj_vbo, '3f', 'in_position'),
+                (self.floor_proj_ubo, '2f', 'in_uv'),
+            ]
+        )
+        self.floor_proj_vertex_count = len(proj_verts) // 3
+
+    def _calculate_floor_intersection(self) -> Optional[Tuple[glm.vec3, float, float, float]]:
+        """
+        Calculate where the beam intersects the floor (Y=0 plane).
+
+        Returns:
+            Tuple of (hit_position, major_radius, minor_radius, rotation_angle) or None if no intersection
+            - hit_position: World position where beam hits floor
+            - major_radius: Major axis of the ellipse (stretched along beam direction)
+            - minor_radius: Minor axis of the ellipse (perpendicular to beam)
+            - rotation_angle: Rotation around Y axis to orient ellipse
+        """
+        # Get head position (lens is on the head, which moves with pan/tilt)
+        head_z_offset = self.base_thickness + self.yoke_height / 2
+
+        # Build the same transformation chain as render()
+        base_model = self.get_model_matrix()
+
+        # Pan rotation
+        pan_rotation = glm.rotate(glm.mat4(1.0), glm.radians(self.current_pan), glm.vec3(0, 0, 1))
+
+        # Head position and tilt
+        head_translate = glm.translate(glm.mat4(1.0), glm.vec3(0, 0, head_z_offset))
+        tilt_rotation = glm.rotate(glm.mat4(1.0), glm.radians(-self.current_tilt), glm.vec3(0, 1, 0))
+
+        # Full head transform
+        head_model = base_model * pan_rotation * head_translate * tilt_rotation
+
+        # Lens is offset along +X from head center (at tilt=0)
+        lens_local_pos = glm.vec3(self.head_size_x / 2 + self.lens_depth, 0, 0)
+        lens_world_pos = glm.vec3(head_model * glm.vec4(lens_local_pos, 1.0))
+
+        # Get beam direction in world space
+        beam_dir = self.get_beam_direction()
+
+        # Check if beam is pointing downward (toward floor)
+        if beam_dir.y >= 0:
+            return None
+
+        # Calculate intersection with Y=0 plane
+        # Ray: P = lens_pos + t * beam_dir
+        # At floor: P.y = 0
+        # t = -lens_pos.y / beam_dir.y
+        t = -lens_world_pos.y / beam_dir.y
+
+        # Check if intersection is within beam length (5m)
+        beam_length = 5.0
+        if t <= 0 or t > beam_length:
+            return None
+
+        # Calculate hit position
+        hit_pos = lens_world_pos + beam_dir * t
+
+        # Calculate beam radius at this distance
+        beam_radius = t * math.tan(math.radians(self.beam_angle / 2))
+
+        # Calculate ellipse shape based on angle of incidence
+        # When beam hits floor at angle, circle becomes ellipse
+        cos_angle = abs(beam_dir.y)  # cos of angle from vertical
+
+        # Minor radius is the beam radius (perpendicular to beam's XZ projection)
+        minor_radius = beam_radius
+
+        # Major radius is stretched by 1/cos(angle) along the beam's XZ direction
+        # Clamp to prevent extreme stretching at shallow angles
+        major_radius = beam_radius / max(cos_angle, 0.1)
+
+        # Cap the major radius to prevent extremely elongated ellipses
+        major_radius = min(major_radius, beam_radius * 5.0)
+
+        # Calculate rotation angle for ellipse orientation
+        # The major axis should align with the XZ projection of the beam direction
+        beam_xz = glm.vec2(beam_dir.x, beam_dir.z)
+        if glm.length(beam_xz) > 0.01:
+            beam_xz = glm.normalize(beam_xz)
+            rotation_angle = math.degrees(math.atan2(beam_xz.x, beam_xz.y))
+        else:
+            rotation_angle = 0.0
+
+        return (hit_pos, major_radius, minor_radius, rotation_angle)
+
     def update_dmx(self, dmx_data: bytes):
         """Update DMX values and calculate pan/tilt angles."""
         super().update_dmx(dmx_data)
@@ -1780,33 +1971,30 @@ class MovingHeadRenderer(FixtureRenderer):
     def get_beam_direction(self) -> glm.vec3:
         """Get the beam direction vector based on current pan/tilt and fixture orientation.
 
-        Z-up coordinate system:
-        - At Pan=0, Tilt=0: beam points +X
-        - Pan rotates around Z
-        - Tilt rotates around Y
+        Y-up coordinate system (matches visualizer):
+        - At Pan=0, Tilt=0: beam points along local +X
+        - Pan rotates around local Z axis
+        - Tilt rotates around local Y axis
         """
         # Start with forward direction (+X at Pan=0, Tilt=0)
         direction = glm.vec3(1, 0, 0)
 
-        # Apply tilt (rotation around Y axis, negated to go +X toward +Z)
-        # Tilt=0: forward (+X), increasing tilt -> up (+Z)
+        # Apply tilt (rotation around Y axis, negated to go +X toward -Y at max tilt)
+        # Tilt=0: forward (+X), increasing tilt -> down toward floor
         tilt_rad = glm.radians(-self.current_tilt)
         tilt_mat = glm.rotate(glm.mat4(1.0), tilt_rad, glm.vec3(0, 1, 0))
 
-        # Apply pan (rotation around Z axis)
+        # Apply pan (rotation around Z axis in head-local space)
         pan_rad = glm.radians(self.current_pan)
         pan_mat = glm.rotate(glm.mat4(1.0), pan_rad, glm.vec3(0, 0, 1))
 
-        # Apply full fixture orientation (mounting preset + user adjustments)
-        base = MOUNTING_BASE_ROTATIONS.get(self.mounting, {'pitch': 0.0, 'yaw': 0.0})
-        total_yaw = base['yaw'] + self.yaw
-        total_pitch = base['pitch'] + self.pitch
-
-        # Build fixture orientation matrix (Z-up: yaw around Z, pitch around X)
+        # Build fixture orientation matrix using ABSOLUTE values (same as get_model_matrix)
+        # The orientation dialog sends complete orientation values that already
+        # include the mounting preset rotation (e.g., hanging = pitch 90°)
         fixture_mat = glm.mat4(1.0)
-        fixture_mat = glm.rotate(fixture_mat, glm.radians(total_yaw), glm.vec3(0, 0, 1))
-        fixture_mat = glm.rotate(fixture_mat, glm.radians(total_pitch), glm.vec3(1, 0, 0))
-        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.roll), glm.vec3(0, 1, 0))
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.yaw), glm.vec3(0, 1, 0))
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.pitch), glm.vec3(1, 0, 0))
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.roll), glm.vec3(0, 0, 1))
 
         # Combine rotations: fixture orientation * pan * tilt
         final_mat = fixture_mat * pan_mat * tilt_mat
@@ -1903,9 +2091,10 @@ class MovingHeadRenderer(FixtureRenderer):
 
         self.lens_vao.render(moderngl.TRIANGLES)
 
-        # Render beam if dimmer is on
+        # Render beam and floor projection if dimmer is on
         if dimmer > 0.01:
             self._render_beam(mvp, head_model, color, dimmer)
+            self._render_floor_projection(mvp, color, dimmer)
 
     def _render_beam(self, mvp: glm.mat4, head_model: glm.mat4,
                      color: Tuple[float, float, float], dimmer: float):
@@ -1956,6 +2145,86 @@ class MovingHeadRenderer(FixtureRenderer):
             except:
                 pass
 
+    def _render_floor_projection(self, mvp: glm.mat4,
+                                  color: Tuple[float, float, float], dimmer: float):
+        """Render the floor projection (spotlight effect)."""
+        try:
+            # Check if floor projection resources exist
+            if not hasattr(self, 'floor_proj_vao') or self.floor_proj_vao is None:
+                return
+
+            # Calculate floor intersection
+            intersection = self._calculate_floor_intersection()
+            if intersection is None:
+                return
+
+            hit_pos, major_radius, minor_radius, rotation_angle = intersection
+
+            # Build model matrix for the projection ellipse
+            # Start with identity, then translate to hit position
+            proj_model = glm.mat4(1.0)
+
+            # Translate to hit position (above floor to avoid z-fighting with depth buffer)
+            proj_model = glm.translate(proj_model, glm.vec3(hit_pos.x, 0.03, hit_pos.z))
+
+            # Rotate to align major axis with beam direction
+            proj_model = glm.rotate(proj_model, glm.radians(rotation_angle), glm.vec3(0, 1, 0))
+
+            # Scale to create ellipse (X = major axis, Z = minor axis)
+            proj_model = glm.scale(proj_model, glm.vec3(major_radius, 1.0, minor_radius))
+
+            proj_mvp = mvp * proj_model
+            mvp_bytes = np.array([x for col in proj_mvp.to_list() for x in col], dtype='f4').tobytes()
+
+            # Enable blending for transparency (additive blending like beams)
+            self.ctx.enable(moderngl.BLEND)
+            self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
+
+            # Disable depth test for projection (renders on top of floor)
+            # Floor is already rendered with depth, so it remains visible
+            self.ctx.disable(moderngl.DEPTH_TEST)
+            self.ctx.depth_mask = False
+
+            # Calculate distance falloff (20-30% reduction at max distance)
+            # Lens Y position determines distance to floor
+            beam_length = 5.0
+            pos = self.position
+            lens_height = pos['z']  # Stage Z (height) -> approximate lens height
+            # Distance from lens to floor intersection
+            beam_dir = self.get_beam_direction()
+            if beam_dir.y < 0:
+                distance = abs(lens_height / beam_dir.y)
+            else:
+                distance = beam_length
+
+            # Falloff: 1.0 at distance=0, 0.7 at distance=5m
+            distance_falloff = 1.0 - (distance / beam_length) * 0.3
+            distance_falloff = max(distance_falloff, 0.5)  # Don't go below 50%
+
+            self.floor_proj_program['mvp'].write(mvp_bytes)
+            self.floor_proj_program['projection_color'].value = color
+            self.floor_proj_program['projection_intensity'].value = dimmer
+            self.floor_proj_program['distance_falloff'].value = distance_falloff
+
+            self.floor_proj_vao.render(moderngl.TRIANGLES)
+
+            # Restore state
+            self.ctx.enable(moderngl.DEPTH_TEST)
+            self.ctx.depth_mask = True
+            self.ctx.disable(moderngl.BLEND)
+
+        except Exception as e:
+            print(f"Error rendering floor projection: {e}")
+            import traceback
+            traceback.print_exc()
+            # Try to restore state on error
+            try:
+                self.ctx.enable(moderngl.DEPTH_TEST)
+                self.ctx.depth_mask = True
+                self.ctx.disable(moderngl.BLEND)
+            except:
+                pass
+
     def release(self):
         """Release GPU resources."""
         super().release()
@@ -1966,7 +2235,8 @@ class MovingHeadRenderer(FixtureRenderer):
                      'yoke_vao', 'yoke_vbo', 'yoke_nbo',
                      'head_vao', 'head_vbo', 'head_nbo',
                      'lens_vao', 'lens_vbo', 'lens_nbo',
-                     'beam_vao', 'beam_vbo', 'beam_abo', 'beam_program']:
+                     'beam_vao', 'beam_vbo', 'beam_abo', 'beam_program',
+                     'floor_proj_vao', 'floor_proj_vbo', 'floor_proj_ubo', 'floor_proj_program']:
             obj = getattr(self, attr, None)
             if obj:
                 obj.release()
