@@ -1,6 +1,6 @@
 # QLC+ Show Creator - Development Phase Plan
 
-**Last Updated:** December 2025
+**Last Updated:** January 2026
 
 ---
 
@@ -503,7 +503,7 @@ timeline_ui/colour_block_dialog.py  # Preset to wheel mapping
 
 **Channel mapping:** Uses `utils/tcp/protocol.py` to parse QXF files and extract channel functions, color wheel capabilities, and physical dimensions.
 
-### Phase V6: Volumetric Beam Rendering (PARTIAL - Dec 2025)
+### Phase V6: Volumetric Beam Rendering (COMPLETE - Jan 2026)
 
 Ray-traced beam visualization:
 
@@ -513,12 +513,30 @@ Ray-traced beam visualization:
 - [x] Beam intensity from dimmer channel
 - [x] Moving head beam follows pan/tilt
 - [x] Additive blending for overlapping beams
-- [ ] Floor projection (spotlight effect) - FUTURE
+- [x] **Floor projection (spotlight effect)** - Soft gradient ellipse where beam hits floor
+  - Ray-floor intersection calculation
+  - Ellipse shape based on beam angle of incidence
+  - Distance-based intensity falloff (30% reduction at 5m)
+  - Proper orientation aligned with beam direction
+  - Depth test disabled for decal rendering (renders on top of floor)
+- [x] **Orientation system fix** - Visualizer now uses absolute yaw/pitch/roll values
+  - Removed double-counting of mounting base rotation
+  - `get_model_matrix()` and `get_beam_direction()` now consistent with orientation dialog
 - [ ] Advanced volumetric fog shader - FUTURE
 
 **Performance:** 60 FPS achieved with multiple fixtures
 
-**Note:** Basic beam rendering is complete. Floor projection and advanced volumetric effects deferred to future enhancement.
+**Floor Projection Implementation:**
+- Added `create_floor_projection_disk()` geometry builder (32-segment unit disk in XZ plane)
+- New GLSL shader with gaussian soft-edge falloff (`FLOOR_PROJECTION_FRAGMENT_SHADER`)
+- `_calculate_floor_intersection()` for ray-plane math (Y=0 intersection)
+- `_render_floor_projection()` with additive blending and depth test disabled
+- Only renders for moving heads when beam points downward and reaches floor
+
+**Orientation Fix:**
+- Removed `MOUNTING_BASE_ROTATIONS` addition in `get_model_matrix()` - values now used directly
+- Fixed `get_beam_direction()` to use same Y-up coordinate system as model matrix
+- Orientation dialog sends absolute values (e.g., hanging = pitch 90°), visualizer uses directly
 
 ### Phase V7: UI Polish (PLANNED)
 
@@ -660,8 +678,13 @@ Items to address when time permits:
 - [x] Toolbar status indicators for TCP/ArtNet
 - [x] Auto-save effects and preset-to-wheel mapping
 
+### v0.9 - Floor Projection (ACHIEVED - Jan 2026)
+- [x] Floor projection for moving head beams
+- [x] Soft gradient ellipse spotlight effect
+- [x] Distance-based intensity falloff
+
 ### v1.0 - Feature Complete (FUTURE)
 - All planned features
 - Stable and tested
 - Riffs system
-- Floor projection for beams
+- Advanced volumetric fog shader
