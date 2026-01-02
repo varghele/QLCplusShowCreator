@@ -468,6 +468,25 @@ void main() {
 }
 """
 
+# Beam vertex shader with position output for gobo support
+GOBO_BEAM_VERTEX_SHADER = """
+#version 330
+
+in vec3 in_position;
+in float in_alpha;
+
+out float v_alpha;
+out vec3 v_position;
+
+uniform mat4 mvp;
+
+void main() {
+    gl_Position = mvp * vec4(in_position, 1.0);
+    v_alpha = in_alpha;
+    v_position = in_position;  // Pass local position to fragment shader
+}
+"""
+
 BEAM_FRAGMENT_SHADER = """
 #version 330
 
@@ -531,6 +550,258 @@ void main() {
     // Output with good visibility (alpha up to 0.9 for bright center)
     alpha = clamp(alpha, 0.0, 0.9);
     fragColor = vec4(projection_color, alpha);
+}
+"""
+
+# Floor projection shader with gobo pattern support
+GOBO_FLOOR_PROJECTION_FRAGMENT_SHADER = """
+#version 330
+
+in vec2 v_uv;
+
+out vec4 fragColor;
+
+uniform vec3 projection_color;
+uniform float projection_intensity;
+uniform float distance_falloff;
+uniform int gobo_pattern;      // 0=open, 1=dots, 2=star, 3=lines, 4=triangle, 5=cross, 6=breakup
+uniform float gobo_rotation;   // Rotation angle in radians
+
+// Constants
+const float PI = 3.14159265359;
+
+// Rotate UV coordinates around center
+vec2 rotate_uv(vec2 uv, float angle) {
+    vec2 centered = uv - vec2(0.5);
+    float c = cos(angle);
+    float s = sin(angle);
+    vec2 rotated = vec2(
+        centered.x * c - centered.y * s,
+        centered.x * s + centered.y * c
+    );
+    return rotated + vec2(0.5);
+}
+
+// Pattern 1: Dots (ring of circles)
+float gobo_dots(vec2 uv) {
+    vec2 centered = uv - vec2(0.5);
+    float angle = atan(centered.y, centered.x);
+    float dist = length(centered) * 2.0;
+
+    // Create 6 dots in a ring
+    float dot_angle = mod(angle + PI, PI / 3.0) - PI / 6.0;
+    float dot_dist = abs(dist - 0.5);  // Distance from ring at radius 0.25
+    float angular_dist = abs(dot_angle) * dist;
+
+    // Combine for circular dots
+    float dot = smoothstep(0.15, 0.1, length(vec2(dot_dist, angular_dist)));
+    return dot;
+}
+
+// Pattern 2: Star (6-pointed)
+float gobo_star(vec2 uv) {
+    vec2 centered = uv - vec2(0.5);
+    float angle = atan(centered.y, centered.x);
+    float dist = length(centered) * 2.0;
+
+    // Create 6-pointed star
+    float star_angle = mod(angle + PI, PI / 3.0) - PI / 6.0;
+    float star_radius = 0.3 + 0.2 * cos(star_angle * 6.0);
+
+    return smoothstep(star_radius + 0.05, star_radius - 0.05, dist);
+}
+
+// Pattern 3: Lines (parallel bars)
+float gobo_lines(vec2 uv) {
+    // Create 5 parallel lines
+    float line = mod(uv.x * 10.0, 2.0);
+    float mask = smoothstep(0.3, 0.5, line) * (1.0 - smoothstep(1.5, 1.7, line));
+
+    // Circular mask
+    vec2 centered = uv - vec2(0.5);
+    float dist = length(centered) * 2.0;
+    float circle = 1.0 - smoothstep(0.8, 1.0, dist);
+
+    return mask * circle;
+}
+
+// Pattern 4: Triangle
+float gobo_triangle(vec2 uv) {
+    vec2 centered = uv - vec2(0.5);
+
+    // Equilateral triangle
+    float d1 = centered.y + 0.3;
+    float d2 = -0.866 * centered.x - 0.5 * centered.y + 0.3;
+    float d3 = 0.866 * centered.x - 0.5 * centered.y + 0.3;
+
+    float tri = min(min(d1, d2), d3);
+    return smoothstep(0.0, 0.02, tri);
+}
+
+// Pattern 5: Cross (plus sign)
+float gobo_cross(vec2 uv) {
+    vec2 centered = abs(uv - vec2(0.5));
+
+    // Cross shape
+    float arm_width = 0.1;
+    float arm_length = 0.35;
+
+    float h_arm = step(centered.y, arm_width) * step(centered.x, arm_length);
+    float v_arm = step(centered.x, arm_width) * step(centered.y, arm_length);
+
+    return max(h_arm, v_arm);
+}
+
+// Pattern 6: Breakup (random-ish pattern)
+float gobo_breakup(vec2 uv) {
+    vec2 centered = uv - vec2(0.5);
+    float dist = length(centered) * 2.0;
+
+    // Create organic breakup pattern using multiple sine waves
+    float angle = atan(centered.y, centered.x);
+    float pattern = 0.5 + 0.5 * sin(angle * 7.0 + dist * 15.0);
+    pattern *= 0.5 + 0.5 * sin(angle * 5.0 - dist * 10.0 + 1.0);
+    pattern *= 0.5 + 0.5 * sin(angle * 3.0 + dist * 8.0 + 2.0);
+
+    // Threshold to create sharp edges
+    float threshold = smoothstep(0.2, 0.3, pattern);
+
+    // Circular mask
+    float circle = 1.0 - smoothstep(0.7, 0.9, dist);
+
+    return threshold * circle;
+}
+
+// Main gobo pattern selector
+float get_gobo_pattern(vec2 uv, int pattern) {
+    if (pattern == 0) return 1.0;  // Open
+    if (pattern == 1) return gobo_dots(uv);
+    if (pattern == 2) return gobo_star(uv);
+    if (pattern == 3) return gobo_lines(uv);
+    if (pattern == 4) return gobo_triangle(uv);
+    if (pattern == 5) return gobo_cross(uv);
+    return gobo_breakup(uv);  // Pattern 6 or default
+}
+
+void main() {
+    // Apply gobo rotation
+    vec2 rotated_uv = rotate_uv(v_uv, gobo_rotation);
+
+    // Get gobo pattern mask
+    float gobo_mask = get_gobo_pattern(rotated_uv, gobo_pattern);
+
+    // Calculate distance from center
+    vec2 centered = v_uv - vec2(0.5);
+    float dist = length(centered) * 2.0;
+
+    // Soft gaussian-like falloff
+    float soft_edge = 1.0 - smoothstep(0.0, 1.0, dist);
+    float gaussian = exp(-dist * dist * 1.5);
+
+    // Combine falloff with gobo pattern
+    float alpha = soft_edge * gaussian * gobo_mask * projection_intensity * distance_falloff;
+
+    // Output with good visibility
+    alpha = clamp(alpha, 0.0, 0.9);
+    fragColor = vec4(projection_color, alpha);
+}
+"""
+
+# Beam shader with gobo pattern support
+GOBO_BEAM_FRAGMENT_SHADER = """
+#version 330
+
+in float v_alpha;
+in vec3 v_position;  // Local position for gobo projection
+
+out vec4 fragColor;
+
+uniform vec3 beam_color;
+uniform float beam_intensity;
+uniform int gobo_pattern;
+uniform float gobo_rotation;
+
+const float PI = 3.14159265359;
+
+// Rotate 2D coordinates
+vec2 rotate_2d(vec2 p, float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec2(p.x * c - p.y * s, p.x * s + p.y * c);
+}
+
+// Gobo patterns for volumetric beam - returns 0.0 to 1.0
+// 0.0 = dark area, 1.0 = bright area
+float beam_gobo_pattern(vec2 uv, int pattern) {
+    if (pattern == 0) return 1.0;  // Open - full brightness
+
+    vec2 centered = uv;
+    float dist = length(centered);
+    float angle = atan(centered.y, centered.x);
+
+    if (pattern == 1) {
+        // Dots - ring of 6 dots (creates shadow with bright dots)
+        float dot_angle = mod(angle + PI, PI / 3.0) - PI / 6.0;
+        float dots = smoothstep(0.25, 0.15, abs(dot_angle)) * smoothstep(0.2, 0.08, abs(dist - 0.5));
+        return dots;
+    }
+    if (pattern == 2) {
+        // Star - 6-pointed star shape
+        float star_radius = 0.35 + 0.2 * cos(angle * 6.0);
+        float star = smoothstep(star_radius + 0.08, star_radius - 0.08, dist);
+        return star;
+    }
+    if (pattern == 3) {
+        // Lines - 6 radial lines
+        float line_pattern = abs(sin(angle * 3.0));
+        return smoothstep(0.3, 0.5, line_pattern);
+    }
+    if (pattern == 4) {
+        // Triangle
+        float d1 = centered.y + 0.35;
+        float d2 = -0.866 * centered.x - 0.5 * centered.y + 0.35;
+        float d3 = 0.866 * centered.x - 0.5 * centered.y + 0.35;
+        float tri = smoothstep(0.0, 0.06, min(min(d1, d2), d3));
+        return tri;
+    }
+    if (pattern == 5) {
+        // Cross - 4 radial arms
+        float cross_angle = mod(abs(angle), PI / 2.0);
+        float cross = smoothstep(0.18, 0.12, min(cross_angle, PI / 2.0 - cross_angle));
+        return cross;
+    }
+    // Breakup - organic interference pattern
+    float breakup = 0.5 + 0.5 * sin(angle * 7.0 + dist * 10.0);
+    breakup *= 0.5 + 0.5 * sin(angle * 5.0 - dist * 8.0);
+    return smoothstep(0.25, 0.75, breakup);
+}
+
+void main() {
+    // Calculate UV from position (beam extends along Z)
+    // Use angular coordinates: divide XY by Z to get consistent projection along beam
+    float z_pos = max(0.1, v_position.z);  // Avoid division by very small z
+
+    // Angular coordinates - gives consistent gobo projection along beam length
+    vec2 beam_uv = v_position.xy / z_pos * 2.0;
+
+    // Apply gobo rotation
+    beam_uv = rotate_2d(beam_uv, gobo_rotation);
+
+    // Get gobo pattern value (0.0 to 1.0)
+    float pattern_value = beam_gobo_pattern(beam_uv, gobo_pattern);
+
+    // Convert pattern to alpha modulation
+    // Use a gentler curve: pattern_value of 0 -> 0.5 brightness, 1 -> 1.0 brightness
+    // This keeps the beam visible while still showing the pattern
+    float gobo_brightness = mix(0.5, 1.0, pattern_value);
+
+    // Base beam alpha (same as non-gobo beam)
+    float base_alpha = v_alpha * beam_intensity * 0.3;
+
+    // Apply gobo modulation - reduces contrast but keeps beam visible
+    float alpha = base_alpha * gobo_brightness;
+
+    fragColor = vec4(beam_color, alpha);
 }
 """
 
@@ -1509,9 +1780,16 @@ class MovingHeadRenderer(FixtureRenderer):
         # Color wheel data - list of {min, max, color} dicts
         self.color_wheel = fixture_data.get('color_wheel', [])
 
+        # Gobo wheel data - list of {min, max, name, pattern} dicts
+        self.gobo_wheel = fixture_data.get('gobo_wheel', [])
+
         # Current pan/tilt angles (degrees)
         self.current_pan = 0.0
         self.current_tilt = 0.0
+
+        # Gobo rotation state
+        self.gobo_rotation_angle = 0.0  # Current rotation angle in radians
+        self.last_update_time = 0.0  # For tracking time between updates
 
         self._create_geometry()
 
@@ -1566,6 +1844,52 @@ class MovingHeadRenderer(FixtureRenderer):
             return (1.0, 1.0, 1.0)
 
         return color
+
+    def get_gobo_pattern(self) -> int:
+        """
+        Get the procedural gobo pattern ID from DMX value.
+
+        Returns:
+            Pattern ID (0=open, 1=dots, 2=star, 3=lines, 4=triangle, 5=cross, 6=breakup)
+        """
+        gobo_dmx = self.dmx_values.get('gobo', 0)
+
+        if not self.gobo_wheel or gobo_dmx == 0:
+            return 0  # Open (no gobo)
+
+        # Find matching gobo entry
+        for entry in self.gobo_wheel:
+            if entry['min'] <= gobo_dmx <= entry['max']:
+                return entry.get('pattern', 6)  # Default to breakup if no pattern
+
+        return 0  # Default to open
+
+    def update_gobo_rotation(self, delta_time: float):
+        """
+        Update gobo rotation based on DMX rotation speed.
+
+        Args:
+            delta_time: Time since last update in seconds
+        """
+        # gobo rotation DMX channel controls speed
+        # 0 = no rotation, 1-127 = CW slow to fast, 128-255 = CCW slow to fast
+        rotation_dmx = self.dmx_values.get('gobo_rotation', 0)
+
+        if rotation_dmx == 0:
+            return  # No rotation
+
+        # Calculate rotation speed (radians per second)
+        if rotation_dmx < 128:
+            # Clockwise: 1-127 maps to slow-fast
+            speed = (rotation_dmx / 127.0) * math.pi * 2  # Up to 1 revolution/sec
+        else:
+            # Counter-clockwise: 128-255 maps to slow-fast
+            speed = -((rotation_dmx - 128) / 127.0) * math.pi * 2
+
+        self.gobo_rotation_angle += speed * delta_time
+
+        # Keep angle in reasonable range
+        self.gobo_rotation_angle = self.gobo_rotation_angle % (2 * math.pi)
 
     def _create_geometry(self):
         """Create base, yoke, and head geometry.
@@ -1815,11 +2139,11 @@ class MovingHeadRenderer(FixtureRenderer):
         self._create_beam_geometry()
 
     def _create_beam_geometry(self):
-        """Create beam cone geometry for light visualization."""
-        # Beam program with transparency support
+        """Create beam cone geometry for light visualization with gobo support."""
+        # Beam program with gobo pattern support
         self.beam_program = self.ctx.program(
-            vertex_shader=BEAM_VERTEX_SHADER,
-            fragment_shader=BEAM_FRAGMENT_SHADER
+            vertex_shader=GOBO_BEAM_VERTEX_SHADER,
+            fragment_shader=GOBO_BEAM_FRAGMENT_SHADER
         )
 
         # Calculate beam radius at 5m distance based on beam angle
@@ -1846,10 +2170,11 @@ class MovingHeadRenderer(FixtureRenderer):
         self._create_floor_projection_geometry()
 
     def _create_floor_projection_geometry(self):
-        """Create floor projection disk geometry for spotlight effect."""
+        """Create floor projection disk geometry with gobo support."""
+        # Use gobo-enabled floor projection shader
         self.floor_proj_program = self.ctx.program(
             vertex_shader=FLOOR_PROJECTION_VERTEX_SHADER,
-            fragment_shader=FLOOR_PROJECTION_FRAGMENT_SHADER
+            fragment_shader=GOBO_FLOOR_PROJECTION_FRAGMENT_SHADER
         )
 
         # Create unit disk (will be scaled/positioned via model matrix)
@@ -2004,6 +2329,15 @@ class MovingHeadRenderer(FixtureRenderer):
 
     def render(self, mvp: glm.mat4):
         """Render the moving head with pan/tilt."""
+        import time
+
+        # Update gobo rotation animation
+        current_time = time.time()
+        if self.last_update_time > 0:
+            delta_time = current_time - self.last_update_time
+            self.update_gobo_rotation(delta_time)
+        self.last_update_time = current_time
+
         # Ensure clean OpenGL state at start of render
         # This prevents blend state from leaking from previous fixture's beam rendering
         self.ctx.disable(moderngl.BLEND)
@@ -2096,25 +2430,63 @@ class MovingHeadRenderer(FixtureRenderer):
             self._render_beam(mvp, head_model, color, dimmer)
             self._render_floor_projection(mvp, color, dimmer)
 
+    def _render_single_beam(self, mvp: glm.mat4, head_model: glm.mat4,
+                            color: Tuple[float, float, float], intensity: float,
+                            prism_offset_angle: float = 0.0, prism_tilt: float = 0.0):
+        """
+        Render a single light beam cone.
+
+        Args:
+            mvp: View-projection matrix
+            head_model: Head transformation matrix
+            color: RGB color tuple
+            intensity: Beam intensity (0-1)
+            prism_offset_angle: Rotation around beam axis for prism effect (degrees)
+            prism_tilt: Outward tilt for prism effect (degrees)
+        """
+        # Beam starts at lens front face and extends outward
+        # In Z-up system: lens is on +X face of head
+        # Beam cone geometry extends along +Z by default, so rotate +90° around Y to point along +X
+        beam_rotation = glm.rotate(glm.mat4(1.0), glm.radians(90), glm.vec3(0, 1, 0))
+        beam_offset = glm.translate(glm.mat4(1.0), glm.vec3(self.head_size_x / 2 + self.lens_depth, 0, 0))
+
+        # For prism effect: apply rotation and tilt in the beam's native coordinate space
+        # The beam cone extends along +Z, so:
+        # - Rotation around beam axis = rotation around Z
+        # - Tilt outward = rotation around Y (perpendicular to beam)
+        # These are applied BEFORE beam_rotation so they transform correctly
+        if prism_offset_angle != 0.0 or prism_tilt != 0.0:
+            # First tilt outward (around Y in cone's native space)
+            prism_tilt_mat = glm.rotate(glm.mat4(1.0), glm.radians(prism_tilt), glm.vec3(0, 1, 0))
+            # Then rotate around beam axis (Z in cone's native space)
+            prism_rotation = glm.rotate(glm.mat4(1.0), glm.radians(prism_offset_angle), glm.vec3(0, 0, 1))
+            # Apply prism effects before beam orientation: tilt first, then rotate around axis
+            beam_rotation = beam_rotation * prism_rotation * prism_tilt_mat
+
+        # Apply: head transform -> move to lens position -> orient beam
+        beam_model = head_model * beam_offset * beam_rotation
+
+        beam_mvp = mvp * beam_model
+        mvp_bytes = np.array([x for col in beam_mvp.to_list() for x in col], dtype='f4').tobytes()
+
+        self.beam_program['mvp'].write(mvp_bytes)
+        self.beam_program['beam_color'].value = color
+        self.beam_program['beam_intensity'].value = intensity
+
+        # Pass gobo pattern and rotation
+        gobo_pattern = self.get_gobo_pattern()
+        self.beam_program['gobo_pattern'].value = gobo_pattern
+        self.beam_program['gobo_rotation'].value = self.gobo_rotation_angle
+
+        self.beam_vao.render(moderngl.TRIANGLES)
+
     def _render_beam(self, mvp: glm.mat4, head_model: glm.mat4,
                      color: Tuple[float, float, float], dimmer: float):
-        """Render the light beam cone."""
+        """Render the light beam cone(s). Supports prism effect (3-facet split)."""
         try:
             # Check if beam resources exist
             if not hasattr(self, 'beam_vao') or self.beam_vao is None:
                 return
-
-            # Beam starts at lens front face and extends outward
-            # In Z-up system: lens is on +X face of head
-            # Beam cone geometry extends along +Z by default, so rotate +90° around Y to point along +X
-            beam_rotation = glm.rotate(glm.mat4(1.0), glm.radians(90), glm.vec3(0, 1, 0))
-            beam_offset = glm.translate(glm.mat4(1.0), glm.vec3(self.head_size_x / 2 + self.lens_depth, 0, 0))
-
-            # Apply: head transform -> move to lens position -> rotate beam to point +X
-            beam_model = head_model * beam_offset * beam_rotation
-
-            beam_mvp = mvp * beam_model
-            mvp_bytes = np.array([x for col in beam_mvp.to_list() for x in col], dtype='f4').tobytes()
 
             # Enable blending for transparency (additive blending)
             self.ctx.enable(moderngl.BLEND)
@@ -2124,11 +2496,23 @@ class MovingHeadRenderer(FixtureRenderer):
             # Disable depth write so beams don't occlude each other
             self.ctx.depth_mask = False
 
-            self.beam_program['mvp'].write(mvp_bytes)
-            self.beam_program['beam_color'].value = color
-            self.beam_program['beam_intensity'].value = dimmer
+            # Check for prism effect
+            prism_value = self.dmx_values.get('prism', 0)
+            prism_active = prism_value > 20  # Threshold for "on"
 
-            self.beam_vao.render(moderngl.TRIANGLES)
+            if prism_active:
+                # Render 3 beams for 3-facet prism
+                # Each beam rotated 120° around beam axis, tilted outward ~10°
+                prism_intensity = dimmer * 0.4  # 40% each, combined ~120%
+                prism_tilt = 10.0  # Degrees outward tilt
+
+                for i, offset_angle in enumerate([0.0, 120.0, 240.0]):
+                    self._render_single_beam(mvp, head_model, color, prism_intensity,
+                                             prism_offset_angle=offset_angle,
+                                             prism_tilt=prism_tilt)
+            else:
+                # Render single beam
+                self._render_single_beam(mvp, head_model, color, dimmer)
 
             # Restore state
             self.ctx.depth_mask = True
@@ -2145,68 +2529,179 @@ class MovingHeadRenderer(FixtureRenderer):
             except:
                 pass
 
+    def _calculate_prism_floor_intersection(self, prism_offset_angle: float, prism_tilt: float
+                                            ) -> Optional[Tuple[glm.vec3, float, float, float]]:
+        """
+        Calculate floor intersection for a prism-split beam.
+
+        Args:
+            prism_offset_angle: Rotation around beam axis (degrees)
+            prism_tilt: Outward tilt angle (degrees)
+
+        Returns:
+            Same as _calculate_floor_intersection: (hit_pos, major_radius, minor_radius, rotation_angle)
+        """
+        # Get head position
+        head_z_offset = self.base_thickness + self.yoke_height / 2
+        base_model = self.get_model_matrix()
+
+        # Pan rotation
+        pan_rotation = glm.rotate(glm.mat4(1.0), glm.radians(self.current_pan), glm.vec3(0, 0, 1))
+
+        # Head position and tilt
+        head_translate = glm.translate(glm.mat4(1.0), glm.vec3(0, 0, head_z_offset))
+        tilt_rotation = glm.rotate(glm.mat4(1.0), glm.radians(-self.current_tilt), glm.vec3(0, 1, 0))
+
+        # Full head transform
+        head_model = base_model * pan_rotation * head_translate * tilt_rotation
+
+        # Lens position
+        lens_local_pos = glm.vec3(self.head_size_x / 2 + self.lens_depth, 0, 0)
+        lens_world_pos = glm.vec3(head_model * glm.vec4(lens_local_pos, 1.0))
+
+        # Get modified beam direction for this prism facet
+        direction = glm.vec3(1, 0, 0)
+
+        # Apply tilt and pan (same as get_beam_direction)
+        tilt_rad = glm.radians(-self.current_tilt)
+        tilt_mat = glm.rotate(glm.mat4(1.0), tilt_rad, glm.vec3(0, 1, 0))
+
+        pan_rad = glm.radians(self.current_pan)
+        pan_mat = glm.rotate(glm.mat4(1.0), pan_rad, glm.vec3(0, 0, 1))
+
+        # Prism rotation (around beam axis) and tilt (outward)
+        prism_rotation_mat = glm.rotate(glm.mat4(1.0), glm.radians(prism_offset_angle), glm.vec3(1, 0, 0))
+        prism_tilt_mat = glm.rotate(glm.mat4(1.0), glm.radians(prism_tilt), glm.vec3(0, 1, 0))
+
+        # Fixture orientation
+        fixture_mat = glm.mat4(1.0)
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.yaw), glm.vec3(0, 1, 0))
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.pitch), glm.vec3(1, 0, 0))
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.roll), glm.vec3(0, 0, 1))
+
+        # Combine: fixture * pan * tilt * prism_rotation * prism_tilt
+        final_mat = fixture_mat * pan_mat * tilt_mat * prism_rotation_mat * prism_tilt_mat
+        beam_dir = glm.normalize(glm.vec3(final_mat * glm.vec4(direction, 0.0)))
+
+        # Check if beam is pointing downward
+        if beam_dir.y >= 0:
+            return None
+
+        # Calculate intersection with Y=0 plane
+        t = -lens_world_pos.y / beam_dir.y
+        beam_length = 5.0
+        if t <= 0 or t > beam_length:
+            return None
+
+        # Calculate hit position
+        hit_pos = lens_world_pos + beam_dir * t
+
+        # Calculate beam radius at this distance
+        beam_radius = t * math.tan(math.radians(self.beam_angle / 2))
+
+        # Calculate ellipse shape
+        cos_angle = abs(beam_dir.y)
+        minor_radius = beam_radius
+        major_radius = min(beam_radius / max(cos_angle, 0.1), beam_radius * 5.0)
+
+        # Calculate rotation angle
+        beam_xz = glm.vec2(beam_dir.x, beam_dir.z)
+        if glm.length(beam_xz) > 0.01:
+            beam_xz = glm.normalize(beam_xz)
+            rotation_angle = math.degrees(math.atan2(beam_xz.x, beam_xz.y))
+        else:
+            rotation_angle = 0.0
+
+        return (hit_pos, major_radius, minor_radius, rotation_angle)
+
+    def _render_single_floor_projection(self, mvp: glm.mat4,
+                                        color: Tuple[float, float, float], intensity: float,
+                                        hit_pos: glm.vec3, major_radius: float,
+                                        minor_radius: float, rotation_angle: float,
+                                        distance_falloff: float):
+        """Render a single floor projection ellipse."""
+        # Build model matrix for the projection ellipse
+        proj_model = glm.mat4(1.0)
+
+        # Translate to hit position (above floor to avoid z-fighting)
+        proj_model = glm.translate(proj_model, glm.vec3(hit_pos.x, 0.03, hit_pos.z))
+
+        # Rotate to align major axis with beam direction
+        proj_model = glm.rotate(proj_model, glm.radians(rotation_angle), glm.vec3(0, 1, 0))
+
+        # Scale to create ellipse
+        proj_model = glm.scale(proj_model, glm.vec3(major_radius, 1.0, minor_radius))
+
+        proj_mvp = mvp * proj_model
+        mvp_bytes = np.array([x for col in proj_mvp.to_list() for x in col], dtype='f4').tobytes()
+
+        self.floor_proj_program['mvp'].write(mvp_bytes)
+        self.floor_proj_program['projection_color'].value = color
+        self.floor_proj_program['projection_intensity'].value = intensity
+        self.floor_proj_program['distance_falloff'].value = distance_falloff
+
+        # Pass gobo pattern and rotation
+        gobo_pattern = self.get_gobo_pattern()
+        self.floor_proj_program['gobo_pattern'].value = gobo_pattern
+        self.floor_proj_program['gobo_rotation'].value = self.gobo_rotation_angle
+
+        self.floor_proj_vao.render(moderngl.TRIANGLES)
+
     def _render_floor_projection(self, mvp: glm.mat4,
                                   color: Tuple[float, float, float], dimmer: float):
-        """Render the floor projection (spotlight effect)."""
+        """Render the floor projection(s). Supports prism effect (3-facet split)."""
         try:
             # Check if floor projection resources exist
             if not hasattr(self, 'floor_proj_vao') or self.floor_proj_vao is None:
                 return
-
-            # Calculate floor intersection
-            intersection = self._calculate_floor_intersection()
-            if intersection is None:
-                return
-
-            hit_pos, major_radius, minor_radius, rotation_angle = intersection
-
-            # Build model matrix for the projection ellipse
-            # Start with identity, then translate to hit position
-            proj_model = glm.mat4(1.0)
-
-            # Translate to hit position (above floor to avoid z-fighting with depth buffer)
-            proj_model = glm.translate(proj_model, glm.vec3(hit_pos.x, 0.03, hit_pos.z))
-
-            # Rotate to align major axis with beam direction
-            proj_model = glm.rotate(proj_model, glm.radians(rotation_angle), glm.vec3(0, 1, 0))
-
-            # Scale to create ellipse (X = major axis, Z = minor axis)
-            proj_model = glm.scale(proj_model, glm.vec3(major_radius, 1.0, minor_radius))
-
-            proj_mvp = mvp * proj_model
-            mvp_bytes = np.array([x for col in proj_mvp.to_list() for x in col], dtype='f4').tobytes()
 
             # Enable blending for transparency (additive blending like beams)
             self.ctx.enable(moderngl.BLEND)
             self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
 
             # Disable depth test for projection (renders on top of floor)
-            # Floor is already rendered with depth, so it remains visible
             self.ctx.disable(moderngl.DEPTH_TEST)
             self.ctx.depth_mask = False
 
-            # Calculate distance falloff (20-30% reduction at max distance)
-            # Lens Y position determines distance to floor
+            # Calculate distance falloff
             beam_length = 5.0
             pos = self.position
-            lens_height = pos['z']  # Stage Z (height) -> approximate lens height
-            # Distance from lens to floor intersection
+            lens_height = pos['z']
             beam_dir = self.get_beam_direction()
             if beam_dir.y < 0:
                 distance = abs(lens_height / beam_dir.y)
             else:
                 distance = beam_length
+            distance_falloff = max(1.0 - (distance / beam_length) * 0.3, 0.5)
 
-            # Falloff: 1.0 at distance=0, 0.7 at distance=5m
-            distance_falloff = 1.0 - (distance / beam_length) * 0.3
-            distance_falloff = max(distance_falloff, 0.5)  # Don't go below 50%
+            # Check for prism effect
+            prism_value = self.dmx_values.get('prism', 0)
+            prism_active = prism_value > 20
 
-            self.floor_proj_program['mvp'].write(mvp_bytes)
-            self.floor_proj_program['projection_color'].value = color
-            self.floor_proj_program['projection_intensity'].value = dimmer
-            self.floor_proj_program['distance_falloff'].value = distance_falloff
+            if prism_active:
+                # Render 3 floor projections for 3-facet prism
+                prism_intensity = dimmer * 0.4  # 40% each
+                prism_tilt = 10.0
 
-            self.floor_proj_vao.render(moderngl.TRIANGLES)
+                for offset_angle in [0.0, 120.0, 240.0]:
+                    intersection = self._calculate_prism_floor_intersection(offset_angle, prism_tilt)
+                    if intersection:
+                        hit_pos, major_radius, minor_radius, rotation_angle = intersection
+                        self._render_single_floor_projection(
+                            mvp, color, prism_intensity,
+                            hit_pos, major_radius, minor_radius, rotation_angle,
+                            distance_falloff
+                        )
+            else:
+                # Render single floor projection
+                intersection = self._calculate_floor_intersection()
+                if intersection:
+                    hit_pos, major_radius, minor_radius, rotation_angle = intersection
+                    self._render_single_floor_projection(
+                        mvp, color, dimmer,
+                        hit_pos, major_radius, minor_radius, rotation_angle,
+                        distance_falloff
+                    )
 
             # Restore state
             self.ctx.enable(moderngl.DEPTH_TEST)
