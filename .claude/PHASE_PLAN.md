@@ -538,7 +538,45 @@ Ray-traced beam visualization:
 - Fixed `get_beam_direction()` to use same Y-up coordinate system as model matrix
 - Orientation dialog sends absolute values (e.g., hanging = pitch 90°), visualizer uses directly
 
-### Phase V7: UI Polish (PLANNED)
+### Phase V7: Prism & Gobo Effects (COMPLETE - Jan 2026)
+
+Visual rendering of prism and gobo effects for moving heads:
+
+- [x] **3-facet prism effect**
+  - Renders 3 beam cones at 120° apart around beam axis
+  - Each cone tilted 10° outward from center
+  - Individual beam intensity at 40% (combined ~120%)
+  - `_render_single_beam()` method for per-beam rendering
+  - Rotation around Z axis (beam direction) for correct orientation
+- [x] **Floor projection prism split**
+  - 3 separate floor spots when prism active
+  - `_calculate_prism_floor_intersection()` for offset positions
+  - Each spot at 40% intensity
+- [x] **Gobo pattern rendering**
+  - 7 procedural GLSL patterns: Open, Dots, Star, Lines, Triangle, Cross, Breakup
+  - Patterns visible in both volumetric beam AND floor projection
+  - `GOBO_BEAM_FRAGMENT_SHADER` with angular UV projection
+  - `GOBO_FLOOR_PROJECTION_FRAGMENT_SHADER` with radial patterns
+  - Brightness range 50-100% to prevent beam cutoff
+- [x] **QXF gobo wheel parsing**
+  - `GOBO_PATTERN_KEYWORDS` mapping in `protocol.py`
+  - `_infer_gobo_pattern()` extracts pattern type from capability names
+  - Gobo wheel data sent via TCP to visualizer
+- [x] **Gobo rotation animation**
+  - `gobo_rotation` DMX channel controls rotation speed
+  - `update_gobo_rotation()` method for continuous animation
+  - Rotation uniform passed to both beam and floor shaders
+- [x] **Combined prism + gobo**
+  - Both effects work simultaneously
+  - 3 patterned beams with 3 patterned floor projections
+
+**Documentation:** `.claude/PRISM_GOBO_IMPLEMENTATION.md`
+
+**Files modified:**
+- `utils/tcp/protocol.py` - Gobo wheel parsing and pattern inference
+- `visualizer/renderer/fixtures.py` - Prism/gobo shaders and rendering methods
+
+### Phase V8: UI Polish (PLANNED)
 
 Final UI touches:
 

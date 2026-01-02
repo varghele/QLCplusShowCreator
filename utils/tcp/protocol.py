@@ -23,6 +23,75 @@ class MessageType(Enum):
 # Cache for parsed fixture definitions
 _fixture_definition_cache: Dict[Tuple[str, str], Dict] = {}
 
+# Gobo pattern keyword mapping
+# Maps keywords found in gobo capability text to procedural pattern IDs
+GOBO_PATTERN_KEYWORDS = {
+    # Pattern 0: Open (no gobo)
+    'open': 0,
+    'no gobo': 0,
+    'white': 0,
+    'clear': 0,
+
+    # Pattern 1: Dots/circles
+    'dot': 1,
+    'circle': 1,
+    'spot': 1,
+    'bubble': 1,
+    'ring': 1,
+
+    # Pattern 2: Star
+    'star': 2,
+    'burst': 2,
+
+    # Pattern 3: Lines/bars
+    'line': 3,
+    'bar': 3,
+    'stripe': 3,
+    'beam': 3,
+
+    # Pattern 4: Triangle
+    'triangle': 4,
+    'prism': 4,
+
+    # Pattern 5: Cross/plus
+    'cross': 5,
+    'plus': 5,
+
+    # Pattern 6: Generic breakup (default)
+    'breakup': 6,
+    'break': 6,
+    'shatter': 6,
+}
+
+
+def _infer_gobo_pattern(gobo_name: str) -> int:
+    """
+    Infer the procedural pattern ID from a gobo name.
+
+    Args:
+        gobo_name: Name of the gobo (e.g., "Gobo 1", "Star", "Circle dots")
+
+    Returns:
+        Pattern ID (0-6), defaults to 6 (generic breakup) for unrecognized patterns
+    """
+    name_lower = gobo_name.lower()
+
+    # Check each keyword
+    for keyword, pattern_id in GOBO_PATTERN_KEYWORDS.items():
+        if keyword in name_lower:
+            return pattern_id
+
+    # Check for numbered gobos (Gobo 1, Gobo 2, etc.) - map to rotating patterns
+    import re
+    match = re.search(r'gobo\s*(\d+)', name_lower)
+    if match:
+        gobo_num = int(match.group(1))
+        # Cycle through patterns 1-6 for numbered gobos
+        return ((gobo_num - 1) % 6) + 1
+
+    # Default to generic breakup pattern
+    return 6
+
 
 def _find_element(parent, tag: str, ns: Dict[str, str] = None):
     """Find child element by tag name, handling namespace variations."""
@@ -293,6 +362,50 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
             result['color_wheel'] = color_wheel_colors
             print(f"  Parsed {len(color_wheel_colors)} color wheel entries")
 
+        # Extract gobo wheel capabilities
+        gobo_wheel_entries = []
+
+        for channel in channels:
+            ch_name = channel.get('Name', '')
+            ch_name_lower = ch_name.lower()
+
+            # Check if this is a gobo channel
+            group = _find_element(channel, 'Group', ns)
+            is_gobo_channel = (
+                (group is not None and group.text == 'Gobo') or
+                'gobo' in ch_name_lower
+            ) and 'rotation' not in ch_name_lower and 'rot' not in ch_name_lower
+
+            if is_gobo_channel:
+                # Extract gobo capabilities
+                capabilities = _findall_elements(channel, 'Capability', ns)
+                if not capabilities:
+                    capabilities = [elem for elem in channel if elem.tag.endswith('Capability')]
+
+                for cap in capabilities:
+                    dmx_min = int(cap.get('Min', 0))
+                    dmx_max = int(cap.get('Max', 0))
+                    cap_text = (cap.text or '').strip()
+
+                    # Skip shake/rotation/rainbow entries
+                    cap_lower = cap_text.lower()
+                    if any(x in cap_lower for x in ['shake', 'rotation', 'rainbow', 'spin', 'scroll']):
+                        continue
+
+                    # Infer pattern from gobo name
+                    pattern_id = _infer_gobo_pattern(cap_text)
+
+                    gobo_wheel_entries.append({
+                        'min': dmx_min,
+                        'max': dmx_max,
+                        'name': cap_text,
+                        'pattern': pattern_id
+                    })
+
+        if gobo_wheel_entries:
+            result['gobo_wheel'] = gobo_wheel_entries
+            print(f"  Parsed {len(gobo_wheel_entries)} gobo wheel entries")
+
         # Parse each mode's channel mapping
         modes = _findall_elements(root, './/Mode', ns)
         if not modes:
@@ -389,6 +502,10 @@ def _preset_to_function(preset: str, channel_name: str) -> Optional[str]:
         return 'shutter'
 
     # Special
+    # Check for gobo rotation before gobo (more specific first)
+    if ('gobo' in name_lower and ('rot' in name_lower or 'spin' in name_lower)) or \
+       'goboindex' in preset_lower:
+        return 'gobo_rotation'
     if 'gobo' in preset_lower or 'gobo' in name_lower:
         return 'gobo'
     if 'prism' in preset_lower or 'prism' in name_lower:
@@ -480,7 +597,8 @@ class VisualizerProtocol:
                 "pan_max": qxf_data.get('pan_max', 0.0),
                 "tilt_max": qxf_data.get('tilt_max', 0.0),
                 "channel_mapping": qxf_data.get('channel_mapping', {}),
-                "color_wheel": qxf_data.get('color_wheel', [])
+                "color_wheel": qxf_data.get('color_wheel', []),
+                "gobo_wheel": qxf_data.get('gobo_wheel', [])
             }
             fixtures_data.append(fixture_info)
 
