@@ -576,6 +576,40 @@ Visual rendering of prism and gobo effects for moving heads:
 - `utils/tcp/protocol.py` - Gobo wheel parsing and pattern inference
 - `visualizer/renderer/fixtures.py` - Prism/gobo shaders and rendering methods
 
+### Phase V7b: Focus Effect (COMPLETE - Jan 2026)
+
+Distance-based focus simulation for realistic beam/gobo sharpness:
+
+- [x] **Distance-based focus calculation**
+  - Focus DMX (0-255) maps to focus distance (1m-10m)
+  - Sharpness calculated from |actual_distance - focus_distance|
+  - Gaussian falloff for realistic optical simulation
+  - `get_focus_sharpness()` and `get_floor_projection_distance()` methods
+- [x] **Beam edge focus effect**
+  - `focus_sharpness` uniform in `GOBO_BEAM_FRAGMENT_SHADER`
+  - Edge softness varies with focus (sharp edges when focused)
+  - Modified alpha falloff based on focus value
+- [x] **Floor projection focus effect**
+  - `focus_sharpness` uniform in `GOBO_FLOOR_PROJECTION_FRAGMENT_SHADER`
+  - Gaussian falloff width varies with focus
+  - Sharper/softer projection edges based on focus match
+- [x] **Gobo pattern blur**
+  - All 7 gobo patterns support focus-based blur parameter
+  - Smoothstep edge widths scale with blur amount
+  - Works in both beam and floor projection shaders
+- [x] **Combined with prism**
+  - Focus affects all 3 prism beams identically
+  - Floor projections inherit focus sharpness
+
+**How it works:**
+- Focus DMX 0 = near focus (sharp at 1m), DMX 255 = far focus (sharp at 10m)
+- When projection distance matches focus distance: maximum sharpness
+- Sharpness falls off the further projection is from focused distance
+- Affects beam edge softness, gobo pattern clarity, and floor projection spread
+
+**Files modified:**
+- `visualizer/renderer/fixtures.py` - Focus shaders and calculation methods
+
 ### Phase V8: UI Polish (PLANNED)
 
 Final UI touches:
@@ -720,6 +754,13 @@ Items to address when time permits:
 - [x] Floor projection for moving head beams
 - [x] Soft gradient ellipse spotlight effect
 - [x] Distance-based intensity falloff
+
+### v0.95 - Focus Effect (ACHIEVED - Jan 2026)
+- [x] Distance-based focus simulation
+- [x] Focus affects beam edge sharpness
+- [x] Focus affects gobo pattern clarity
+- [x] Focus affects floor projection spread
+- [x] Complete moving head visualization (pan/tilt/gobo/prism/focus)
 
 ### v1.0 - Feature Complete (FUTURE)
 - All planned features
