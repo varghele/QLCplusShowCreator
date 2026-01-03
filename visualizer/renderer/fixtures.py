@@ -553,7 +553,7 @@ void main() {
 }
 """
 
-# Floor projection shader with gobo pattern support
+# Floor projection shader with gobo pattern support and focus-based blur
 GOBO_FLOOR_PROJECTION_FRAGMENT_SHADER = """
 #version 330
 
@@ -566,6 +566,7 @@ uniform float projection_intensity;
 uniform float distance_falloff;
 uniform int gobo_pattern;      // 0=open, 1=dots, 2=star, 3=lines, 4=triangle, 5=cross, 6=breakup
 uniform float gobo_rotation;   // Rotation angle in radians
+uniform float focus_sharpness; // 0.0 = blurry, 1.0 = sharp (distance-based)
 
 // Constants
 const float PI = 3.14159265359;
@@ -582,8 +583,8 @@ vec2 rotate_uv(vec2 uv, float angle) {
     return rotated + vec2(0.5);
 }
 
-// Pattern 1: Dots (ring of circles)
-float gobo_dots(vec2 uv) {
+// Pattern 1: Dots (ring of circles) - with blur parameter
+float gobo_dots(vec2 uv, float blur) {
     vec2 centered = uv - vec2(0.5);
     float angle = atan(centered.y, centered.x);
     float dist = length(centered) * 2.0;
@@ -593,13 +594,14 @@ float gobo_dots(vec2 uv) {
     float dot_dist = abs(dist - 0.5);  // Distance from ring at radius 0.25
     float angular_dist = abs(dot_angle) * dist;
 
-    // Combine for circular dots
-    float dot = smoothstep(0.15, 0.1, length(vec2(dot_dist, angular_dist)));
+    // Blur affects edge sharpness
+    float edge = mix(0.05, 0.2, blur);
+    float dot = smoothstep(0.15 + edge, 0.1 - edge, length(vec2(dot_dist, angular_dist)));
     return dot;
 }
 
-// Pattern 2: Star (6-pointed)
-float gobo_star(vec2 uv) {
+// Pattern 2: Star (6-pointed) - with blur parameter
+float gobo_star(vec2 uv, float blur) {
     vec2 centered = uv - vec2(0.5);
     float angle = atan(centered.y, centered.x);
     float dist = length(centered) * 2.0;
@@ -608,25 +610,28 @@ float gobo_star(vec2 uv) {
     float star_angle = mod(angle + PI, PI / 3.0) - PI / 6.0;
     float star_radius = 0.3 + 0.2 * cos(star_angle * 6.0);
 
-    return smoothstep(star_radius + 0.05, star_radius - 0.05, dist);
+    float edge = mix(0.05, 0.15, blur);
+    return smoothstep(star_radius + edge, star_radius - edge, dist);
 }
 
-// Pattern 3: Lines (parallel bars)
-float gobo_lines(vec2 uv) {
+// Pattern 3: Lines (parallel bars) - with blur parameter
+float gobo_lines(vec2 uv, float blur) {
     // Create 5 parallel lines
     float line = mod(uv.x * 10.0, 2.0);
-    float mask = smoothstep(0.3, 0.5, line) * (1.0 - smoothstep(1.5, 1.7, line));
+    float edge = mix(0.1, 0.4, blur);
+    float mask = smoothstep(0.3 - edge, 0.5 + edge, line) * (1.0 - smoothstep(1.5 - edge, 1.7 + edge, line));
 
     // Circular mask
     vec2 centered = uv - vec2(0.5);
     float dist = length(centered) * 2.0;
-    float circle = 1.0 - smoothstep(0.8, 1.0, dist);
+    float circle_edge = mix(0.1, 0.3, blur);
+    float circle = 1.0 - smoothstep(0.8 - circle_edge, 1.0 + circle_edge, dist);
 
     return mask * circle;
 }
 
-// Pattern 4: Triangle
-float gobo_triangle(vec2 uv) {
+// Pattern 4: Triangle - with blur parameter
+float gobo_triangle(vec2 uv, float blur) {
     vec2 centered = uv - vec2(0.5);
 
     // Equilateral triangle
@@ -635,25 +640,29 @@ float gobo_triangle(vec2 uv) {
     float d3 = 0.866 * centered.x - 0.5 * centered.y + 0.3;
 
     float tri = min(min(d1, d2), d3);
-    return smoothstep(0.0, 0.02, tri);
+    float edge = mix(0.02, 0.1, blur);
+    return smoothstep(-edge, edge, tri);
 }
 
-// Pattern 5: Cross (plus sign)
-float gobo_cross(vec2 uv) {
+// Pattern 5: Cross (plus sign) - with blur parameter
+float gobo_cross(vec2 uv, float blur) {
     vec2 centered = abs(uv - vec2(0.5));
 
-    // Cross shape
-    float arm_width = 0.1;
+    // Cross shape - blur affects arm definition
+    float arm_width = 0.1 + blur * 0.05;
     float arm_length = 0.35;
 
-    float h_arm = step(centered.y, arm_width) * step(centered.x, arm_length);
-    float v_arm = step(centered.x, arm_width) * step(centered.y, arm_length);
+    float edge = mix(0.01, 0.1, blur);
+    float h_arm = smoothstep(arm_width + edge, arm_width - edge, centered.y) *
+                  smoothstep(arm_length + edge, arm_length - edge, centered.x);
+    float v_arm = smoothstep(arm_width + edge, arm_width - edge, centered.x) *
+                  smoothstep(arm_length + edge, arm_length - edge, centered.y);
 
     return max(h_arm, v_arm);
 }
 
-// Pattern 6: Breakup (random-ish pattern)
-float gobo_breakup(vec2 uv) {
+// Pattern 6: Breakup (random-ish pattern) - with blur parameter
+float gobo_breakup(vec2 uv, float blur) {
     vec2 centered = uv - vec2(0.5);
     float dist = length(centered) * 2.0;
 
@@ -663,40 +672,52 @@ float gobo_breakup(vec2 uv) {
     pattern *= 0.5 + 0.5 * sin(angle * 5.0 - dist * 10.0 + 1.0);
     pattern *= 0.5 + 0.5 * sin(angle * 3.0 + dist * 8.0 + 2.0);
 
-    // Threshold to create sharp edges
-    float threshold = smoothstep(0.2, 0.3, pattern);
+    // Threshold - blur makes edges softer
+    float low = mix(0.2, 0.35, blur);
+    float high = mix(0.3, 0.45, blur);
+    float threshold = smoothstep(low, high, pattern);
 
     // Circular mask
-    float circle = 1.0 - smoothstep(0.7, 0.9, dist);
+    float circle_edge = mix(0.1, 0.3, blur);
+    float circle = 1.0 - smoothstep(0.7 - circle_edge, 0.9 + circle_edge, dist);
 
     return threshold * circle;
 }
 
-// Main gobo pattern selector
-float get_gobo_pattern(vec2 uv, int pattern) {
+// Main gobo pattern selector with blur
+float get_gobo_pattern(vec2 uv, int pattern, float blur) {
     if (pattern == 0) return 1.0;  // Open
-    if (pattern == 1) return gobo_dots(uv);
-    if (pattern == 2) return gobo_star(uv);
-    if (pattern == 3) return gobo_lines(uv);
-    if (pattern == 4) return gobo_triangle(uv);
-    if (pattern == 5) return gobo_cross(uv);
-    return gobo_breakup(uv);  // Pattern 6 or default
+    if (pattern == 1) return gobo_dots(uv, blur);
+    if (pattern == 2) return gobo_star(uv, blur);
+    if (pattern == 3) return gobo_lines(uv, blur);
+    if (pattern == 4) return gobo_triangle(uv, blur);
+    if (pattern == 5) return gobo_cross(uv, blur);
+    return gobo_breakup(uv, blur);  // Pattern 6 or default
 }
 
 void main() {
     // Apply gobo rotation
     vec2 rotated_uv = rotate_uv(v_uv, gobo_rotation);
 
-    // Get gobo pattern mask
-    float gobo_mask = get_gobo_pattern(rotated_uv, gobo_pattern);
+    // Calculate blur from focus_sharpness (inverted: sharpness 1 = blur 0)
+    float blur = 1.0 - focus_sharpness;
+
+    // Get gobo pattern mask with focus-based blur
+    float gobo_mask = get_gobo_pattern(rotated_uv, gobo_pattern, blur);
 
     // Calculate distance from center
     vec2 centered = v_uv - vec2(0.5);
     float dist = length(centered) * 2.0;
 
-    // Soft gaussian-like falloff
-    float soft_edge = 1.0 - smoothstep(0.0, 1.0, dist);
-    float gaussian = exp(-dist * dist * 1.5);
+    // Gaussian falloff - width affected by focus
+    // Unfocused = wider, softer falloff; Focused = tighter, sharper
+    float gaussian_width = mix(2.5, 1.0, focus_sharpness);  // 1.0 = tight, 2.5 = wide
+    float gaussian = exp(-dist * dist * gaussian_width);
+
+    // Edge softness also affected by focus
+    float edge_start = mix(-0.2, 0.0, focus_sharpness);
+    float edge_end = mix(1.2, 1.0, focus_sharpness);
+    float soft_edge = 1.0 - smoothstep(edge_start, edge_end, dist);
 
     // Combine falloff with gobo pattern
     float alpha = soft_edge * gaussian * gobo_mask * projection_intensity * distance_falloff;
@@ -720,6 +741,7 @@ uniform vec3 beam_color;
 uniform float beam_intensity;
 uniform int gobo_pattern;
 uniform float gobo_rotation;
+uniform float focus_sharpness;  // 0.0 = blurry, 1.0 = sharp (distance-based)
 
 const float PI = 3.14159265359;
 
@@ -732,48 +754,54 @@ vec2 rotate_2d(vec2 p, float angle) {
 
 // Gobo patterns for volumetric beam - returns 0.0 to 1.0
 // 0.0 = dark area, 1.0 = bright area
-float beam_gobo_pattern(vec2 uv, int pattern) {
+// blur parameter widens smoothstep edges (0.0 = sharp, 1.0 = fully blurred)
+float beam_gobo_pattern(vec2 uv, int pattern, float blur) {
     if (pattern == 0) return 1.0;  // Open - full brightness
 
     vec2 centered = uv;
     float dist = length(centered);
     float angle = atan(centered.y, centered.x);
 
+    // Blur factor widens the smoothstep transition (min 0.02 for sharpest)
+    float edge_blur = mix(0.02, 0.25, blur);
+
     if (pattern == 1) {
         // Dots - ring of 6 dots (creates shadow with bright dots)
         float dot_angle = mod(angle + PI, PI / 3.0) - PI / 6.0;
-        float dots = smoothstep(0.25, 0.15, abs(dot_angle)) * smoothstep(0.2, 0.08, abs(dist - 0.5));
+        float dots = smoothstep(0.25 + edge_blur, 0.15 - edge_blur, abs(dot_angle)) *
+                     smoothstep(0.2 + edge_blur, 0.08 - edge_blur, abs(dist - 0.5));
         return dots;
     }
     if (pattern == 2) {
         // Star - 6-pointed star shape
         float star_radius = 0.35 + 0.2 * cos(angle * 6.0);
-        float star = smoothstep(star_radius + 0.08, star_radius - 0.08, dist);
+        float star = smoothstep(star_radius + 0.08 + edge_blur, star_radius - 0.08 - edge_blur, dist);
         return star;
     }
     if (pattern == 3) {
         // Lines - 6 radial lines
         float line_pattern = abs(sin(angle * 3.0));
-        return smoothstep(0.3, 0.5, line_pattern);
+        return smoothstep(0.3 - edge_blur, 0.5 + edge_blur, line_pattern);
     }
     if (pattern == 4) {
         // Triangle
         float d1 = centered.y + 0.35;
         float d2 = -0.866 * centered.x - 0.5 * centered.y + 0.35;
         float d3 = 0.866 * centered.x - 0.5 * centered.y + 0.35;
-        float tri = smoothstep(0.0, 0.06, min(min(d1, d2), d3));
+        float tri = smoothstep(-edge_blur, 0.06 + edge_blur, min(min(d1, d2), d3));
         return tri;
     }
     if (pattern == 5) {
         // Cross - 4 radial arms
         float cross_angle = mod(abs(angle), PI / 2.0);
-        float cross = smoothstep(0.18, 0.12, min(cross_angle, PI / 2.0 - cross_angle));
+        float cross = smoothstep(0.18 + edge_blur, 0.12 - edge_blur, min(cross_angle, PI / 2.0 - cross_angle));
         return cross;
     }
-    // Breakup - organic interference pattern
+    // Breakup - organic interference pattern (blur reduces contrast)
     float breakup = 0.5 + 0.5 * sin(angle * 7.0 + dist * 10.0);
     breakup *= 0.5 + 0.5 * sin(angle * 5.0 - dist * 8.0);
-    return smoothstep(0.25, 0.75, breakup);
+    float blur_smooth = mix(0.25, 0.45, blur);
+    return smoothstep(blur_smooth, 1.0 - blur_smooth, breakup);
 }
 
 void main() {
@@ -787,16 +815,26 @@ void main() {
     // Apply gobo rotation
     beam_uv = rotate_2d(beam_uv, gobo_rotation);
 
-    // Get gobo pattern value (0.0 to 1.0)
-    float pattern_value = beam_gobo_pattern(beam_uv, gobo_pattern);
+    // Calculate blur from focus_sharpness (inverted: sharpness 1 = blur 0)
+    float blur = 1.0 - focus_sharpness;
+
+    // Get gobo pattern value (0.0 to 1.0) with focus-based blur
+    float pattern_value = beam_gobo_pattern(beam_uv, gobo_pattern, blur);
 
     // Convert pattern to alpha modulation
     // Use a gentler curve: pattern_value of 0 -> 0.5 brightness, 1 -> 1.0 brightness
     // This keeps the beam visible while still showing the pattern
     float gobo_brightness = mix(0.5, 1.0, pattern_value);
 
-    // Base beam alpha (same as non-gobo beam)
-    float base_alpha = v_alpha * beam_intensity * 0.3;
+    // Beam edge softness based on focus
+    // v_alpha is 1.0 at center, 0.0 at edge
+    // When unfocused, make edges softer (less contrast)
+    float edge_softness = mix(0.15, 0.0, focus_sharpness);  // 0.0=sharp edge, 0.15=soft edge
+    float edge_alpha = smoothstep(edge_softness, 1.0, v_alpha);
+    float adjusted_alpha = mix(v_alpha, edge_alpha, 0.5);  // Blend original and adjusted
+
+    // Base beam alpha
+    float base_alpha = adjusted_alpha * beam_intensity * 0.3;
 
     // Apply gobo modulation - reduces contrast but keeps beam visible
     float alpha = base_alpha * gobo_brightness;
@@ -1891,6 +1929,80 @@ class MovingHeadRenderer(FixtureRenderer):
         # Keep angle in reasonable range
         self.gobo_rotation_angle = self.gobo_rotation_angle % (2 * math.pi)
 
+    def get_focus_sharpness(self, projection_distance: Optional[float] = None) -> float:
+        """
+        Calculate focus sharpness based on distance to projection.
+
+        Real focus works like a lens: it's sharp at the focused distance,
+        and blurs the further you are from that distance.
+
+        Args:
+            projection_distance: Distance from lens to floor (if known).
+                                If None, uses a default based on fixture height.
+
+        Returns:
+            Sharpness value from 0.0 (fully blurred) to 1.0 (perfectly sharp)
+        """
+        # Get focus DMX value (0-255)
+        focus_dmx = self.dmx_values.get('focus', 127)
+
+        # Map focus DMX to a "focused distance" in meters
+        # DMX 0 = 1m (near focus), DMX 255 = 10m (far focus)
+        # Linear mapping: focus_distance = 1 + (focus_dmx / 255) * 9
+        min_focus_distance = 1.0  # meters
+        max_focus_distance = 10.0  # meters
+        focus_distance = min_focus_distance + (focus_dmx / 255.0) * (max_focus_distance - min_focus_distance)
+
+        # If projection distance not provided, estimate from fixture position
+        if projection_distance is None:
+            # Use fixture height as rough estimate
+            projection_distance = self.position.get('z', 3.0)
+
+        # Calculate sharpness based on how close projection is to focus distance
+        # At focus distance: sharpness = 1.0
+        # Further away: sharpness decreases
+        distance_error = abs(projection_distance - focus_distance)
+
+        # Use a gaussian-like falloff for sharpness
+        # blur_rate controls how fast sharpness falls off with distance error
+        # 0.3 means ~50% sharpness at 1.2m from focused distance
+        blur_rate = 0.3
+        sharpness = math.exp(-distance_error * distance_error * blur_rate)
+
+        # Clamp to valid range
+        return max(0.0, min(1.0, sharpness))
+
+    def get_floor_projection_distance(self) -> Optional[float]:
+        """
+        Calculate the distance from lens to floor intersection.
+
+        Returns:
+            Distance in meters, or None if beam doesn't hit the floor.
+        """
+        beam_dir = self.get_beam_direction()
+
+        # Check if beam points downward
+        if beam_dir.y >= 0:
+            return None
+
+        # Get lens world position
+        lens_height = self.position.get('z', 3.0)  # Use Z (height in Y-up coordinate system)
+
+        # Calculate distance along beam to floor (Y=0)
+        # Ray: P = lens + t * dir, at floor: P.y = 0
+        # Note: In visualizer Y-up system, lens_height represents Y coordinate
+        # But we store position as x, y (floor), z (height)
+        # So lens_height is the actual height above floor
+
+        # Distance = height / |beam_dir.y|
+        distance = lens_height / abs(beam_dir.y)
+
+        # Clamp to reasonable beam length
+        if distance > 10.0:
+            return 10.0
+
+        return distance
+
     def _create_geometry(self):
         """Create base, yoke, and head geometry.
 
@@ -2478,6 +2590,11 @@ class MovingHeadRenderer(FixtureRenderer):
         self.beam_program['gobo_pattern'].value = gobo_pattern
         self.beam_program['gobo_rotation'].value = self.gobo_rotation_angle
 
+        # Pass focus sharpness (distance-based)
+        projection_distance = self.get_floor_projection_distance()
+        focus_sharpness = self.get_focus_sharpness(projection_distance)
+        self.beam_program['focus_sharpness'].value = focus_sharpness
+
         self.beam_vao.render(moderngl.TRIANGLES)
 
     def _render_beam(self, mvp: glm.mat4, head_model: glm.mat4,
@@ -2644,6 +2761,11 @@ class MovingHeadRenderer(FixtureRenderer):
         gobo_pattern = self.get_gobo_pattern()
         self.floor_proj_program['gobo_pattern'].value = gobo_pattern
         self.floor_proj_program['gobo_rotation'].value = self.gobo_rotation_angle
+
+        # Pass focus sharpness (distance-based)
+        projection_distance = self.get_floor_projection_distance()
+        focus_sharpness = self.get_focus_sharpness(projection_distance)
+        self.floor_proj_program['focus_sharpness'].value = focus_sharpness
 
         self.floor_proj_vao.render(moderngl.TRIANGLES)
 
