@@ -673,7 +673,7 @@ class LightLaneWidget(QFrame):
         # Get undo stack from main window
         undo_stack = self._get_undo_stack()
 
-        if undo_stack:
+        if undo_stack is not None:
             # Use undo command
             cmd = InsertRiffCommand(
                 self, new_block, removed_blocks,
@@ -695,11 +695,22 @@ class LightLaneWidget(QFrame):
         Returns:
             QUndoStack or None if not available
         """
+        # First try window() which should return the top-level window
         main_window = self.window()
         if hasattr(main_window, 'get_undo_stack'):
             return main_window.get_undo_stack()
         if hasattr(main_window, 'undo_stack'):
             return main_window.undo_stack
+
+        # Fallback: traverse parent chain to find MainWindow
+        parent = self.parent()
+        while parent is not None:
+            if hasattr(parent, 'get_undo_stack'):
+                return parent.get_undo_stack()
+            if hasattr(parent, 'undo_stack'):
+                return parent.undo_stack
+            parent = parent.parent()
+
         return None
 
     def _get_overlapping_blocks(self, start_time: float, end_time: float) -> list:
