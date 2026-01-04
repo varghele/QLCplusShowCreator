@@ -24,14 +24,45 @@ class Fixture:
     model: str
     name: str
     group: str
-    direction: str
     current_mode: str
     available_modes: List[FixtureMode]
     type: str = "PAR"  # Default type if none specified
     x: float = 0.0     # X position in meters
     y: float = 0.0     # Y position in meters
     z: float = 0.0     # Z height in meters
-    rotation: float = 0.0  # Rotation angle in degrees (0-359)
+
+    # Orientation using Euler angles (degrees)
+    # Convention: Yaw (Z) -> Pitch (Y) -> Roll (X)
+    mounting: str = "hanging"  # "hanging", "standing", "wall_left", "wall_right", "wall_back", "wall_front"
+    yaw: float = 0.0           # Rotation around world Z (degrees, -180 to 180)
+    pitch: float = 0.0         # Rotation around local Y after yaw (degrees, -90 to 90)
+    roll: float = 0.0          # Rotation around local X after pitch (degrees, -180 to 180)
+
+    # Override flags (True = use own value, False = use group default)
+    orientation_uses_group_default: bool = True
+    z_uses_group_default: bool = True
+
+    def get_effective_orientation(self, group: Optional['FixtureGroup'] = None) -> tuple:
+        """
+        Get effective orientation values, considering group defaults if applicable.
+
+        Returns:
+            tuple: (mounting, yaw, pitch, roll)
+        """
+        if self.orientation_uses_group_default and group is not None:
+            return (
+                group.default_mounting,
+                group.default_yaw,
+                group.default_pitch,
+                group.default_roll
+            )
+        return (self.mounting, self.yaw, self.pitch, self.roll)
+
+    def get_effective_z(self, group: Optional['FixtureGroup'] = None) -> float:
+        """Get effective Z height, considering group default if applicable."""
+        if self.z_uses_group_default and group is not None:
+            return group.default_z_height
+        return self.z
 
 
 @dataclass
@@ -46,6 +77,271 @@ class FixtureGroup:
     name: str
     fixtures: List[Fixture]
     color: str = '#808080'  # Default color for the group
+    capabilities: Optional['FixtureGroupCapabilities'] = None  # Auto-detected sublane capabilities
+
+    # Group-level defaults for orientation
+    default_mounting: str = "hanging"
+    default_yaw: float = 0.0
+    default_pitch: float = 0.0
+    default_roll: float = 0.0
+    default_z_height: float = 3.0  # Default height in meters
+
+
+@dataclass
+class FixtureGroupCapabilities:
+    """Capabilities of a fixture group, determining which sublanes to display."""
+    has_dimmer: bool = False
+    has_colour: bool = False
+    has_movement: bool = False
+    has_special: bool = False
+
+    def to_dict(self) -> Dict:
+        return {
+            "has_dimmer": self.has_dimmer,
+            "has_colour": self.has_colour,
+            "has_movement": self.has_movement,
+            "has_special": self.has_special
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'FixtureGroupCapabilities':
+        return cls(
+            has_dimmer=data.get("has_dimmer", False),
+            has_colour=data.get("has_colour", False),
+            has_movement=data.get("has_movement", False),
+            has_special=data.get("has_special", False)
+        )
+
+
+@dataclass
+class DimmerBlock:
+    """Dimmer sublane block - controls intensity and shutter effects."""
+    start_time: float
+    end_time: float
+    intensity: float = 255.0  # 0-255
+    strobe_speed: float = 0.0  # 0 = no strobe, >0 = strobe speed
+    iris: float = 255.0  # 0-255, if applicable
+    effect_type: str = "static"  # Effect type: "static", "twinkle", "strobe", etc.
+    effect_speed: str = "1"  # Speed multiplier: "1/4", "1/2", "1", "2", "4", etc.
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "intensity": self.intensity,
+            "strobe_speed": self.strobe_speed,
+            "iris": self.iris,
+            "effect_type": self.effect_type,
+            "effect_speed": self.effect_speed
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'DimmerBlock':
+        return cls(
+            start_time=data.get("start_time", 0.0),
+            end_time=data.get("end_time", 0.0),
+            intensity=data.get("intensity", 255.0),
+            strobe_speed=data.get("strobe_speed", 0.0),
+            iris=data.get("iris", 255.0),
+            effect_type=data.get("effect_type", "static"),
+            effect_speed=data.get("effect_speed", "1")
+        )
+
+
+@dataclass
+class ColourBlock:
+    """Colour sublane block - controls color parameters."""
+    start_time: float
+    end_time: float
+    color_mode: str = "RGB"  # "RGB", "CMY", "HSV", "Wheel"
+
+    # RGB/CMY/RGBW values (0-255)
+    red: float = 0.0
+    green: float = 0.0
+    blue: float = 0.0
+    white: float = 0.0
+    amber: float = 0.0
+    cyan: float = 0.0
+    magenta: float = 0.0
+    yellow: float = 0.0
+    uv: float = 0.0
+    lime: float = 0.0
+
+    # HSV values
+    hue: float = 0.0  # 0-360
+    saturation: float = 0.0  # 0-100
+    value: float = 0.0  # 0-100
+
+    # Color wheel
+    color_wheel_position: int = 0  # Wheel position
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "color_mode": self.color_mode,
+            "red": self.red,
+            "green": self.green,
+            "blue": self.blue,
+            "white": self.white,
+            "amber": self.amber,
+            "cyan": self.cyan,
+            "magenta": self.magenta,
+            "yellow": self.yellow,
+            "uv": self.uv,
+            "lime": self.lime,
+            "hue": self.hue,
+            "saturation": self.saturation,
+            "value": self.value,
+            "color_wheel_position": self.color_wheel_position
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'ColourBlock':
+        return cls(
+            start_time=data.get("start_time", 0.0),
+            end_time=data.get("end_time", 0.0),
+            color_mode=data.get("color_mode", "RGB"),
+            red=data.get("red", 0.0),
+            green=data.get("green", 0.0),
+            blue=data.get("blue", 0.0),
+            white=data.get("white", 0.0),
+            amber=data.get("amber", 0.0),
+            cyan=data.get("cyan", 0.0),
+            magenta=data.get("magenta", 0.0),
+            yellow=data.get("yellow", 0.0),
+            uv=data.get("uv", 0.0),
+            lime=data.get("lime", 0.0),
+            hue=data.get("hue", 0.0),
+            saturation=data.get("saturation", 0.0),
+            value=data.get("value", 0.0),
+            color_wheel_position=data.get("color_wheel_position", 0)
+        )
+
+
+@dataclass
+class MovementBlock:
+    """Movement sublane block - controls pan, tilt, and positioning.
+
+    Supports both static positioning and dynamic shape effects (circle, diamond, etc.).
+    When effect_type is 'static', pan/tilt define the exact position.
+    When effect_type is a shape, pan/tilt define the center, and the shape is traced
+    within the bounds defined by pan_min/pan_max and tilt_min/tilt_max.
+    """
+    start_time: float
+    end_time: float
+    pan: float = 127.5  # 0-255 (center position for shapes, or static position)
+    tilt: float = 127.5  # 0-255 (center position for shapes, or static position)
+    pan_fine: float = 0.0  # Fine adjustment
+    tilt_fine: float = 0.0  # Fine adjustment
+    speed: float = 255.0  # Movement speed (DMX)
+    interpolate_from_previous: bool = True  # Gradual transition from previous block
+
+    # Effect type and speed (similar to DimmerBlock)
+    effect_type: str = "static"  # "static", "circle", "diamond", "lissajous", "figure_8", "square", "triangle", "random", "bounce"
+    effect_speed: str = "1"  # Speed multiplier: "1/4", "1/2", "1", "2", "4"
+
+    # Boundary limits (hard limits the effect cannot exceed)
+    pan_min: float = 0.0  # Minimum pan value (0-255)
+    pan_max: float = 255.0  # Maximum pan value (0-255)
+    tilt_min: float = 0.0  # Minimum tilt value (0-255)
+    tilt_max: float = 255.0  # Maximum tilt value (0-255)
+
+    # Amplitude (size of the effect within the bounds)
+    pan_amplitude: float = 50.0  # How far pan moves from center (0-127.5)
+    tilt_amplitude: float = 50.0  # How far tilt moves from center (0-127.5)
+
+    # Lissajous-specific parameter
+    lissajous_ratio: str = "1:2"  # Frequency ratio for lissajous curves: "1:2", "2:3", "3:4", "3:2", "4:3"
+
+    # Phase offset for multi-fixture effects
+    phase_offset_enabled: bool = False  # Enable phase offset between fixtures
+    phase_offset_degrees: float = 0.0  # Phase offset in degrees (0-360)
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "pan": self.pan,
+            "tilt": self.tilt,
+            "pan_fine": self.pan_fine,
+            "tilt_fine": self.tilt_fine,
+            "speed": self.speed,
+            "interpolate_from_previous": self.interpolate_from_previous,
+            "effect_type": self.effect_type,
+            "effect_speed": self.effect_speed,
+            "pan_min": self.pan_min,
+            "pan_max": self.pan_max,
+            "tilt_min": self.tilt_min,
+            "tilt_max": self.tilt_max,
+            "pan_amplitude": self.pan_amplitude,
+            "tilt_amplitude": self.tilt_amplitude,
+            "lissajous_ratio": self.lissajous_ratio,
+            "phase_offset_enabled": self.phase_offset_enabled,
+            "phase_offset_degrees": self.phase_offset_degrees
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'MovementBlock':
+        return cls(
+            start_time=data.get("start_time", 0.0),
+            end_time=data.get("end_time", 0.0),
+            pan=data.get("pan", 127.5),
+            tilt=data.get("tilt", 127.5),
+            pan_fine=data.get("pan_fine", 0.0),
+            tilt_fine=data.get("tilt_fine", 0.0),
+            speed=data.get("speed", 255.0),
+            interpolate_from_previous=data.get("interpolate_from_previous", True),
+            effect_type=data.get("effect_type", "static"),
+            effect_speed=data.get("effect_speed", "1"),
+            pan_min=data.get("pan_min", 0.0),
+            pan_max=data.get("pan_max", 255.0),
+            tilt_min=data.get("tilt_min", 0.0),
+            tilt_max=data.get("tilt_max", 255.0),
+            pan_amplitude=data.get("pan_amplitude", 50.0),
+            tilt_amplitude=data.get("tilt_amplitude", 50.0),
+            lissajous_ratio=data.get("lissajous_ratio", "1:2"),
+            phase_offset_enabled=data.get("phase_offset_enabled", False),
+            phase_offset_degrees=data.get("phase_offset_degrees", 0.0)
+        )
+
+
+@dataclass
+class SpecialBlock:
+    """Special sublane block - controls gobo, beam, and prism effects."""
+    start_time: float
+    end_time: float
+    gobo_index: int = 0  # Gobo selection
+    gobo_rotation: float = 0.0  # Gobo rotation speed/position
+    focus: float = 127.5  # Beam focus (0-255)
+    zoom: float = 127.5  # Beam zoom (0-255)
+    prism_enabled: bool = False  # Prism on/off
+    prism_rotation: float = 0.0  # Prism rotation speed
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "gobo_index": self.gobo_index,
+            "gobo_rotation": self.gobo_rotation,
+            "focus": self.focus,
+            "zoom": self.zoom,
+            "prism_enabled": self.prism_enabled,
+            "prism_rotation": self.prism_rotation
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SpecialBlock':
+        return cls(
+            start_time=data.get("start_time", 0.0),
+            end_time=data.get("end_time", 0.0),
+            gobo_index=data.get("gobo_index", 0),
+            gobo_rotation=data.get("gobo_rotation", 0.0),
+            focus=data.get("focus", 127.5),
+            zoom=data.get("zoom", 127.5),
+            prism_enabled=data.get("prism_enabled", False),
+            prism_rotation=data.get("prism_rotation", 0.0)
+        )
 
 
 @dataclass
@@ -66,12 +362,171 @@ class ShowPart:
     bpm: float
     num_bars: int
     transition: str
+    # Runtime fields (calculated, not stored)
+    start_time: float = 0.0
+    duration: float = 0.0
+
+
+@dataclass
+class LightBlock:
+    """Represents an effect block (envelope) on a light lane timeline with sublanes.
+
+    The LightBlock acts as an envelope containing sublane blocks.
+    Start/end times are automatically adjusted based on sublane block extents.
+    """
+    start_time: float      # In seconds (envelope start)
+    end_time: float        # In seconds (envelope end)
+    effect_name: str       # "module.function" e.g., "bars.static"
+    modified: bool = False  # True if sublanes modified beyond original effect
+
+    # Sublane blocks - now supports MULTIPLE blocks per sublane type
+    dimmer_blocks: List[DimmerBlock] = field(default_factory=list)
+    colour_blocks: List[ColourBlock] = field(default_factory=list)
+    movement_blocks: List[MovementBlock] = field(default_factory=list)
+    special_blocks: List[SpecialBlock] = field(default_factory=list)
+
+    # Legacy support (deprecated, kept for migration)
+    duration: Optional[float] = None  # Deprecated: use end_time - start_time
+    parameters: Dict[str, any] = field(default_factory=dict)  # Deprecated
+
+    def get_duration(self) -> float:
+        """Calculate duration from start and end times."""
+        return self.end_time - self.start_time
+
+    def update_envelope_bounds(self):
+        """Update envelope start/end times based on sublane block extents."""
+        # Collect all sublane blocks from all lists
+        all_blocks = (
+            self.dimmer_blocks +
+            self.colour_blocks +
+            self.movement_blocks +
+            self.special_blocks
+        )
+
+        if all_blocks:
+            self.start_time = min(b.start_time for b in all_blocks)
+            self.end_time = max(b.end_time for b in all_blocks)
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "effect_name": self.effect_name,
+            "modified": self.modified,
+            "dimmer_blocks": [b.to_dict() for b in self.dimmer_blocks],
+            "colour_blocks": [b.to_dict() for b in self.colour_blocks],
+            "movement_blocks": [b.to_dict() for b in self.movement_blocks],
+            "special_blocks": [b.to_dict() for b in self.special_blocks],
+            # Legacy fields
+            "duration": self.get_duration(),
+            "parameters": self.parameters
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'LightBlock':
+        # Handle both new format and legacy format
+        start_time = data.get("start_time", 0.0)
+        end_time = data.get("end_time")
+
+        # Legacy: if no end_time, calculate from duration
+        if end_time is None:
+            duration = data.get("duration", 4.0)
+            end_time = start_time + duration
+
+        block = cls(
+            start_time=start_time,
+            end_time=end_time,
+            effect_name=data.get("effect_name", ""),
+            modified=data.get("modified", False),
+            duration=data.get("duration"),
+            parameters=data.get("parameters", {})
+        )
+
+        # Load sublane blocks - handle both new list format and old single-block format
+        # New format: dimmer_blocks (list)
+        if data.get("dimmer_blocks"):
+            block.dimmer_blocks = [DimmerBlock.from_dict(b) for b in data["dimmer_blocks"]]
+        # Old format: dimmer_block (single) - migrate to list
+        elif data.get("dimmer_block"):
+            block.dimmer_blocks = [DimmerBlock.from_dict(data["dimmer_block"])]
+
+        if data.get("colour_blocks"):
+            block.colour_blocks = [ColourBlock.from_dict(b) for b in data["colour_blocks"]]
+        elif data.get("colour_block"):
+            block.colour_blocks = [ColourBlock.from_dict(data["colour_block"])]
+
+        if data.get("movement_blocks"):
+            block.movement_blocks = [MovementBlock.from_dict(b) for b in data["movement_blocks"]]
+        elif data.get("movement_block"):
+            block.movement_blocks = [MovementBlock.from_dict(data["movement_block"])]
+
+        if data.get("special_blocks"):
+            block.special_blocks = [SpecialBlock.from_dict(b) for b in data["special_blocks"]]
+        elif data.get("special_block"):
+            block.special_blocks = [SpecialBlock.from_dict(data["special_block"])]
+
+        return block
+
+
+@dataclass
+class LightLane:
+    """Represents a lane controlling a fixture group on the timeline"""
+    name: str
+    fixture_group: str
+    muted: bool = False
+    solo: bool = False
+    light_blocks: List[LightBlock] = field(default_factory=list)
+
+    def to_dict(self) -> Dict:
+        return {
+            "name": self.name,
+            "fixture_group": self.fixture_group,
+            "muted": self.muted,
+            "solo": self.solo,
+            "light_blocks": [block.to_dict() for block in self.light_blocks]
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'LightLane':
+        lane = cls(
+            name=data.get("name", ""),
+            fixture_group=data.get("fixture_group", ""),
+            muted=data.get("muted", False),
+            solo=data.get("solo", False)
+        )
+        for block_data in data.get("light_blocks", []):
+            lane.light_blocks.append(LightBlock.from_dict(block_data))
+        return lane
+
+
+@dataclass
+class TimelineData:
+    """Timeline-specific data for a show"""
+    lanes: List[LightLane] = field(default_factory=list)
+    audio_file_path: Optional[str] = None
+
+    def to_dict(self) -> Dict:
+        return {
+            "lanes": [lane.to_dict() for lane in self.lanes],
+            "audio_file_path": self.audio_file_path
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'TimelineData':
+        timeline = cls(
+            audio_file_path=data.get("audio_file_path")
+        )
+        for lane_data in data.get("lanes", []):
+            timeline.lanes.append(LightLane.from_dict(lane_data))
+        return timeline
+
 
 @dataclass
 class Show:
     name: str
     parts: List[ShowPart] = field(default_factory=list)
-    effects: List[ShowEffect] = field(default_factory=list)
+    effects: List[ShowEffect] = field(default_factory=list)  # Keep for backwards compatibility
+    timeline_data: Optional[TimelineData] = None  # NEW: Timeline representation
 
 @dataclass
 class Universe:
@@ -99,6 +554,10 @@ class Configuration:
     universes: Dict[int, Universe] = field(default_factory=dict)
     spots: Dict[str, Spot] = field(default_factory=dict)
     workspace_path: Optional[str] = None
+    shows_directory: Optional[str] = None  # Directory where show CSV files and audio are stored
+    stage_width: float = 10.0  # Stage width in meters
+    stage_height: float = 6.0  # Stage depth in meters (called height for compatibility)
+    grid_size: float = 0.5  # Grid spacing in meters
 
     @classmethod
     def from_workspace(cls, workspace_path: str) -> 'Configuration':
@@ -109,11 +568,11 @@ class Configuration:
         config = cls(fixtures=[], groups={}, workspace_path=workspace_path)
 
         for fixture_data in fixtures_data:
-            # Get fixture definition and current mode
+            # Get fixture definition for type info
             fixture_def = fixture_definitions.get(
                 (fixture_data['Manufacturer'], fixture_data['Model']))
 
-            # Create FixtureMode objects without the 'type' field
+            # Create FixtureMode objects from the available modes
             modes = []
             if fixture_data['AvailableModes']:
                 for mode in fixture_data['AvailableModes']:
@@ -122,7 +581,6 @@ class Configuration:
                         channels=mode['channels']
                     ))
 
-        for fixture_data in fixtures_data:
             fixture = Fixture(
                 universe=fixture_data['Universe'],
                 address=fixture_data['Address'],
@@ -130,14 +588,19 @@ class Configuration:
                 model=fixture_data['Model'],
                 name=fixture_data['Name'],
                 group=fixture_data['Group'],
-                direction=fixture_data['Direction'],
                 current_mode=fixture_data['CurrentMode'],
                 available_modes=modes,
                 type=fixture_def['type'] if fixture_def else "PAR",  # Default to PAR if no definition found
-                x = fixture_data.get('X', 0.0),
-                y = fixture_data.get('Y', 0.0),
-                z = fixture_data.get('Z', 0.0),
-                rotation = fixture_data.get('Rotation', 0.0)
+                x=fixture_data.get('X', 0.0),
+                y=fixture_data.get('Y', 0.0),
+                z=fixture_data.get('Z', 0.0),
+                # Orientation defaults (from workspace, these are set to defaults)
+                mounting="hanging",
+                yaw=0.0,
+                pitch=0.0,
+                roll=0.0,
+                orientation_uses_group_default=True,
+                z_uses_group_default=True
             )
             config.fixtures.append(fixture)
 
@@ -239,6 +702,11 @@ class Configuration:
                 name: {
                     'name': group.name,
                     'color': group.color,
+                    'default_mounting': group.default_mounting,
+                    'default_yaw': group.default_yaw,
+                    'default_pitch': group.default_pitch,
+                    'default_roll': group.default_roll,
+                    'default_z_height': group.default_z_height,
                     'fixtures': [asdict(f) for f in group.fixtures]
                 }
                 for name, group in self.groups.items()
@@ -252,8 +720,9 @@ class Configuration:
             },
             'shows': {
                 show.name: {
-                    'parts': [asdict(part) for part in show.parts],
-                    'effects': [asdict(effect) for effect in show.effects]
+                    'parts': [{k: v for k, v in asdict(part).items() if k not in ('start_time', 'duration')} for part in show.parts],
+                    'effects': [asdict(effect) for effect in show.effects],
+                    'timeline_data': show.timeline_data.to_dict() if show.timeline_data else None
                 }
                 for show in self.shows.values()
             },
@@ -285,9 +754,14 @@ class Configuration:
                     )
                     modes.append(mode)
                 f_data['available_modes'] = modes
+
+            # Remove deprecated fields if present (direction, rotation)
+            f_data.pop('direction', None)
+            f_data.pop('rotation', None)
+
             fixtures.append(Fixture(**f_data))
 
-        # Handle groups with colors
+        # Handle groups with colors and orientation defaults
         groups = {}
         for name, group_data in data.get('groups', {}).items():
             group_fixtures = []
@@ -301,12 +775,23 @@ class Configuration:
                         )
                         modes.append(mode)
                     f_data['available_modes'] = modes
+
+                # Remove deprecated fields if present (direction, rotation)
+                f_data.pop('direction', None)
+                f_data.pop('rotation', None)
+
                 group_fixtures.append(Fixture(**f_data))
 
             groups[name] = FixtureGroup(
                 name=name,
                 fixtures=group_fixtures,
-                color=group_data.get('color', '#808080')  # Add default color if none specified
+                color=group_data.get('color', '#808080'),
+                # Orientation defaults
+                default_mounting=group_data.get('default_mounting', 'hanging'),
+                default_yaw=group_data.get('default_yaw', 0.0),
+                default_pitch=group_data.get('default_pitch', 0.0),
+                default_roll=group_data.get('default_roll', 0.0),
+                default_z_height=group_data.get('default_z_height', 3.0)
             )
 
         # Handle shows
@@ -338,11 +823,17 @@ class Configuration:
                         spot=effect_data['spot']
                     ))
 
+                # Load timeline data if present
+                timeline_data = None
+                if show_data.get('timeline_data'):
+                    timeline_data = TimelineData.from_dict(show_data['timeline_data'])
+
                 # Create show
                 shows[show_name] = Show(
                     name=show_name,
                     parts=parts,
-                    effects=effects
+                    effects=effects,
+                    timeline_data=timeline_data
                 )
 
         # Handle universes
@@ -387,6 +878,12 @@ class Configuration:
         """Scan QLC+ fixture definitions"""
         # Get QLC+ fixture directories
         qlc_fixture_dirs = []
+
+        # Add project custom_fixtures directory first (highest priority)
+        project_custom_fixtures = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'custom_fixtures')
+        if os.path.exists(project_custom_fixtures):
+            qlc_fixture_dirs.append(project_custom_fixtures)
+
         if sys.platform.startswith('linux'):
             qlc_fixture_dirs.extend([
                 '/usr/share/qlcplus/fixtures',
@@ -501,6 +998,11 @@ class Configuration:
                 fixture_id = fixture.find("qlc:ID", ns).text
                 manufacturer = fixture.find("qlc:Manufacturer", ns).text
                 model = fixture.find("qlc:Model", ns).text
+                current_mode = fixture.find("qlc:Mode", ns).text
+
+                # Get channel count from workspace (this is the actual count for the current mode)
+                channels_elem = fixture.find("qlc:Channels", ns)
+                workspace_channels = int(channels_elem.text) if channels_elem is not None else 6
 
                 # Find group for this fixture
                 group_name = ""
@@ -515,6 +1017,17 @@ class Configuration:
                 # Get fixture definition if available
                 fixture_def = fixture_definitions.get((manufacturer, model))
 
+                # Use fixture definition modes if available, otherwise create from workspace data
+                if fixture_def and fixture_def['modes']:
+                    available_modes = fixture_def['modes']
+                else:
+                    # Fallback: create a single mode from workspace data
+                    available_modes = [{
+                        'name': current_mode,
+                        'channels': workspace_channels,
+                        'type': 'PAR'  # Default type
+                    }]
+
                 fixtures_data.append({
                     'Universe': int(fixture.find("qlc:Universe", ns).text) + 1,
                     'Address': int(fixture.find("qlc:Address", ns).text) + 1,
@@ -522,9 +1035,9 @@ class Configuration:
                     'Model': model,
                     'Name': fixture.find("qlc:Name", ns).text,
                     'Group': group_name,
-                    'Direction': "",
-                    'CurrentMode': fixture.find("qlc:Mode", ns).text,
-                    'AvailableModes': fixture_def['modes'] if fixture_def else None
+                    'CurrentMode': current_mode,
+                    'AvailableModes': available_modes,
+                    'WorkspaceChannels': workspace_channels  # Store for validation
                 })
 
             return fixtures_data
@@ -573,4 +1086,49 @@ class Configuration:
         """Remove a universe configuration"""
         if universe_id in self.universes:
             del self.universes[universe_id]
+
+    def ensure_universes_for_fixtures(self):
+        """
+        Ensure universes exist for all fixtures.
+
+        Creates universes automatically based on fixture assignments if none exist.
+        Uses ArtNet broadcast output for visualizer compatibility.
+
+        Returns:
+            bool: True if universes were created, False if they already existed
+        """
+        if self.universes:
+            # Universes already configured
+            return False
+
+        if not self.fixtures:
+            # No fixtures, nothing to do
+            return False
+
+        # Collect all unique universe IDs from fixtures
+        universe_ids = set()
+        for fixture in self.fixtures:
+            universe_ids.add(fixture.universe)
+
+        # Create universes for each unique ID
+        for universe_id in sorted(universe_ids):
+            self.universes[universe_id] = Universe(
+                id=universe_id,
+                name=f"Universe {universe_id}",
+                output={
+                    'plugin': 'ArtNet',
+                    'line': '0',
+                    'parameters': {
+                        'ip': '255.255.255.255',  # Broadcast for visualizer
+                        'port': '6454',
+                        'subnet': '0',
+                        'universe': str(universe_id)
+                    }
+                }
+            )
+
+        if universe_ids:
+            print(f"Auto-created {len(universe_ids)} universe(s) for visualizer: {sorted(universe_ids)}")
+
+        return True
 

@@ -1,0 +1,281 @@
+# utils/tcp/server.py
+# TCP server for sending configuration to Visualizer
+
+import socket
+import threading
+import time
+from typing import List, Optional, Set
+from PyQt6.QtCore import QObject, pyqtSignal
+from config.models import Configuration
+from .protocol import VisualizerProtocol
+
+
+class VisualizerTCPServer(QObject):
+    """
+    TCP server for sending configuration data to Visualizer clients.
+
+    Runs in a background thread and manages multiple client connections.
+    Emits signals when clients connect/disconnect.
+    """
+
+    # Signals
+    client_connected = pyqtSignal(str)  # client address
+    client_disconnected = pyqtSignal(str)  # client address
+    error_occurred = pyqtSignal(str)  # error message
+
+    def __init__(self, config: Configuration, port: int = 9000):
+        """
+        Initialize TCP server.
+
+        Args:
+            config: Configuration to send to clients
+            port: TCP port to listen on (default: 9000)
+        """
+        super().__init__()
+
+        self.config = config
+        self.port = port
+        self.host = "0.0.0.0"  # Listen on all interfaces
+
+        # Server state
+        self.server_socket: Optional[socket.socket] = None
+        self.running = False
+        self.server_thread: Optional[threading.Thread] = None
+
+        # Connected clients
+        self.clients: Set[socket.socket] = set()
+        self.clients_lock = threading.Lock()
+
+        print(f"TCP Server initialized on port {port}")
+
+    def start(self):
+        """Start the TCP server in a background thread."""
+        if self.running:
+            print("TCP Server already running")
+            return
+
+        self.running = True
+        self.server_thread = threading.Thread(target=self._run_server, daemon=True)
+        self.server_thread.start()
+        print(f"TCP Server started on {self.host}:{self.port}")
+
+    def stop(self):
+        """Stop the TCP server and disconnect all clients."""
+        if not self.running:
+            return
+
+        print("Stopping TCP Server...")
+        self.running = False
+
+        # Close all client connections
+        with self.clients_lock:
+            for client_socket in list(self.clients):
+                try:
+                    client_socket.close()
+                except Exception:
+                    pass
+            self.clients.clear()
+
+        # Close server socket
+        if self.server_socket:
+            try:
+                self.server_socket.close()
+            except Exception:
+                pass
+            self.server_socket = None
+
+        # Wait for server thread to finish
+        if self.server_thread and self.server_thread.is_alive():
+            self.server_thread.join(timeout=2.0)
+
+        print("TCP Server stopped")
+
+    def _run_server(self):
+        """Main server loop (runs in background thread)."""
+        try:
+            # Create server socket
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.server_socket.bind((self.host, self.port))
+            self.server_socket.listen(5)
+            self.server_socket.settimeout(1.0)  # Timeout for accept()
+
+            print(f"TCP Server listening on {self.host}:{self.port}")
+
+            while self.running:
+                try:
+                    # Accept client connection (with timeout)
+                    client_socket, client_address = self.server_socket.accept()
+                    client_addr_str = f"{client_address[0]}:{client_address[1]}"
+
+                    print(f"Client connected: {client_addr_str}")
+
+                    # Add to clients set
+                    with self.clients_lock:
+                        self.clients.add(client_socket)
+
+                    # Emit signal
+                    self.client_connected.emit(client_addr_str)
+
+                    # Handle client in separate thread
+                    client_thread = threading.Thread(
+                        target=self._handle_client,
+                        args=(client_socket, client_addr_str),
+                        daemon=True
+                    )
+                    client_thread.start()
+
+                except socket.timeout:
+                    # Normal timeout, continue loop
+                    continue
+                except Exception as e:
+                    if self.running:
+                        print(f"Error accepting connection: {e}")
+                        self.error_occurred.emit(str(e))
+
+        except Exception as e:
+            print(f"Server error: {e}")
+            self.error_occurred.emit(str(e))
+        finally:
+            if self.server_socket:
+                try:
+                    self.server_socket.close()
+                except Exception:
+                    pass
+
+    def _handle_client(self, client_socket: socket.socket, client_addr: str):
+        """
+        Handle a connected client (runs in separate thread per client).
+
+        Args:
+            client_socket: Client socket
+            client_addr: Client address string
+        """
+        try:
+            # Send initial configuration
+            self._send_config_to_client(client_socket)
+
+            # Keep connection alive and handle incoming data
+            while self.running:
+                try:
+                    # Receive data (with timeout)
+                    client_socket.settimeout(5.0)
+                    data = client_socket.recv(1024)
+
+                    if not data:
+                        # Client disconnected
+                        break
+
+                    # Parse message (currently just for ACK/heartbeat)
+                    try:
+                        message = VisualizerProtocol.parse_message(data.decode('utf-8'))
+                        # Handle incoming messages if needed
+                        # (Currently clients just receive, not send)
+                    except Exception as e:
+                        print(f"Error parsing message from {client_addr}: {e}")
+
+                except socket.timeout:
+                    # Send heartbeat to keep connection alive
+                    try:
+                        heartbeat = VisualizerProtocol.create_heartbeat_message()
+                        client_socket.sendall(heartbeat.encode('utf-8'))
+                    except Exception:
+                        break
+                except Exception as e:
+                    print(f"Error receiving from {client_addr}: {e}")
+                    break
+
+        except Exception as e:
+            print(f"Error handling client {client_addr}: {e}")
+        finally:
+            # Remove from clients set
+            with self.clients_lock:
+                if client_socket in self.clients:
+                    self.clients.remove(client_socket)
+
+            # Close socket
+            try:
+                client_socket.close()
+            except Exception:
+                pass
+
+            print(f"Client disconnected: {client_addr}")
+            self.client_disconnected.emit(client_addr)
+
+    def _send_config_to_client(self, client_socket: socket.socket):
+        """
+        Send complete configuration to a client.
+
+        Args:
+            client_socket: Client socket to send to
+        """
+        try:
+            # Serialize configuration
+            messages = VisualizerProtocol.serialize_full_config(self.config)
+
+            # Send all messages
+            for message in messages:
+                client_socket.sendall(message.encode('utf-8'))
+                time.sleep(0.01)  # Small delay between messages
+
+            print(f"Sent configuration to client ({len(messages)} messages)")
+
+        except Exception as e:
+            print(f"Error sending config to client: {e}")
+            raise
+
+    def send_update(self, update_type: str, data: dict):
+        """
+        Send update message to all connected clients.
+
+        Args:
+            update_type: Type of update
+            data: Update data
+        """
+        if not self.clients:
+            return
+
+        message = VisualizerProtocol.create_update_message(update_type, data)
+
+        with self.clients_lock:
+            for client_socket in list(self.clients):
+                try:
+                    client_socket.sendall(message.encode('utf-8'))
+                except Exception as e:
+                    print(f"Error sending update to client: {e}")
+
+    def update_config(self, config: Configuration):
+        """
+        Update configuration and send to all clients.
+
+        Args:
+            config: New configuration
+        """
+        self.config = config
+
+        # Send full config to all connected clients
+        with self.clients_lock:
+            for client_socket in list(self.clients):
+                try:
+                    self._send_config_to_client(client_socket)
+                except Exception as e:
+                    print(f"Error updating client config: {e}")
+
+    def get_client_count(self) -> int:
+        """
+        Get number of connected clients.
+
+        Returns:
+            Number of connected clients
+        """
+        with self.clients_lock:
+            return len(self.clients)
+
+    def is_running(self) -> bool:
+        """
+        Check if server is running.
+
+        Returns:
+            True if server is running
+        """
+        return self.running

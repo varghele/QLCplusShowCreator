@@ -7,7 +7,7 @@ from utils.to_xml.setup_to_xml import (create_universe_elements, create_fixture_
                                        create_channels_groups)
 from utils.to_xml.shows_to_xml import create_shows
 #from utils.make.make_channel_groups import make_channel_groups_from_fixtures
-from utils.fixture_utils import load_fixture_definitions
+from utils.fixture_utils import load_fixture_definitions_from_qlc
 
 def create_qlc_workspace(config: Configuration):
     """
@@ -26,7 +26,7 @@ def create_qlc_workspace(config: Configuration):
                         for fixture in group.fixtures}
 
     # Load fixture definitions
-    fixture_definitions = load_fixture_definitions(models_in_config)
+    fixture_definitions = load_fixture_definitions_from_qlc(models_in_config)
 
     # Create the root element with namespace
     root = ET.Element("Workspace")

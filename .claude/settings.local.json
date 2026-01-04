@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(ls:*)",
+      "Bash(test:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(python:*)",
+      "Bash(mkdir:*)"
+    ]
+  }
+}
