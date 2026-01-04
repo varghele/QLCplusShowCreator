@@ -1,0 +1,51 @@
+{
+  "name": "figure8_sweep_4bar",
+  "category": "movement",
+  "description": "Figure-8 pattern sweep over 4 bars",
+  "length_beats": 16,
+  "signature": "4/4",
+  "fixture_types": ["MH"],
+  "tags": ["movement", "figure8", "sweep", "moving-head"],
+  "author": "preset",
+  "version": "1.0",
+
+  "dimmer_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 16,
+      "intensity": 255,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "static",
+      "effect_speed": "1"
+    }
+  ],
+
+  "colour_blocks": [],
+
+  "movement_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 16,
+      "pan": 127.5,
+      "tilt": 127.5,
+      "pan_fine": 0,
+      "tilt_fine": 0,
+      "speed": 255,
+      "interpolate_from_previous": true,
+      "effect_type": "figure_8",
+      "effect_speed": "1/4",
+      "pan_min": 30,
+      "pan_max": 225,
+      "tilt_min": 50,
+      "tilt_max": 205,
+      "pan_amplitude": 80,
+      "tilt_amplitude": 60,
+      "lissajous_ratio": "1:2",
+      "phase_offset_enabled": false,
+      "phase_offset_degrees": 0
+    }
+  ],
+
+  "special_blocks": []
+}

@@ -1,0 +1,54 @@
+{
+  "name": "pulse_build_4bar",
+  "category": "builds",
+  "description": "Pulsing with increasing intensity over 4 bars",
+  "length_beats": 16,
+  "signature": "4/4",
+  "fixture_types": [],
+  "tags": ["build", "pulse", "energy"],
+  "author": "preset",
+  "version": "1.0",
+
+  "dimmer_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 4,
+      "intensity": 80,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "twinkle",
+      "effect_speed": "1"
+    },
+    {
+      "start_beat": 4,
+      "end_beat": 8,
+      "intensity": 130,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "twinkle",
+      "effect_speed": "1"
+    },
+    {
+      "start_beat": 8,
+      "end_beat": 12,
+      "intensity": 190,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "twinkle",
+      "effect_speed": "2"
+    },
+    {
+      "start_beat": 12,
+      "end_beat": 16,
+      "intensity": 255,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "twinkle",
+      "effect_speed": "2"
+    }
+  ],
+
+  "colour_blocks": [],
+  "movement_blocks": [],
+  "special_blocks": []
+}

@@ -2,9 +2,10 @@
 # Base timeline widget with grid drawing and snap functionality
 # Adapted from midimaker_and_show_structure/ui/lane_widget.py
 
+import json
 from PyQt6.QtWidgets import QWidget, QMenu
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QPainter, QPen, QColor, QWheelEvent
+from PyQt6.QtGui import QPainter, QPen, QColor, QWheelEvent, QBrush
 
 
 class TimelineWidget(QWidget):
@@ -17,6 +18,7 @@ class TimelineWidget(QWidget):
     zoom_changed = pyqtSignal(float)  # Emits new zoom factor
     playhead_moved = pyqtSignal(float)  # Emits playhead position in seconds
     paste_requested = pyqtSignal(float)  # Emits time position when paste requested
+    riff_dropped = pyqtSignal(str, float)  # Emits (riff_path, drop_time) when riff dropped
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -35,6 +37,11 @@ class TimelineWidget(QWidget):
         self.num_sublanes = 1  # Number of sublanes (1-4)
         self.sublane_height = 60  # Height per sublane in pixels
         self.capabilities = None  # FixtureGroupCapabilities (for label drawing)
+
+        # Drag-drop support for riffs
+        self.setAcceptDrops(True)
+        self._drag_preview_time = None  # Time position for drag preview
+        self._drag_preview_length = None  # Length of riff being dragged (in beats)
 
         self.setMinimumHeight(60)
         self.update_timeline_width()
@@ -379,6 +386,9 @@ class TimelineWidget(QWidget):
         # Draw sublane labels
         self.draw_sublane_labels(painter, width, height)
 
+        # Draw drag preview (if dragging a riff)
+        self.draw_drag_preview(painter, width, height)
+
         # Draw playhead
         self.draw_playhead(painter, width, height)
 
@@ -389,3 +399,96 @@ class TimelineWidget(QWidget):
             return (numerator * 4) / denominator
         except (ValueError, ZeroDivisionError):
             return 4.0
+
+    # =========================================================================
+    # DRAG-DROP SUPPORT FOR RIFFS
+    # =========================================================================
+
+    def dragEnterEvent(self, event):
+        """Handle drag enter - accept riff drops."""
+        if event.mimeData().hasFormat("application/x-qlc-riff"):
+            event.acceptProposedAction()
+
+            # Parse riff data for preview
+            try:
+                riff_data = json.loads(event.mimeData().data("application/x-qlc-riff").data().decode())
+                self._drag_preview_length = riff_data.get("length_beats", 4.0)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                self._drag_preview_length = 4.0
+
+            self._update_drag_preview(event.position().x())
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        """Handle drag move - update preview position."""
+        if event.mimeData().hasFormat("application/x-qlc-riff"):
+            event.acceptProposedAction()
+            self._update_drag_preview(event.position().x())
+        else:
+            event.ignore()
+
+    def dragLeaveEvent(self, event):
+        """Handle drag leave - clear preview."""
+        self._drag_preview_time = None
+        self._drag_preview_length = None
+        self.update()
+
+    def dropEvent(self, event):
+        """Handle drop - emit riff_dropped signal."""
+        if event.mimeData().hasFormat("application/x-qlc-riff"):
+            try:
+                riff_data = json.loads(event.mimeData().data("application/x-qlc-riff").data().decode())
+                riff_path = riff_data.get("path", "")
+
+                # Calculate drop time with snap
+                drop_time = self.pixel_to_time(event.position().x())
+                if self.snap_to_grid:
+                    drop_time = self.find_nearest_beat_time(drop_time)
+                drop_time = max(0.0, drop_time)
+
+                # Emit signal for parent to handle
+                self.riff_dropped.emit(riff_path, drop_time)
+
+                event.acceptProposedAction()
+            except (json.JSONDecodeError, UnicodeDecodeError, KeyError) as e:
+                print(f"Error processing dropped riff: {e}")
+                event.ignore()
+        else:
+            event.ignore()
+
+        # Clear preview
+        self._drag_preview_time = None
+        self._drag_preview_length = None
+        self.update()
+
+    def _update_drag_preview(self, x_pos: float):
+        """Update drag preview position."""
+        drop_time = self.pixel_to_time(x_pos)
+        if self.snap_to_grid:
+            drop_time = self.find_nearest_beat_time(drop_time)
+        self._drag_preview_time = max(0.0, drop_time)
+        self.update()
+
+    def _get_riff_duration_seconds(self, length_beats: float) -> float:
+        """Calculate riff duration in seconds based on current BPM."""
+        bpm = self.get_current_bpm()
+        return length_beats * 60.0 / bpm
+
+    def draw_drag_preview(self, painter, width, height):
+        """Draw preview rectangle during riff drag."""
+        if self._drag_preview_time is None or self._drag_preview_length is None:
+            return
+
+        # Calculate preview rectangle
+        start_x = self.time_to_pixel(self._drag_preview_time)
+        duration_secs = self._get_riff_duration_seconds(self._drag_preview_length)
+        end_x = self.time_to_pixel(self._drag_preview_time + duration_secs)
+
+        # Draw semi-transparent blue rectangle
+        preview_color = QColor(0, 120, 215, 80)
+        border_color = QColor(0, 120, 215, 200)
+
+        painter.setBrush(QBrush(preview_color))
+        painter.setPen(QPen(border_color, 2, Qt.PenStyle.DashLine))
+        painter.drawRect(int(start_x), 2, int(end_x - start_x), height - 4)

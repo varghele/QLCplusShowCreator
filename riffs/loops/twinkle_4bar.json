@@ -1,0 +1,27 @@
+{
+  "name": "twinkle_4bar",
+  "category": "loops",
+  "description": "Twinkle effect loop - gentle sparkling",
+  "length_beats": 16,
+  "signature": "4/4",
+  "fixture_types": [],
+  "tags": ["loop", "twinkle", "gentle", "ambient"],
+  "author": "preset",
+  "version": "1.0",
+
+  "dimmer_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 16,
+      "intensity": 180,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "twinkle",
+      "effect_speed": "1/2"
+    }
+  ],
+
+  "colour_blocks": [],
+  "movement_blocks": [],
+  "special_blocks": []
+}

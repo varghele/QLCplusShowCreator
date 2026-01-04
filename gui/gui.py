@@ -5,13 +5,16 @@ import os
 import sys
 from PyQt6 import QtWidgets
 from PyQt6.QtWidgets import QMainWindow, QFileDialog, QMessageBox
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtGui import QUndoStack, QKeySequence, QAction
 from config.models import Configuration
 from utils.create_workspace import create_qlc_workspace
 from gui.Ui_MainWindow import Ui_MainWindow
 from gui.tabs import ConfigurationTab, FixturesTab, ShowsTab, StageTab, StructureTab
 from gui.audio_settings_dialog import AudioSettingsDialog
 from gui.progress_manager import ProgressManager, set_progress_manager
+from timeline_ui.riff_browser_widget import RiffBrowserWidget
+from riffs.riff_library import RiffLibrary
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -48,6 +51,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Initialize progress manager
         self.progress_manager = ProgressManager(self)
         set_progress_manager(self.progress_manager)
+
+        # Initialize undo stack
+        self._create_undo_stack()
 
     def _setup_status_timer(self):
         """Set up timer for updating toolbar status indicators."""
@@ -176,6 +182,76 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         new_layout = QtWidgets.QVBoxLayout(self.tab_2)
         new_layout.setContentsMargins(0, 0, 0, 0)
         new_layout.addWidget(self.shows_tab)
+
+        # Create Riff Browser dockable panel
+        self._create_riff_browser()
+
+    def _create_riff_browser(self):
+        """Create the riff browser dockable panel."""
+        # Initialize riff library
+        self.riff_library = RiffLibrary()
+
+        # Create riff browser widget
+        self.riff_browser = RiffBrowserWidget(self.riff_library, self)
+
+        # Add as dock widget on the right side
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.riff_browser)
+
+        # Start hidden - user can show via View menu
+        self.riff_browser.hide()
+
+        # Create View menu if it doesn't exist
+        if not hasattr(self, 'menuView'):
+            self.menuView = QtWidgets.QMenu("View", parent=self.menubar)
+            # Insert View menu after File menu
+            self.menubar.insertMenu(self.menuSettings.menuAction(), self.menuView)
+
+        # Add toggle action for Riff Library
+        toggle_action = self.riff_browser.toggleViewAction()
+        toggle_action.setText("Riff Library")
+        self.menuView.addAction(toggle_action)
+
+    def _create_undo_stack(self):
+        """Create the undo/redo stack and Edit menu."""
+        # Create undo stack
+        self.undo_stack = QUndoStack(self)
+
+        # Create Edit menu if it doesn't exist
+        if not hasattr(self, 'menuEdit'):
+            self.menuEdit = QtWidgets.QMenu("Edit", parent=self.menubar)
+            # Insert Edit menu after File menu
+            self.menubar.insertMenu(self.menuView.menuAction(), self.menuEdit)
+
+        # Create undo action
+        self.undo_action = self.undo_stack.createUndoAction(self, "Undo")
+        self.undo_action.setShortcut(QKeySequence.StandardKey.Undo)
+        self.menuEdit.addAction(self.undo_action)
+
+        # Create redo action
+        self.redo_action = self.undo_stack.createRedoAction(self, "Redo")
+        self.redo_action.setShortcut(QKeySequence.StandardKey.Redo)
+        self.menuEdit.addAction(self.redo_action)
+
+        # Connect clean state changed for save indicator (optional)
+        self.undo_stack.cleanChanged.connect(self._on_undo_clean_changed)
+
+    def _on_undo_clean_changed(self, clean: bool):
+        """Handle undo stack clean state change.
+
+        Can be used to show unsaved changes indicator.
+        """
+        # Update window title to show unsaved state
+        title = self.windowTitle()
+        if clean:
+            if title.endswith(" *"):
+                self.setWindowTitle(title[:-2])
+        else:
+            if not title.endswith(" *"):
+                self.setWindowTitle(title + " *")
+
+    def get_undo_stack(self) -> QUndoStack:
+        """Get the application's undo stack."""
+        return self.undo_stack
 
     def _connect_signals(self):
         """Connect application-level signals"""

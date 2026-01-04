@@ -1,0 +1,54 @@
+{
+  "name": "intensity_crescendo_8bar",
+  "category": "builds",
+  "description": "Slow fade up over 8 bars - classic tension builder",
+  "length_beats": 32,
+  "signature": "4/4",
+  "fixture_types": [],
+  "tags": ["build", "fade", "slow", "tension"],
+  "author": "preset",
+  "version": "1.0",
+
+  "dimmer_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 8,
+      "intensity": 50,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "static",
+      "effect_speed": "1"
+    },
+    {
+      "start_beat": 8,
+      "end_beat": 16,
+      "intensity": 100,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "static",
+      "effect_speed": "1"
+    },
+    {
+      "start_beat": 16,
+      "end_beat": 24,
+      "intensity": 175,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "static",
+      "effect_speed": "1"
+    },
+    {
+      "start_beat": 24,
+      "end_beat": 32,
+      "intensity": 255,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "static",
+      "effect_speed": "1"
+    }
+  ],
+
+  "colour_blocks": [],
+  "movement_blocks": [],
+  "special_blocks": []
+}
