@@ -151,6 +151,10 @@ class LightBlockWidget(QWidget):
         # Draw effect name label LAST (on top of everything)
         self._draw_effect_label(painter)
 
+        # Draw riff indicator if this block came from a riff
+        if self.block.riff_source:
+            self._draw_riff_indicator(painter)
+
     def _draw_envelope(self, painter):
         """Draw the effect envelope as a subtle border/background."""
         # Subtle background color
@@ -200,6 +204,50 @@ class LightBlockWidget(QWidget):
         # Draw text in white
         painter.setPen(QPen(QColor(255, 255, 255)))  # White text
         painter.drawText(x_pos, y_pos + text_height - 3, text)
+
+    def _draw_riff_indicator(self, painter):
+        """Draw indicator badge showing this block came from a riff."""
+        from PyQt6.QtGui import QFont
+        from PyQt6.QtCore import QRect
+
+        # Choose indicator text and color based on modification state
+        if self.block.modified:
+            # Modified riff - yellow indicator with asterisk
+            indicator_text = "R*"
+            bg_color = QColor(180, 150, 50, 220)  # Yellow-brown
+            border_color = QColor(220, 180, 70)
+        else:
+            # Unmodified riff - green indicator
+            indicator_text = "R"
+            bg_color = QColor(50, 150, 80, 220)  # Green
+            border_color = QColor(80, 200, 120)
+
+        # Set font
+        font = QFont()
+        font.setPointSize(7)
+        font.setBold(True)
+        painter.setFont(font)
+
+        # Calculate text size
+        metrics = painter.fontMetrics()
+        text_width = metrics.horizontalAdvance(indicator_text)
+        text_height = metrics.height()
+
+        # Position in top-right corner (below the effect label if present)
+        padding = 3
+        x_pos = self.width() - text_width - padding * 2 - 4
+        y_pos = 6  # Same y as effect label
+
+        # Draw badge background
+        bg_rect = QRect(x_pos - padding, y_pos - padding,
+                       text_width + 2 * padding, text_height + 2 * padding)
+        painter.setBrush(QBrush(bg_color))
+        painter.setPen(QPen(border_color, 1))
+        painter.drawRoundedRect(bg_rect, 3, 3)
+
+        # Draw text
+        painter.setPen(QPen(QColor(255, 255, 255)))
+        painter.drawText(x_pos, y_pos + text_height - 3, indicator_text)
 
     def _draw_sublane_blocks(self, painter):
         """Draw individual sublane blocks within the envelope."""
@@ -1363,10 +1411,43 @@ class LightBlockWidget(QWidget):
 
         menu.addSeparator()
 
+        save_riff_action = menu.addAction("Save as Riff...")
+        save_riff_action.triggered.connect(self.save_as_riff)
+
+        menu.addSeparator()
+
         delete_action = menu.addAction("Delete Entire Effect")
         delete_action.triggered.connect(lambda: self.remove_requested.emit(self))
 
         menu.exec(event.globalPos())
+
+    def save_as_riff(self):
+        """Save this light block as a reusable riff."""
+        from .save_riff_dialog import SaveRiffDialog
+
+        # Get riff library from main window
+        main_window = self.window()
+        riff_library = getattr(main_window, 'riff_library', None)
+
+        if not riff_library:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self, "Error",
+                "Riff library not available. Cannot save riff."
+            )
+            return
+
+        # Get BPM at block start for beat conversion
+        timeline_widget = self.parent()
+        song_structure = getattr(timeline_widget, 'song_structure', None)
+        if song_structure and hasattr(song_structure, 'get_bpm_at_time'):
+            bpm = song_structure.get_bpm_at_time(self.block.start_time)
+        else:
+            bpm = getattr(timeline_widget, 'bpm', 120.0)
+
+        # Show save dialog
+        dialog = SaveRiffDialog(self.block, bpm, riff_library, parent=self)
+        dialog.exec()
 
     def open_effect_dialog(self):
         """Open the effect editor dialog for the envelope."""

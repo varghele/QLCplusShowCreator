@@ -123,6 +123,7 @@ class DimmerBlock:
     iris: float = 255.0  # 0-255, if applicable
     effect_type: str = "static"  # Effect type: "static", "twinkle", "strobe", etc.
     effect_speed: str = "1"  # Speed multiplier: "1/4", "1/2", "1", "2", "4", etc.
+    modified: bool = False  # True if user edited this block after riff insertion
 
     def to_dict(self) -> Dict:
         return {
@@ -132,7 +133,8 @@ class DimmerBlock:
             "strobe_speed": self.strobe_speed,
             "iris": self.iris,
             "effect_type": self.effect_type,
-            "effect_speed": self.effect_speed
+            "effect_speed": self.effect_speed,
+            "modified": self.modified
         }
 
     @classmethod
@@ -144,7 +146,8 @@ class DimmerBlock:
             strobe_speed=data.get("strobe_speed", 0.0),
             iris=data.get("iris", 255.0),
             effect_type=data.get("effect_type", "static"),
-            effect_speed=data.get("effect_speed", "1")
+            effect_speed=data.get("effect_speed", "1"),
+            modified=data.get("modified", False)
         )
 
 
@@ -175,6 +178,8 @@ class ColourBlock:
     # Color wheel
     color_wheel_position: int = 0  # Wheel position
 
+    modified: bool = False  # True if user edited this block after riff insertion
+
     def to_dict(self) -> Dict:
         return {
             "start_time": self.start_time,
@@ -193,7 +198,8 @@ class ColourBlock:
             "hue": self.hue,
             "saturation": self.saturation,
             "value": self.value,
-            "color_wheel_position": self.color_wheel_position
+            "color_wheel_position": self.color_wheel_position,
+            "modified": self.modified
         }
 
     @classmethod
@@ -215,7 +221,8 @@ class ColourBlock:
             hue=data.get("hue", 0.0),
             saturation=data.get("saturation", 0.0),
             value=data.get("value", 0.0),
-            color_wheel_position=data.get("color_wheel_position", 0)
+            color_wheel_position=data.get("color_wheel_position", 0),
+            modified=data.get("modified", False)
         )
 
 
@@ -258,6 +265,8 @@ class MovementBlock:
     phase_offset_enabled: bool = False  # Enable phase offset between fixtures
     phase_offset_degrees: float = 0.0  # Phase offset in degrees (0-360)
 
+    modified: bool = False  # True if user edited this block after riff insertion
+
     def to_dict(self) -> Dict:
         return {
             "start_time": self.start_time,
@@ -278,7 +287,8 @@ class MovementBlock:
             "tilt_amplitude": self.tilt_amplitude,
             "lissajous_ratio": self.lissajous_ratio,
             "phase_offset_enabled": self.phase_offset_enabled,
-            "phase_offset_degrees": self.phase_offset_degrees
+            "phase_offset_degrees": self.phase_offset_degrees,
+            "modified": self.modified
         }
 
     @classmethod
@@ -302,7 +312,8 @@ class MovementBlock:
             tilt_amplitude=data.get("tilt_amplitude", 50.0),
             lissajous_ratio=data.get("lissajous_ratio", "1:2"),
             phase_offset_enabled=data.get("phase_offset_enabled", False),
-            phase_offset_degrees=data.get("phase_offset_degrees", 0.0)
+            phase_offset_degrees=data.get("phase_offset_degrees", 0.0),
+            modified=data.get("modified", False)
         )
 
 
@@ -317,6 +328,7 @@ class SpecialBlock:
     zoom: float = 127.5  # Beam zoom (0-255)
     prism_enabled: bool = False  # Prism on/off
     prism_rotation: float = 0.0  # Prism rotation speed
+    modified: bool = False  # True if user edited this block after riff insertion
 
     def to_dict(self) -> Dict:
         return {
@@ -327,7 +339,8 @@ class SpecialBlock:
             "focus": self.focus,
             "zoom": self.zoom,
             "prism_enabled": self.prism_enabled,
-            "prism_rotation": self.prism_rotation
+            "prism_rotation": self.prism_rotation,
+            "modified": self.modified
         }
 
     @classmethod
@@ -340,7 +353,466 @@ class SpecialBlock:
             focus=data.get("focus", 127.5),
             zoom=data.get("zoom", 127.5),
             prism_enabled=data.get("prism_enabled", False),
+            prism_rotation=data.get("prism_rotation", 0.0),
+            modified=data.get("modified", False)
+        )
+
+
+# =============================================================================
+# RIFF SYSTEM - Beat-based reusable effect patterns
+# =============================================================================
+
+@dataclass
+class RiffDimmerBlock:
+    """Dimmer block within a riff - timing is in beats, not seconds."""
+    start_beat: float  # e.g., 0.0 = start of riff
+    end_beat: float    # e.g., 4.0 = ends at beat 4
+
+    # Parameters (same as DimmerBlock)
+    intensity: float = 255.0
+    strobe_speed: float = 0.0
+    iris: float = 255.0
+    effect_type: str = "static"
+    effect_speed: str = "1"
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_beat": self.start_beat,
+            "end_beat": self.end_beat,
+            "intensity": self.intensity,
+            "strobe_speed": self.strobe_speed,
+            "iris": self.iris,
+            "effect_type": self.effect_type,
+            "effect_speed": self.effect_speed
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'RiffDimmerBlock':
+        return cls(
+            start_beat=data.get("start_beat", 0.0),
+            end_beat=data.get("end_beat", 0.0),
+            intensity=data.get("intensity", 255.0),
+            strobe_speed=data.get("strobe_speed", 0.0),
+            iris=data.get("iris", 255.0),
+            effect_type=data.get("effect_type", "static"),
+            effect_speed=data.get("effect_speed", "1")
+        )
+
+
+@dataclass
+class RiffColourBlock:
+    """Colour block within a riff - timing is in beats."""
+    start_beat: float
+    end_beat: float
+
+    # Parameters (same as ColourBlock)
+    color_mode: str = "RGB"
+    red: float = 255.0
+    green: float = 255.0
+    blue: float = 255.0
+    white: float = 0.0
+    amber: float = 0.0
+    cyan: float = 0.0
+    magenta: float = 0.0
+    yellow: float = 0.0
+    uv: float = 0.0
+    lime: float = 0.0
+    hue: float = 0.0
+    saturation: float = 0.0
+    value: float = 0.0
+    color_wheel_position: int = 0
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_beat": self.start_beat,
+            "end_beat": self.end_beat,
+            "color_mode": self.color_mode,
+            "red": self.red,
+            "green": self.green,
+            "blue": self.blue,
+            "white": self.white,
+            "amber": self.amber,
+            "cyan": self.cyan,
+            "magenta": self.magenta,
+            "yellow": self.yellow,
+            "uv": self.uv,
+            "lime": self.lime,
+            "hue": self.hue,
+            "saturation": self.saturation,
+            "value": self.value,
+            "color_wheel_position": self.color_wheel_position
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'RiffColourBlock':
+        return cls(
+            start_beat=data.get("start_beat", 0.0),
+            end_beat=data.get("end_beat", 0.0),
+            color_mode=data.get("color_mode", "RGB"),
+            red=data.get("red", 255.0),
+            green=data.get("green", 255.0),
+            blue=data.get("blue", 255.0),
+            white=data.get("white", 0.0),
+            amber=data.get("amber", 0.0),
+            cyan=data.get("cyan", 0.0),
+            magenta=data.get("magenta", 0.0),
+            yellow=data.get("yellow", 0.0),
+            uv=data.get("uv", 0.0),
+            lime=data.get("lime", 0.0),
+            hue=data.get("hue", 0.0),
+            saturation=data.get("saturation", 0.0),
+            value=data.get("value", 0.0),
+            color_wheel_position=data.get("color_wheel_position", 0)
+        )
+
+
+@dataclass
+class RiffMovementBlock:
+    """Movement block within a riff - timing is in beats."""
+    start_beat: float
+    end_beat: float
+
+    # Parameters (same as MovementBlock)
+    pan: float = 127.5
+    tilt: float = 127.5
+    pan_fine: float = 0.0
+    tilt_fine: float = 0.0
+    speed: float = 255.0
+    interpolate_from_previous: bool = True
+    effect_type: str = "static"
+    effect_speed: str = "1"
+    pan_min: float = 0.0
+    pan_max: float = 255.0
+    tilt_min: float = 0.0
+    tilt_max: float = 255.0
+    pan_amplitude: float = 50.0
+    tilt_amplitude: float = 50.0
+    lissajous_ratio: str = "1:2"
+    phase_offset_enabled: bool = False
+    phase_offset_degrees: float = 0.0
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_beat": self.start_beat,
+            "end_beat": self.end_beat,
+            "pan": self.pan,
+            "tilt": self.tilt,
+            "pan_fine": self.pan_fine,
+            "tilt_fine": self.tilt_fine,
+            "speed": self.speed,
+            "interpolate_from_previous": self.interpolate_from_previous,
+            "effect_type": self.effect_type,
+            "effect_speed": self.effect_speed,
+            "pan_min": self.pan_min,
+            "pan_max": self.pan_max,
+            "tilt_min": self.tilt_min,
+            "tilt_max": self.tilt_max,
+            "pan_amplitude": self.pan_amplitude,
+            "tilt_amplitude": self.tilt_amplitude,
+            "lissajous_ratio": self.lissajous_ratio,
+            "phase_offset_enabled": self.phase_offset_enabled,
+            "phase_offset_degrees": self.phase_offset_degrees
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'RiffMovementBlock':
+        return cls(
+            start_beat=data.get("start_beat", 0.0),
+            end_beat=data.get("end_beat", 0.0),
+            pan=data.get("pan", 127.5),
+            tilt=data.get("tilt", 127.5),
+            pan_fine=data.get("pan_fine", 0.0),
+            tilt_fine=data.get("tilt_fine", 0.0),
+            speed=data.get("speed", 255.0),
+            interpolate_from_previous=data.get("interpolate_from_previous", True),
+            effect_type=data.get("effect_type", "static"),
+            effect_speed=data.get("effect_speed", "1"),
+            pan_min=data.get("pan_min", 0.0),
+            pan_max=data.get("pan_max", 255.0),
+            tilt_min=data.get("tilt_min", 0.0),
+            tilt_max=data.get("tilt_max", 255.0),
+            pan_amplitude=data.get("pan_amplitude", 50.0),
+            tilt_amplitude=data.get("tilt_amplitude", 50.0),
+            lissajous_ratio=data.get("lissajous_ratio", "1:2"),
+            phase_offset_enabled=data.get("phase_offset_enabled", False),
+            phase_offset_degrees=data.get("phase_offset_degrees", 0.0)
+        )
+
+
+@dataclass
+class RiffSpecialBlock:
+    """Special block within a riff - timing is in beats."""
+    start_beat: float
+    end_beat: float
+
+    # Parameters (same as SpecialBlock)
+    gobo_index: int = 0
+    gobo_rotation: float = 0.0
+    focus: float = 127.5
+    zoom: float = 127.5
+    prism_enabled: bool = False
+    prism_rotation: float = 0.0
+
+    def to_dict(self) -> Dict:
+        return {
+            "start_beat": self.start_beat,
+            "end_beat": self.end_beat,
+            "gobo_index": self.gobo_index,
+            "gobo_rotation": self.gobo_rotation,
+            "focus": self.focus,
+            "zoom": self.zoom,
+            "prism_enabled": self.prism_enabled,
+            "prism_rotation": self.prism_rotation
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'RiffSpecialBlock':
+        return cls(
+            start_beat=data.get("start_beat", 0.0),
+            end_beat=data.get("end_beat", 0.0),
+            gobo_index=data.get("gobo_index", 0),
+            gobo_rotation=data.get("gobo_rotation", 0.0),
+            focus=data.get("focus", 127.5),
+            zoom=data.get("zoom", 127.5),
+            prism_enabled=data.get("prism_enabled", False),
             prism_rotation=data.get("prism_rotation", 0.0)
+        )
+
+
+@dataclass
+class Riff:
+    """A reusable pattern of sublane blocks measured in beats."""
+    name: str
+    category: str = "general"
+    description: str = ""
+
+    length_beats: float = 4.0
+    signature: str = "4/4"
+
+    # Fixture compatibility - empty list means universal
+    fixture_types: List[str] = field(default_factory=list)
+
+    # Content - empty lists mean "no effect on this sublane"
+    dimmer_blocks: List[RiffDimmerBlock] = field(default_factory=list)
+    colour_blocks: List[RiffColourBlock] = field(default_factory=list)
+    movement_blocks: List[RiffMovementBlock] = field(default_factory=list)
+    special_blocks: List[RiffSpecialBlock] = field(default_factory=list)
+
+    # Metadata
+    tags: List[str] = field(default_factory=list)
+    author: str = ""
+    version: str = "1.0"
+
+    def to_dict(self) -> Dict:
+        """Serialize to dictionary for JSON storage."""
+        return {
+            "name": self.name,
+            "category": self.category,
+            "description": self.description,
+            "length_beats": self.length_beats,
+            "signature": self.signature,
+            "fixture_types": self.fixture_types,
+            "dimmer_blocks": [b.to_dict() for b in self.dimmer_blocks],
+            "colour_blocks": [b.to_dict() for b in self.colour_blocks],
+            "movement_blocks": [b.to_dict() for b in self.movement_blocks],
+            "special_blocks": [b.to_dict() for b in self.special_blocks],
+            "tags": self.tags,
+            "author": self.author,
+            "version": self.version
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'Riff':
+        """Deserialize from dictionary."""
+        riff = cls(
+            name=data.get("name", ""),
+            category=data.get("category", "general"),
+            description=data.get("description", ""),
+            length_beats=data.get("length_beats", 4.0),
+            signature=data.get("signature", "4/4"),
+            fixture_types=data.get("fixture_types", []),
+            tags=data.get("tags", []),
+            author=data.get("author", ""),
+            version=data.get("version", "1.0")
+        )
+
+        # Load sublane blocks
+        riff.dimmer_blocks = [
+            RiffDimmerBlock.from_dict(b) for b in data.get("dimmer_blocks", [])
+        ]
+        riff.colour_blocks = [
+            RiffColourBlock.from_dict(b) for b in data.get("colour_blocks", [])
+        ]
+        riff.movement_blocks = [
+            RiffMovementBlock.from_dict(b) for b in data.get("movement_blocks", [])
+        ]
+        riff.special_blocks = [
+            RiffSpecialBlock.from_dict(b) for b in data.get("special_blocks", [])
+        ]
+
+        return riff
+
+    def is_compatible_with(self, fixture_group: 'FixtureGroup') -> tuple:
+        """Check if riff can be used with fixture group.
+
+        Returns:
+            tuple: (is_compatible: bool, reason_if_not: str)
+        """
+        # Universal riffs are compatible with everything
+        if not self.fixture_types:
+            return (True, "")
+
+        # Check if group has any fixture with matching type
+        if fixture_group.fixtures:
+            group_types = set(f.type for f in fixture_group.fixtures)
+            matching_types = group_types.intersection(set(self.fixture_types))
+            if matching_types:
+                return (True, "")
+            return (False, f"Requires fixture types: {', '.join(self.fixture_types)}")
+
+        return (False, "No fixtures in group")
+
+    def to_light_block(self, start_time: float, song_structure) -> 'LightBlock':
+        """Convert riff to absolute-timed LightBlock.
+
+        Uses song_structure.get_bpm_at_time() for each beat to handle
+        BPM transitions correctly. The riff "stretches" to match the grid.
+
+        Args:
+            start_time: Absolute time in seconds where riff starts
+            song_structure: SongStructure object with get_bpm_at_time() method
+
+        Returns:
+            LightBlock with absolute timing
+        """
+        def beat_to_time(beat_offset: float) -> float:
+            """Convert a beat offset from riff start to absolute time.
+
+            For efficiency, check if BPM is constant first.
+            If not, sample at quarter-beat intervals for accuracy.
+            """
+            if beat_offset <= 0:
+                return start_time
+
+            # Check if BPM is constant across the riff duration
+            # (optimization for the common case)
+            start_bpm = song_structure.get_bpm_at_time(start_time)
+            # Estimate end time assuming constant BPM
+            estimated_end = start_time + (self.length_beats * 60.0 / start_bpm)
+            end_bpm = song_structure.get_bpm_at_time(estimated_end)
+
+            if abs(start_bpm - end_bpm) < 0.01:
+                # BPM is constant, use simple calculation
+                seconds_per_beat = 60.0 / start_bpm
+                return start_time + (beat_offset * seconds_per_beat)
+
+            # BPM varies - sample at quarter-beat intervals
+            current_time = start_time
+            remaining_beats = beat_offset
+            sample_size = 0.25  # Quarter-beat samples for accuracy
+
+            while remaining_beats > 0:
+                bpm = song_structure.get_bpm_at_time(current_time)
+                seconds_per_beat = 60.0 / bpm
+
+                beats_this_sample = min(remaining_beats, sample_size)
+                time_this_sample = beats_this_sample * seconds_per_beat
+
+                current_time += time_this_sample
+                remaining_beats -= beats_this_sample
+
+            return current_time
+
+        # Convert dimmer blocks
+        dimmer_blocks = []
+        for rb in self.dimmer_blocks:
+            dimmer_blocks.append(DimmerBlock(
+                start_time=beat_to_time(rb.start_beat),
+                end_time=beat_to_time(rb.end_beat),
+                intensity=rb.intensity,
+                strobe_speed=rb.strobe_speed,
+                iris=rb.iris,
+                effect_type=rb.effect_type,
+                effect_speed=rb.effect_speed,
+                modified=False
+            ))
+
+        # Convert colour blocks
+        colour_blocks = []
+        for rb in self.colour_blocks:
+            colour_blocks.append(ColourBlock(
+                start_time=beat_to_time(rb.start_beat),
+                end_time=beat_to_time(rb.end_beat),
+                color_mode=rb.color_mode,
+                red=rb.red,
+                green=rb.green,
+                blue=rb.blue,
+                white=rb.white,
+                amber=rb.amber,
+                cyan=rb.cyan,
+                magenta=rb.magenta,
+                yellow=rb.yellow,
+                uv=rb.uv,
+                lime=rb.lime,
+                hue=rb.hue,
+                saturation=rb.saturation,
+                value=rb.value,
+                color_wheel_position=rb.color_wheel_position,
+                modified=False
+            ))
+
+        # Convert movement blocks
+        movement_blocks = []
+        for rb in self.movement_blocks:
+            movement_blocks.append(MovementBlock(
+                start_time=beat_to_time(rb.start_beat),
+                end_time=beat_to_time(rb.end_beat),
+                pan=rb.pan,
+                tilt=rb.tilt,
+                pan_fine=rb.pan_fine,
+                tilt_fine=rb.tilt_fine,
+                speed=rb.speed,
+                interpolate_from_previous=rb.interpolate_from_previous,
+                effect_type=rb.effect_type,
+                effect_speed=rb.effect_speed,
+                pan_min=rb.pan_min,
+                pan_max=rb.pan_max,
+                tilt_min=rb.tilt_min,
+                tilt_max=rb.tilt_max,
+                pan_amplitude=rb.pan_amplitude,
+                tilt_amplitude=rb.tilt_amplitude,
+                lissajous_ratio=rb.lissajous_ratio,
+                phase_offset_enabled=rb.phase_offset_enabled,
+                phase_offset_degrees=rb.phase_offset_degrees,
+                modified=False
+            ))
+
+        # Convert special blocks
+        special_blocks = []
+        for rb in self.special_blocks:
+            special_blocks.append(SpecialBlock(
+                start_time=beat_to_time(rb.start_beat),
+                end_time=beat_to_time(rb.end_beat),
+                gobo_index=rb.gobo_index,
+                gobo_rotation=rb.gobo_rotation,
+                focus=rb.focus,
+                zoom=rb.zoom,
+                prism_enabled=rb.prism_enabled,
+                prism_rotation=rb.prism_rotation,
+                modified=False
+            ))
+
+        return LightBlock(
+            start_time=start_time,
+            end_time=beat_to_time(self.length_beats),
+            effect_name=f"riff:{self.name}",
+            modified=False,
+            dimmer_blocks=dimmer_blocks,
+            colour_blocks=colour_blocks,
+            movement_blocks=movement_blocks,
+            special_blocks=special_blocks,
+            riff_source=f"{self.category}/{self.name}",
+            riff_version=self.version
         )
 
 
@@ -385,6 +857,10 @@ class LightBlock:
     movement_blocks: List[MovementBlock] = field(default_factory=list)
     special_blocks: List[SpecialBlock] = field(default_factory=list)
 
+    # Riff tracking - identifies if this block came from a riff
+    riff_source: Optional[str] = None      # e.g., "builds/strobe_build_4bar"
+    riff_version: Optional[str] = None     # e.g., "1.0"
+
     # Legacy support (deprecated, kept for migration)
     duration: Optional[float] = None  # Deprecated: use end_time - start_time
     parameters: Dict[str, any] = field(default_factory=dict)  # Deprecated
@@ -417,6 +893,9 @@ class LightBlock:
             "colour_blocks": [b.to_dict() for b in self.colour_blocks],
             "movement_blocks": [b.to_dict() for b in self.movement_blocks],
             "special_blocks": [b.to_dict() for b in self.special_blocks],
+            # Riff tracking
+            "riff_source": self.riff_source,
+            "riff_version": self.riff_version,
             # Legacy fields
             "duration": self.get_duration(),
             "parameters": self.parameters
@@ -438,6 +917,8 @@ class LightBlock:
             end_time=end_time,
             effect_name=data.get("effect_name", ""),
             modified=data.get("modified", False),
+            riff_source=data.get("riff_source"),
+            riff_version=data.get("riff_version"),
             duration=data.get("duration"),
             parameters=data.get("parameters", {})
         )

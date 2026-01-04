@@ -7,6 +7,7 @@ from .light_lane_widget import LightLaneWidget
 from .light_block_widget import LightBlockWidget
 from .effect_block_dialog import EffectBlockDialog
 from .audio_lane_widget import AudioLaneWidget, AudioTimelineWidget
+from .riff_browser_widget import RiffBrowserWidget
 
 __all__ = [
     'TimelineWidget',
@@ -16,5 +17,6 @@ __all__ = [
     'LightBlockWidget',
     'EffectBlockDialog',
     'AudioLaneWidget',
-    'AudioTimelineWidget'
+    'AudioTimelineWidget',
+    'RiffBrowserWidget'
 ]

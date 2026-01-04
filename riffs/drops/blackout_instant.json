@@ -1,0 +1,27 @@
+{
+  "name": "blackout_instant",
+  "category": "drops",
+  "description": "Immediate blackout - 1 beat of darkness",
+  "length_beats": 1,
+  "signature": "4/4",
+  "fixture_types": [],
+  "tags": ["drop", "blackout", "instant", "dark"],
+  "author": "preset",
+  "version": "1.0",
+
+  "dimmer_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 1,
+      "intensity": 0,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "static",
+      "effect_speed": "1"
+    }
+  ],
+
+  "colour_blocks": [],
+  "movement_blocks": [],
+  "special_blocks": []
+}
