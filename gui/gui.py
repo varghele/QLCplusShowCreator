@@ -197,19 +197,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Add as dock widget on the right side
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.riff_browser)
 
-        # Start hidden - user can show via View menu
+        # Start hidden - will be shown when Shows tab is activated
         self.riff_browser.hide()
 
-        # Create View menu if it doesn't exist
-        if not hasattr(self, 'menuView'):
-            self.menuView = QtWidgets.QMenu("View", parent=self.menubar)
-            # Insert View menu after File menu
-            self.menubar.insertMenu(self.menuSettings.menuAction(), self.menuView)
-
-        # Add toggle action for Riff Library
-        toggle_action = self.riff_browser.toggleViewAction()
-        toggle_action.setText("Riff Library")
-        self.menuView.addAction(toggle_action)
+        # Track collapsed state for persistence across tab switches
+        self._riff_browser_collapsed = False
 
     def _create_undo_stack(self):
         """Create the undo/redo stack and Edit menu."""
@@ -219,17 +211,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Create Edit menu if it doesn't exist
         if not hasattr(self, 'menuEdit'):
             self.menuEdit = QtWidgets.QMenu("Edit", parent=self.menubar)
-            # Insert Edit menu after File menu
-            self.menubar.insertMenu(self.menuView.menuAction(), self.menuEdit)
+            # Insert Edit menu after File menu (before Settings menu)
+            self.menubar.insertMenu(self.menuSettings.menuAction(), self.menuEdit)
 
         # Create undo action
         self.undo_action = self.undo_stack.createUndoAction(self, "Undo")
         self.undo_action.setShortcut(QKeySequence.StandardKey.Undo)
+        self.undo_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         self.menuEdit.addAction(self.undo_action)
 
         # Create redo action
         self.redo_action = self.undo_stack.createRedoAction(self, "Redo")
         self.redo_action.setShortcut(QKeySequence.StandardKey.Redo)
+        self.redo_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         self.menuEdit.addAction(self.redo_action)
 
         # Connect clean state changed for save indicator (optional)
@@ -280,7 +274,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def _on_tab_changed(self, index):
         """Handle tab change - notify tabs of activation/deactivation."""
         try:
-            print(f"DEBUG: Tab changed to index {index}")
 
             # Map tab indices to tab widgets (check actual attribute names)
             tab_map = {}
@@ -310,14 +303,36 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             if index in tab_map:
                 tab = tab_map[index]
                 if tab and hasattr(tab, 'on_tab_activated'):
-                    print(f"DEBUG: Calling on_tab_activated for tab {index}")
                     tab.on_tab_activated()
-            else:
-                print(f"DEBUG: No handler for tab index {index}")
+
+            # Show/hide riff browser based on tab (only visible in Shows tab = index 4)
+            self._update_riff_browser_visibility(index)
+
         except Exception as e:
             print(f"ERROR in _on_tab_changed: {e}")
             import traceback
             traceback.print_exc()
+
+    def _update_riff_browser_visibility(self, tab_index: int):
+        """Show or hide the riff browser based on the current tab.
+
+        The riff browser is only visible in the Shows tab (index 4).
+        It remembers its collapsed state when hidden and restores it when shown.
+        """
+        if not hasattr(self, 'riff_browser'):
+            return
+
+        shows_tab_index = 4
+
+        if tab_index == shows_tab_index:
+            # Show riff browser and restore collapsed state
+            self.riff_browser.show()
+            self.riff_browser.set_collapsed(self._riff_browser_collapsed)
+        else:
+            # Save collapsed state and hide
+            if self.riff_browser.isVisible():
+                self._riff_browser_collapsed = self.riff_browser.is_collapsed()
+            self.riff_browser.hide()
 
     def on_groups_changed(self):
         """Coordinate updates when fixture groups change
