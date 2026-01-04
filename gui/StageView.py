@@ -4,6 +4,12 @@ from config.models import Spot
 
 
 class StageView(QtWidgets.QGraphicsView):
+    # Signal emitted when fixture positions/rotations/heights change
+    fixtures_changed = QtCore.pyqtSignal()
+
+    # Signal emitted when user requests to set orientation for selected fixtures
+    set_orientation_requested = QtCore.pyqtSignal(list)  # List of FixtureItem
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.config = None  # Store configuration
@@ -15,13 +21,18 @@ class StageView(QtWidgets.QGraphicsView):
         self.setAcceptDrops(True)
 
         # Globally track if snapping is enabled
-        self.snap_enabled = False
+        self.snap_enabled = True  # Enabled by default
+
+        # Rectangle selection state
+        self._rubber_band = None
+        self._rubber_band_origin = None
+        self._is_rubber_band_selecting = False
 
         # Stage properties (in meters)
         self.stage_width_m = 10.0  # Default 10m
         self.stage_depth_m = 6.0  # Default 6m
         self.pixels_per_meter = 50  # Scale factor
-        self.padding = 10  # Padding in pixels
+        self.padding = 40  # Padding in pixels for dimension labels
 
         # Grid properties
         self.grid_visible = True
@@ -46,6 +57,44 @@ class StageView(QtWidgets.QGraphicsView):
         """Update the configuration and refresh the view"""
         self.config = config
         self.update_from_config()
+
+    def meters_to_pixels(self, x_m, y_m):
+        """Convert center-based meter coordinates to pixel coordinates
+
+        Args:
+            x_m: X position in meters (0 = center, negative = left, positive = right)
+            y_m: Y position in meters (0 = center, negative = front, positive = back)
+
+        Returns:
+            Tuple of (x_px, y_px) pixel coordinates
+        """
+        # Center of stage in pixels
+        center_x_px = self.padding + (self.stage_width_m / 2) * self.pixels_per_meter
+        center_y_px = self.padding + (self.stage_depth_m / 2) * self.pixels_per_meter
+
+        x_px = center_x_px + x_m * self.pixels_per_meter
+        y_px = center_y_px + y_m * self.pixels_per_meter
+
+        return x_px, y_px
+
+    def pixels_to_meters(self, x_px, y_px):
+        """Convert pixel coordinates to center-based meter coordinates
+
+        Args:
+            x_px: X position in pixels
+            y_px: Y position in pixels
+
+        Returns:
+            Tuple of (x_m, y_m) meter coordinates (0,0 = center)
+        """
+        # Center of stage in pixels
+        center_x_px = self.padding + (self.stage_width_m / 2) * self.pixels_per_meter
+        center_y_px = self.padding + (self.stage_depth_m / 2) * self.pixels_per_meter
+
+        x_m = (x_px - center_x_px) / self.pixels_per_meter
+        y_m = (y_px - center_y_px) / self.pixels_per_meter
+
+        return x_m, y_m
 
     def update_from_config(self):
         """Update all fixtures from current configuration"""
@@ -80,15 +129,19 @@ class StageView(QtWidgets.QGraphicsView):
                     channel_color=group_color
                 )
 
-                # Set position directly from fixture properties
-                fixture_item.setPos(
-                    self.padding + fixture.x * self.pixels_per_meter,
-                    self.padding + fixture.y * self.pixels_per_meter
-                )
+                # Set position directly from fixture properties (center-based coordinates)
+                x_px, y_px = self.meters_to_pixels(fixture.x, fixture.y)
+                fixture_item.setPos(x_px, y_px)
 
-                # Set z-height and rotation directly from fixture properties
+                # Set z-height and yaw rotation directly from fixture properties
                 fixture_item.z_height = fixture.z
-                fixture_item.rotation_angle = fixture.rotation
+                fixture_item.rotation_angle = fixture.yaw  # Use yaw for 2D rotation
+
+                # Set orientation fields
+                fixture_item.mounting = fixture.mounting
+                fixture_item.pitch = fixture.pitch
+                fixture_item.roll = fixture.roll
+                fixture_item.orientation_uses_group_default = fixture.orientation_uses_group_default
 
                 # Store additional properties
                 fixture_item.universe = fixture.universe
@@ -96,7 +149,6 @@ class StageView(QtWidgets.QGraphicsView):
                 fixture_item.manufacturer = fixture.manufacturer
                 fixture_item.model = fixture.model
                 fixture_item.group = fixture.group
-                fixture_item.direction = fixture.direction
                 fixture_item.current_mode = fixture.current_mode
                 fixture_item.available_modes = fixture.available_modes
 
@@ -107,10 +159,8 @@ class StageView(QtWidgets.QGraphicsView):
         if hasattr(self.config, 'spots'):
             for spot_name, spot_data in self.config.spots.items():
                 spot_item = SpotItem(name=spot_name)
-                spot_item.setPos(
-                    self.padding + spot_data.x * self.pixels_per_meter,
-                    self.padding + spot_data.y * self.pixels_per_meter
-                )
+                x_px, y_px = self.meters_to_pixels(spot_data.x, spot_data.y)
+                spot_item.setPos(x_px, y_px)
 
                 self.scene.addItem(spot_item)
                 self.spots[spot_name] = spot_item
@@ -129,21 +179,26 @@ class StageView(QtWidgets.QGraphicsView):
             # Find the corresponding fixture in config
             config_fixture = next((f for f in self.config.fixtures if f.name == fixture_name), None)
             if config_fixture:
-                # Convert position from pixels to meters
+                # Convert position from pixels to center-based meters
                 pos = fixture_item.pos()
+                x_m, y_m = self.pixels_to_meters(pos.x(), pos.y())
 
                 # Update fixture properties directly
-                config_fixture.x = (pos.x() - self.padding) / self.pixels_per_meter
-                config_fixture.y = (pos.y() - self.padding) / self.pixels_per_meter
+                config_fixture.x = x_m
+                config_fixture.y = y_m
                 config_fixture.z = fixture_item.z_height
-                config_fixture.rotation = fixture_item.rotation_angle
+                config_fixture.yaw = fixture_item.rotation_angle  # Use yaw for 2D rotation
 
         # Save spot positions
         for spot_name, spot_item in self.spots.items():
             if spot_name in self.config.spots:
                 pos = spot_item.pos()
-                self.config.spots[spot_name].x = (pos.x() - self.padding) / self.pixels_per_meter
-                self.config.spots[spot_name].y = (pos.y() - self.padding) / self.pixels_per_meter
+                x_m, y_m = self.pixels_to_meters(pos.x(), pos.y())
+                self.config.spots[spot_name].x = x_m
+                self.config.spots[spot_name].y = y_m
+
+        # Emit signal to notify listeners (e.g., for TCP visualizer updates)
+        self.fixtures_changed.emit()
 
     def set_snap_to_grid(self, enabled):
         """Enable or disable snap to grid"""
@@ -156,19 +211,16 @@ class StageView(QtWidgets.QGraphicsView):
         if not self.snap_enabled:
             return pos
 
-        # Convert position to meters (accounting for padding)
-        x_m = (pos.x() - self.padding) / self.pixels_per_meter
-        y_m = (pos.y() - self.padding) / self.pixels_per_meter
+        # Convert position to center-based meters
+        x_m, y_m = self.pixels_to_meters(pos.x(), pos.y())
 
         # Snap to nearest grid point
         x_m = round(x_m / self.grid_size_m) * self.grid_size_m
         y_m = round(y_m / self.grid_size_m) * self.grid_size_m
 
-        # Convert back to pixels and add padding
-        return QtCore.QPointF(
-            x_m * self.pixels_per_meter + self.padding,
-            y_m * self.pixels_per_meter + self.padding
-        )
+        # Convert back to pixels
+        x_px, y_px = self.meters_to_pixels(x_m, y_m)
+        return QtCore.QPointF(x_px, y_px)
 
     def snap_all_fixtures_to_grid(self):
         """Snap all existing fixtures to the grid"""
@@ -182,21 +234,30 @@ class StageView(QtWidgets.QGraphicsView):
 
         self.save_positions_to_config()
 
-    def add_spot(self, x=100, y=100):
-        """Add a new spot to the stage"""
+    def add_spot(self, x_m=0.0, y_m=0.0):
+        """Add a new spot to the stage
+
+        Args:
+            x_m: X position in meters (0 = center)
+            y_m: Y position in meters (0 = center)
+        """
         spot_name = f"Spot{self.spot_counter}"
         spot = SpotItem(name=spot_name)
-        spot.setPos(x, y)
+
+        # Convert center-based meters to pixels
+        x_px, y_px = self.meters_to_pixels(x_m, y_m)
+        spot.setPos(x_px, y_px)
+
         self.scene.addItem(spot)
         self.spots[spot_name] = spot
         self.spot_counter += 1
 
-        # Add to configuration
+        # Add to configuration with center-based coordinates
         if self.config:
             self.config.spots[spot_name] = Spot(
                 name=spot_name,
-                x=x / self.pixels_per_meter,  # Convert to meters
-                y=y / self.pixels_per_meter
+                x=x_m,
+                y=y_m
             )
         return spot
 
@@ -258,12 +319,16 @@ class StageView(QtWidgets.QGraphicsView):
         self.viewport().update()
 
     def drawBackground(self, painter, rect):
-        """Draw stage and grid"""
+        """Draw stage and grid with dimension labels"""
         super().drawBackground(painter, rect)
 
         # Convert stage dimensions to pixels and ensure they're integers
         width_px = int(self.stage_width_m * self.pixels_per_meter)
         depth_px = int(self.stage_depth_m * self.pixels_per_meter)
+
+        # Calculate center position in pixels
+        center_x_px = self.padding + width_px / 2
+        center_y_px = self.padding + depth_px / 2
 
         # Draw stage outline with padding
         painter.setPen(QtGui.QPen(QtGui.QColor(0, 0, 0), 2))
@@ -277,8 +342,10 @@ class StageView(QtWidgets.QGraphicsView):
 
         # Draw grid if enabled
         if self.grid_visible:
-            painter.setPen(QtGui.QPen(QtGui.QColor(200, 200, 200), 1))
             grid_size_px = int(self.grid_size_m * self.pixels_per_meter)
+
+            # Draw regular grid lines (light gray)
+            painter.setPen(QtGui.QPen(QtGui.QColor(200, 200, 200), 1))
 
             # Draw vertical grid lines
             for x in range(self.padding, width_px + self.padding + 1, grid_size_px):
@@ -288,8 +355,252 @@ class StageView(QtWidgets.QGraphicsView):
             for y in range(self.padding, depth_px + self.padding + 1, grid_size_px):
                 painter.drawLine(self.padding, y, width_px + self.padding, y)
 
+            # Draw center lines with colors matching the 3D visualizer
+            # X axis (horizontal center line) - RED
+            painter.setPen(QtGui.QPen(QtGui.QColor(255, 80, 80), 2))
+            painter.drawLine(self.padding, int(center_y_px), width_px + self.padding, int(center_y_px))
+
+            # Y axis (vertical center line / depth) - BLUE
+            painter.setPen(QtGui.QPen(QtGui.QColor(80, 80, 255), 2))
+            painter.drawLine(int(center_x_px), self.padding, int(center_x_px), depth_px + self.padding)
+
+        # Draw dimension labels
+        self._draw_dimension_labels(painter, width_px, depth_px, center_x_px, center_y_px)
+
+    def _draw_dimension_labels(self, painter, width_px, depth_px, center_x_px, center_y_px):
+        """Draw dimension labels at the edges of the stage"""
+        # Set up font for labels
+        font = QtGui.QFont("Arial", 8)
+        painter.setFont(font)
+        painter.setPen(QtGui.QPen(QtGui.QColor(60, 60, 60), 1))
+
+        # Calculate label interval (use 1m intervals, or 0.5m for small stages)
+        label_interval_m = 1.0
+        if self.stage_width_m <= 4 or self.stage_depth_m <= 4:
+            label_interval_m = 0.5
+
+        label_interval_px = int(label_interval_m * self.pixels_per_meter)
+
+        # Draw X-axis labels (bottom edge) - from center outward
+        half_width_m = self.stage_width_m / 2
+
+        # Draw labels from center to the right
+        x_m = 0.0
+        while x_m <= half_width_m + 0.01:  # Small epsilon for floating point
+            x_px = center_x_px + x_m * self.pixels_per_meter
+            if x_px <= self.padding + width_px + 1:
+                label = f"{x_m:.1f}" if x_m != int(x_m) else f"{int(x_m)}"
+                # Draw at bottom
+                painter.drawText(
+                    int(x_px) - 15,
+                    self.padding + depth_px + 15,
+                    30, 15,
+                    QtCore.Qt.AlignmentFlag.AlignCenter,
+                    label
+                )
+            x_m += label_interval_m
+
+        # Draw labels from center to the left (negative values)
+        x_m = -label_interval_m
+        while x_m >= -half_width_m - 0.01:
+            x_px = center_x_px + x_m * self.pixels_per_meter
+            if x_px >= self.padding - 1:
+                label = f"{x_m:.1f}" if x_m != int(x_m) else f"{int(x_m)}"
+                # Draw at bottom
+                painter.drawText(
+                    int(x_px) - 15,
+                    self.padding + depth_px + 15,
+                    30, 15,
+                    QtCore.Qt.AlignmentFlag.AlignCenter,
+                    label
+                )
+            x_m -= label_interval_m
+
+        # Draw Y-axis labels (left edge) - from center outward
+        half_depth_m = self.stage_depth_m / 2
+
+        # Draw labels from center to the bottom (positive Y)
+        y_m = 0.0
+        while y_m <= half_depth_m + 0.01:
+            y_px = center_y_px + y_m * self.pixels_per_meter
+            if y_px <= self.padding + depth_px + 1:
+                label = f"{y_m:.1f}" if y_m != int(y_m) else f"{int(y_m)}"
+                # Draw at left
+                painter.drawText(
+                    2,
+                    int(y_px) - 8,
+                    self.padding - 4, 16,
+                    QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter,
+                    label
+                )
+            y_m += label_interval_m
+
+        # Draw labels from center to the top (negative Y)
+        y_m = -label_interval_m
+        while y_m >= -half_depth_m - 0.01:
+            y_px = center_y_px + y_m * self.pixels_per_meter
+            if y_px >= self.padding - 1:
+                label = f"{y_m:.1f}" if y_m != int(y_m) else f"{int(y_m)}"
+                # Draw at left
+                painter.drawText(
+                    2,
+                    int(y_px) - 8,
+                    self.padding - 4, 16,
+                    QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter,
+                    label
+                )
+            y_m -= label_interval_m
+
     def resizeEvent(self, event):
         """Handle window resize"""
         super().resizeEvent(event)
         self.updateStage()
+
+    def mousePressEvent(self, event):
+        """Handle mouse press for rubber band selection and context menu."""
+        # Check if clicking on empty space (not on an item)
+        item_at_pos = self.itemAt(event.pos())
+
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+            if item_at_pos is None:
+                # Start rubber band selection on empty space
+                self._rubber_band_origin = event.pos()
+                if self._rubber_band is None:
+                    self._rubber_band = QtWidgets.QRubberBand(
+                        QtWidgets.QRubberBand.Shape.Rectangle, self
+                    )
+                self._rubber_band.setGeometry(QtCore.QRect(self._rubber_band_origin, QtCore.QSize()))
+                self._rubber_band.show()
+                self._is_rubber_band_selecting = True
+
+                # Clear selection if not holding Ctrl
+                if not (event.modifiers() & QtCore.Qt.KeyboardModifier.ControlModifier):
+                    self.scene.clearSelection()
+            else:
+                # Clicking on an item - let default behavior handle it
+                # But handle Ctrl+click for toggle selection
+                if event.modifiers() & QtCore.Qt.KeyboardModifier.ControlModifier:
+                    if isinstance(item_at_pos, (FixtureItem, SpotItem)):
+                        item_at_pos.setSelected(not item_at_pos.isSelected())
+                        event.accept()
+                        return
+
+        elif event.button() == QtCore.Qt.MouseButton.RightButton:
+            # Show context menu
+            self._show_context_menu(event.pos())
+            event.accept()
+            return
+
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        """Handle mouse move for rubber band selection."""
+        if self._is_rubber_band_selecting and self._rubber_band is not None:
+            self._rubber_band.setGeometry(
+                QtCore.QRect(self._rubber_band_origin, event.pos()).normalized()
+            )
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Handle mouse release to complete rubber band selection."""
+        if event.button() == QtCore.Qt.MouseButton.LeftButton and self._is_rubber_band_selecting:
+            if self._rubber_band is not None:
+                # Get the selection rectangle in scene coordinates
+                rubber_rect = self._rubber_band.geometry()
+                scene_rect = self.mapToScene(rubber_rect).boundingRect()
+
+                # Select all items within the rectangle
+                items_in_rect = self.scene.items(scene_rect)
+                for item in items_in_rect:
+                    if isinstance(item, (FixtureItem, SpotItem)):
+                        item.setSelected(True)
+
+                self._rubber_band.hide()
+            self._is_rubber_band_selecting = False
+            self._rubber_band_origin = None
+        else:
+            super().mouseReleaseEvent(event)
+
+    def _show_context_menu(self, pos):
+        """Show context menu for selected fixtures."""
+        # Get selected fixture items
+        selected_fixtures = [
+            item for item in self.scene.selectedItems()
+            if isinstance(item, FixtureItem)
+        ]
+
+        if not selected_fixtures:
+            # Check if right-clicking on a fixture that's not selected
+            item_at_pos = self.itemAt(pos)
+            if isinstance(item_at_pos, FixtureItem):
+                # Select this fixture
+                self.scene.clearSelection()
+                item_at_pos.setSelected(True)
+                selected_fixtures = [item_at_pos]
+
+        if not selected_fixtures:
+            return  # No fixtures to show menu for
+
+        # Create context menu
+        menu = QtWidgets.QMenu(self)
+
+        # Set Orientation action
+        orientation_action = menu.addAction("Set Orientation...")
+        orientation_action.setEnabled(len(selected_fixtures) > 0)
+
+        menu.addSeparator()
+
+        # Select All action
+        select_all_action = menu.addAction("Select All Fixtures")
+
+        # Deselect All action
+        deselect_action = menu.addAction("Deselect All")
+
+        # Execute menu
+        action = menu.exec(self.mapToGlobal(pos))
+
+        if action == orientation_action:
+            # Emit signal to open orientation dialog
+            self.set_orientation_requested.emit(selected_fixtures)
+        elif action == select_all_action:
+            for fixture_item in self.fixtures.values():
+                fixture_item.setSelected(True)
+        elif action == deselect_action:
+            self.scene.clearSelection()
+
+    def wheelEvent(self, event):
+        """Handle wheel event for multi-selection Z-height adjustment."""
+        # Check if we have multiple fixtures selected
+        selected_fixtures = [
+            item for item in self.scene.selectedItems()
+            if isinstance(item, FixtureItem)
+        ]
+
+        # If Shift is held and we have selected fixtures, adjust Z-height for all
+        if (event.modifiers() & QtCore.Qt.KeyboardModifier.ShiftModifier) and len(selected_fixtures) > 1:
+            delta = event.angleDelta().y() / 120.0
+            z_step = 0.1
+
+            for fixture_item in selected_fixtures:
+                if delta > 0:
+                    fixture_item.z_height = max(0, fixture_item.z_height + z_step)
+                else:
+                    fixture_item.z_height = max(0, fixture_item.z_height - z_step)
+                fixture_item.update()
+
+            # Save changes
+            self.save_positions_to_config()
+            event.accept()
+            return
+
+        # Otherwise, let the item handle it (single selection) or default behavior
+        super().wheelEvent(event)
+
+    def get_selected_fixtures(self):
+        """Get list of currently selected FixtureItem objects."""
+        return [
+            item for item in self.scene.selectedItems()
+            if isinstance(item, FixtureItem)
+        ]
 

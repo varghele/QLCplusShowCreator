@@ -34,7 +34,31 @@ def create_universe_elements(input_output_map, config: Configuration):
     Parameters:
         input_output_map: The InputOutputMap XML element to add universes to
         config: Configuration object containing universe data
+
+    Note:
+        QLC+ network interfaces (Lines) 0 and 1 are hardcoded and not used.
+        We start from Line 2 with corresponding UIDs (network interface IPs).
+        Universe 1 → Line 2, Universe 2 → Line 3, etc.
+
+        UID (network interface IP) is mapped to Line number:
+        Line 2 → 169.254.148.219
+        Line 3 → 169.254.163.190
+        Line 4 → 169.254.22.59
+        Line 5 → 169.254.31.82
+        Line 6 → 192.168.178.30
+
+        Universe/subnet/IP settings must be configured manually in QLC+.
+        QLC+ stores these in separate plugin configuration files, not the workspace.
     """
+    # Fixed mapping of Line numbers to UIDs (network interface IPs)
+    LINE_TO_UID = {
+        2: "169.254.148.219",
+        3: "169.254.163.190",
+        4: "169.254.22.59",
+        5: "169.254.31.82",
+        6: "192.168.178.30"
+    }
+
     for universe_id, universe in config.universes.items():
         # Create Universe element
         universe_elem = ET.SubElement(input_output_map, "Universe")
@@ -44,13 +68,14 @@ def create_universe_elements(input_output_map, config: Configuration):
         # Add Output
         output = ET.SubElement(universe_elem, "Output")
         output.set("Plugin", universe.output['plugin'])
-        output.set("Line", str(universe_id - 1))  # Line should match universe ID
 
-        # Add plugin parameters based on plugin type
-        if universe.output['plugin'] == 'ArtNet':
-            plugin_params = ET.SubElement(output, "PluginParameters")
-            for param_name, param_value in universe.output['parameters'].items():
-                plugin_params.set(param_name, str(param_value))
+        # Calculate Line number (skip Lines 0 and 1)
+        line_number = universe_id + 1
+        output.set("Line", str(line_number))
+
+        # Add UID (network interface IP) if available for this Line
+        if line_number in LINE_TO_UID:
+            output.set("UID", LINE_TO_UID[line_number])
 
     return input_output_map
 
