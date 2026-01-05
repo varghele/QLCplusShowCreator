@@ -12,6 +12,7 @@ from utils.create_workspace import create_qlc_workspace
 from gui.Ui_MainWindow import Ui_MainWindow
 from gui.tabs import ConfigurationTab, FixturesTab, ShowsTab, StageTab, StructureTab
 from gui.audio_settings_dialog import AudioSettingsDialog
+from gui.dialogs.workspace_options_dialog import WorkspaceOptionsDialog
 from gui.progress_manager import ProgressManager, set_progress_manager
 from timeline_ui.riff_browser_widget import RiffBrowserWidget
 from riffs.riff_library import RiffLibrary
@@ -760,11 +761,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def create_workspace(self):
         """Create QLC+ workspace file from configuration"""
         try:
+            # Show workspace options dialog
+            options_dialog = WorkspaceOptionsDialog(self)
+            if options_dialog.exec() != options_dialog.DialogCode.Accepted:
+                return  # User cancelled
+
+            vc_options = options_dialog.get_options()
+
             # Show progress dialog
             self.progress_manager.start_modal(
                 "Creating Workspace",
                 "Saving configuration...",
-                maximum=3  # Steps: save tabs, create workspace, done
+                maximum=4 if vc_options.get('generate_vc') else 3
             )
 
             # Save all tabs to configuration first
@@ -776,10 +784,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.shows_tab.save_to_config()
 
             # Create workspace
-            self.progress_manager.update_modal(2, "Generating QLC+ workspace XML...")
-            create_qlc_workspace(self.config)
+            if vc_options.get('generate_vc'):
+                self.progress_manager.update_modal(2, "Generating Virtual Console...")
+                self.progress_manager.update_modal(3, "Generating QLC+ workspace XML...")
+            else:
+                self.progress_manager.update_modal(2, "Generating QLC+ workspace XML...")
 
-            self.progress_manager.update_modal(3, "Finalizing...")
+            create_qlc_workspace(self.config, vc_options)
+
+            self.progress_manager.update_modal(
+                4 if vc_options.get('generate_vc') else 3,
+                "Finalizing..."
+            )
             self.progress_manager.finish_modal()
 
             workspace_path = os.path.join(self.project_root, 'workspace.qxw')
