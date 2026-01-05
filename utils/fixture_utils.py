@@ -316,9 +316,10 @@ def detect_fixture_group_capabilities(fixtures, fixture_definitions=None):
         if fixture_key in fixture_definitions:
             fixture_def = fixture_definitions[fixture_key]
 
-            # Check all channels for their presets
+            # Check all channels for their presets and group attributes
             for channel in fixture_def.get('channels', []):
                 preset = channel.get('preset')
+                group = channel.get('group')
 
                 if preset:
                     sublane_type = categorize_preset(preset)
@@ -332,8 +333,27 @@ def detect_fixture_group_capabilities(fixtures, fixture_definitions=None):
                     elif sublane_type == SublaneType.SPECIAL:
                         capabilities.has_special = True
 
-                # Fallback: check channel name if no preset
-                elif not preset:
+                # Also check group attribute (e.g., Color wheel channels have group="Colour")
+                if group:
+                    group_lower = group.lower()
+                    if group_lower in ['colour', 'color']:
+                        capabilities.has_colour = True
+                    elif group_lower in ['intensity', 'shutter']:
+                        capabilities.has_dimmer = True
+                    elif group_lower in ['pan', 'tilt']:
+                        capabilities.has_movement = True
+                    elif group_lower in ['gobo', 'prism', 'beam']:
+                        capabilities.has_special = True
+
+                # Check capabilities for color presets (ColorMacro, etc.)
+                for capability in channel.get('capabilities', []):
+                    cap_preset = capability.get('preset', '')
+                    if cap_preset and 'Color' in cap_preset:
+                        capabilities.has_colour = True
+                        break
+
+                # Fallback: check channel name if no preset and no group
+                if not preset and not group:
                     channel_name = channel.get('name', '') or ''
 
                     # Simple heuristics based on channel name

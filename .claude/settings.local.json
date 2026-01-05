@@ -6,7 +6,8 @@
       "Bash(test:*)",
       "Bash(python -m py_compile:*)",
       "Bash(python:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "WebFetch(domain:docs.qlcplus.org)"
     ]
   }
 }
