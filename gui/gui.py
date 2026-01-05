@@ -842,14 +842,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Show about dialog"""
         QMessageBox.about(
             self,
-            "About QLCAutoShow",
-            "QLCAutoShow\n\n"
+            "About QLC+ Show Creator",
+            "QLC+ Show Creator\n\n"
             "A tool for creating QLC+ light shows with timeline-based editing.\n\n"
             "Features:\n"
             "- Fixture management and grouping\n"
             "- Stage layout visualization\n"
             "- Timeline-based show editing\n"
             "- Audio playback with waveform display\n"
+            "- Real-time 3D Visualizer preview\n"
             "- QLC+ workspace export"
         )
 

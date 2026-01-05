@@ -6,8 +6,9 @@ from gui.StageView import StageView
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
-        MainWindow.setObjectName("QLCAutoShow")
+        MainWindow.setObjectName("QLCShowCreator")
         MainWindow.resize(1250, 900)
+        MainWindow.setWindowTitle("QLC+ Show Creator")
 
         # Create central widget
         self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
@@ -35,6 +36,11 @@ class Ui_MainWindow(object):
         # Add actions to toolbar
         self.toolbar.addAction(self.saveAction)
         self.toolbar.addAction(self.loadAction)
+        self.toolbar.addSeparator()
+        self.toolbar.addAction(self.importWorkspaceAction)
+        self.toolbar.addAction(self.createWorkspaceAction)
+
+        # Spacer to push status indicators to the right
         spacer = QtWidgets.QWidget()
         spacer.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
                              QtWidgets.QSizePolicy.Policy.Expanding)
@@ -105,10 +111,6 @@ class Ui_MainWindow(object):
         status_layout.addLayout(tcp_layout)
 
         self.toolbar.addWidget(status_container)
-        self.toolbar.addSeparator()
-
-        self.toolbar.addAction(self.importWorkspaceAction)
-        self.toolbar.addAction(self.createWorkspaceAction)
 
         # Main layout
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralwidget)
@@ -147,7 +149,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "QLCAutoShow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "QLC+ Show Creator"))
         # Tab titles
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_config), _translate("MainWindow", "Configuration"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Fixtures"))
