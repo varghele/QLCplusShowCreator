@@ -4,10 +4,12 @@
 
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QPushButton, QCheckBox, QLineEdit, QFrame,
-                             QScrollArea, QComboBox)
+                             QScrollArea, QComboBox, QMessageBox)
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QUndoStack
 from .timeline_widget import TimelineWidget
 from .light_block_widget import LightBlockWidget
+from .undo_commands import InsertRiffCommand, DeleteBlockCommand, AddBlockCommand
 from timeline.light_lane import LightLane
 
 
@@ -90,6 +92,7 @@ class LightLaneWidget(QFrame):
         self.timeline_widget.zoom_changed.connect(self.on_timeline_zoom_changed)
         self.timeline_widget.playhead_moved.connect(self.playhead_moved.emit)
         self.timeline_widget.paste_requested.connect(self.paste_effect_at_time)
+        self.timeline_widget.riff_dropped.connect(self.on_riff_dropped)
 
         # Create light block widgets for existing blocks
         for block in self.lane.light_blocks:
@@ -417,11 +420,25 @@ class LightLaneWidget(QFrame):
         )
         self.create_light_block_widget(block)
 
-    def remove_light_block_widget(self, block_widget):
-        """Remove a light block widget and its data."""
-        self.lane.remove_light_block(block_widget.block)
-        self.light_block_widgets.remove(block_widget)
-        block_widget.deleteLater()
+    def remove_light_block_widget(self, block_widget, use_undo=True):
+        """Remove a light block widget and its data.
+
+        Args:
+            block_widget: The widget to remove
+            use_undo: If True, use undo command (default). Set False for internal use.
+        """
+        block = block_widget.block
+        undo_stack = self._get_undo_stack() if use_undo else None
+
+        if undo_stack:
+            # Use undo command
+            cmd = DeleteBlockCommand(self, block, "Delete Block")
+            undo_stack.push(cmd)
+        else:
+            # Direct removal
+            self.lane.remove_light_block(block)
+            self.light_block_widgets.remove(block_widget)
+            block_widget.deleteLater()
 
     def on_timeline_zoom_changed(self, zoom_factor):
         """Handle timeline zoom changes."""
@@ -590,3 +607,154 @@ class LightLaneWidget(QFrame):
         # Refresh local capabilities (fixtures may have been added/removed from group)
         self.capabilities = self._detect_group_capabilities()
         self.timeline_widget.capabilities = self.capabilities
+
+    def set_riff_library(self, riff_library):
+        """Set the riff library for this lane.
+
+        Args:
+            riff_library: RiffLibrary instance
+        """
+        self.riff_library = riff_library
+
+    def on_riff_dropped(self, riff_path: str, drop_time: float):
+        """Handle a riff being dropped onto the timeline.
+
+        Args:
+            riff_path: Path to riff like "category/name"
+            drop_time: Time position where riff was dropped
+        """
+        # Get riff library from main window
+        riff_library = getattr(self, 'riff_library', None)
+        if not riff_library:
+            # Try to get from main window
+            main_window = self.window()
+            if hasattr(main_window, 'riff_library'):
+                riff_library = main_window.riff_library
+
+        if not riff_library:
+            print(f"Error: No riff library available")
+            return
+
+        # Get the riff
+        riff = riff_library.get_riff(riff_path)
+        if not riff:
+            print(f"Error: Riff not found: {riff_path}")
+            return
+
+        # Check compatibility with fixture group
+        if self.config and self.lane.fixture_group in self.config.groups:
+            group = self.config.groups[self.lane.fixture_group]
+            is_compatible, reason = riff.is_compatible_with(group)
+            if not is_compatible:
+                QMessageBox.warning(
+                    self,
+                    "Incompatible Riff",
+                    f"Cannot drop riff '{riff.name}' on this lane.\n{reason}"
+                )
+                return
+
+        # Get song structure for BPM conversion
+        song_structure = self.timeline_widget.song_structure
+        if not song_structure:
+            # Create a simple mock for constant BPM
+            class SimpleSongStructure:
+                def __init__(self, bpm):
+                    self.bpm = bpm
+                def get_bpm_at_time(self, time):
+                    return self.bpm
+            song_structure = SimpleSongStructure(self.timeline_widget.bpm)
+
+        # Convert riff to LightBlock
+        new_block = riff.to_light_block(drop_time, song_structure)
+
+        # Find overlapping blocks (for undo)
+        removed_blocks = self._get_overlapping_blocks(new_block.start_time, new_block.end_time)
+
+        # Get undo stack from main window
+        undo_stack = self._get_undo_stack()
+
+        if undo_stack is not None:
+            # Use undo command
+            cmd = InsertRiffCommand(
+                self, new_block, removed_blocks,
+                f"Insert Riff: {riff.name}"
+            )
+            undo_stack.push(cmd)
+        else:
+            # Fallback: direct manipulation without undo
+            self._remove_overlapping_blocks(new_block.start_time, new_block.end_time)
+            self.lane.light_blocks.append(new_block)
+            self.create_light_block_widget(new_block)
+
+        # Emit block edited signal for auto-save
+        self.block_edited.emit()
+
+    def _get_undo_stack(self) -> QUndoStack:
+        """Get the undo stack from the main window.
+
+        Returns:
+            QUndoStack or None if not available
+        """
+        # First try window() which should return the top-level window
+        main_window = self.window()
+        if hasattr(main_window, 'get_undo_stack'):
+            return main_window.get_undo_stack()
+        if hasattr(main_window, 'undo_stack'):
+            return main_window.undo_stack
+
+        # Fallback: traverse parent chain to find MainWindow
+        parent = self.parent()
+        while parent is not None:
+            if hasattr(parent, 'get_undo_stack'):
+                return parent.get_undo_stack()
+            if hasattr(parent, 'undo_stack'):
+                return parent.undo_stack
+            parent = parent.parent()
+
+        return None
+
+    def _get_overlapping_blocks(self, start_time: float, end_time: float) -> list:
+        """Get blocks that overlap with the given time range.
+
+        Args:
+            start_time: Start of range
+            end_time: End of range
+
+        Returns:
+            List of overlapping LightBlock objects
+        """
+        overlapping = []
+        for block in self.lane.light_blocks:
+            if block.start_time < end_time and block.end_time > start_time:
+                overlapping.append(block)
+        return overlapping
+
+    def _remove_overlapping_blocks(self, start_time: float, end_time: float):
+        """Remove blocks that overlap with the given time range.
+
+        Args:
+            start_time: Start of range
+            end_time: End of range
+        """
+        blocks_to_remove = []
+
+        for block in self.lane.light_blocks:
+            # Check if block overlaps with range
+            if block.start_time < end_time and block.end_time > start_time:
+                blocks_to_remove.append(block)
+
+        # Remove overlapping blocks and their widgets
+        for block in blocks_to_remove:
+            # Find and remove the widget
+            widget_to_remove = None
+            for widget in self.light_block_widgets:
+                if widget.block is block:
+                    widget_to_remove = widget
+                    break
+
+            if widget_to_remove:
+                self.light_block_widgets.remove(widget_to_remove)
+                widget_to_remove.deleteLater()
+
+            # Remove from lane data
+            self.lane.light_blocks.remove(block)

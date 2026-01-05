@@ -1,0 +1,93 @@
+{
+  "name": "tilt_nod_1bar",
+  "category": "movement",
+  "description": "Quick tilt nod - 1 bar accent movement",
+  "length_beats": 4,
+  "signature": "4/4",
+  "fixture_types": ["MH"],
+  "tags": ["movement", "tilt", "nod", "accent", "moving-head"],
+  "author": "preset",
+  "version": "1.0",
+
+  "dimmer_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 4,
+      "intensity": 255,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "static",
+      "effect_speed": "1"
+    }
+  ],
+
+  "colour_blocks": [],
+
+  "movement_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 1,
+      "pan": 127.5,
+      "tilt": 80,
+      "pan_fine": 0,
+      "tilt_fine": 0,
+      "speed": 255,
+      "interpolate_from_previous": true,
+      "effect_type": "static",
+      "effect_speed": "1",
+      "pan_min": 0,
+      "pan_max": 255,
+      "tilt_min": 0,
+      "tilt_max": 255,
+      "pan_amplitude": 50,
+      "tilt_amplitude": 50,
+      "lissajous_ratio": "1:2",
+      "phase_offset_enabled": false,
+      "phase_offset_degrees": 0
+    },
+    {
+      "start_beat": 1,
+      "end_beat": 2,
+      "pan": 127.5,
+      "tilt": 175,
+      "pan_fine": 0,
+      "tilt_fine": 0,
+      "speed": 255,
+      "interpolate_from_previous": true,
+      "effect_type": "static",
+      "effect_speed": "1",
+      "pan_min": 0,
+      "pan_max": 255,
+      "tilt_min": 0,
+      "tilt_max": 255,
+      "pan_amplitude": 50,
+      "tilt_amplitude": 50,
+      "lissajous_ratio": "1:2",
+      "phase_offset_enabled": false,
+      "phase_offset_degrees": 0
+    },
+    {
+      "start_beat": 2,
+      "end_beat": 4,
+      "pan": 127.5,
+      "tilt": 127.5,
+      "pan_fine": 0,
+      "tilt_fine": 0,
+      "speed": 255,
+      "interpolate_from_previous": true,
+      "effect_type": "static",
+      "effect_speed": "1",
+      "pan_min": 0,
+      "pan_max": 255,
+      "tilt_min": 0,
+      "tilt_max": 255,
+      "pan_amplitude": 50,
+      "tilt_amplitude": 50,
+      "lissajous_ratio": "1:2",
+      "phase_offset_enabled": false,
+      "phase_offset_degrees": 0
+    }
+  ],
+
+  "special_blocks": []
+}

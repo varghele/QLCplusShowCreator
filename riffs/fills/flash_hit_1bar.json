@@ -1,0 +1,57 @@
+{
+  "name": "flash_hit_1bar",
+  "category": "fills",
+  "description": "Quick flash accent on beat 1 - perfect for accents",
+  "length_beats": 4,
+  "signature": "4/4",
+  "fixture_types": [],
+  "tags": ["fill", "flash", "accent", "hit"],
+  "author": "preset",
+  "version": "1.0",
+
+  "dimmer_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 0.5,
+      "intensity": 255,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "static",
+      "effect_speed": "1"
+    },
+    {
+      "start_beat": 0.5,
+      "end_beat": 4,
+      "intensity": 0,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "static",
+      "effect_speed": "1"
+    }
+  ],
+
+  "colour_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 4,
+      "color_mode": "RGB",
+      "red": 255,
+      "green": 255,
+      "blue": 255,
+      "white": 0,
+      "amber": 0,
+      "cyan": 0,
+      "magenta": 0,
+      "yellow": 0,
+      "uv": 0,
+      "lime": 0,
+      "hue": 0,
+      "saturation": 0,
+      "value": 0,
+      "color_wheel_position": 0
+    }
+  ],
+
+  "movement_blocks": [],
+  "special_blocks": []
+}

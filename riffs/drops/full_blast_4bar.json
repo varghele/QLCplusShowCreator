@@ -1,0 +1,48 @@
+{
+  "name": "full_blast_4bar",
+  "category": "drops",
+  "description": "Maximum intensity strobe drop - full energy release",
+  "length_beats": 16,
+  "signature": "4/4",
+  "fixture_types": [],
+  "tags": ["drop", "blast", "strobe", "intense", "climax"],
+  "author": "preset",
+  "version": "1.0",
+
+  "dimmer_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 16,
+      "intensity": 255,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "strobe",
+      "effect_speed": "4"
+    }
+  ],
+
+  "colour_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 16,
+      "color_mode": "RGB",
+      "red": 255,
+      "green": 255,
+      "blue": 255,
+      "white": 255,
+      "amber": 0,
+      "cyan": 0,
+      "magenta": 0,
+      "yellow": 0,
+      "uv": 0,
+      "lime": 0,
+      "hue": 0,
+      "saturation": 0,
+      "value": 0,
+      "color_wheel_position": 0
+    }
+  ],
+
+  "movement_blocks": [],
+  "special_blocks": []
+}

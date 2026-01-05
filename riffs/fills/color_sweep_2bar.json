@@ -1,0 +1,105 @@
+{
+  "name": "color_sweep_2bar",
+  "category": "fills",
+  "description": "Color transition from red to blue over 2 bars",
+  "length_beats": 8,
+  "signature": "4/4",
+  "fixture_types": [],
+  "tags": ["fill", "color", "sweep", "transition"],
+  "author": "preset",
+  "version": "1.0",
+
+  "dimmer_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 8,
+      "intensity": 200,
+      "strobe_speed": 0,
+      "iris": 255,
+      "effect_type": "static",
+      "effect_speed": "1"
+    }
+  ],
+
+  "colour_blocks": [
+    {
+      "start_beat": 0,
+      "end_beat": 2,
+      "color_mode": "RGB",
+      "red": 255,
+      "green": 0,
+      "blue": 0,
+      "white": 0,
+      "amber": 0,
+      "cyan": 0,
+      "magenta": 0,
+      "yellow": 0,
+      "uv": 0,
+      "lime": 0,
+      "hue": 0,
+      "saturation": 0,
+      "value": 0,
+      "color_wheel_position": 0
+    },
+    {
+      "start_beat": 2,
+      "end_beat": 4,
+      "color_mode": "RGB",
+      "red": 255,
+      "green": 0,
+      "blue": 128,
+      "white": 0,
+      "amber": 0,
+      "cyan": 0,
+      "magenta": 0,
+      "yellow": 0,
+      "uv": 0,
+      "lime": 0,
+      "hue": 0,
+      "saturation": 0,
+      "value": 0,
+      "color_wheel_position": 0
+    },
+    {
+      "start_beat": 4,
+      "end_beat": 6,
+      "color_mode": "RGB",
+      "red": 128,
+      "green": 0,
+      "blue": 255,
+      "white": 0,
+      "amber": 0,
+      "cyan": 0,
+      "magenta": 0,
+      "yellow": 0,
+      "uv": 0,
+      "lime": 0,
+      "hue": 0,
+      "saturation": 0,
+      "value": 0,
+      "color_wheel_position": 0
+    },
+    {
+      "start_beat": 6,
+      "end_beat": 8,
+      "color_mode": "RGB",
+      "red": 0,
+      "green": 0,
+      "blue": 255,
+      "white": 0,
+      "amber": 0,
+      "cyan": 0,
+      "magenta": 0,
+      "yellow": 0,
+      "uv": 0,
+      "lime": 0,
+      "hue": 0,
+      "saturation": 0,
+      "value": 0,
+      "color_wheel_position": 0
+    }
+  ],
+
+  "movement_blocks": [],
+  "special_blocks": []
+}
