@@ -817,6 +817,7 @@ def build_virtual_console(
     options: Dict[str, bool],
     show_function_ids: Dict[str, int] = None,
     preset_function_map: Dict[str, Dict[str, int]] = None,
+    master_presets: Dict[str, int] = None,
     widget_id_start: int = 0
 ) -> int:
     """Build the complete Virtual Console section.
@@ -831,6 +832,7 @@ def build_virtual_console(
         options: Export options dict
         show_function_ids: Dict mapping show names to function IDs
         preset_function_map: Dict of preset function IDs by group
+        master_presets: Dict of master preset names to function IDs
         widget_id_start: Starting widget ID
 
     Returns:
@@ -958,10 +960,55 @@ def build_virtual_console(
 
         current_y = group_y + row_height + SECTION_SPACING
 
+    # Master Presets frame - right side of screen
+    if master_presets:
+        # Define button order and colors (keys match master_presets dictionary)
+        preset_order = [
+            ("All_Warm_White", "All Warm White", "4294945536"),  # Warm amber color
+            ("Red_Wash", "Red Wash", "4294901760"),              # Red
+            ("Blue_Wash", "Blue Wash", "4278190335"),            # Blue
+            ("Purple_Wash", "Purple Wash", "4286578816"),        # Purple
+            ("Rainbow", "Rainbow", "4294967295"),                # White (multi-color)
+            ("Party", "Party", "4294967040"),                    # Yellow (chaser)
+            ("Pulse", "Pulse", "4278255360"),                    # Green (chaser)
+            ("Sparkle", "Sparkle", "4294967295"),                # White (chaser)
+            ("Sweep_All", "Sweep All", "4278255615"),            # Cyan (EFX)
+            ("Circle_All", "Circle All", "4294902015"),          # Magenta (EFX)
+        ]
+
+        # Filter to only presets that exist
+        preset_buttons = []
+        for key, display_name, bg_color in preset_order:
+            if key in master_presets:
+                preset_buttons.append((display_name, master_presets[key], bg_color))
+
+        if preset_buttons:
+            # Position on right side, starting from top below shows section
+            presets_x = SCREEN_WIDTH - 300 - MARGIN
+            presets_start_y = 195 if options.get('show_buttons') else MARGIN
+
+            # Use 2 buttons per row layout
+            presets_per_row = 2
+            _, widget_id, presets_width, presets_height = _create_button_frame(
+                main_frame, widget_id, "Presets",
+                preset_buttons, presets_x, presets_start_y, presets_per_row, fg_color
+            )
+
     # Speed Dial (tap BPM) - bottom right
     if options.get('speed_dial'):
         # Collect all show function IDs for the speed dial
         all_show_ids = list(show_function_ids.values()) if show_function_ids else []
+
+        # Collect chaser and EFX IDs from master presets
+        master_chase_efx_ids = []
+        if master_presets:
+            chase_efx_keys = ["Party", "Pulse", "Sparkle", "Sweep_All", "Circle_All"]
+            for key in chase_efx_keys:
+                if key in master_presets:
+                    master_chase_efx_ids.append(master_presets[key])
+
+        # Combine all function IDs for speed dial
+        all_speed_dial_ids = all_show_ids + master_chase_efx_ids
 
         speed_dial_x = SCREEN_WIDTH - SPEED_DIAL_WIDTH - MARGIN
         speed_dial_y = SCREEN_HEIGHT - SPEED_DIAL_HEIGHT - MARGIN
@@ -973,7 +1020,7 @@ def build_virtual_console(
         create_vc_speed_dial(
             main_frame, widget_id, "Tap BPM",
             speed_dial_x, speed_dial_y, SPEED_DIAL_WIDTH, SPEED_DIAL_HEIGHT,
-            all_show_ids if all_show_ids else None,
+            all_speed_dial_ids if all_speed_dial_ids else None,
             speed_dial_bg, speed_dial_fg
         )
         widget_id += 1

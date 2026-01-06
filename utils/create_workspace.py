@@ -6,7 +6,7 @@ from config.models import Configuration, FixtureGroupCapabilities
 from utils.to_xml.setup_to_xml import (create_universe_elements, create_fixture_elements,
                                        create_channels_groups)
 from utils.to_xml.shows_to_xml import create_shows
-from utils.to_xml.preset_scenes_to_xml import generate_all_preset_functions
+from utils.to_xml.preset_scenes_to_xml import generate_all_preset_functions, create_master_presets
 from utils.to_xml.virtual_console_to_xml import build_virtual_console
 from utils.fixture_utils import load_fixture_definitions_from_qlc, detect_fixture_group_capabilities
 
@@ -82,6 +82,7 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
 
     # Generate preset functions if requested
     preset_function_map = {}
+    master_presets = {}
     if vc_options and vc_options.get('generate_vc') and vc_options.get('scene_presets'):
         preset_function_map, function_id_counter = generate_all_preset_functions(
             engine, config, fixture_id_map, fixture_definitions,
@@ -91,12 +92,17 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
             include_movement=vc_options.get('movement_presets', True)
         )
 
+        # Generate master presets (scenes and chasers for all fixtures)
+        master_presets, function_id_counter = create_master_presets(
+            engine, function_id_counter, config, fixture_id_map, fixture_definitions
+        )
+
     # Create VirtualConsole section
     if vc_options and vc_options.get('generate_vc'):
         # Use the new VC builder
         build_virtual_console(
             root, engine, config, fixture_id_map, fixture_definitions,
-            capabilities_map, vc_options, show_function_ids, preset_function_map
+            capabilities_map, vc_options, show_function_ids, preset_function_map, master_presets
         )
     else:
         # Create minimal VirtualConsole section (backwards compatibility)
