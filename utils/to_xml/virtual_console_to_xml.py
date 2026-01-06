@@ -312,7 +312,8 @@ def create_vc_solo_frame(
     y: int,
     width: int,
     height: int,
-    fg_color: str = "Default"
+    fg_color: str = "Default",
+    bg_color: str = "Default"
 ) -> ET.Element:
     """Create a SoloFrame (only one child button can be active)."""
     frame = ET.SubElement(parent, "SoloFrame")
@@ -320,7 +321,7 @@ def create_vc_solo_frame(
     frame.set("ID", str(widget_id))
 
     create_window_state(frame, True, x, y, width, height)
-    create_appearance(frame, "Sunken", fg_color)
+    create_appearance(frame, "Sunken", fg_color, bg_color)
 
     ET.SubElement(frame, "AllowChildren").text = "True"
     ET.SubElement(frame, "AllowResize").text = "True"
@@ -462,7 +463,8 @@ def _create_button_frame(
     x: int,
     y: int,
     buttons_per_row: int = 5,
-    fg_color: str = "Default"
+    fg_color: str = "Default",
+    bg_color: str = "Default"
 ) -> Tuple[ET.Element, int, int, int]:
     """Create a frame containing preset buttons.
 
@@ -482,7 +484,7 @@ def _create_button_frame(
     frame = create_vc_frame(
         parent, widget_id, title,
         x, y, frame_width, frame_height,
-        show_header=True, fg_color=fg_color
+        show_header=True, bg_color=bg_color, fg_color=fg_color
     )
     widget_id += 1
 
@@ -532,6 +534,7 @@ def generate_group_controls(
     """
     # Set colors based on dark mode
     slider_bg_color = VC_DARK_GREY_BACKGROUND if dark_mode else "Default"
+    frame_bg_color = VC_DARK_GREY_BACKGROUND if dark_mode else "Default"
     frame_fg_color = VC_WHITE_FOREGROUND if dark_mode else "Default"
 
     # Collect channels for all fixtures in group
@@ -685,6 +688,7 @@ def generate_group_controls(
     frame = create_vc_frame(
         parent, widget_id_counter, group_name,
         x_offset, y_offset, frame_width, frame_height,
+        bg_color=frame_bg_color,
         fg_color=frame_fg_color
     )
     widget_id_counter += 1
@@ -791,7 +795,7 @@ def generate_group_controls(
         if pattern_buttons:
             _, widget_id_counter, _, _ = _create_button_frame(
                 frame, widget_id_counter, "Patterns",
-                pattern_buttons, current_x, current_y, pattern_buttons_per_row, frame_fg_color
+                pattern_buttons, current_x, current_y, pattern_buttons_per_row, frame_fg_color, frame_bg_color
             )
 
     # Create color button frame below sliders/xypad
@@ -801,7 +805,7 @@ def generate_group_controls(
     if color_buttons:
         _, widget_id_counter, _, h = _create_button_frame(
             frame, widget_id_counter, "Colors",
-            color_buttons, GROUP_PADDING, button_frame_y, color_buttons_per_row, frame_fg_color
+            color_buttons, GROUP_PADDING, button_frame_y, color_buttons_per_row, frame_fg_color, frame_bg_color
         )
 
     return frame, widget_id_counter, frame_width
@@ -850,6 +854,7 @@ def build_virtual_console(
     # Set appearance (dark mode if requested)
     bg_color = VC_BLACK_BACKGROUND if options.get('dark_mode') else "Default"
     fg_color = VC_WHITE_FOREGROUND if options.get('dark_mode') else "Default"
+    frame_bg_color = VC_DARK_GREY_BACKGROUND if options.get('dark_mode') else "Default"  # For sub-frames
     create_appearance(main_frame, "None", fg_color, bg_color)
 
     # Constants for Virtual Console usable area (QLC+ has UI elements around edges)
@@ -873,7 +878,7 @@ def build_virtual_console(
         solo_frame = create_vc_solo_frame(
             main_frame, widget_id, "Shows",
             MARGIN, current_y, solo_frame_width, solo_frame_height,
-            fg_color
+            fg_color, frame_bg_color
         )
         widget_id += 1
 
@@ -991,7 +996,7 @@ def build_virtual_console(
             presets_per_row = 2
             _, widget_id, presets_width, presets_height = _create_button_frame(
                 main_frame, widget_id, "Presets",
-                preset_buttons, presets_x, presets_start_y, presets_per_row, fg_color
+                preset_buttons, presets_x, presets_start_y, presets_per_row, fg_color, frame_bg_color
             )
 
     # Speed Dial (tap BPM) - bottom right
