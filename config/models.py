@@ -861,6 +861,9 @@ class LightBlock:
     riff_source: Optional[str] = None      # e.g., "builds/strobe_build_4bar"
     riff_version: Optional[str] = None     # e.g., "1.0"
 
+    # User-defined name for the effect block
+    name: Optional[str] = None  # Custom name set by user (displays as "base" if None)
+
     # Legacy support (deprecated, kept for migration)
     duration: Optional[float] = None  # Deprecated: use end_time - start_time
     parameters: Dict[str, any] = field(default_factory=dict)  # Deprecated
@@ -896,6 +899,8 @@ class LightBlock:
             # Riff tracking
             "riff_source": self.riff_source,
             "riff_version": self.riff_version,
+            # User-defined name
+            "name": self.name,
             # Legacy fields
             "duration": self.get_duration(),
             "parameters": self.parameters
@@ -919,6 +924,7 @@ class LightBlock:
             modified=data.get("modified", False),
             riff_source=data.get("riff_source"),
             riff_version=data.get("riff_version"),
+            name=data.get("name"),
             duration=data.get("duration"),
             parameters=data.get("parameters", {})
         )

@@ -6,8 +6,9 @@ from gui.StageView import StageView
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
-        MainWindow.setObjectName("QLCAutoShow")
+        MainWindow.setObjectName("QLCShowCreator")
         MainWindow.resize(1250, 900)
+        MainWindow.setWindowTitle("QLC+ Show Creator")
 
         # Create central widget
         self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
@@ -35,6 +36,11 @@ class Ui_MainWindow(object):
         # Add actions to toolbar
         self.toolbar.addAction(self.saveAction)
         self.toolbar.addAction(self.loadAction)
+        self.toolbar.addSeparator()
+        self.toolbar.addAction(self.importWorkspaceAction)
+        self.toolbar.addAction(self.createWorkspaceAction)
+
+        # Spacer to push status indicators to the right
         spacer = QtWidgets.QWidget()
         spacer.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
                              QtWidgets.QSizePolicy.Policy.Expanding)
@@ -46,7 +52,7 @@ class Ui_MainWindow(object):
         status_layout.setContentsMargins(0, 0, 10, 0)
         status_layout.setSpacing(15)
 
-        # ArtNet status indicator
+        # ArtNet status indicator with toggle button
         artnet_layout = QtWidgets.QHBoxLayout()
         artnet_layout.setSpacing(4)
         artnet_label = QtWidgets.QLabel("ArtNet:")
@@ -54,11 +60,28 @@ class Ui_MainWindow(object):
         self.artnet_status_indicator = QtWidgets.QLabel("OFF")
         self.artnet_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
         self.artnet_status_indicator.setToolTip("ArtNet DMX Output Status")
+        self.artnet_toggle_btn = QtWidgets.QPushButton("●")
+        self.artnet_toggle_btn.setFixedSize(24, 24)
+        self.artnet_toggle_btn.setStyleSheet("""
+            QPushButton {
+                font-size: 14px;
+                color: #666;
+                background-color: transparent;
+                border: 1px solid #555;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #444;
+            }
+        """)
+        self.artnet_toggle_btn.setToolTip("Click to toggle ArtNet")
+        self.artnet_toggle_btn.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         artnet_layout.addWidget(artnet_label)
         artnet_layout.addWidget(self.artnet_status_indicator)
+        artnet_layout.addWidget(self.artnet_toggle_btn)
         status_layout.addLayout(artnet_layout)
 
-        # TCP/Visualizer status indicator
+        # TCP/Visualizer status indicator with toggle button
         tcp_layout = QtWidgets.QHBoxLayout()
         tcp_layout.setSpacing(4)
         tcp_label = QtWidgets.QLabel("Visualizer:")
@@ -66,15 +89,28 @@ class Ui_MainWindow(object):
         self.tcp_status_indicator = QtWidgets.QLabel("OFF")
         self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
         self.tcp_status_indicator.setToolTip("TCP Visualizer Server Status")
+        self.tcp_toggle_btn = QtWidgets.QPushButton("●")
+        self.tcp_toggle_btn.setFixedSize(24, 24)
+        self.tcp_toggle_btn.setStyleSheet("""
+            QPushButton {
+                font-size: 14px;
+                color: #666;
+                background-color: transparent;
+                border: 1px solid #555;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #444;
+            }
+        """)
+        self.tcp_toggle_btn.setToolTip("Click to toggle Visualizer Server")
+        self.tcp_toggle_btn.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         tcp_layout.addWidget(tcp_label)
         tcp_layout.addWidget(self.tcp_status_indicator)
+        tcp_layout.addWidget(self.tcp_toggle_btn)
         status_layout.addLayout(tcp_layout)
 
         self.toolbar.addWidget(status_container)
-        self.toolbar.addSeparator()
-
-        self.toolbar.addAction(self.importWorkspaceAction)
-        self.toolbar.addAction(self.createWorkspaceAction)
 
         # Main layout
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralwidget)
@@ -113,7 +149,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "QLCAutoShow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "QLC+ Show Creator"))
         # Tab titles
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_config), _translate("MainWindow", "Configuration"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Fixtures"))

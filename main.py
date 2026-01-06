@@ -3,6 +3,7 @@ import sys
 import os
 import json
 from PyQt6 import QtWidgets
+from PyQt6.QtGui import QIcon
 from gui import MainWindow
 
 def main():
@@ -25,6 +26,13 @@ def main():
 
         # Start the application
         app = QtWidgets.QApplication(sys.argv)
+
+        # Set application icon
+        icon_path = os.path.join(project_root, "resources", "lightbulb.png")
+        if os.path.exists(icon_path):
+            app_icon = QIcon(icon_path)
+            app.setWindowIcon(app_icon)
+
         window = MainWindow()
         window.show()
         sys.exit(app.exec())

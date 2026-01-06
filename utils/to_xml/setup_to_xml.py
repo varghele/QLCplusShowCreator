@@ -112,39 +112,93 @@ def create_fixture_elements(engine, config: Configuration, id_start=0):
     return fixture_id_map
 
 
-def create_channels_groups(engine, config: Configuration, fixture_id_map: dict):
+def create_channels_groups(engine, config: Configuration, fixture_id_map: dict, fixture_definitions: dict = None):
     """
-    Creates ChannelsGroup elements from Configuration data
+    Creates individual ChannelsGroup elements for each capability (Pan, Tilt, Dimmer, Color, etc.)
 
     Parameters:
         engine: The engine XML element to add the ChannelsGroups to
         config: Configuration object containing groups and fixtures data
         fixture_id_map: Dictionary mapping fixture object IDs to their sequential IDs
+        fixture_definitions: Dictionary of fixture definitions (optional, for better channel detection)
     """
+    from utils.effects_utils import get_channels_by_property
+    from utils.sublane_presets import DIMMER_PRESETS, COLOUR_PRESETS, MOVEMENT_PRESETS, SPECIAL_PRESETS
+
     group_id = 0
+
+    # Define capability mappings: (preset_name, display_name)
+    capability_mappings = [
+        ("PositionPan", "Pan"),
+        ("PositionTilt", "Tilt"),
+        ("IntensityMasterDimmer", "Dimmer"),
+        ("IntensityDimmer", "Dimmer"),
+        ("IntensityRed", "Red"),
+        ("IntensityGreen", "Green"),
+        ("IntensityBlue", "Blue"),
+        ("IntensityWhite", "White"),
+        ("IntensityAmber", "Amber"),
+        ("ColorMacro", "Color"),  # Color wheel
+        ("GoboIndex", "Gobo"),
+        ("GoboWheelIndex", "Gobo"),
+        ("GoboRotation", "Gobo Rotation"),
+        ("PrismRotation", "Prism"),
+        ("ShutterStrobeSlowFast", "Shutter"),
+        ("ShutterStrobeFastSlow", "Shutter"),
+        ("BeamFocusNearFar", "Focus"),
+        ("BeamFocusFarNear", "Focus"),
+        ("BeamZoomSmallBig", "Zoom"),
+        ("BeamZoomBigSmall", "Zoom"),
+    ]
+
     for group_name, group in config.groups.items():
-        # Create ChannelsGroup element
-        channels_group = ET.SubElement(engine, "ChannelsGroup")
-        channels_group.set("ID", str(group_id))
-        channels_group.set("Name", group_name)
-        channels_group.set("Value", "0")
+        if not group.fixtures:
+            continue
 
-        # Create channel list for all fixtures in group
-        channels_list = []
+        # Collect all channels for each capability across all fixtures in the group
+        capability_channels = {}  # capability_name -> [(fixture_id, channel), ...]
+
         for fixture in group.fixtures:
-            # Get number of channels from fixture's current mode
-            num_channels = next((mode.channels for mode in fixture.available_modes
-                                 if mode.name == fixture.current_mode), 0)
+            fixture_id = fixture_id_map.get(id(fixture))
+            if fixture_id is None:
+                continue
 
-            # Get fixture ID from mapping
-            fixture_id = fixture_id_map[id(fixture)]
+            # Get channels by property if we have fixture definitions
+            if fixture_definitions:
+                fixture_key = f"{fixture.manufacturer}_{fixture.model}"
+                fixture_def = fixture_definitions.get(fixture_key)
 
-            # Add each channel to the list
-            for channel in range(num_channels):
-                channels_list.extend([str(fixture_id), str(channel)])
+                if fixture_def:
+                    all_presets = list(DIMMER_PRESETS) + list(COLOUR_PRESETS) + list(MOVEMENT_PRESETS) + list(SPECIAL_PRESETS)
+                    channels_dict = get_channels_by_property(fixture_def, fixture.current_mode, all_presets)
 
-        # Only create group if there are channels
-        if channels_list:
+                    # Map each preset to its display name
+                    for preset_name, display_name in capability_mappings:
+                        if preset_name in channels_dict:
+                            channel_list = channels_dict[preset_name]
+                            # Get the first channel for each capability
+                            if channel_list and isinstance(channel_list, list) and len(channel_list) > 0:
+                                channel_num = channel_list[0].get('channel') if isinstance(channel_list[0], dict) else channel_list[0]
+
+                                if display_name not in capability_channels:
+                                    capability_channels[display_name] = []
+                                capability_channels[display_name].append((fixture_id, channel_num))
+
+        # Create a ChannelsGroup for each capability
+        for capability_name, channels in capability_channels.items():
+            if not channels:
+                continue
+
+            channels_group = ET.SubElement(engine, "ChannelsGroup")
+            channels_group.set("ID", str(group_id))
+            channels_group.set("Name", f"{group_name} - {capability_name}")
+            channels_group.set("Value", "0")
+
+            # Format: fixture_id,channel,fixture_id,channel,...
+            channels_list = []
+            for fixture_id, channel_num in channels:
+                channels_list.extend([str(fixture_id), str(channel_num)])
+
             channels_group.text = ",".join(channels_list)
             group_id += 1
 
