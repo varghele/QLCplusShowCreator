@@ -6,6 +6,7 @@ from typing import Dict, List, Tuple, Any
 from config.models import Configuration, FixtureGroup, FixtureGroupCapabilities
 from utils.effects_utils import get_channels_by_property
 from utils.sublane_presets import COLOUR_PRESETS, DIMMER_PRESETS, MOVEMENT_PRESETS
+from utils.orientation import calculate_pan_tilt, pan_tilt_to_dmx
 
 
 # Color preset definitions (RGB values for RGB fixtures)
@@ -44,13 +45,15 @@ INTENSITY_PRESETS = {
     "100%": 255,
 }
 
-# Movement preset positions (pan/tilt as 0-255)
+# Movement preset positions (world coordinates in meters)
+# Stage coordinate system: +X = stage right, +Y = upstage (back), +Z = up
+# Origin (0,0,0) = center of stage floor
 MOVEMENT_PRESETS_POS = {
-    "Center": {"pan": 127, "tilt": 127},
-    "Front": {"pan": 127, "tilt": 200},
-    "Up": {"pan": 127, "tilt": 50},
-    "Left": {"pan": 50, "tilt": 127},
-    "Right": {"pan": 200, "tilt": 127},
+    "Center": {"x": 0.0, "y": 0.0, "z": 2.0},     # Center of stage, at head height
+    "Front": {"x": 0.0, "y": -4.0, "z": 2.0},     # Front of stage (toward audience)
+    "Up": {"x": 0.0, "y": 0.0, "z": 5.0},         # Straight up toward ceiling
+    "Left": {"x": -4.0, "y": 0.0, "z": 2.0},      # Stage left
+    "Right": {"x": 4.0, "y": 0.0, "z": 2.0},      # Stage right
 }
 
 
@@ -514,7 +517,7 @@ def create_movement_preset_scene(
     function_id: int,
     group_name: str,
     position_name: str,
-    position: Dict[str, int],
+    position: Dict[str, float],
     group: FixtureGroup,
     fixture_id_map: Dict[int, int],
     fixture_definitions: Dict[str, Any]
@@ -526,7 +529,7 @@ def create_movement_preset_scene(
         function_id: Unique function ID
         group_name: Name of the fixture group
         position_name: Name of the position preset
-        position: Dict with 'pan' and 'tilt' values
+        position: Dict with 'x', 'y', 'z' world coordinates (meters)
         group: FixtureGroup object
         fixture_id_map: Mapping of fixture object IDs to QLC+ fixture IDs
         fixture_definitions: Dictionary of fixture definitions
@@ -537,6 +540,11 @@ def create_movement_preset_scene(
     scene_name = f"{group_name} - {position_name}"
     fixture_values = []
 
+    # Get target position from preset
+    target_x = position.get("x", 0.0)
+    target_y = position.get("y", 0.0)
+    target_z = position.get("z", 2.0)
+
     for fixture in group.fixtures:
         fixture_id = fixture_id_map.get(id(fixture))
         if fixture_id is None:
@@ -546,21 +554,43 @@ def create_movement_preset_scene(
             fixture, fixture_definitions
         )
 
+        # Get fixture orientation
+        mounting = getattr(fixture, 'mounting', 'hanging')
+        yaw = getattr(fixture, 'yaw', 0.0)
+        pitch = getattr(fixture, 'pitch', 0.0)
+        roll = getattr(fixture, 'roll', 0.0)
+
+        # Get fixture position
+        fixture_x = getattr(fixture, 'x', 0.0)
+        fixture_y = getattr(fixture, 'y', 0.0)
+        fixture_z = getattr(fixture, 'z', 3.0)
+
+        # Calculate pan/tilt angles to point at target
+        pan_deg, tilt_deg = calculate_pan_tilt(
+            fixture_x, fixture_y, fixture_z,
+            target_x, target_y, target_z,
+            mounting, yaw, pitch, roll
+        )
+
+        # Convert to DMX values
+        pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_deg, tilt_deg)
+
         channel_vals = {}
 
         # Set pan channel
         if "PositionPan" in channels_by_preset:
             for ch in channels_by_preset["PositionPan"]:
-                channel_vals[ch] = position.get("pan", 127)
+                channel_vals[ch] = pan_dmx
 
         # Set tilt channel
         if "PositionTilt" in channels_by_preset:
             for ch in channels_by_preset["PositionTilt"]:
-                channel_vals[ch] = position.get("tilt", 127)
+                channel_vals[ch] = tilt_dmx
 
         # Convert to string format
-        channel_str = ",".join(f"{ch},{val}" for ch, val in sorted(channel_vals.items()))
-        fixture_values.append((fixture_id, channel_str))
+        if channel_vals:
+            channel_str = ",".join(f"{ch},{val}" for ch, val in sorted(channel_vals.items()))
+            fixture_values.append((fixture_id, channel_str))
 
     return create_scene_function(engine, function_id, scene_name, fixture_values)
 
@@ -683,7 +713,7 @@ def generate_all_preset_functions(
                 function_id += 1
 
             # Movement patterns (as EFX)
-            for pattern in ["Circle", "Eight", "Line"]:
+            for pattern in ["Circle", "Eight", "Line", "Lissajous", "Triangle"]:
                 efx = create_movement_efx_pattern(
                     engine, function_id, group_name, pattern,
                     group, fixture_id_map, fixture_definitions

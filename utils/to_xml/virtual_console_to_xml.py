@@ -6,11 +6,15 @@ from typing import Dict, List, Tuple, Any, Optional
 from config.models import Configuration, FixtureGroup, FixtureGroupCapabilities
 from utils.effects_utils import get_channels_by_property
 from utils.sublane_presets import COLOUR_PRESETS, DIMMER_PRESETS, MOVEMENT_PRESETS, SPECIAL_PRESETS
+from utils.orientation import calculate_pan_tilt, pan_tilt_to_dmx
+from utils.to_xml.preset_scenes_to_xml import MOVEMENT_PRESETS_POS
 
 
 # Constants
 VC_BLACK_BACKGROUND = "4278190080"  # ARGB 0xFF000000
 VC_WHITE_FOREGROUND = "4294967295"  # ARGB 0xFFFFFFFF
+VC_BLACK_FOREGROUND = "4278190080"  # ARGB 0xFF000000 (black text for colored buttons)
+VC_DARK_GREY_BACKGROUND = "4282664004"  # ARGB 0xFF404044 (dark grey for sliders)
 VC_INVALID_FUNCTION = "4294967295"  # ID for no function
 
 # Layout constants
@@ -72,7 +76,9 @@ def create_vc_button(
     width: int = BUTTON_SIZE,
     height: int = BUTTON_SIZE,
     action: str = "Toggle",
-    bg_color: str = "Default"
+    bg_color: str = "Default",
+    fg_color: str = "Default",
+    font: str = "Default"
 ) -> ET.Element:
     """Create a Virtual Console Button widget."""
     button = ET.SubElement(parent, "Button")
@@ -81,7 +87,7 @@ def create_vc_button(
     button.set("Icon", "")
 
     create_window_state(button, True, x, y, width, height)
-    create_appearance(button, "None", "Default", bg_color)
+    create_appearance(button, "None", fg_color, bg_color, "None", font)
 
     func = ET.SubElement(button, "Function")
     func.set("ID", str(function_id))
@@ -105,7 +111,8 @@ def create_vc_slider(
     height: int = SLIDER_HEIGHT,
     slider_mode: str = "Level",
     channels: List[Tuple[int, int]] = None,  # [(fixture_id, channel_num), ...]
-    playback_function_id: int = None
+    playback_function_id: int = None,
+    bg_color: str = "Default"
 ) -> ET.Element:
     """Create a Virtual Console Slider widget."""
     slider = ET.SubElement(parent, "Slider")
@@ -116,7 +123,7 @@ def create_vc_slider(
     slider.set("CatchValues", "true")
 
     create_window_state(slider, True, x, y, width, height)
-    create_appearance(slider, "Sunken")
+    create_appearance(slider, "Sunken", "Default", bg_color)
 
     mode = ET.SubElement(slider, "SliderMode")
     mode.set("ValueDisplayStyle", "Exact")
@@ -155,7 +162,9 @@ def create_vc_xypad(
     height: int = XYPAD_SIZE,
     fixtures: List[Tuple[int, int, int]] = None,  # [(fixture_id, pan_ch, tilt_ch), ...]
     efx_presets: List[Tuple[str, int]] = None,  # [(efx_name, function_id), ...]
-    position_presets: List[Tuple[str, int]] = None  # [(position_name, function_id), ...]
+    position_presets: List[Tuple[str, int]] = None,  # [(position_name, function_id), ...]
+    bg_color: str = "Default",
+    fixture_obj: Any = None  # Actual fixture object for calculating positions
 ) -> ET.Element:
     """Create a Virtual Console XY Pad widget with embedded presets."""
     xypad = ET.SubElement(parent, "XYPad")
@@ -164,7 +173,7 @@ def create_vc_xypad(
     xypad.set("InvertedAppearance", "0")
 
     create_window_state(xypad, True, x, y, width, height)
-    create_appearance(xypad, "Sunken")
+    create_appearance(xypad, "Sunken", "Default", bg_color)
 
     # Add fixtures (using normalized 0-1 range, not channel numbers)
     if fixtures:
@@ -208,17 +217,57 @@ def create_vc_xypad(
             preset_id_counter += 1
 
     # Add Position presets
-    if position_presets:
+    if position_presets and fixture_obj:
+        # Calculate actual DMX values for each position preset
         for position_name, func_id in position_presets:
             preset = ET.SubElement(xypad, "Preset")
             preset.set("ID", str(preset_id_counter))
 
             ET.SubElement(preset, "Type").text = "Position"
             ET.SubElement(preset, "Name").text = position_name
-            # For position presets, we can add X and Y values
-            ET.SubElement(preset, "X").text = "0"
-            ET.SubElement(preset, "Y").text = "0"
 
+            # Extract the position type from the full name (e.g., "Group - Center" -> "Center")
+            pos_type = position_name.split(" - ")[-1] if " - " in position_name else position_name
+
+            # Get target world coordinates from MOVEMENT_PRESETS_POS
+            target_pos = MOVEMENT_PRESETS_POS.get(pos_type, {"x": 0.0, "y": 0.0, "z": 2.0})
+            target_x = target_pos.get("x", 0.0)
+            target_y = target_pos.get("y", 0.0)
+            target_z = target_pos.get("z", 2.0)
+
+            # Get fixture position and orientation
+            fixture_x = getattr(fixture_obj, 'x', 0.0)
+            fixture_y = getattr(fixture_obj, 'y', 0.0)
+            fixture_z = getattr(fixture_obj, 'z', 3.0)
+            mounting = getattr(fixture_obj, 'mounting', 'hanging')
+            yaw = getattr(fixture_obj, 'yaw', 0.0)
+            pitch = getattr(fixture_obj, 'pitch', 0.0)
+            roll = getattr(fixture_obj, 'roll', 0.0)
+
+            # Calculate pan/tilt angles
+            pan_deg, tilt_deg = calculate_pan_tilt(
+                fixture_x, fixture_y, fixture_z,
+                target_x, target_y, target_z,
+                mounting, yaw, pitch, roll
+            )
+
+            # Convert to DMX values
+            pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_deg, tilt_deg)
+
+            # Set X and Y as actual DMX values (0-255 range)
+            ET.SubElement(preset, "X").text = str(pan_dmx)
+            ET.SubElement(preset, "Y").text = str(tilt_dmx)
+
+            preset_id_counter += 1
+    elif position_presets:
+        # Fallback if no fixture object provided
+        for position_name, func_id in position_presets:
+            preset = ET.SubElement(xypad, "Preset")
+            preset.set("ID", str(preset_id_counter))
+            ET.SubElement(preset, "Type").text = "Position"
+            ET.SubElement(preset, "Name").text = position_name
+            ET.SubElement(preset, "X").text = "127"
+            ET.SubElement(preset, "Y").text = "127"
             preset_id_counter += 1
 
     return xypad
@@ -234,7 +283,8 @@ def create_vc_frame(
     height: int,
     collapsed: bool = False,
     bg_color: str = "Default",
-    show_header: bool = True
+    show_header: bool = True,
+    fg_color: str = "Default"
 ) -> ET.Element:
     """Create a Virtual Console Frame container widget."""
     frame = ET.SubElement(parent, "Frame")
@@ -242,7 +292,7 @@ def create_vc_frame(
     frame.set("ID", str(widget_id))
 
     create_window_state(frame, True, x, y, width, height)
-    create_appearance(frame, "Sunken", "Default", bg_color)
+    create_appearance(frame, "Sunken", fg_color, bg_color)
 
     ET.SubElement(frame, "AllowChildren").text = "True"
     ET.SubElement(frame, "AllowResize").text = "True"
@@ -261,7 +311,8 @@ def create_vc_solo_frame(
     x: int,
     y: int,
     width: int,
-    height: int
+    height: int,
+    fg_color: str = "Default"
 ) -> ET.Element:
     """Create a SoloFrame (only one child button can be active)."""
     frame = ET.SubElement(parent, "SoloFrame")
@@ -269,7 +320,7 @@ def create_vc_solo_frame(
     frame.set("ID", str(widget_id))
 
     create_window_state(frame, True, x, y, width, height)
-    create_appearance(frame, "Sunken")
+    create_appearance(frame, "Sunken", fg_color)
 
     ET.SubElement(frame, "AllowChildren").text = "True"
     ET.SubElement(frame, "AllowResize").text = "True"
@@ -290,7 +341,9 @@ def create_vc_speed_dial(
     y: int,
     width: int = SPEED_DIAL_WIDTH,
     height: int = SPEED_DIAL_HEIGHT,
-    functions: List[int] = None
+    functions: List[int] = None,
+    bg_color: str = "Default",
+    fg_color: str = "Default"
 ) -> ET.Element:
     """Create a SpeedDial widget for BPM/tempo control."""
     dial = ET.SubElement(parent, "SpeedDial")
@@ -298,7 +351,7 @@ def create_vc_speed_dial(
     dial.set("ID", str(widget_id))
 
     create_window_state(dial, True, x, y, width, height)
-    create_appearance(dial, "Sunken")
+    create_appearance(dial, "Sunken", fg_color, bg_color)
 
     # Time value (default 500ms = 120 BPM)
     ET.SubElement(dial, "Time").text = "500"
@@ -408,7 +461,8 @@ def _create_button_frame(
     buttons: List[Tuple[str, int, str]],  # [(display_name, func_id, bg_color), ...]
     x: int,
     y: int,
-    buttons_per_row: int = 5
+    buttons_per_row: int = 5,
+    fg_color: str = "Default"
 ) -> Tuple[ET.Element, int, int, int]:
     """Create a frame containing preset buttons.
 
@@ -423,23 +477,27 @@ def _create_button_frame(
     buttons_in_widest_row = min(num_buttons, buttons_per_row)
 
     frame_width = buttons_in_widest_row * (BUTTON_SIZE + 5) + GROUP_PADDING * 2
-    frame_height = num_rows * (BUTTON_SIZE + 5) + FRAME_HEADER_HEIGHT + GROUP_PADDING
+    frame_height = num_rows * (BUTTON_SIZE + 5) + FRAME_HEADER_HEIGHT + GROUP_PADDING * 2
 
     frame = create_vc_frame(
         parent, widget_id, title,
         x, y, frame_width, frame_height,
-        show_header=True
+        show_header=True, fg_color=fg_color
     )
     widget_id += 1
 
     btn_x = GROUP_PADDING
-    btn_y = FRAME_HEADER_HEIGHT
+    btn_y = FRAME_HEADER_HEIGHT + GROUP_PADDING
     btn_count = 0
 
     for display_name, func_id, bg_color in buttons:
+        # All buttons use black bold text for better readability
+        button_fg_color = VC_BLACK_FOREGROUND
+        button_font = "Arial,12,-1,5,75,0,0,0,0,0,Bold"  # Bold font
+
         create_vc_button(
             frame, widget_id, display_name, func_id,
-            btn_x, btn_y, BUTTON_SIZE, BUTTON_SIZE, "Toggle", bg_color
+            btn_x, btn_y, BUTTON_SIZE, BUTTON_SIZE, "Toggle", bg_color, button_fg_color, button_font
         )
         widget_id += 1
         btn_count += 1
@@ -462,7 +520,8 @@ def generate_group_controls(
     widget_id_counter: int,
     x_offset: int,
     y_offset: int,
-    preset_functions: Dict[str, int] = None
+    preset_functions: Dict[str, int] = None,
+    dark_mode: bool = False
 ) -> Tuple[ET.Element, int, int]:
     """Generate all controls for a fixture group based on capabilities.
 
@@ -471,6 +530,10 @@ def generate_group_controls(
     Returns:
         Tuple of (frame_element, next_widget_id, total_width_used)
     """
+    # Set colors based on dark mode
+    slider_bg_color = VC_DARK_GREY_BACKGROUND if dark_mode else "Default"
+    frame_fg_color = VC_WHITE_FOREGROUND if dark_mode else "Default"
+
     # Collect channels for all fixtures in group
     dimmer_channels = []  # [(fixture_id, channel), ...]
     red_channels = []
@@ -584,6 +647,12 @@ def generate_group_controls(
 
     slider_section_width = num_sliders * (SLIDER_WIDTH + 5) if num_sliders > 0 else 0
 
+    # Calculate XY pad height based on position presets
+    # Each preset button takes ~25 pixels, base pad needs 200 pixels
+    num_position_presets = len(position_buttons)
+    PRESET_BUTTON_HEIGHT = 25
+    xypad_height = XYPAD_SIZE + (num_position_presets * PRESET_BUTTON_HEIGHT) if has_xypad else XYPAD_SIZE
+
     # Pattern buttons will be stacked vertically (1 per row) next to XY pad
     pattern_buttons_per_row = 1
     pattern_frame_width = (BUTTON_SIZE + GROUP_PADDING * 2) if pattern_buttons else 0
@@ -603,7 +672,8 @@ def generate_group_controls(
     frame_width = max(150, controls_width + GROUP_PADDING * 2, color_frame_width + GROUP_PADDING * 2)
 
     # Calculate height: controls row + color button frame below
-    controls_height = max(SLIDER_HEIGHT, XYPAD_SIZE, pattern_frame_height) if (num_sliders > 0 or has_xypad or pattern_buttons) else 0
+    # Use calculated xypad_height instead of fixed XYPAD_SIZE
+    controls_height = max(SLIDER_HEIGHT, xypad_height, pattern_frame_height) if (num_sliders > 0 or has_xypad or pattern_buttons) else 0
 
     button_frames_total_height = color_frame_height
     if button_frames_total_height > 0:
@@ -614,7 +684,8 @@ def generate_group_controls(
     # Create main frame for this group
     frame = create_vc_frame(
         parent, widget_id_counter, group_name,
-        x_offset, y_offset, frame_width, frame_height
+        x_offset, y_offset, frame_width, frame_height,
+        fg_color=frame_fg_color
     )
     widget_id_counter += 1
 
@@ -627,7 +698,7 @@ def generate_group_controls(
         create_vc_slider(
             frame, widget_id_counter, "Dimmer",
             current_x, current_y, SLIDER_WIDTH, SLIDER_HEIGHT,
-            "Level", dimmer_channels
+            "Level", dimmer_channels, None, slider_bg_color
         )
         widget_id_counter += 1
         current_x += SLIDER_WIDTH + 5
@@ -637,7 +708,7 @@ def generate_group_controls(
             create_vc_slider(
                 frame, widget_id_counter, "Red",
                 current_x, current_y, SLIDER_WIDTH, SLIDER_HEIGHT,
-                "Level", red_channels
+                "Level", red_channels, None, slider_bg_color
             )
             widget_id_counter += 1
             current_x += SLIDER_WIDTH + 5
@@ -646,7 +717,7 @@ def generate_group_controls(
             create_vc_slider(
                 frame, widget_id_counter, "Green",
                 current_x, current_y, SLIDER_WIDTH, SLIDER_HEIGHT,
-                "Level", green_channels
+                "Level", green_channels, None, slider_bg_color
             )
             widget_id_counter += 1
             current_x += SLIDER_WIDTH + 5
@@ -655,7 +726,7 @@ def generate_group_controls(
             create_vc_slider(
                 frame, widget_id_counter, "Blue",
                 current_x, current_y, SLIDER_WIDTH, SLIDER_HEIGHT,
-                "Level", blue_channels
+                "Level", blue_channels, None, slider_bg_color
             )
             widget_id_counter += 1
             current_x += SLIDER_WIDTH + 5
@@ -664,7 +735,7 @@ def generate_group_controls(
             create_vc_slider(
                 frame, widget_id_counter, "White",
                 current_x, current_y, SLIDER_WIDTH, SLIDER_HEIGHT,
-                "Level", white_channels
+                "Level", white_channels, None, slider_bg_color
             )
             widget_id_counter += 1
             current_x += SLIDER_WIDTH + 5
@@ -675,7 +746,7 @@ def generate_group_controls(
             create_vc_slider(
                 frame, widget_id_counter, "Focus",
                 current_x, current_y, SLIDER_WIDTH, SLIDER_HEIGHT,
-                "Level", focus_channels
+                "Level", focus_channels, None, slider_bg_color
             )
             widget_id_counter += 1
             current_x += SLIDER_WIDTH + 5
@@ -684,7 +755,7 @@ def generate_group_controls(
             create_vc_slider(
                 frame, widget_id_counter, "Zoom",
                 current_x, current_y, SLIDER_WIDTH, SLIDER_HEIGHT,
-                "Level", zoom_channels
+                "Level", zoom_channels, None, slider_bg_color
             )
             widget_id_counter += 1
             current_x += SLIDER_WIDTH + 5
@@ -701,12 +772,17 @@ def generate_group_controls(
                     position_name = key.split("_", 1)[1]
                     position_presets.append((f"{group_name} - {position_name}", func_id))
 
+        # Get first fixture for position calculations
+        first_fixture = group.fixtures[0] if group.fixtures else None
+
         create_vc_xypad(
             frame, widget_id_counter, "XY Pad",
-            current_x, current_y, XYPAD_SIZE, XYPAD_SIZE,
+            current_x, current_y, XYPAD_SIZE, xypad_height,
             pan_tilt_fixtures,
             efx_presets=None,  # No patterns in XY pad
-            position_presets=position_presets
+            position_presets=position_presets,
+            bg_color=slider_bg_color,
+            fixture_obj=first_fixture
         )
         widget_id_counter += 1
         current_x += XYPAD_SIZE + 5
@@ -715,7 +791,7 @@ def generate_group_controls(
         if pattern_buttons:
             _, widget_id_counter, _, _ = _create_button_frame(
                 frame, widget_id_counter, "Patterns",
-                pattern_buttons, current_x, current_y, pattern_buttons_per_row
+                pattern_buttons, current_x, current_y, pattern_buttons_per_row, frame_fg_color
             )
 
     # Create color button frame below sliders/xypad
@@ -725,7 +801,7 @@ def generate_group_controls(
     if color_buttons:
         _, widget_id_counter, _, h = _create_button_frame(
             frame, widget_id_counter, "Colors",
-            color_buttons, GROUP_PADDING, button_frame_y, color_buttons_per_row
+            color_buttons, GROUP_PADDING, button_frame_y, color_buttons_per_row, frame_fg_color
         )
 
     return frame, widget_id_counter, frame_width
@@ -794,7 +870,8 @@ def build_virtual_console(
 
         solo_frame = create_vc_solo_frame(
             main_frame, widget_id, "Shows",
-            MARGIN, current_y, solo_frame_width, solo_frame_height
+            MARGIN, current_y, solo_frame_width, solo_frame_height,
+            fg_color
         )
         widget_id += 1
 
@@ -806,7 +883,8 @@ def build_virtual_console(
         for show_name, func_id in show_function_ids.items():
             create_vc_button(
                 solo_frame, widget_id, show_name, func_id,
-                btn_x, btn_y, BUTTON_SIZE, BUTTON_SIZE, "Toggle"
+                btn_x, btn_y, BUTTON_SIZE, BUTTON_SIZE, "Toggle", "Default",
+                VC_BLACK_FOREGROUND, "Arial,12,-1,5,75,0,0,0,0,0,Bold"
             )
             widget_id += 1
             btn_count += 1
@@ -840,7 +918,8 @@ def build_virtual_console(
             frame, new_widget_id, frame_width = generate_group_controls(
                 main_frame, group_name, group, capabilities,
                 fixture_id_map, fixture_definitions, widget_id,
-                0, 0, group_presets  # Temporary position
+                0, 0, group_presets,  # Temporary position
+                options.get('dark_mode', False)
             )
 
             # Get frame height from the WindowState
@@ -887,10 +966,15 @@ def build_virtual_console(
         speed_dial_x = SCREEN_WIDTH - SPEED_DIAL_WIDTH - MARGIN
         speed_dial_y = SCREEN_HEIGHT - SPEED_DIAL_HEIGHT - MARGIN
 
+        # Use dark grey background and white text in dark mode
+        speed_dial_bg = VC_DARK_GREY_BACKGROUND if options.get('dark_mode') else "Default"
+        speed_dial_fg = VC_WHITE_FOREGROUND if options.get('dark_mode') else "Default"
+
         create_vc_speed_dial(
             main_frame, widget_id, "Tap BPM",
             speed_dial_x, speed_dial_y, SPEED_DIAL_WIDTH, SPEED_DIAL_HEIGHT,
-            all_show_ids if all_show_ids else None
+            all_show_ids if all_show_ids else None,
+            speed_dial_bg, speed_dial_fg
         )
         widget_id += 1
 
