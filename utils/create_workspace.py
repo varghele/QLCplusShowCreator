@@ -24,6 +24,7 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
             - movement_presets: bool - Include movement EFX patterns
             - show_buttons: bool - Include show trigger buttons in SoloFrame
             - speed_dial: bool - Include tap BPM SpeedDial
+            - master_presets: bool - Include master presets (scenes/chasers for all fixtures)
             - dark_mode: bool - Use dark/black background
     """
     # Set up base dir
@@ -92,7 +93,8 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
             include_movement=vc_options.get('movement_presets', True)
         )
 
-        # Generate master presets (scenes and chasers for all fixtures)
+    # Generate master presets (scenes and chasers for all fixtures)
+    if vc_options and vc_options.get('generate_vc') and vc_options.get('master_presets'):
         master_presets, function_id_counter = create_master_presets(
             engine, function_id_counter, config, fixture_id_map, fixture_definitions
         )

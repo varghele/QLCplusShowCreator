@@ -102,6 +102,18 @@ class WorkspaceOptionsDialog(QDialog):
         )
         sub_layout.addWidget(self.speed_dial_checkbox)
 
+        # Master presets
+        self.master_presets_checkbox = QCheckBox("Master presets (scenes/chasers for all fixtures)")
+        self.master_presets_checkbox.setChecked(True)
+        self.master_presets_checkbox.setToolTip(
+            "Creates master preset functions that control all fixtures:\n"
+            "- Scenes: All Warm White, Red Wash, Blue Wash, Purple Wash, Rainbow\n"
+            "- Chasers: Party (16 beats), Pulse (4 beats), Sparkle (1 beat)\n"
+            "- Movement: Sweep All (8 beats), Circle All (8 beats)\n"
+            "All synced to Tap BPM SpeedDial."
+        )
+        sub_layout.addWidget(self.master_presets_checkbox)
+
         vc_layout.addWidget(self.sub_options_widget)
         layout.addWidget(vc_group)
 
@@ -146,6 +158,7 @@ class WorkspaceOptionsDialog(QDialog):
                 - movement_presets: bool - Include movement EFX patterns
                 - show_buttons: bool - Include show trigger buttons
                 - speed_dial: bool - Include tap BPM SpeedDial
+                - master_presets: bool - Include master presets for all fixtures
                 - dark_mode: bool - Use dark/black background
         """
         return {
@@ -155,5 +168,6 @@ class WorkspaceOptionsDialog(QDialog):
             'movement_presets': self.movement_presets_checkbox.isChecked(),
             'show_buttons': self.show_buttons_checkbox.isChecked(),
             'speed_dial': self.speed_dial_checkbox.isChecked(),
+            'master_presets': self.master_presets_checkbox.isChecked(),
             'dark_mode': self.dark_mode_checkbox.isChecked(),
         }
