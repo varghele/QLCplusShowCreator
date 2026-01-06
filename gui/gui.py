@@ -12,6 +12,7 @@ from utils.create_workspace import create_qlc_workspace
 from gui.Ui_MainWindow import Ui_MainWindow
 from gui.tabs import ConfigurationTab, FixturesTab, ShowsTab, StageTab, StructureTab
 from gui.audio_settings_dialog import AudioSettingsDialog
+from gui.dialogs.workspace_options_dialog import WorkspaceOptionsDialog
 from gui.progress_manager import ProgressManager, set_progress_manager
 from timeline_ui.riff_browser_widget import RiffBrowserWidget
 from riffs.riff_library import RiffLibrary
@@ -73,10 +74,36 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.artnet_status_indicator.setText("ON")
             self.artnet_status_indicator.setStyleSheet("font-weight: bold; color: #4CAF50;")
             self.artnet_status_indicator.setToolTip("ArtNet DMX Output: Enabled")
+            self.artnet_toggle_btn.setStyleSheet("""
+                QPushButton {
+                    font-size: 14px;
+                    color: #4CAF50;
+                    background-color: transparent;
+                    border: 1px solid #4CAF50;
+                    border-radius: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #2E4A2E;
+                }
+            """)
+            self.artnet_toggle_btn.setToolTip("Click to disable ArtNet")
         else:
             self.artnet_status_indicator.setText("OFF")
             self.artnet_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
             self.artnet_status_indicator.setToolTip("ArtNet DMX Output: Disabled")
+            self.artnet_toggle_btn.setStyleSheet("""
+                QPushButton {
+                    font-size: 14px;
+                    color: #666;
+                    background-color: transparent;
+                    border: 1px solid #555;
+                    border-radius: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #444;
+                }
+            """)
+            self.artnet_toggle_btn.setToolTip("Click to enable ArtNet")
 
         # Update TCP status
         tcp_server = getattr(self.shows_tab, 'tcp_server', None)
@@ -87,14 +114,115 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.tcp_status_indicator.setText(f"{client_count}")
                 self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #4CAF50;")
                 self.tcp_status_indicator.setToolTip(f"TCP Visualizer Server: {client_count} client(s) connected")
+                self.tcp_toggle_btn.setStyleSheet("""
+                    QPushButton {
+                        font-size: 14px;
+                        color: #4CAF50;
+                        background-color: transparent;
+                        border: 1px solid #4CAF50;
+                        border-radius: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #2E4A2E;
+                    }
+                """)
             else:
                 self.tcp_status_indicator.setText("ON")
                 self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #2196F3;")
                 self.tcp_status_indicator.setToolTip("TCP Visualizer Server: Running, no clients")
+                self.tcp_toggle_btn.setStyleSheet("""
+                    QPushButton {
+                        font-size: 14px;
+                        color: #2196F3;
+                        background-color: transparent;
+                        border: 1px solid #2196F3;
+                        border-radius: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #1A3A4A;
+                    }
+                """)
+            self.tcp_toggle_btn.setToolTip("Click to stop Visualizer Server")
         else:
             self.tcp_status_indicator.setText("OFF")
             self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
             self.tcp_status_indicator.setToolTip("TCP Visualizer Server: Not running")
+            self.tcp_toggle_btn.setStyleSheet("""
+                QPushButton {
+                    font-size: 14px;
+                    color: #666;
+                    background-color: transparent;
+                    border: 1px solid #555;
+                    border-radius: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #444;
+                }
+            """)
+            self.tcp_toggle_btn.setToolTip("Click to start Visualizer Server")
+
+    def _toggle_artnet(self):
+        """Toggle ArtNet output via shows tab."""
+        if hasattr(self.shows_tab, 'toggle_artnet'):
+            self.shows_tab.toggle_artnet()
+            self._update_toolbar_status()
+
+    def _toggle_tcp(self):
+        """Toggle TCP server via shows tab."""
+        if hasattr(self.shows_tab, 'toggle_tcp'):
+            # Check if we're about to enable TCP (currently disabled)
+            tcp_enabled = getattr(self.shows_tab, 'tcp_enabled', False)
+
+            if not tcp_enabled:
+                # We're enabling TCP - check if visualizer is running
+                self.shows_tab.toggle_tcp()
+                self._update_toolbar_status()
+
+                # Check if visualizer is connected after a short delay
+                # If no clients, offer to launch visualizer
+                tcp_server = getattr(self.shows_tab, 'tcp_server', None)
+                if tcp_server and tcp_server.is_running():
+                    if tcp_server.get_client_count() == 0:
+                        # No visualizer connected, ask to launch
+                        reply = QMessageBox.question(
+                            self,
+                            "Launch Visualizer?",
+                            "The TCP server is now running but no Visualizer is connected.\n\n"
+                            "Would you like to launch the Visualizer?",
+                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                            QMessageBox.StandardButton.Yes
+                        )
+                        if reply == QMessageBox.StandardButton.Yes:
+                            self._launch_visualizer()
+            else:
+                # We're disabling TCP
+                self.shows_tab.toggle_tcp()
+                self._update_toolbar_status()
+
+    def _launch_visualizer(self):
+        """Launch the 3D Visualizer application."""
+        # Use stage_tab's launch functionality if available
+        if hasattr(self.stage_tab, '_launch_visualizer'):
+            self.stage_tab._launch_visualizer()
+        else:
+            # Fallback: launch directly
+            import subprocess
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            visualizer_path = os.path.join(project_root, "visualizer", "main.py")
+
+            if os.path.exists(visualizer_path):
+                try:
+                    subprocess.Popen(
+                        [sys.executable, visualizer_path],
+                        cwd=project_root
+                    )
+                    print("Visualizer launched")
+                except Exception as e:
+                    QMessageBox.critical(
+                        self,
+                        "Launch Error",
+                        f"Failed to launch Visualizer:\n{str(e)}"
+                    )
 
     def _initialize_paths(self):
         """Initialize project paths"""
@@ -254,6 +382,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.loadAction.triggered.connect(self.load_configuration)
         self.importWorkspaceAction.triggered.connect(self.import_workspace)
         self.createWorkspaceAction.triggered.connect(self.create_workspace)
+
+        # Status toggle button clicks
+        self.artnet_toggle_btn.clicked.connect(self._toggle_artnet)
+        self.tcp_toggle_btn.clicked.connect(self._toggle_tcp)
 
         # File menu actions
         self.actionSaveConfig.triggered.connect(self.save_configuration)
@@ -629,11 +761,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def create_workspace(self):
         """Create QLC+ workspace file from configuration"""
         try:
+            # Show workspace options dialog
+            options_dialog = WorkspaceOptionsDialog(self)
+            if options_dialog.exec() != options_dialog.DialogCode.Accepted:
+                return  # User cancelled
+
+            vc_options = options_dialog.get_options()
+
             # Show progress dialog
             self.progress_manager.start_modal(
                 "Creating Workspace",
                 "Saving configuration...",
-                maximum=3  # Steps: save tabs, create workspace, done
+                maximum=4 if vc_options.get('generate_vc') else 3
             )
 
             # Save all tabs to configuration first
@@ -645,10 +784,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.shows_tab.save_to_config()
 
             # Create workspace
-            self.progress_manager.update_modal(2, "Generating QLC+ workspace XML...")
-            create_qlc_workspace(self.config)
+            if vc_options.get('generate_vc'):
+                self.progress_manager.update_modal(2, "Generating Virtual Console...")
+                self.progress_manager.update_modal(3, "Generating QLC+ workspace XML...")
+            else:
+                self.progress_manager.update_modal(2, "Generating QLC+ workspace XML...")
 
-            self.progress_manager.update_modal(3, "Finalizing...")
+            create_qlc_workspace(self.config, vc_options)
+
+            self.progress_manager.update_modal(
+                4 if vc_options.get('generate_vc') else 3,
+                "Finalizing..."
+            )
             self.progress_manager.finish_modal()
 
             workspace_path = os.path.join(self.project_root, 'workspace.qxw')
@@ -711,14 +858,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Show about dialog"""
         QMessageBox.about(
             self,
-            "About QLCAutoShow",
-            "QLCAutoShow\n\n"
+            "About QLC+ Show Creator",
+            "QLC+ Show Creator\n\n"
             "A tool for creating QLC+ light shows with timeline-based editing.\n\n"
             "Features:\n"
             "- Fixture management and grouping\n"
             "- Stage layout visualization\n"
             "- Timeline-based show editing\n"
             "- Audio playback with waveform display\n"
+            "- Real-time 3D Visualizer preview\n"
             "- QLC+ workspace export"
         )
 

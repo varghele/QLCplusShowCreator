@@ -173,41 +173,6 @@ class ShowsTab(BaseTab):
 
         toolbar.addStretch()
 
-        # ArtNet output toggle (if available)
-        if ARTNET_AVAILABLE:
-            toolbar.addSpacing(20)
-            self.artnet_checkbox = QCheckBox("ArtNet Output")
-            self.artnet_checkbox.setChecked(self.artnet_enabled)
-            self.artnet_checkbox.setToolTip("Enable/disable real-time DMX output via ArtNet")
-            self.artnet_checkbox.setStyleSheet("""
-                QCheckBox {
-                    font-weight: bold;
-                    color: #4CAF50;
-                }
-            """)
-            toolbar.addWidget(self.artnet_checkbox)
-
-        # TCP Visualizer server toggle (if available)
-        if TCP_AVAILABLE:
-            toolbar.addSpacing(20)
-            self.tcp_checkbox = QCheckBox("Visualizer Server")
-            self.tcp_checkbox.setChecked(self.tcp_enabled)
-            self.tcp_checkbox.setToolTip("Enable/disable TCP server for Visualizer")
-            self.tcp_checkbox.setStyleSheet("""
-                QCheckBox {
-                    font-weight: bold;
-                    color: #2196F3;
-                }
-            """)
-            toolbar.addWidget(self.tcp_checkbox)
-
-            # Connection status indicator
-            self.tcp_status_label = QLabel("●")
-            self.tcp_status_label.setFixedWidth(20)
-            self.tcp_status_label.setToolTip("TCP Server Status")
-            self.tcp_status_label.setStyleSheet("color: #666; font-size: 16px;")
-            toolbar.addWidget(self.tcp_status_label)
-
         # Save button
         self.save_btn = QPushButton("Save")
         self.save_btn.setStyleSheet("""
@@ -323,14 +288,6 @@ class ShowsTab(BaseTab):
         self.audio_lane.zoom_changed.connect(self._on_external_zoom_changed)
         self.audio_lane.playhead_moved.connect(self._on_playhead_moved)
         self.audio_lane.audio_file_changed.connect(self._on_audio_file_loaded)
-
-        # ArtNet checkbox
-        if ARTNET_AVAILABLE and hasattr(self, 'artnet_checkbox'):
-            self.artnet_checkbox.toggled.connect(self._on_artnet_toggle)
-
-        # TCP checkbox
-        if TCP_AVAILABLE and hasattr(self, 'tcp_checkbox'):
-            self.tcp_checkbox.toggled.connect(self._on_tcp_toggle)
 
     def update_from_config(self):
         """Refresh timeline from configuration."""
@@ -911,8 +868,16 @@ class ShowsTab(BaseTab):
                 traceback.print_exc()
                 self.artnet_controller = None
 
+    def toggle_artnet(self):
+        """Toggle ArtNet output on/off. Called from MainWindow toolbar."""
+        self._on_artnet_toggle(not self.artnet_enabled)
+
+    def toggle_tcp(self):
+        """Toggle TCP server on/off. Called from MainWindow toolbar."""
+        self._on_tcp_toggle(not self.tcp_enabled)
+
     def _on_artnet_toggle(self, checked: bool):
-        """Handle ArtNet checkbox toggle."""
+        """Handle ArtNet toggle."""
         self.artnet_enabled = checked
 
         if checked:
@@ -952,7 +917,6 @@ class ShowsTab(BaseTab):
                 # Start server if enabled
                 if self.tcp_enabled:
                     self.tcp_server.start()
-                    self._update_tcp_status()
 
                 print("TCP server initialized")
 
@@ -963,7 +927,7 @@ class ShowsTab(BaseTab):
                 self.tcp_server = None
 
     def _on_tcp_toggle(self, checked: bool):
-        """Handle TCP server checkbox toggle."""
+        """Handle TCP server toggle."""
         self.tcp_enabled = checked
 
         if checked:
@@ -972,46 +936,22 @@ class ShowsTab(BaseTab):
                 self._init_tcp_server()
             elif self.tcp_server and not self.tcp_server.is_running():
                 self.tcp_server.start()
-                self._update_tcp_status()
         else:
             # Stop server
             if self.tcp_server and self.tcp_server.is_running():
                 self.tcp_server.stop()
-                self._update_tcp_status()
 
     def _on_tcp_client_connected(self, client_addr: str):
         """Handle TCP client connection."""
         print(f"Visualizer connected: {client_addr}")
-        self._update_tcp_status()
 
     def _on_tcp_client_disconnected(self, client_addr: str):
         """Handle TCP client disconnection."""
         print(f"Visualizer disconnected: {client_addr}")
-        self._update_tcp_status()
 
     def _on_tcp_error(self, error_msg: str):
         """Handle TCP server error."""
         print(f"TCP server error: {error_msg}")
-
-    def _update_tcp_status(self):
-        """Update TCP status indicator."""
-        if not TCP_AVAILABLE or not hasattr(self, 'tcp_status_label'):
-            return
-
-        if self.tcp_server and self.tcp_server.is_running():
-            client_count = self.tcp_server.get_client_count()
-            if client_count > 0:
-                # Green: Server running with clients
-                self.tcp_status_label.setStyleSheet("color: #4CAF50; font-size: 16px;")
-                self.tcp_status_label.setToolTip(f"TCP Server: {client_count} client(s) connected")
-            else:
-                # Blue: Server running, no clients
-                self.tcp_status_label.setStyleSheet("color: #2196F3; font-size: 16px;")
-                self.tcp_status_label.setToolTip("TCP Server: Running, no clients")
-        else:
-            # Gray: Server not running
-            self.tcp_status_label.setStyleSheet("color: #666; font-size: 16px;")
-            self.tcp_status_label.setToolTip("TCP Server: Not running")
 
     def cleanup(self):
         """Clean up audio and ArtNet resources."""
