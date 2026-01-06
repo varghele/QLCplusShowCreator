@@ -80,11 +80,11 @@ class LightBlockWidget(QWidget):
 
     def _get_display_name(self) -> str:
         """Get display name for the block."""
-        name = "No Effect"
-        if self.block.effect_name:
-            # Show just the function name, not the module
-            parts = self.block.effect_name.split('.')
-            name = parts[-1] if parts else self.block.effect_name
+        # Use custom name if set, otherwise default to "base"
+        if self.block.name:
+            name = self.block.name
+        else:
+            name = "base"
 
         # Add asterisk if modified
         if self.block.modified:
@@ -1401,8 +1401,8 @@ class LightBlockWidget(QWidget):
 
             menu.addSeparator()
 
-        edit_action = menu.addAction("Edit Effect Envelope...")
-        edit_action.triggered.connect(self.open_effect_dialog)
+        set_name_action = menu.addAction("Set Name...")
+        set_name_action.triggered.connect(self.set_block_name)
 
         menu.addSeparator()
 
@@ -1448,6 +1448,27 @@ class LightBlockWidget(QWidget):
         # Show save dialog
         dialog = SaveRiffDialog(self.block, bpm, riff_library, parent=self)
         dialog.exec()
+
+    def set_block_name(self):
+        """Set or change the custom name for this effect block."""
+        from PyQt6.QtWidgets import QInputDialog
+
+        # Get current name (or empty string if None)
+        current_name = self.block.name if self.block.name else ""
+
+        # Show input dialog
+        name, ok = QInputDialog.getText(
+            self,
+            "Set Effect Name",
+            "Enter name for this effect block:",
+            text=current_name
+        )
+
+        if ok:
+            # Set name (or None if empty)
+            self.block.name = name if name.strip() else None
+            self.update_display()
+            self.block_edited.emit()  # Trigger auto-save
 
     def open_effect_dialog(self):
         """Open the effect editor dialog for the envelope."""
