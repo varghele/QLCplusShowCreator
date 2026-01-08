@@ -349,7 +349,7 @@ class OrientationPreviewWidget(QOpenGLWidget):
         self._release_fixture_vaos()
 
         # Create geometry based on type
-        if self.fixture_type == "BAR":
+        if self.fixture_type in ("BAR", "PIXELBAR"):
             self._create_led_bar_geometry()
         elif self.fixture_type == "SUNSTRIP":
             self._create_sunstrip_geometry()
@@ -1478,7 +1478,7 @@ class OrientationPreviewWidget(QOpenGLWidget):
             self._render_moving_head(mvp, fixture_transform)
         elif self.fixture_type == "PAR":
             self._render_par(mvp, fixture_transform)
-        elif self.fixture_type == "BAR":
+        elif self.fixture_type in ("BAR", "PIXELBAR"):
             self._render_led_bar(mvp, fixture_transform)
         elif self.fixture_type == "SUNSTRIP":
             self._render_sunstrip(mvp, fixture_transform)
