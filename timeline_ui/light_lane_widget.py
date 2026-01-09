@@ -185,6 +185,13 @@ class LightLaneWidget(QFrame):
                 border-top: 5px solid white;
                 margin-right: 5px;
             }
+            QComboBox QAbstractItemView {
+                background-color: #3d3d3d;
+                color: white;
+                selection-background-color: #555;
+                selection-color: white;
+                border: 1px solid #555;
+            }
         """)
         group_layout.addWidget(self.group_combo, 1)
 
