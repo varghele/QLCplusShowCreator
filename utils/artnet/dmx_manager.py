@@ -308,9 +308,8 @@ class DMXManager:
         Args:
             current_time: Current playback time in seconds
         """
-        # Set all fixtures to visible state first (instead of clearing to 0)
-        # This ensures fixtures not actively controlled remain visible
-        self.set_fixtures_visible()
+        # Clear all DMX values first - only fixtures with active blocks should be lit
+        self.clear_all_dmx()
 
         # Process each fixture group
         for group_name, group in self.config.groups.items():
@@ -335,15 +334,17 @@ class DMXManager:
                 special_block, _ = active['special']
 
             # Apply blocks to each fixture in the group
-            for fixture in group.fixtures:
+            total_fixtures = len(group.fixtures)
+            for fixture_index, fixture in enumerate(group.fixtures):
                 if fixture.name not in self.fixture_maps:
                     continue
 
                 fixture_map = self.fixture_maps[fixture.name]
 
-                # Apply dimmer block
+                # Apply dimmer block (pass fixture position for group-based effects)
                 if dimmer_block:
-                    self._apply_dimmer_block(fixture_map, dimmer_block, current_time)
+                    self._apply_dimmer_block(fixture_map, dimmer_block, current_time,
+                                            fixture_index, total_fixtures)
 
                 # Apply colour block
                 if colour_block:
@@ -357,8 +358,22 @@ class DMXManager:
                 if special_block:
                     self._apply_special_block(fixture_map, special_block, current_time)
 
-    def _apply_dimmer_block(self, fixture_map: FixtureChannelMap, block: DimmerBlock, current_time: float):
-        """Apply dimmer block to fixture channels."""
+    def _apply_dimmer_block(self, fixture_map: FixtureChannelMap, block: DimmerBlock, current_time: float,
+                            fixture_index: int = 0, total_fixtures: int = 1):
+        """Apply dimmer block to fixture channels.
+
+        Args:
+            fixture_map: Channel mapping for this fixture
+            block: DimmerBlock with effect settings
+            current_time: Current playback time in seconds
+            fixture_index: This fixture's index within the group (for group effects)
+            total_fixtures: Total fixtures in the group (for group effects)
+        """
+        # Clear any previous twinkle segment intensities
+        # (will be set again if effect_type is twinkle)
+        if hasattr(fixture_map, '_twinkle_segment_intensities'):
+            delattr(fixture_map, '_twinkle_segment_intensities')
+
         # Calculate current intensity based on effect type
         intensity = block.intensity
 
@@ -374,21 +389,184 @@ class DMXManager:
             # 50% duty cycle
             intensity = block.intensity if phase < 0.5 else 0
 
-        elif block.effect_type == "twinkle":
-            # Twinkle: random variation
-            # Use time-based seed for smooth variation
-            import random
-            random.seed(int(current_time * 10))
-            variation = random.random() * 0.3
-            intensity = block.intensity * (0.7 + variation)
+            # Set all dimmer channels to same intensity for strobe
+            for ch_offset in fixture_map.dimmer_channels:
+                universe, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, int(intensity))
 
-        # Set dimmer channels
-        for ch_offset in fixture_map.dimmer_channels:
-            universe, channel = fixture_map.get_absolute_address(ch_offset)
-            self.set_dmx_value(universe, channel, int(intensity))
+        elif block.effect_type == "twinkle":
+            # Twinkle: each segment/channel gets independent random intensity
+            # With SMOOTH transitions between intensity values
+            import random
+            import hashlib
+
+            speed_multiplier = self._parse_speed(block.effect_speed)
+            time_in_block = current_time - block.start_time
+
+            # Time per "twinkle step" - how often a new random target is chosen
+            twinkle_step_duration = 0.2 / speed_multiplier  # 200ms base, adjusted by speed
+
+            # Calculate current and next step for interpolation
+            step_float = time_in_block / twinkle_step_duration
+            current_step = int(step_float)
+            next_step = current_step + 1
+            # How far through the transition (0.0 to 1.0)
+            transition_progress = step_float - current_step
+
+            # Check if this is a pixelbar type (has RGBW segments but limited dimmers)
+            fixture_type = getattr(fixture_map.fixture, 'type', '')
+            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
+
+            # For pixelbars: control RGBW segments, keep master dimmer at set intensity
+            # For other fixtures: control dimmer channels
+            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
+                # Set master dimmer to full intensity
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, int(block.intensity))
+
+                # Twinkle each SEGMENT independently (not individual RGBW channels)
+                # Each segment's R,G,B,W should scale together to maintain color
+                # Determine number of segments from the color channels
+                num_segments = max(
+                    len(fixture_map.red_channels),
+                    len(fixture_map.green_channels),
+                    len(fixture_map.blue_channels),
+                    len(fixture_map.white_channels),
+                    1
+                )
+
+                # Calculate intensity multiplier for each segment
+                segment_intensities = []
+                for seg_idx in range(num_segments):
+                    # Get current target intensity for this segment
+                    seed_str = f"{fixture_map.fixture.name}_seg{seg_idx}_{current_step}"
+                    seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+                    random.seed(seed_hash)
+                    current_variation = random.random() * 0.7 + 0.3
+
+                    # Get next target intensity for this segment
+                    seed_str = f"{fixture_map.fixture.name}_seg{seg_idx}_{next_step}"
+                    seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+                    random.seed(seed_hash)
+                    next_variation = random.random() * 0.7 + 0.3
+
+                    # Smooth interpolation
+                    t = transition_progress
+                    smooth_t = t * t * (3 - 2 * t)
+                    variation = current_variation + (next_variation - current_variation) * smooth_t
+                    segment_intensities.append(variation)
+
+                # Store segment intensities in fixture_map for use by colour_block
+                # This allows the colour block to scale its values by the twinkle factor
+                fixture_map._twinkle_segment_intensities = segment_intensities
+            else:
+                # Regular fixtures: twinkle the dimmer channels
+                for idx, ch_offset in enumerate(fixture_map.dimmer_channels):
+                    # Get current target intensity (seeded by step)
+                    seed_str = f"{fixture_map.fixture.name}_{idx}_{current_step}"
+                    seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+                    random.seed(seed_hash)
+                    current_variation = random.random() * 0.7 + 0.3
+
+                    # Get next target intensity
+                    seed_str = f"{fixture_map.fixture.name}_{idx}_{next_step}"
+                    seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+                    random.seed(seed_hash)
+                    next_variation = random.random() * 0.7 + 0.3
+
+                    # Smooth interpolation between current and next
+                    t = transition_progress
+                    smooth_t = t * t * (3 - 2 * t)  # Smoothstep function
+                    variation = current_variation + (next_variation - current_variation) * smooth_t
+
+                    channel_intensity = int(block.intensity * variation)
+
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, channel_intensity)
+
+        elif block.effect_type == "ping_pong_smooth":
+            # Ping pong smooth: one fixture lights up at a time, bouncing back and forth
+            # INSTANT attack (on the beat), smooth fade out until next fixture
+            speed_multiplier = self._parse_speed(block.effect_speed)
+            time_in_block = current_time - block.start_time
+
+            # Get BPM for timing
+            if self.song_structure:
+                bpm = self.song_structure.get_bpm_at_time(current_time)
+            else:
+                bpm = 120.0
+
+            # Calculate timing: each fixture gets one beat at speed 1
+            seconds_per_beat = 60.0 / bpm
+            time_per_fixture = seconds_per_beat / speed_multiplier
+
+            if total_fixtures <= 1:
+                # Single fixture - just stay on
+                intensity = int(block.intensity)
+            else:
+                # Total time for one full ping-pong cycle (0→N-1→0)
+                # For N fixtures: N-1 steps forward, N-1 steps back = 2*(N-1) beats
+                steps_in_cycle = (total_fixtures - 1) * 2
+                cycle_time = time_per_fixture * steps_in_cycle
+
+                # Get current time within the cycle
+                time_in_cycle = time_in_block % cycle_time
+
+                # Which "step" are we on? (each step = one fixture's turn)
+                current_step = time_in_cycle / time_per_fixture
+                step_index = int(current_step)
+                time_within_step = (current_step - step_index) * time_per_fixture
+
+                # Convert step index to fixture index (ping-pong pattern)
+                # Steps 0,1,2,...,N-2 go forward (fixtures 0,1,2,...,N-1)
+                # Steps N-1,N,...,2N-3 go backward (fixtures N-2,N-3,...,1)
+                if step_index < (total_fixtures - 1):
+                    # Going forward
+                    active_fixture = step_index
+                else:
+                    # Going backward
+                    active_fixture = steps_in_cycle - step_index
+
+                # Calculate intensity for this fixture
+                if fixture_index == active_fixture:
+                    # This is the active fixture - instant full brightness
+                    # with smooth decay over the beat
+                    # Decay: start at 100%, end at ~20% by end of beat
+                    decay_progress = time_within_step / time_per_fixture
+                    # Use exponential decay for smooth falloff
+                    intensity = int(block.intensity * (0.2 + 0.8 * math.exp(-decay_progress * 3)))
+                elif fixture_index == (active_fixture - 1) or fixture_index == (active_fixture + 1):
+                    # Adjacent fixture - might have residual glow from previous beat
+                    # Only show tail if we just left this fixture
+                    prev_fixture = active_fixture - 1 if step_index < (total_fixtures - 1) else active_fixture + 1
+                    if fixture_index == prev_fixture and time_within_step < time_per_fixture * 0.3:
+                        # Short tail from previous fixture (first 30% of beat only)
+                        tail_progress = time_within_step / (time_per_fixture * 0.3)
+                        intensity = int(block.intensity * 0.3 * (1.0 - tail_progress))
+                    else:
+                        intensity = 0
+                else:
+                    # Not active, not adjacent - off
+                    intensity = 0
+
+            # Set all dimmer channels for this fixture
+            for ch_offset in fixture_map.dimmer_channels:
+                universe, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, intensity)
+
+        else:
+            # Default: static intensity for all channels
+            for ch_offset in fixture_map.dimmer_channels:
+                universe, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, int(intensity))
 
     def _apply_colour_block(self, fixture_map: FixtureChannelMap, block: ColourBlock, current_time: float):
         """Apply colour block to fixture channels."""
+        # Check if twinkle effect has stored segment intensities for this fixture
+        # If so, scale color values per segment for pixelbar twinkle effect
+        twinkle_intensities = getattr(fixture_map, '_twinkle_segment_intensities', None)
+
         # Set RGB/RGBW channels
         color_mapping = [
             (fixture_map.red_channels, block.red),
@@ -404,9 +582,14 @@ class DMXManager:
         ]
 
         for channels, value in color_mapping:
-            for ch_offset in channels:
+            for idx, ch_offset in enumerate(channels):
+                # If twinkle intensities exist, scale the color value per segment
+                if twinkle_intensities and idx < len(twinkle_intensities):
+                    scaled_value = int(value * twinkle_intensities[idx])
+                else:
+                    scaled_value = int(value)
                 universe, channel = fixture_map.get_absolute_address(ch_offset)
-                self.set_dmx_value(universe, channel, int(value))
+                self.set_dmx_value(universe, channel, scaled_value)
 
         # Set color wheel if fixture has one
         if fixture_map.color_wheel_channels:
