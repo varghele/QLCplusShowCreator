@@ -406,10 +406,12 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
             result['gobo_wheel'] = gobo_wheel_entries
             print(f"  Parsed {len(gobo_wheel_entries)} gobo wheel entries")
 
-        # Parse each mode's channel mapping
+        # Parse each mode's channel mapping and Head tags (for pixel segments)
         modes = _findall_elements(root, './/Mode', ns)
         if not modes:
             modes = [elem for elem in root.iter() if elem.tag.endswith('Mode') and elem.get('Name')]
+
+        result['pixel_segments'] = {}  # mode_name -> list of segment channel lists
 
         for mode in modes:
             mode_name_attr = mode.get('Name', '')
@@ -419,9 +421,12 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
             if not mode_channel_elems:
                 mode_channel_elems = [elem for elem in mode if elem.tag.endswith('Channel')]
 
+            # Build channel number -> name mapping for this mode
+            channel_num_to_name = {}
             for ch_elem in mode_channel_elems:
                 ch_num = int(ch_elem.get('Number', 0))
                 ch_name = ch_elem.text or ''
+                channel_num_to_name[ch_num] = ch_name
 
                 # Get preset from channel definition
                 preset = channel_presets.get(ch_name, '')
@@ -433,7 +438,57 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
 
             result['modes'][mode_name_attr] = mode_channels
 
+            # Parse Head tags for pixel segment mapping
+            # Each Head contains channel numbers for one segment (RGBW)
+            heads = _findall_elements(mode, 'Head', ns)
+            if not heads:
+                heads = [elem for elem in mode if elem.tag.endswith('Head')]
+
+            if heads:
+                segments = []
+                for head in heads:
+                    # Get channel numbers in this head
+                    head_channels = _findall_elements(head, 'Channel', ns)
+                    if not head_channels:
+                        head_channels = [elem for elem in head if elem.tag.endswith('Channel')]
+
+                    segment_data = {'channels': [], 'red': None, 'green': None, 'blue': None, 'white': None}
+                    for ch_elem in head_channels:
+                        ch_num = int(ch_elem.text) if ch_elem.text else 0
+                        segment_data['channels'].append(ch_num)
+
+                        # Determine color function from channel name
+                        ch_name = channel_num_to_name.get(ch_num, '')
+                        ch_name_lower = ch_name.lower()
+                        if 'red' in ch_name_lower:
+                            segment_data['red'] = ch_num
+                        elif 'green' in ch_name_lower:
+                            segment_data['green'] = ch_num
+                        elif 'blue' in ch_name_lower:
+                            segment_data['blue'] = ch_num
+                        elif 'white' in ch_name_lower:
+                            segment_data['white'] = ch_num
+
+                    segments.append(segment_data)
+
+                result['pixel_segments'][mode_name_attr] = segments
+
         # Refine fixture type based on channel analysis for LED bar types
+        # Check for PIXELBAR: multi-segment with per-segment RGBW control
+        if result['fixture_type'] == 'BAR' and result['layout']['width'] > 1:
+            # Multi-segment bar - check if it has per-segment RGBW channels
+            # This makes it a PIXELBAR, not a simple BAR
+            import re
+            has_pixel_channels = False
+            for ch_name in channel_presets.keys():
+                if re.search(r'(Red|Green|Blue|White)\s+(LED\s+)?\d+', ch_name):
+                    has_pixel_channels = True
+                    break
+
+            if has_pixel_channels:
+                result['fixture_type'] = 'PIXELBAR'
+
+        # For non-PIXELBAR types, apply legacy logic
         if result['fixture_type'] == 'BAR':
             # Check if it has RGB channels and/or dimmer
             has_rgb = False
@@ -447,8 +502,9 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
                 if has_rgb and has_dimmer:
                     break
 
-            # RGB + dimmer = WASH fixture, not a simple LED bar
-            if has_rgb and has_dimmer:
+            # Single-segment RGB + dimmer = WASH fixture
+            # Multi-segment is already handled as PIXELBAR above
+            if has_rgb and has_dimmer and result['layout']['width'] == 1:
                 result['fixture_type'] = 'WASH'
             elif not has_rgb:
                 # No RGB = dimmer-only sunstrip
@@ -598,7 +654,9 @@ class VisualizerProtocol:
                 "tilt_max": qxf_data.get('tilt_max', 0.0),
                 "channel_mapping": qxf_data.get('channel_mapping', {}),
                 "color_wheel": qxf_data.get('color_wheel', []),
-                "gobo_wheel": qxf_data.get('gobo_wheel', [])
+                "gobo_wheel": qxf_data.get('gobo_wheel', []),
+                # Per-segment channel mapping for PIXELBAR fixtures
+                "pixel_segments": qxf_data.get('pixel_segments', {}).get(fixture.current_mode, [])
             }
             fixtures_data.append(fixture_info)
 
