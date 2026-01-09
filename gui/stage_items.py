@@ -72,7 +72,7 @@ class FixtureItem(QGraphicsItem):
         painter.translate(0, 0)  # Translate to center point
         # For bar-type fixtures, calculate 2D rotation from full 3D orientation
         # This correctly projects the fixture's length onto the top-down view
-        if self.fixture_type in ("BAR", "SUNSTRIP"):
+        if self.fixture_type in ("BAR", "PIXELBAR", "SUNSTRIP"):
             rotation_2d = self._get_2d_rotation_angle()
             painter.rotate(rotation_2d)
         else:
@@ -101,6 +101,30 @@ class FixtureItem(QGraphicsItem):
             bar_height = self.size / 3
             bar_width = self.size * 2
             painter.drawRect(QRectF(-self.size, -bar_height / 2, bar_width, bar_height))
+        elif self.fixture_type == "PIXELBAR":
+            # Pixel Bar - elongated rectangle with colored segment squares (like LED bar but with visible pixels)
+            bar_height = self.size / 3
+            bar_width = self.size * 2
+            painter.drawRect(QRectF(-self.size, -bar_height / 2, bar_width, bar_height))
+            # Draw pixel segment squares inside the bar
+            segment_count = 6  # Simplified visual representation
+            segment_spacing = (bar_width * 0.85) / segment_count
+            start_x = -self.size * 0.85 + segment_spacing / 2
+            segment_size = segment_spacing * 0.7
+            # Use alternating colors to indicate per-pixel control capability
+            colors = [QColor(255, 100, 100), QColor(100, 255, 100), QColor(100, 100, 255),
+                     QColor(255, 255, 100), QColor(255, 100, 255), QColor(100, 255, 255)]
+            for i in range(segment_count):
+                seg_x = start_x + i * segment_spacing - segment_size / 2
+                painter.setBrush(QBrush(colors[i % len(colors)]))
+                painter.drawRect(QRectF(seg_x, -segment_size / 2, segment_size, segment_size))
+            # Restore original brush
+            if self.isSelected():
+                selected_color = QColor(self.channel_color)
+                selected_color.setAlpha(160)
+                painter.setBrush(QBrush(selected_color))
+            else:
+                painter.setBrush(QBrush(QColor(self.channel_color)))
         elif self.fixture_type == "SUNSTRIP":
             # Sunstrip - elongated rectangle with lamp circles
             bar_height = self.size / 3

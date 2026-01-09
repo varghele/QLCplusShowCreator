@@ -1437,6 +1437,307 @@ class LEDBarRenderer(FixtureRenderer):
                 obj.release()
 
 
+class PixelBarRenderer(FixtureRenderer):
+    """
+    Renderer for pixel-controlled LED bar fixtures with per-segment RGBW control.
+
+    Unlike LEDBarRenderer which uses single RGBW values for all segments,
+    PixelBarRenderer reads individual RGBW channels for each segment from DMX,
+    allowing full per-pixel control like the Varytec Giga Bar 5.
+    """
+
+    BODY_COLOR = (0.15, 0.15, 0.18)
+
+    def __init__(self, ctx: moderngl.Context, fixture_data: Dict[str, Any]):
+        super().__init__(ctx, fixture_data)
+
+        # Parse pixel segment channel mappings from fixture data
+        # Format: [{'red': ch_num, 'green': ch_num, 'blue': ch_num, 'white': ch_num}, ...]
+        self.pixel_segments = fixture_data.get('pixel_segments', [])
+
+        # If no pixel_segments provided, fall back to layout-based sequential channels
+        if not self.pixel_segments and self.segment_cols > 1:
+            # Assume RGBW sequential for each segment
+            self._generate_sequential_pixel_segments()
+
+        # Store per-segment colors (RGBW tuples normalized 0-1)
+        self.segment_colors = [(0.0, 0.0, 0.0, 0.0)] * self.segment_cols
+
+        self._create_geometry()
+        self._create_segment_beams()
+
+    def _generate_sequential_pixel_segments(self):
+        """Generate sequential RGBW channel mappings for segments."""
+        self.pixel_segments = []
+        # Assume layout: Segment1(R,G,B,W), Segment2(R,G,B,W), ...
+        for i in range(self.segment_cols):
+            base_ch = i * 4  # 4 channels per segment (RGBW)
+            self.pixel_segments.append({
+                'red': base_ch,
+                'green': base_ch + 1,
+                'blue': base_ch + 2,
+                'white': base_ch + 3
+            })
+
+    def _create_geometry(self):
+        """Create bar body and segment geometry."""
+        # Create shader program
+        self.program = self.ctx.program(
+            vertex_shader=FIXTURE_VERTEX_SHADER,
+            fragment_shader=FIXTURE_FRAGMENT_SHADER
+        )
+
+        # Create bar body (housing)
+        body_verts, body_norms = GeometryBuilder.create_box(
+            self.width, self.height, self.depth
+        )
+
+        self.vbo = self.ctx.buffer(body_verts.tobytes())
+        self.nbo = self.ctx.buffer(body_norms.tobytes())
+
+        self.vao = self.ctx.vertex_array(
+            self.program,
+            [
+                (self.vbo, '3f', 'in_position'),
+                (self.nbo, '3f', 'in_normal'),
+            ]
+        )
+        self.body_vertex_count = len(body_verts) // 3
+
+        # Create individual segment geometry (each segment rendered separately for per-pixel color)
+        segment_width = (self.width * 0.9) / self.segment_cols
+        segment_height = self.height * 0.6
+        segment_depth = 0.01  # Thin emitter surface
+
+        self.segment_vaos = []
+        self.segment_vbos = []
+        self.segment_nbos = []
+
+        start_x = -self.width * 0.45 + segment_width / 2
+
+        for i in range(self.segment_cols):
+            x_offset = start_x + i * segment_width
+            verts, norms = GeometryBuilder.create_box(
+                segment_width * 0.85,
+                segment_height,
+                segment_depth,
+                center=(x_offset, 0, self.depth / 2 + segment_depth / 2)
+            )
+
+            vbo = self.ctx.buffer(np.array(verts, dtype='f4').tobytes())
+            nbo = self.ctx.buffer(np.array(norms, dtype='f4').tobytes())
+
+            vao = self.ctx.vertex_array(
+                self.program,
+                [
+                    (vbo, '3f', 'in_position'),
+                    (nbo, '3f', 'in_normal'),
+                ]
+            )
+
+            self.segment_vbos.append(vbo)
+            self.segment_nbos.append(nbo)
+            self.segment_vaos.append(vao)
+
+        # Store segment dimensions for beam creation
+        self.segment_width = segment_width
+        self.segment_height = segment_height
+        self.segment_start_x = start_x
+
+    def _create_segment_beams(self):
+        """Create per-segment rectangular beams (one VAO per segment for individual colors)."""
+        self.beam_program = self.ctx.program(
+            vertex_shader=BEAM_VERTEX_SHADER,
+            fragment_shader=BEAM_FRAGMENT_SHADER
+        )
+
+        beam_length = 0.3  # Max 0.3m
+        beam_width = self.segment_width * 0.7
+        beam_height = self.segment_height * 0.7
+
+        self.segment_beam_vaos = []
+        self.segment_beam_vbos = []
+        self.segment_beam_abos = []
+
+        for i in range(self.segment_cols):
+            x_offset = self.segment_start_x + i * self.segment_width
+            base_verts, base_alphas = GeometryBuilder.create_beam_box(
+                beam_width, beam_height, beam_length
+            )
+
+            # Translate beam to segment position
+            beam_verts = []
+            for j in range(0, len(base_verts), 3):
+                x, y, z = base_verts[j], base_verts[j+1], base_verts[j+2]
+                new_x = x + x_offset
+                new_y = y
+                new_z = z + self.depth / 2 + 0.02
+                beam_verts.extend([new_x, new_y, new_z])
+
+            vbo = self.ctx.buffer(np.array(beam_verts, dtype='f4').tobytes())
+            abo = self.ctx.buffer(np.array(base_alphas, dtype='f4').tobytes())
+
+            vao = self.ctx.vertex_array(
+                self.beam_program,
+                [
+                    (vbo, '3f', 'in_position'),
+                    (abo, '1f', 'in_alpha'),
+                ]
+            )
+
+            self.segment_beam_vbos.append(vbo)
+            self.segment_beam_abos.append(abo)
+            self.segment_beam_vaos.append(vao)
+
+    def update_dmx(self, dmx_data: bytes):
+        """Update DMX values and calculate per-segment colors."""
+        super().update_dmx(dmx_data)
+
+        # Get master dimmer (if any)
+        master_dimmer = self.dmx_values.get('dimmer', 255) / 255.0
+
+        # Update per-segment colors from pixel_segments channel mapping
+        base_address = self.address - 1  # Convert to 0-indexed
+
+        new_colors = []
+        for i, segment in enumerate(self.pixel_segments):
+            if i >= self.segment_cols:
+                break
+
+            # Get RGBW channel indices relative to fixture address
+            r_ch = segment.get('red')
+            g_ch = segment.get('green')
+            b_ch = segment.get('blue')
+            w_ch = segment.get('white')
+
+            # Read DMX values for this segment
+            r = dmx_data[base_address + r_ch] / 255.0 if r_ch is not None and base_address + r_ch < 512 else 0.0
+            g = dmx_data[base_address + g_ch] / 255.0 if g_ch is not None and base_address + g_ch < 512 else 0.0
+            b = dmx_data[base_address + b_ch] / 255.0 if b_ch is not None and base_address + b_ch < 512 else 0.0
+            w = dmx_data[base_address + w_ch] / 255.0 if w_ch is not None and base_address + w_ch < 512 else 0.0
+
+            # Apply master dimmer
+            r *= master_dimmer
+            g *= master_dimmer
+            b *= master_dimmer
+            w *= master_dimmer
+
+            new_colors.append((r, g, b, w))
+
+        # Pad with zeros if fewer segments parsed than layout width
+        while len(new_colors) < self.segment_cols:
+            new_colors.append((0.0, 0.0, 0.0, 0.0))
+
+        self.segment_colors = new_colors
+
+    def render(self, mvp: glm.mat4):
+        """Render the pixel bar with per-segment colors."""
+        # Reset OpenGL state
+        self.ctx.disable(moderngl.BLEND)
+        self.ctx.depth_mask = True
+
+        model = self.get_model_matrix()
+        final_mvp = mvp * model
+
+        # Convert matrices to bytes
+        mvp_bytes = np.array([x for col in final_mvp.to_list() for x in col], dtype='f4').tobytes()
+        model_bytes = np.array([x for col in model.to_list() for x in col], dtype='f4').tobytes()
+
+        self.program['mvp'].write(mvp_bytes)
+        self.program['model'].write(model_bytes)
+
+        # Render body
+        self.program['base_color'].value = self.BODY_COLOR
+        self.program['emissive_color'].value = (0.0, 0.0, 0.0)
+        self.program['emissive_strength'].value = 0.0
+        self.vao.render(moderngl.TRIANGLES)
+
+        # Render each segment with its own color
+        for i, vao in enumerate(self.segment_vaos):
+            if i < len(self.segment_colors):
+                r, g, b, w = self.segment_colors[i]
+                # Add white channel contribution to RGB
+                color = (
+                    min(1.0, r + w),
+                    min(1.0, g + w),
+                    min(1.0, b + w)
+                )
+                intensity = max(r, g, b, w)  # Use brightest channel as intensity
+            else:
+                color = (0.0, 0.0, 0.0)
+                intensity = 0.0
+
+            self.program['base_color'].value = (0.1, 0.1, 0.1)
+            self.program['emissive_color'].value = color
+            self.program['emissive_strength'].value = intensity
+            vao.render(moderngl.TRIANGLES)
+
+        # Render beams for segments that are lit
+        self._render_segment_beams(mvp, model)
+
+    def _render_segment_beams(self, mvp: glm.mat4, model: glm.mat4):
+        """Render beams for each segment with its individual color."""
+        if not self.segment_beam_vaos:
+            return
+
+        # Enable additive blending
+        self.ctx.enable(moderngl.BLEND)
+        self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
+        self.ctx.depth_mask = False
+
+        final_mvp = mvp * model
+        mvp_bytes = np.array([x for col in final_mvp.to_list() for x in col], dtype='f4').tobytes()
+
+        self.beam_program['mvp'].write(mvp_bytes)
+
+        for i, vao in enumerate(self.segment_beam_vaos):
+            if i < len(self.segment_colors):
+                r, g, b, w = self.segment_colors[i]
+                color = (
+                    min(1.0, r + w),
+                    min(1.0, g + w),
+                    min(1.0, b + w)
+                )
+                intensity = max(r, g, b, w)
+            else:
+                continue
+
+            if intensity < 0.01:
+                continue  # Skip dark segments
+
+            self.beam_program['beam_color'].value = color
+            self.beam_program['beam_intensity'].value = intensity * 0.6
+            vao.render(moderngl.TRIANGLES)
+
+        # Restore state
+        self.ctx.depth_mask = True
+        self.ctx.disable(moderngl.BLEND)
+
+    def release(self):
+        """Release GPU resources."""
+        super().release()
+        # Release segment VAOs
+        for vao in getattr(self, 'segment_vaos', []):
+            if vao:
+                vao.release()
+        for vbo in getattr(self, 'segment_vbos', []):
+            if vbo:
+                vbo.release()
+        for nbo in getattr(self, 'segment_nbos', []):
+            if nbo:
+                nbo.release()
+        # Release beam VAOs
+        for vao in getattr(self, 'segment_beam_vaos', []):
+            if vao:
+                vao.release()
+        for vbo in getattr(self, 'segment_beam_vbos', []):
+            if vbo:
+                vbo.release()
+        for abo in getattr(self, 'segment_beam_abos', []):
+            if abo:
+                abo.release()
+
+
 class SunstripRenderer(FixtureRenderer):
     """Renderer for sunstrip fixtures with warm white segments."""
 
@@ -3579,6 +3880,8 @@ class FixtureManager:
 
         if fixture_type == 'MH':
             return MovingHeadRenderer(self.ctx, fixture_data)
+        elif fixture_type == 'PIXELBAR':
+            return PixelBarRenderer(self.ctx, fixture_data)
         elif fixture_type == 'BAR':
             return LEDBarRenderer(self.ctx, fixture_data)
         elif fixture_type == 'SUNSTRIP':
