@@ -3,7 +3,8 @@
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                              QGroupBox, QSlider, QDoubleSpinBox, QSpinBox,
-                             QLabel, QDialogButtonBox, QCheckBox, QComboBox)
+                             QLabel, QDialogButtonBox, QCheckBox, QComboBox,
+                             QScrollArea, QWidget, QFrame)
 from PyQt6.QtCore import Qt
 from config.models import SpecialBlock
 
@@ -22,8 +23,8 @@ class SpecialBlockDialog(QDialog):
         self.block = block
 
         self.setWindowTitle("Edit Special Block")
-        self.setMinimumWidth(450)
-        self.setMinimumHeight(420)
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(550)
 
         self._apply_groupbox_style()
         self.setup_ui()
@@ -48,7 +49,14 @@ class SpecialBlockDialog(QDialog):
         """)
 
     def setup_ui(self):
-        layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout(self)
+
+        # Create scroll area for the content
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_widget = QWidget()
+        layout = QVBoxLayout(scroll_widget)
 
         # Timing info (read-only display)
         timing_group = QGroupBox("Timing")
@@ -179,13 +187,20 @@ class SpecialBlockDialog(QDialog):
         prism_group.setLayout(prism_layout)
         layout.addWidget(prism_group)
 
-        # Dialog buttons
+        # Add stretch to push content to top
+        layout.addStretch()
+
+        # Set up scroll area
+        scroll.setWidget(scroll_widget)
+        main_layout.addWidget(scroll)
+
+        # Dialog buttons (outside scroll area)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        main_layout.addWidget(buttons)
 
     def _update_rotation_label(self, value):
         """Update the gobo rotation direction label."""
