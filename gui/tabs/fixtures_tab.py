@@ -396,6 +396,11 @@ class FixturesTab(BaseTab):
         # Disable updates during batch color changes to prevent row-by-row rendering
         self.table.setUpdatesEnabled(False)
         try:
+            # Track which colors are already in use to avoid duplicates
+            used_colors = set()
+            for existing_color in self.group_colors.values():
+                used_colors.add(existing_color.name())
+
             for row in range(self.table.rowCount()):
                 group_combo = self.table.cellWidget(row, 7)
                 if group_combo:
@@ -403,9 +408,30 @@ class FixturesTab(BaseTab):
                     if group_name and group_name != "Add New...":
                         # Get or create color for group
                         if group_name not in self.group_colors:
-                            self.group_colors[group_name] = self.predefined_colors[
-                                self.color_index % len(self.predefined_colors)]
-                            self.color_index += 1
+                            # First, check if group has a saved color in config
+                            if group_name in self.config.groups and self.config.groups[group_name].color:
+                                saved_color = self.config.groups[group_name].color
+                                # Only use saved color if it's not the default gray
+                                if saved_color != '#808080':
+                                    self.group_colors[group_name] = QtGui.QColor(saved_color)
+                                    used_colors.add(saved_color)
+
+                            # If still no color, assign a new unique color
+                            if group_name not in self.group_colors:
+                                # Find a color that's not already in use
+                                for _ in range(len(self.predefined_colors)):
+                                    candidate_color = self.predefined_colors[
+                                        self.color_index % len(self.predefined_colors)]
+                                    self.color_index += 1
+                                    if candidate_color.name() not in used_colors:
+                                        self.group_colors[group_name] = candidate_color
+                                        used_colors.add(candidate_color.name())
+                                        break
+                                else:
+                                    # All colors used, cycle back (shouldn't happen with 8 colors)
+                                    self.group_colors[group_name] = self.predefined_colors[
+                                        self.color_index % len(self.predefined_colors)]
+                                    self.color_index += 1
 
                         color = self.group_colors[group_name]
 
@@ -751,8 +777,54 @@ class FixturesTab(BaseTab):
             if main_window and hasattr(main_window, 'on_groups_changed'):
                 main_window.on_groups_changed()
 
+    def _find_next_free_address(self, universe: int, channel_count: int, exclude_fixture=None) -> tuple:
+        """Find the next free DMX address in a universe.
+
+        Args:
+            universe: The universe to search in
+            channel_count: Number of channels needed
+            exclude_fixture: Optional fixture to exclude from conflict check
+
+        Returns:
+            Tuple of (universe, address) for the next free slot
+        """
+        max_address = 512
+
+        # Collect all used address ranges in this universe
+        used_ranges = []
+        for fixture in self.config.fixtures:
+            if fixture is exclude_fixture:
+                continue
+            if fixture.universe == universe:
+                # Get channel count for this fixture
+                fixture_channels = 1
+                for mode in fixture.available_modes:
+                    if mode.name == fixture.current_mode:
+                        fixture_channels = mode.channels
+                        break
+                used_ranges.append((fixture.address, fixture.address + fixture_channels - 1))
+
+        # Sort by start address
+        used_ranges.sort(key=lambda x: x[0])
+
+        # Find first gap that fits
+        current_address = 1
+        for start, end in used_ranges:
+            if current_address + channel_count - 1 < start:
+                # Found a gap before this fixture
+                return (universe, current_address)
+            # Move past this fixture
+            current_address = max(current_address, end + 1)
+
+        # Check if there's room at the end
+        if current_address + channel_count - 1 <= max_address:
+            return (universe, current_address)
+
+        # No room in this universe, try next universe
+        return self._find_next_free_address(universe + 1, channel_count, exclude_fixture)
+
     def _duplicate_fixture(self):
-        """Duplicate selected fixture with offset address"""
+        """Duplicate selected fixture with next available address"""
         selected_rows = self.table.selectedItems()
         if not selected_rows:
             QtWidgets.QMessageBox.warning(
@@ -772,16 +844,21 @@ class FixturesTab(BaseTab):
         original_fixture = self.config.fixtures[row]
 
         # Get channel count
-        channel_count = 0
+        channel_count = 1
         for mode in original_fixture.available_modes:
             if mode.name == original_fixture.current_mode:
                 channel_count = mode.channels
                 break
 
+        # Find next free address (starting from same universe)
+        new_universe, new_address = self._find_next_free_address(
+            original_fixture.universe, channel_count
+        )
+
         # Create duplicate
         new_fixture = Fixture(
-            universe=original_fixture.universe,
-            address=original_fixture.address + channel_count,
+            universe=new_universe,
+            address=new_address,
             manufacturer=original_fixture.manufacturer,
             model=original_fixture.model,
             name=f"{original_fixture.name} (Copy)",
