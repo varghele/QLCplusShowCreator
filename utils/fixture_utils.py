@@ -276,6 +276,16 @@ def determine_fixture_type(fixture_def):
             segment_numbers.add(match.group())
     num_pixel_segments = len(segment_numbers)
 
+    # Count total RGB/RGBW channel sets to distinguish WASH from PIXELBAR
+    # A WASH has ONE set (Red, Green, Blue), a PIXELBAR has MULTIPLE sets
+    # Count by looking for base color channels without numbers
+    base_red_channels = [ch for ch in color_channels if 'Red' in ch and not re.search(r'\d+', ch)]
+    base_green_channels = [ch for ch in color_channels if 'Green' in ch and not re.search(r'\d+', ch)]
+    base_blue_channels = [ch for ch in color_channels if 'Blue' in ch and not re.search(r'\d+', ch)]
+    has_single_rgb_set = (len(base_red_channels) == 1 and
+                          len(base_green_channels) == 1 and
+                          len(base_blue_channels) == 1)
+
     # Priority-based fixture type detection:
     if has_movement:
         return "MH"  # Moving Head
@@ -283,21 +293,24 @@ def determine_fixture_type(fixture_def):
         # Has individual pixel channels for multiple segments (e.g., "Red LED 1-12")
         # This is a PIXELBAR - multi-segment bar with per-segment RGBW control
         return "PIXELBAR"
-    elif is_led_bar_type and layout_width > 1 and (has_rgb or has_rgbw):
-        # XML Type says "LED Bar" with multiple segments and has RGB/RGBW
-        # Likely a PIXELBAR even if channel names aren't numbered
+    elif is_led_bar_type and has_single_rgb_set and (has_rgb or has_rgbw):
+        # XML Type says "LED Bar" but only has ONE set of RGB channels
+        # This is a WASH, not a PIXELBAR (Layout describes physical LEDs, not DMX segments)
+        return "WASH"
+    elif is_led_bar_type and num_pixel_segments > 1:
+        # XML Type says "LED Bar" with multiple numbered pixel channels
         return "PIXELBAR"
     elif is_led_bar_type and (has_rgb or has_rgbw):
-        # XML Type says "LED Bar" with RGB/RGBW but single segment
+        # XML Type says "LED Bar" with RGB/RGBW - default to BAR
         return "BAR"
-    elif layout_width > 1 and (has_rgb or has_rgbw):
-        # Multi-segment fixture with RGB/RGBW control
+    elif layout_width > 1 and num_pixel_segments > 1:
+        # Multi-segment fixture with actual per-pixel DMX control
         return "PIXELBAR"
-    elif is_led_bar_type or (layout_width > 1):
+    elif is_led_bar_type or (layout_width > 1 and not (has_rgb or has_rgbw)):
         # LED bar type or multi-segment WITHOUT RGB - likely a sunstrip (dimmer-only)
         return "SUNSTRIP"
-    elif (has_rgbw or has_rgb) and has_dimmer and layout_width == 1:
-        # Single-segment RGB/RGBW fixture with dimmer - WASH fixture
+    elif (has_rgbw or has_rgb) and has_dimmer:
+        # RGB/RGBW fixture with dimmer - WASH fixture
         return "WASH"
     elif has_rgb or has_rgbw:
         # RGB/RGBW without clear classification - default to BAR
