@@ -807,13 +807,20 @@ class LightBlockWidget(QWidget):
         """
         sublane_height = self.lane_widget.sublane_height
 
-        # Check all sublane blocks in all lists (CHANGED: iterate through lists)
-        sublane_block_lists = [
-            ("dimmer", self.block.dimmer_blocks),
-            ("colour", self.block.colour_blocks),
-            ("movement", self.block.movement_blocks),
-            ("special", self.block.special_blocks)
-        ]
+        # Build list of sublane types based on fixture capabilities
+        # This must match the rendering logic exactly
+        sublane_block_lists = []
+        caps = self.lane_widget.capabilities
+
+        # Show dimmer sublane if has dimmer OR colour (dimmer controls RGB for no-dimmer fixtures)
+        if caps.has_dimmer or caps.has_colour:
+            sublane_block_lists.append(("dimmer", self.block.dimmer_blocks))
+        if caps.has_colour:
+            sublane_block_lists.append(("colour", self.block.colour_blocks))
+        if caps.has_movement:
+            sublane_block_lists.append(("movement", self.block.movement_blocks))
+        if caps.has_special:
+            sublane_block_lists.append(("special", self.block.special_blocks))
 
         for sublane_type, sublane_blocks in sublane_block_lists:
             # Get sublane row index
