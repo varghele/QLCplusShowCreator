@@ -37,6 +37,22 @@ class FixtureItem(QGraphicsItem):
     def boundingRect(self):
         # Include the main fixture symbol plus text area (wider for long names)
         text_width = max(self.size * 3, 100)  # At least 100px wide for text
+
+        # For bar-type fixtures, account for the rotated extent
+        if self.fixture_type in ("BAR", "PIXELBAR", "SUNSTRIP"):
+            rotation_2d = self._get_2d_rotation_angle()
+            # Bar dimensions: width = size*2, height = size/3
+            bar_half_width = self.size  # half of bar_width
+            bar_half_height = self.size / 6  # half of bar_height
+            # Calculate the extent after rotation
+            angle_rad = radians(rotation_2d)
+            horizontal_extent = abs(bar_half_width * cos(angle_rad)) + abs(bar_half_height * sin(angle_rad))
+            vertical_extent = abs(bar_half_width * sin(angle_rad)) + abs(bar_half_height * cos(angle_rad))
+            # Use max of text width and fixture horizontal extent
+            total_width = max(text_width, horizontal_extent * 2)
+            total_height = vertical_extent + self.text_height + 3  # +3 for padding
+            return QRectF(-total_width / 2, -vertical_extent, total_width, total_height + vertical_extent)
+
         return QRectF(-text_width / 2, -self.size / 2, text_width, self.size + self.text_height)
 
     def mouseMoveEvent(self, event):
@@ -170,6 +186,21 @@ class FixtureItem(QGraphicsItem):
         # Draw text (not rotated) - name and Z-height separately
         text_width = max(self.size * 3, 100)
 
+        # Calculate the vertical offset for text based on fixture type and rotation
+        # For bar-type fixtures, account for the rotated extent
+        if self.fixture_type in ("BAR", "PIXELBAR", "SUNSTRIP"):
+            rotation_2d = self._get_2d_rotation_angle()
+            # Bar dimensions: width = size*2, height = size/3
+            bar_half_width = self.size  # half of bar_width
+            bar_half_height = self.size / 6  # half of bar_height
+            # Calculate the maximum vertical extent after rotation
+            angle_rad = radians(rotation_2d)
+            # The vertical extent is the max of the rotated corners
+            vertical_extent = abs(bar_half_width * sin(angle_rad)) + abs(bar_half_height * cos(angle_rad))
+            text_y_offset = vertical_extent + 3  # 3px padding
+        else:
+            text_y_offset = self.size / 2
+
         # Draw fixture name (regular font)
         font = painter.font()
         font.setPointSize(8)
@@ -177,14 +208,14 @@ class FixtureItem(QGraphicsItem):
         painter.setFont(font)
         painter.setPen(Qt.GlobalColor.black)
 
-        name_rect = QRectF(-text_width / 2, self.size / 2, text_width, 12)
+        name_rect = QRectF(-text_width / 2, text_y_offset, text_width, 12)
         painter.drawText(name_rect, Qt.AlignmentFlag.AlignCenter, self.fixture_name)
 
         # Draw Z-height (bold font)
         font.setBold(True)
         painter.setFont(font)
 
-        z_rect = QRectF(-text_width / 2, self.size / 2 + 11, text_width, 12)
+        z_rect = QRectF(-text_width / 2, text_y_offset + 11, text_width, 12)
         painter.drawText(z_rect, Qt.AlignmentFlag.AlignCenter, f"Z: {self.z_height:.1f}m")
 
     def wheelEvent(self, event):
