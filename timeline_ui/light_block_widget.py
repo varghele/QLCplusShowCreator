@@ -813,7 +813,7 @@ class LightBlockWidget(QWidget):
         )
 
     def _get_colour_block_color(self, colour_block):
-        """Get display color for colour block based on its RGB values.
+        """Get display color for colour block based on its RGBW values.
 
         Args:
             colour_block: The ColourBlock instance to get color from
@@ -824,11 +824,23 @@ class LightBlockWidget(QWidget):
         if not colour_block:
             return QColor(100, 255, 150)  # Default green
 
-        # Use RGB values if available
-        if colour_block.red > 0 or colour_block.green > 0 or colour_block.blue > 0:
-            return QColor(int(colour_block.red), int(colour_block.green), int(colour_block.blue))
+        r = int(colour_block.red)
+        g = int(colour_block.green)
+        b = int(colour_block.blue)
+        w = int(getattr(colour_block, 'white', 0))
 
-        # Default to green
+        # Blend white channel into RGB for display (same as preview logic)
+        if w > 0:
+            factor = w / 255.0
+            r = min(255, int(r + (255 - r) * factor))
+            g = min(255, int(g + (255 - g) * factor))
+            b = min(255, int(b + (255 - b) * factor))
+
+        # Use blended RGB values if any color is present
+        if r > 0 or g > 0 or b > 0:
+            return QColor(r, g, b)
+
+        # Default to green (no color set)
         return QColor(100, 255, 150)
 
     def _get_sublane_row_at_y(self, y_pos):

@@ -45,11 +45,11 @@ class FixtureChannelMap:
             "IntensityAmber", "IntensityCyan", "IntensityMagenta", "IntensityYellow",
             "IntensityUV", "IntensityLime",
             "PositionPan", "PositionTilt", "PositionPanFine", "PositionTiltFine",
-            "ColorWheel", "ColorMacro",
+            "ColorWheel", "ColorMacro", "Colour",
             "GoboWheel", "Gobo", "Gobo1", "Gobo2",
             "PrismRotation", "Prism",
             "BeamFocusNearFar", "BeamZoomSmallBig", "BeamIrisCloseOpen",
-            "ShutterStrobeOpen", "ShutterStrobeFast", "ShutterStrobeRandom"
+            "ShutterStrobeOpen", "ShutterStrobeFast", "ShutterStrobeRandom", "Shutter"
         ]
 
         channels_dict = get_channels_by_property(self.fixture_def, self.mode_name, properties)
@@ -70,12 +70,12 @@ class FixtureChannelMap:
         self.tilt_channels = self._get_channel_offsets(channels_dict, ["PositionTilt"])
         self.pan_fine_channels = self._get_channel_offsets(channels_dict, ["PositionPanFine"])
         self.tilt_fine_channels = self._get_channel_offsets(channels_dict, ["PositionTiltFine"])
-        self.color_wheel_channels = self._get_channel_offsets(channels_dict, ["ColorWheel", "ColorMacro"])
+        self.color_wheel_channels = self._get_channel_offsets(channels_dict, ["ColorWheel", "ColorMacro", "Colour"])
         self.gobo_channels = self._get_channel_offsets(channels_dict, ["GoboWheel", "Gobo", "Gobo1"])
         self.prism_channels = self._get_channel_offsets(channels_dict, ["Prism"])
         self.focus_channels = self._get_channel_offsets(channels_dict, ["BeamFocusNearFar"])
         self.zoom_channels = self._get_channel_offsets(channels_dict, ["BeamZoomSmallBig"])
-        self.strobe_channels = self._get_channel_offsets(channels_dict, ["ShutterStrobeOpen", "ShutterStrobeFast", "ShutterStrobeRandom"])
+        self.strobe_channels = self._get_channel_offsets(channels_dict, ["ShutterStrobeOpen", "ShutterStrobeFast", "ShutterStrobeRandom", "Shutter"])
 
     def _get_channel_offsets(self, channels_dict: dict, properties: List[str]) -> List[int]:
         """
@@ -555,11 +555,131 @@ class DMXManager:
                 universe, channel = fixture_map.get_absolute_address(ch_offset)
                 self.set_dmx_value(universe, channel, intensity)
 
+        elif block.effect_type in ("waterfall_down", "waterfall_up"):
+            # Waterfall effect: light cascades down (or up) through segments
+            # Each segment-to-segment transition takes one beat
+            # Tail spans the entire fixture with smooth falloff
+            # Each fixture has a slowly drifting random offset
+            import hashlib
+
+            speed_multiplier = self._parse_speed(block.effect_speed)
+            time_in_block = current_time - block.start_time
+
+            # Get BPM for timing
+            if self.song_structure:
+                bpm = self.song_structure.get_bpm_at_time(current_time)
+            else:
+                bpm = 120.0
+
+            seconds_per_beat = 60.0 / bpm
+            # Each segment transition takes one beat, adjusted by speed
+            time_per_step = seconds_per_beat / speed_multiplier
+
+            # Check fixture type for segment-based control
+            fixture_type = getattr(fixture_map.fixture, 'type', '')
+            is_segmented = fixture_type in ('PIXELBAR', 'BAR', 'SUNSTRIP')
+
+            # Determine if this is an RGBW pixelbar or a dimmer-only sunstrip
+            has_color_segments = fixture_map.red_channels or fixture_map.white_channels
+            has_dimmer_segments = len(fixture_map.dimmer_channels) > 1
+
+            if is_segmented and (has_color_segments or has_dimmer_segments):
+                # Determine number of segments based on fixture type
+                if has_color_segments:
+                    # Pixelbar: segments are RGBW channels
+                    num_segments = max(
+                        len(fixture_map.red_channels),
+                        len(fixture_map.green_channels),
+                        len(fixture_map.blue_channels),
+                        len(fixture_map.white_channels),
+                        1
+                    )
+                    is_dimmer_only = False
+                else:
+                    # Sunstrip: segments are individual dimmer channels
+                    num_segments = len(fixture_map.dimmer_channels)
+                    is_dimmer_only = True
+
+                # Calculate random offset for this fixture (slowly drifting)
+                # Base offset from fixture name hash
+                name_hash = int(hashlib.md5(fixture_map.fixture.name.encode()).hexdigest()[:8], 16)
+                base_offset = (name_hash % 1000) / 1000.0  # 0.0 to 1.0
+
+                # Slowly drifting component (changes over ~30 seconds)
+                drift_period = 30.0
+                drift_phase = (current_time / drift_period) * 2 * math.pi
+                # Use fixture-specific phase for the drift
+                drift_seed = (name_hash % 997) / 997.0 * 2 * math.pi
+                drift_amount = 0.3 * math.sin(drift_phase + drift_seed)  # +/- 0.3 cycle drift
+
+                total_offset = base_offset + drift_amount
+
+                # Full cycle time = num_segments beats
+                cycle_time = time_per_step * num_segments
+
+                # Current position in cycle (0 to num_segments), with offset
+                cycle_progress = (time_in_block / cycle_time + total_offset) % 1.0
+                head_position = cycle_progress * num_segments  # 0 to num_segments
+
+                # For waterfall_down: head moves from last segment (N-1) to first (0)
+                # For waterfall_up: head moves from first segment (0) to last (N-1)
+                if block.effect_type == "waterfall_down":
+                    head_position = (num_segments - 1) - head_position
+                # For waterfall_up, head_position is already 0 to N-1
+
+                # Calculate intensity for each segment using circular/wrapped distance
+                # This creates a continuous seamless loop where the tail wraps around
+                segment_intensities = []
+                for seg_idx in range(num_segments):
+                    # Calculate distance from head to this segment
+                    # For waterfall_down: tail extends upward (higher indices), head moves down
+                    # For waterfall_up: tail extends downward (lower indices), head moves up
+                    if block.effect_type == "waterfall_down":
+                        raw_distance = seg_idx - head_position
+                    else:  # waterfall_up
+                        raw_distance = head_position - seg_idx
+
+                    # Use modulo to wrap the distance for continuous effect
+                    # This means segments "ahead" of the head are actually at the far end of the tail
+                    circular_distance = raw_distance % num_segments
+
+                    # Normalize and apply exponential decay
+                    normalized_dist = circular_distance / num_segments
+                    intensity_factor = math.exp(-1.5 * normalized_dist)
+
+                    segment_intensities.append(intensity_factor)
+
+                if is_dimmer_only:
+                    # Sunstrip: apply intensities directly to dimmer channels
+                    for seg_idx, ch_offset in enumerate(fixture_map.dimmer_channels):
+                        if seg_idx < len(segment_intensities):
+                            seg_intensity = int(block.intensity * segment_intensities[seg_idx])
+                            universe, channel = fixture_map.get_absolute_address(ch_offset)
+                            self.set_dmx_value(universe, channel, seg_intensity)
+                else:
+                    # Pixelbar: set master dimmer to full, store intensities for colour_block
+                    for ch_offset in fixture_map.dimmer_channels:
+                        universe, channel = fixture_map.get_absolute_address(ch_offset)
+                        self.set_dmx_value(universe, channel, int(block.intensity))
+                    # Store segment intensities for colour_block to use
+                    fixture_map._twinkle_segment_intensities = segment_intensities
+            else:
+                # For non-segmented fixtures, just set static intensity
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, int(block.intensity))
+
         else:
             # Default: static intensity for all channels
             for ch_offset in fixture_map.dimmer_channels:
                 universe, channel = fixture_map.get_absolute_address(ch_offset)
                 self.set_dmx_value(universe, channel, int(intensity))
+
+        # For fixtures with shutter channels (like moving heads), ensure shutter is open
+        # Set to 255 which is typically "Open" on most fixtures
+        for ch_offset in fixture_map.strobe_channels:
+            universe, channel = fixture_map.get_absolute_address(ch_offset)
+            self.set_dmx_value(universe, channel, 255)
 
     def _apply_colour_block(self, fixture_map: FixtureChannelMap, block: ColourBlock, current_time: float):
         """Apply colour block to fixture channels."""
