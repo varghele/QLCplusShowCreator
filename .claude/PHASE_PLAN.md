@@ -313,19 +313,79 @@ Rework the Stage tab to provide a proper 3D orientation system for fixtures, rep
 - `utils/tcp/protocol.py` - Send orientation data
 - `utils/fixture_utils.py` - Add SUNSTRIP detection, get_fixture_layout()
 
+### Phase 14.10: Multi-Target Lanes (COMPLETE - Jan 2026)
+
+Changed light lanes from targeting a single fixture group to supporting multiple groups and/or individual fixtures.
+
+**Design Document:** `.claude/MULTI_TARGET_LANES_PLAN.md`
+
+- [x] Create target resolver utility (`utils/target_resolver.py`)
+  - `parse_target()` - parse "Group:index" format
+  - `format_target()` - create target string
+  - `resolve_target()` - resolve single target to fixtures
+  - `resolve_targets_unique()` - resolve all targets, deduplicate
+  - `detect_targets_capabilities()` - union of capabilities
+  - `validate_targets()` - return warnings for invalid targets
+- [x] Update data model (`config/models.py`)
+  - Changed `fixture_group: str` to `fixture_targets: List[str]`
+  - Added backward compatibility property for migration
+  - Updated serialization/deserialization
+- [x] Update runtime class (`timeline/light_lane.py`)
+  - Mirror data model changes
+  - Backward compatibility with old config files
+- [x] Create target selection dialog (`timeline_ui/target_selection_dialog.py`)
+  - Tree-based multi-select dialog
+  - Groups as parent items, fixtures as children
+  - Checkboxes with parent/child sync
+- [x] Update lane widget UI (`timeline_ui/light_lane_widget.py`)
+  - Replace group dropdown with target label + dialog button
+  - Update capability detection to use multiple targets
+- [x] Update export logic (`utils/to_xml/shows_to_xml.py`)
+  - Resolve multiple targets to combined fixture list
+  - Validate targets and log warnings
+- [x] Update ArtNet controllers
+  - `utils/artnet/output_controller.py` - resolve targets for DMX output
+  - `utils/artnet/shows_artnet_controller.py` - resolve targets for live preview
+
+**Target format:**
+- `"Front Wash"` - all fixtures in group
+- `"Moving Heads:2"` - specific fixture (0-indexed within group)
+
+**Files created:**
+- `utils/target_resolver.py` - Target parsing and resolution utilities
+- `timeline_ui/target_selection_dialog.py` - Tree-based multi-select dialog
+
+**Files modified:**
+- `config/models.py` - Multi-target support in LightLane
+- `timeline/light_lane.py` - Runtime class updates
+- `timeline_ui/light_lane_widget.py` - UI for target selection
+- `utils/to_xml/shows_to_xml.py` - Export with multiple targets
+- `utils/artnet/output_controller.py` - DMX output with multiple targets
+- `utils/artnet/shows_artnet_controller.py` - Live preview with multiple targets
+
+---
+
+## Current Phase
+
+### Phase 15: Effects/Riffs System Enhancement (IN PROGRESS - Jan 2026)
+
+Rework of the effects system with improved dimmer effects:
+
+- [x] Rework `effects/dimmers.py` for new sublane architecture
+  - static, strobe, twinkle effects updated
+  - ping_pong_smooth, waterfall_down, waterfall_up effects
+  - BPM-aware timing with speed multipliers
+- [x] Effect parameter passing from sublane blocks
+- [x] Integration with ArtNet DMX manager
+- [ ] **Validation needed** - verify all effects produce correct output
+- [ ] Riff library/presets (FUTURE)
+- [ ] Quick apply riffs to timeline (FUTURE)
+- [ ] Riff templates per fixture type (FUTURE)
+- [ ] User-defined riffs (FUTURE)
+
 ---
 
 ## Upcoming Phases (Show Creator)
-
-### Phase 15: Effects/Riffs System Enhancement (PLANNED)
-
-Improve the effects system with predefined sequences:
-
-- [ ] Define "Riff" concept (sequence of sublane effects)
-- [ ] Riff library/presets
-- [ ] Quick apply riffs to timeline
-- [ ] Riff templates per fixture type
-- [ ] User-defined riffs
 
 ### Phase 16: Audio Analysis Integration (FUTURE)
 
@@ -698,6 +758,7 @@ Items to address when time permits:
 | ArtNet Output | `utils/artnet/sender.py`, `utils/artnet/dmx_manager.py`, `utils/artnet/shows_artnet_controller.py` |
 | TCP Server | `utils/tcp/server.py`, `utils/tcp/protocol.py` |
 | Orientation | `gui/dialogs/orientation_dialog.py`, `gui/widgets/gimbal_widget.py`, `utils/orientation.py` |
+| Multi-Target Lanes | `utils/target_resolver.py`, `timeline_ui/target_selection_dialog.py`, `timeline/light_lane.py` |
 
 ### Visualizer
 

@@ -1,4 +1,4 @@
-                # Lane Targeting Options
+# Lane Targeting Options
 
 **Problem:** Currently, light lanes can only target a single fixture group. This limits workflows where effects need to target:
 1. A single specific fixture within a group

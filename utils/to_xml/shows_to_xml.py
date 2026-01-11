@@ -357,10 +357,12 @@ def create_tracks(show_function, engine, show, effects_by_group, config, fixture
                                 num_bars=part.num_bars,
                                 speed=part_effect.speed,
                                 color=part_effect.color,
-                                fixture_conf=config.fixtures[fixture_start_id:fixture_start_id + fixture_num], # TODO: implement for all effects
+                                fixture_conf=config.fixtures[fixture_start_id:fixture_start_id + fixture_num],
                                 fixture_start_id=fixture_start_id,
                                 intensity=part_effect.intensity,
                                 spot=None if part_effect.spot=='' else config.spots[part_effect.spot],
+                                fixture_definitions=fixture_definitions,
+                                fixture_id_map=fixture_id_map,
                             )
                             print(f"Steps created: {len(steps) if steps else 0}")
                             add_steps_to_sequence(sequence, steps)
@@ -1136,6 +1138,7 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
         int: Next available function ID
     """
     from timeline.song_structure import SongStructure
+    from utils.target_resolver import resolve_targets_unique, validate_targets, detect_targets_capabilities
 
     # Build song structure for timing calculations
     song_structure = SongStructure()
@@ -1145,19 +1148,36 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
     fixture_start_id = 0
 
     for lane in show.timeline_data.lanes:
-        group_name = lane.fixture_group
+        # Get fixture targets (with backward compatibility for old fixture_group field)
+        targets = getattr(lane, 'fixture_targets', [])
+        if not targets and hasattr(lane, 'fixture_group') and lane.fixture_group:
+            targets = [lane.fixture_group]
 
-        if group_name not in config.groups:
-            print(f"Warning: Fixture group '{group_name}' not found, skipping lane")
+        if not targets:
+            print(f"Warning: Lane '{lane.name}' has no targets, skipping")
             continue
 
-        # Calculate number of fixtures in group
-        fixture_num = len(config.groups[group_name].fixtures)
+        # Validate and warn about invalid targets
+        for warning in validate_targets(targets, config):
+            print(f"Warning in lane '{lane.name}': {warning}")
+
+        # Resolve targets to unique fixtures
+        resolved_fixtures = resolve_targets_unique(targets, config)
+
+        if not resolved_fixtures:
+            print(f"Warning: No valid fixtures for lane '{lane.name}', skipping")
+            continue
+
+        # Calculate number of resolved fixtures
+        fixture_num = len(resolved_fixtures)
+
+        # Create a display name for the lane (use lane name or first target)
+        lane_display_name = lane.name or targets[0]
 
         # Create Track
         track = ET.SubElement(show_function, "Track")
         track.set("ID", str(track_id))
-        track.set("Name", group_name.upper())
+        track.set("Name", lane_display_name.upper())
         track.set("SceneID", str(function_id_counter))
         track.set("isMute", "1" if lane.muted else "0")
 
@@ -1165,7 +1185,7 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
         scene = ET.SubElement(engine, "Function")
         scene.set("ID", str(function_id_counter))
         scene.set("Type", "Scene")
-        scene.set("Name", f"Scene for {show.name} - {group_name}")
+        scene.set("Name", f"Scene for {show.name} - {lane_display_name}")
         scene.set("Hidden", "True")
 
         # Add Scene properties
@@ -1177,8 +1197,8 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
         # Add ChannelGroupsVal
         ET.SubElement(scene, "ChannelGroupsVal").text = f"{track_id},0"
 
-        # Add FixtureVal for fixtures in the group
-        for fixture in config.groups[group_name].fixtures:
+        # Add FixtureVal for resolved fixtures
+        for fixture in resolved_fixtures:
             fixture_val = ET.SubElement(scene, "FixtureVal")
             fixture_val.set("ID", str(fixture_id_map[id(fixture)]))
 
@@ -1198,7 +1218,7 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
             start_time_ms = int(block.start_time * 1000)
 
             # Create sequence
-            sequence_name = f"{show.name}_{group_name}_{start_time_ms}"
+            sequence_name = f"{show.name}_{lane_display_name}_{start_time_ms}"
 
             # Find BPM at block start
             part_at_block = song_structure.get_part_at_time(block.start_time)
@@ -1219,8 +1239,8 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
             if effect_module and hasattr(effect_module, func_name):
                 effect_func = getattr(effect_module, func_name)
 
-                # Get fixture definition from the first fixture in the group
-                first_fixture = config.groups[group_name].fixtures[0]
+                # Get fixture definition from the first resolved fixture
+                first_fixture = resolved_fixtures[0]
                 fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
                 fixture_def = fixture_definitions.get(fixture_key)
 
@@ -1246,10 +1266,12 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                             num_bars=num_bars,
                             speed=params.get('speed', '1'),
                             color=params.get('color', ''),
-                            fixture_conf=config.groups[group_name].fixtures,
+                            fixture_conf=resolved_fixtures,
                             fixture_start_id=fixture_start_id,
                             intensity=params.get('intensity', 200),
                             spot=config.spots.get(params.get('spot')) if params.get('spot') else None,
+                            fixture_definitions=fixture_definitions,
+                            fixture_id_map=fixture_id_map,
                         )
                         add_steps_to_sequence(sequence, steps)
                     except Exception as e:
@@ -1268,10 +1290,10 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
 
             function_id_counter += 1
 
-        # Check if this fixture group has dimmer capability
-        group_capabilities = config.groups[group_name].capabilities if hasattr(config.groups[group_name], 'capabilities') else None
-        has_dimmer = group_capabilities.has_dimmer if group_capabilities else True
-        has_colour = group_capabilities.has_colour if group_capabilities else False
+        # Check capabilities for this lane's targets
+        lane_capabilities = detect_targets_capabilities(targets, config, fixture_definitions)
+        has_dimmer = lane_capabilities.has_dimmer if lane_capabilities else True
+        has_colour = lane_capabilities.has_colour if lane_capabilities else False
 
         # Process dimmer blocks for this lane
         for block in lane.light_blocks:
@@ -1293,7 +1315,7 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                 dimmer_start_time_ms = int(dimmer_block.start_time * 1000)
 
                 # Create sequence for this dimmer block
-                sequence_name = f"{show.name}_{group_name}_dimmer_{dimmer_start_time_ms}"
+                sequence_name = f"{show.name}_{lane_display_name}_dimmer_{dimmer_start_time_ms}"
 
                 # Find BPM and song part at dimmer block start
                 part_at_dimmer = song_structure.get_part_at_time(dimmer_block.start_time)
@@ -1302,8 +1324,8 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                 sequence = create_sequence(engine, function_id_counter, sequence_name,
                                           scene.get("ID"), dimmer_bpm)
 
-                # Get fixture definition
-                first_fixture = config.groups[group_name].fixtures[0]
+                # Get fixture definition from first resolved fixture
+                first_fixture = resolved_fixtures[0]
                 fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
                 fixture_def = fixture_definitions.get(fixture_key)
 
@@ -1328,10 +1350,12 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                             num_bars=num_bars,
                             speed=dimmer_block.effect_speed,
                             color=None,
-                            fixture_conf=config.groups[group_name].fixtures,
+                            fixture_conf=resolved_fixtures,
                             fixture_start_id=fixture_start_id,
                             intensity=int(dimmer_block.intensity),
                             spot=None,
+                            fixture_definitions=fixture_definitions,
+                            fixture_id_map=fixture_id_map,
                         )
 
                         # If fixture has no dimmer, convert intensity steps to RGB steps
@@ -1366,8 +1390,8 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
         # Process movement blocks for this lane
         for block in lane.light_blocks:
             for movement_block in block.movement_blocks:
-                # Get fixture definition first - skip if not available
-                first_fixture = config.groups[group_name].fixtures[0]
+                # Get fixture definition from first resolved fixture
+                first_fixture = resolved_fixtures[0]
                 fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
                 fixture_def = fixture_definitions.get(fixture_key)
 
@@ -1421,7 +1445,7 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                         movement_block=movement_block,
                         fixture_def=fixture_def,
                         mode_name=first_fixture.current_mode,
-                        fixture_conf=config.groups[group_name].fixtures,
+                        fixture_conf=resolved_fixtures,
                         fixture_start_id=fixture_start_id,
                         bpm=movement_bpm,
                         signature=part_at_movement.signature,
@@ -1442,7 +1466,7 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                     continue
 
                 # Only create sequence and ShowFunction if we have valid steps
-                sequence_name = f"{show.name}_{group_name}_movement_{movement_start_time_ms}"
+                sequence_name = f"{show.name}_{lane_display_name}_movement_{movement_start_time_ms}"
                 sequence = create_sequence(engine, function_id_counter, sequence_name,
                                           scene.get("ID"), movement_bpm)
                 add_steps_to_sequence(sequence, steps)
