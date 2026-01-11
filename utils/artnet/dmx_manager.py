@@ -3,7 +3,7 @@
 
 import time
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from config.models import Configuration, Fixture, LightBlock, DimmerBlock, ColourBlock, MovementBlock, SpecialBlock
 from utils.effects_utils import get_channels_by_property
 
@@ -39,8 +39,9 @@ class FixtureChannelMap:
     def _build_channel_map(self):
         """Build channel mapping from fixture definition."""
         # Query channels by property using effects_utils
+        # Include "Intensity" as a group name that some fixtures use for dimmer
         properties = [
-            "IntensityMasterDimmer", "IntensityDimmer",
+            "IntensityMasterDimmer", "IntensityDimmer", "Intensity",
             "IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite",
             "IntensityAmber", "IntensityCyan", "IntensityMagenta", "IntensityYellow",
             "IntensityUV", "IntensityLime",
@@ -55,7 +56,8 @@ class FixtureChannelMap:
         channels_dict = get_channels_by_property(self.fixture_def, self.mode_name, properties)
 
         # Store channel mappings (property -> list of channel offsets)
-        self.dimmer_channels = self._get_channel_offsets(channels_dict, ["IntensityMasterDimmer", "IntensityDimmer"])
+        # Include "Intensity" group for fixtures that use that naming
+        self.dimmer_channels = self._get_channel_offsets(channels_dict, ["IntensityMasterDimmer", "IntensityDimmer", "Intensity"])
         self.red_channels = self._get_channel_offsets(channels_dict, ["IntensityRed"])
         self.green_channels = self._get_channel_offsets(channels_dict, ["IntensityGreen"])
         self.blue_channels = self._get_channel_offsets(channels_dict, ["IntensityBlue"])
@@ -75,7 +77,7 @@ class FixtureChannelMap:
         self.prism_channels = self._get_channel_offsets(channels_dict, ["Prism"])
         self.focus_channels = self._get_channel_offsets(channels_dict, ["BeamFocusNearFar"])
         self.zoom_channels = self._get_channel_offsets(channels_dict, ["BeamZoomSmallBig"])
-        self.strobe_channels = self._get_channel_offsets(channels_dict, ["ShutterStrobeOpen", "ShutterStrobeFast", "ShutterStrobeRandom", "Shutter"])
+        self.strobe_channels = self._get_channel_offsets(channels_dict, ["ShutterStrobeOpen", "ShutterStrobeFast", "ShutterStrobeRandom", "Shutter", "ShutterOpen"])
 
     def _get_channel_offsets(self, channels_dict: dict, properties: List[str]) -> List[int]:
         """
@@ -147,8 +149,9 @@ class DMXManager:
         self._build_fixture_maps()
 
         # Track active blocks (LTP - Latest Takes Priority)
-        # Dictionary: fixture_group -> {sublane_type -> (block, start_time)}
-        self.active_blocks: Dict[str, Dict[str, Tuple[object, float]]] = {}
+        # Dictionary: lane_key -> {sublane_type -> (fixtures, block, start_time)}
+        # fixtures is a list of Fixture objects resolved from the lane's targets
+        self.active_blocks: Dict[str, Dict[str, Tuple[List[Fixture], object, float]]] = {}
 
         print(f"DMX Manager initialized with {len(self.dmx_state)} universes")
 
@@ -170,7 +173,13 @@ class DMXManager:
 
             if fixture_def:
                 self.fixture_maps[fixture.name] = FixtureChannelMap(fixture, fixture_def, self.config)
-                print(f"DMXManager: Mapped fixture '{fixture.name}' with {len(self.fixture_maps[fixture.name].dimmer_channels)} dimmer channels")
+                fm = self.fixture_maps[fixture.name]
+                # Enhanced logging for moving heads
+                if getattr(fixture, 'type', '') == 'MH':
+                    print(f"DMXManager: Mapped MH '{fixture.name}': dimmer={fm.dimmer_channels} "
+                          f"shutter={fm.strobe_channels} color_wheel={fm.color_wheel_channels}")
+                else:
+                    print(f"DMXManager: Mapped fixture '{fixture.name}' with {len(fm.dimmer_channels)} dimmer channels")
             else:
                 print(f"Warning: No fixture definition found for {fixture.name} ({fixture_key})")
 
@@ -241,6 +250,41 @@ class DMXManager:
                 _, channel = fixture_map.get_absolute_address(ch_offset)
                 self.set_dmx_value(universe, channel, 127)
 
+    def _set_safe_idle_state(self):
+        """Set all fixtures to a safe idle state (shutter open, color wheel at white).
+
+        Unlike set_fixtures_visible(), this keeps dimmers at 0 so fixtures appear off,
+        but prevents strobe modes and other unwanted behavior by setting control channels
+        to safe defaults.
+        """
+        for fixture_name, fixture_map in self.fixture_maps.items():
+            universe = fixture_map.universe
+
+            # Keep dimmers at 0 (already cleared by clear_all_dmx)
+            # But ensure shutter is open to prevent strobe modes
+            for ch_offset in fixture_map.strobe_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 255)  # 255 = shutter open
+
+            # Set color wheel to first position (white/open) to prevent weird colors
+            for ch_offset in fixture_map.color_wheel_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 0)  # 0 = white/open
+
+            # Set pan/tilt to center so moving heads don't snap around
+            for ch_offset in fixture_map.pan_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 127)
+            for ch_offset in fixture_map.tilt_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 127)
+            for ch_offset in fixture_map.pan_fine_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 127)
+            for ch_offset in fixture_map.tilt_fine_channels:
+                _, channel = fixture_map.get_absolute_address(ch_offset)
+                self.set_dmx_value(universe, channel, 127)
+
     def set_dmx_value(self, universe: int, channel: int, value: int):
         """
         Set a single DMX channel value.
@@ -272,34 +316,35 @@ class DMXManager:
 
         return bytes(self.dmx_state[universe])
 
-    def block_started(self, fixture_group: str, block: object, block_type: str, current_time: float):
+    def block_started(self, lane_key: str, fixtures: List[Fixture], block: object, block_type: str, current_time: float):
         """
         Called when a block starts playback.
 
         Args:
-            fixture_group: Name of the fixture group
+            lane_key: Unique identifier for the lane (usually lane name)
+            fixtures: List of resolved Fixture objects to apply the effect to
             block: Block instance (DimmerBlock, ColourBlock, etc.)
             block_type: Type of block ('dimmer', 'colour', 'movement', 'special')
             current_time: Current playback time in seconds
         """
-        # Initialize group if needed
-        if fixture_group not in self.active_blocks:
-            self.active_blocks[fixture_group] = {}
+        # Initialize lane if needed
+        if lane_key not in self.active_blocks:
+            self.active_blocks[lane_key] = {}
 
-        # Store block with start time (LTP)
-        self.active_blocks[fixture_group][block_type] = (block, current_time)
+        # Store fixtures, block, and start time (LTP)
+        self.active_blocks[lane_key][block_type] = (fixtures, block, current_time)
 
-    def block_ended(self, fixture_group: str, block_type: str):
+    def block_ended(self, lane_key: str, block_type: str):
         """
         Called when a block ends playback.
 
         Args:
-            fixture_group: Name of the fixture group
+            lane_key: Unique identifier for the lane (usually lane name)
             block_type: Type of block ('dimmer', 'colour', 'movement', 'special')
         """
-        if fixture_group in self.active_blocks:
-            if block_type in self.active_blocks[fixture_group]:
-                del self.active_blocks[fixture_group][block_type]
+        if lane_key in self.active_blocks:
+            if block_type in self.active_blocks[lane_key]:
+                del self.active_blocks[lane_key][block_type]
 
     def update_dmx(self, current_time: float):
         """
@@ -311,51 +356,67 @@ class DMXManager:
         # Clear all DMX values first - only fixtures with active blocks should be lit
         self.clear_all_dmx()
 
-        # Process each fixture group
-        for group_name, group in self.config.groups.items():
-            if group_name not in self.active_blocks:
-                continue
+        # Set safe default values for ALL fixtures to prevent strobe/weird modes
+        # This ensures shutters are open, dimmers at 0, etc. for non-targeted fixtures
+        self._set_safe_idle_state()
 
-            active = self.active_blocks[group_name]
+        # Process each lane's active blocks
+        # Make a copy of items to avoid issues during iteration
+        active_items = list(self.active_blocks.items())
+        for lane_key, active in active_items:
+            # Get active blocks for this lane
+            dimmer_data = active.get('dimmer')
+            colour_data = active.get('colour')
+            movement_data = active.get('movement')
+            special_data = active.get('special')
 
-            # Get active blocks for this group
-            dimmer_block = None
-            colour_block = None
-            movement_block = None
-            special_block = None
+            # Extract fixtures and blocks from the stored data
+            # Each data entry is (fixtures, block, start_time)
+            dimmer_fixtures = dimmer_data[0] if dimmer_data else []
+            dimmer_block = dimmer_data[1] if dimmer_data else None
+            colour_fixtures = colour_data[0] if colour_data else []
+            colour_block = colour_data[1] if colour_data else None
+            movement_fixtures = movement_data[0] if movement_data else []
+            movement_block = movement_data[1] if movement_data else None
+            special_fixtures = special_data[0] if special_data else []
+            special_block = special_data[1] if special_data else None
 
-            if 'dimmer' in active:
-                dimmer_block, _ = active['dimmer']
-            if 'colour' in active:
-                colour_block, _ = active['colour']
-            if 'movement' in active:
-                movement_block, _ = active['movement']
-            if 'special' in active:
-                special_block, _ = active['special']
+            # Apply dimmer block to its resolved fixtures
+            if dimmer_block and dimmer_fixtures:
+                # Sort fixtures by x-position for spatial effects like ping_pong_smooth
+                sorted_fixtures = sorted(dimmer_fixtures, key=lambda f: f.x)
+                total_fixtures = len(sorted_fixtures)
 
-            # Apply blocks to each fixture in the group
-            total_fixtures = len(group.fixtures)
-            for fixture_index, fixture in enumerate(group.fixtures):
-                if fixture.name not in self.fixture_maps:
-                    continue
+                for fixture_index, fixture in enumerate(sorted_fixtures):
+                    if fixture.name not in self.fixture_maps:
+                        continue
 
-                fixture_map = self.fixture_maps[fixture.name]
-
-                # Apply dimmer block (pass fixture position for group-based effects)
-                if dimmer_block:
+                    fixture_map = self.fixture_maps[fixture.name]
                     self._apply_dimmer_block(fixture_map, dimmer_block, current_time,
                                             fixture_index, total_fixtures)
 
-                # Apply colour block
-                if colour_block:
+            # Apply colour block to its resolved fixtures
+            if colour_block and colour_fixtures:
+                for fixture in colour_fixtures:
+                    if fixture.name not in self.fixture_maps:
+                        continue
+                    fixture_map = self.fixture_maps[fixture.name]
                     self._apply_colour_block(fixture_map, colour_block, current_time)
 
-                # Apply movement block
-                if movement_block:
+            # Apply movement block to its resolved fixtures
+            if movement_block and movement_fixtures:
+                for fixture in movement_fixtures:
+                    if fixture.name not in self.fixture_maps:
+                        continue
+                    fixture_map = self.fixture_maps[fixture.name]
                     self._apply_movement_block(fixture_map, movement_block, current_time)
 
-                # Apply special block
-                if special_block:
+            # Apply special block to its resolved fixtures
+            if special_block and special_fixtures:
+                for fixture in special_fixtures:
+                    if fixture.name not in self.fixture_maps:
+                        continue
+                    fixture_map = self.fixture_maps[fixture.name]
                     self._apply_special_block(fixture_map, special_block, current_time)
 
     def _apply_dimmer_block(self, fixture_map: FixtureChannelMap, block: DimmerBlock, current_time: float,
@@ -501,9 +562,10 @@ class DMXManager:
             seconds_per_beat = 60.0 / bpm
             time_per_fixture = seconds_per_beat / speed_multiplier
 
+            # Calculate intensity multiplier (0.0 to 1.0) for this fixture
             if total_fixtures <= 1:
                 # Single fixture - just stay on
-                intensity = int(block.intensity)
+                intensity_multiplier = 1.0
             else:
                 # Total time for one full ping-pong cycle (0→N-1→0)
                 # For N fixtures: N-1 steps forward, N-1 steps back = 2*(N-1) beats
@@ -528,14 +590,14 @@ class DMXManager:
                     # Going backward
                     active_fixture = steps_in_cycle - step_index
 
-                # Calculate intensity for this fixture
+                # Calculate intensity multiplier for this fixture
                 if fixture_index == active_fixture:
                     # This is the active fixture - instant full brightness
                     # with smooth decay over the beat
                     # Decay: start at 100%, end at ~20% by end of beat
                     decay_progress = time_within_step / time_per_fixture
                     # Use exponential decay for smooth falloff
-                    intensity = int(block.intensity * (0.2 + 0.8 * math.exp(-decay_progress * 3)))
+                    intensity_multiplier = 0.2 + 0.8 * math.exp(-decay_progress * 3)
                 elif fixture_index == (active_fixture - 1) or fixture_index == (active_fixture + 1):
                     # Adjacent fixture - might have residual glow from previous beat
                     # Only show tail if we just left this fixture
@@ -543,17 +605,39 @@ class DMXManager:
                     if fixture_index == prev_fixture and time_within_step < time_per_fixture * 0.3:
                         # Short tail from previous fixture (first 30% of beat only)
                         tail_progress = time_within_step / (time_per_fixture * 0.3)
-                        intensity = int(block.intensity * 0.3 * (1.0 - tail_progress))
+                        intensity_multiplier = 0.3 * (1.0 - tail_progress)
                     else:
-                        intensity = 0
+                        intensity_multiplier = 0.0
                 else:
                     # Not active, not adjacent - off
-                    intensity = 0
+                    intensity_multiplier = 0.0
 
-            # Set all dimmer channels for this fixture
-            for ch_offset in fixture_map.dimmer_channels:
-                universe, channel = fixture_map.get_absolute_address(ch_offset)
-                self.set_dmx_value(universe, channel, intensity)
+            # Check if this is a pixelbar type (has RGBW segments but may lack master dimmer)
+            fixture_type = getattr(fixture_map.fixture, 'type', '')
+            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
+
+            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
+                # For pixelbars: set master dimmer to full, control brightness via color scaling
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, int(block.intensity))
+
+                # Store uniform intensity for all segments - colour_block will use this to scale colors
+                num_segments = max(
+                    len(fixture_map.red_channels),
+                    len(fixture_map.green_channels),
+                    len(fixture_map.blue_channels),
+                    len(fixture_map.white_channels),
+                    1
+                )
+                # All segments get the same intensity multiplier for ping_pong
+                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
+            else:
+                # For regular fixtures (moving heads, sunstrips): control via dimmer channels
+                intensity = int(block.intensity * intensity_multiplier)
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, intensity)
 
         elif block.effect_type in ("waterfall_down", "waterfall_up"):
             # Waterfall effect: light cascades down (or up) through segments
@@ -931,21 +1015,24 @@ class DMXManager:
         Map RGB to color wheel position.
 
         Simple mapping to closest standard color.
+        DMX values are set to mid-range of typical color wheel positions
+        to work with most fixtures (Varytec Hero Spot 60, etc.)
         """
+        # Standard color wheel positions (using mid-range DMX values)
+        # Most color wheels have ~25 DMX values per color
         wheel_colors = [
-            (255, 255, 255, 5),    # White
-            (255, 0, 0, 16),       # Red
-            (255, 127, 0, 27),     # Orange
-            (255, 255, 0, 43),     # Yellow
-            (0, 255, 0, 64),       # Green
-            (0, 255, 255, 85),     # Cyan
-            (0, 0, 255, 106),      # Blue
-            (255, 0, 255, 127),    # Magenta
-            (255, 0, 127, 148),    # Pink
+            (255, 255, 255, 12),   # White (typically 0-24)
+            (255, 0, 0, 37),       # Red (typically 25-50)
+            (255, 255, 0, 63),     # Yellow (typically 51-75)
+            (173, 216, 230, 88),   # Light Blue (typically 76-100)
+            (0, 255, 0, 113),      # Green (typically 101-125)
+            (255, 170, 0, 138),    # Amber/Orange (typically 126-150)
+            (238, 130, 238, 163),  # Violet (typically 151-175)
+            (0, 0, 255, 188),      # Blue (typically 176-200)
         ]
 
         min_distance = float('inf')
-        closest_value = 0
+        closest_value = 12  # Default to white
 
         for wr, wg, wb, dmx_value in wheel_colors:
             distance = ((r - wr) ** 2 + (g - wg) ** 2 + (b - wb) ** 2) ** 0.5

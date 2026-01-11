@@ -487,12 +487,10 @@ class ShowsTab(BaseTab):
         if progress:
             progress.start_status("Creating lane...", 0)  # Indeterminate
 
-        # Create new lane with default name
+        # Create new lane with default name (no default targets - user selects them)
         lane_num = len(self.lane_widgets) + 1
-        fixture_groups = list(self.config.groups.keys())
-        default_group = fixture_groups[0] if fixture_groups else ""
 
-        lane = LightLane(f"Lane {lane_num}", default_group)
+        lane = LightLane(f"Lane {lane_num}")
         self._add_lane_widget(lane)
 
         if progress:

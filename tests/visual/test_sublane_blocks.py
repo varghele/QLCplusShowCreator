@@ -96,7 +96,7 @@ class SublaneBlockTestWindow(QMainWindow):
         """Create a test lane with sublane blocks."""
         lane = LightLane(
             name="Test Lane",
-            fixture_group="Moving Heads"
+            fixture_targets=["Moving Heads"]
         )
 
         # Test Block 1: All sublanes synchronized (0-4 seconds)
