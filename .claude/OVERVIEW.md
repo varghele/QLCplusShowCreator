@@ -1,6 +1,6 @@
 # QLC+ Show Creator - Project Overview
 
-**Last Updated:** December 2025
+**Last Updated:** January 2026
 
 ---
 
@@ -31,7 +31,7 @@
 > - `config/models.py` - Core data models (shared)
 > - `utils/fixture_utils.py` - Fixture parsing (shared)
 >
-> **Current branch:** `visualizer`
+> **Current branch:** `rework_light_lane_groups`
 >
 > **Tech stack:** Python 3.12, PyQt6, ModernGL, pandas, numpy, PyYAML
 
@@ -165,8 +165,9 @@ Show Creator → Visualizer:
 - `universe`, `address` - DMX addressing
 - `manufacturer`, `model` - QLC+ fixture definition reference
 - `current_mode`, `available_modes` - Channel modes
-- `type` - PAR, MH (Moving Head), WASH, BAR
-- `x, y, z, rotation` - Stage position
+- `type` - PAR, MH (Moving Head), WASH, BAR, SUNSTRIP
+- `x, y, z` - Stage position
+- `mounting`, `yaw`, `pitch`, `roll` - 3D orientation
 
 **FixtureGroup** - Group of fixtures controlled together
 - `fixtures: List[Fixture]`
@@ -257,16 +258,18 @@ This ensures consistency and reduces code duplication.
 
 ---
 
-## Current Status (December 2025)
+## Current Status (January 2026)
 
 ### Show Creator - Working
 - Universe configuration (E1.31, ArtNet, DMX USB)
 - Fixture import from QLC+ definitions
 - Fixture groups with color coding
 - Stage planning with visual placement
+- 3D fixture orientation system (mounting presets, yaw/pitch/roll)
 - In-app show structure creation (Structure tab)
 - Shows directory management with audio file integration
 - Timeline with sublane-based effects
+- **Multi-target lanes** - Lanes can target multiple groups and/or individual fixtures
 - All sublane edit dialogs (Dimmer, Colour, Movement, Special)
 - Copy/paste effects
 - Export to QLC+ workspace
@@ -275,6 +278,7 @@ This ensures consistency and reduces code duplication.
 - Auto-save effects on edit
 - Toolbar status indicators for TCP/ArtNet
 - Color wheel support with preset-to-wheel mapping
+- Effects/Riffs system (rework in progress)
 
 ### Visualizer - Working
 - TCP client receives stage/fixture configuration
@@ -282,15 +286,20 @@ This ensures consistency and reduces code duplication.
 - 3D stage rendering with grid
 - Orbiting camera with mouse controls
 - Fixture rendering (PAR, LED Bar, Moving Head, Sunstrip)
+- Full orientation support from TCP
 - Color wheel support for fixtures without RGB
 - Volumetric beam rendering for moving heads
+- Floor projection (spotlight ellipse where beam hits floor)
+- Prism effect (3-facet beam split)
+- Gobo pattern rendering (7 procedural patterns)
+- Focus effect (distance-based sharpness)
 - Pan/tilt animation from DMX values
 - Launch from Stage tab button
 
 ### Visualizer - Future Enhancements
-- Floor projection for beams
-- Advanced volumetric fog effects
+- Advanced volumetric fog shader
 - More fixture types (Wash, etc.)
+- UI polish (connection buttons, window persistence)
 
 ---
 

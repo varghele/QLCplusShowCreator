@@ -957,17 +957,27 @@ class LightBlock:
 
 @dataclass
 class LightLane:
-    """Represents a lane controlling a fixture group on the timeline"""
+    """Represents a lane controlling fixture targets on the timeline"""
     name: str
-    fixture_group: str
+    fixture_targets: List[str] = field(default_factory=list)
     muted: bool = False
     solo: bool = False
     light_blocks: List[LightBlock] = field(default_factory=list)
 
+    @property
+    def fixture_group(self) -> str:
+        """Backward compatibility: returns first target or empty string."""
+        return self.fixture_targets[0] if self.fixture_targets else ""
+
+    @fixture_group.setter
+    def fixture_group(self, value: str):
+        """Backward compatibility: sets single target."""
+        self.fixture_targets = [value] if value else []
+
     def to_dict(self) -> Dict:
         return {
             "name": self.name,
-            "fixture_group": self.fixture_group,
+            "fixture_targets": self.fixture_targets,
             "muted": self.muted,
             "solo": self.solo,
             "light_blocks": [block.to_dict() for block in self.light_blocks]
@@ -977,10 +987,16 @@ class LightLane:
     def from_dict(cls, data: Dict) -> 'LightLane':
         lane = cls(
             name=data.get("name", ""),
-            fixture_group=data.get("fixture_group", ""),
             muted=data.get("muted", False),
             solo=data.get("solo", False)
         )
+        # Migration: handle old fixture_group format
+        if "fixture_targets" in data:
+            lane.fixture_targets = data["fixture_targets"]
+        elif "fixture_group" in data:
+            old_group = data.get("fixture_group", "")
+            lane.fixture_targets = [old_group] if old_group else []
+
         for block_data in data.get("light_blocks", []):
             lane.light_blocks.append(LightBlock.from_dict(block_data))
         return lane
