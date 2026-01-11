@@ -1544,6 +1544,117 @@ class PixelBarRenderer(FixtureRenderer):
         self.segment_height = segment_height
         self.segment_start_x = start_x
 
+        # Create coordinate axes for debugging orientation
+        self._create_coordinate_axes(axis_origin_z=self.depth / 2 + 0.01)
+
+    def _create_coordinate_axes(self, axis_origin_z: float):
+        """Create coordinate axes for debugging fixture orientation.
+
+        Args:
+            axis_origin_z: Z position for axis origin (top of fixture)
+        """
+        # Axis length should exceed bar width for visibility
+        axis_length = max(self.width, self.height) + 0.1  # Exceed bar dimensions
+        axis_thickness = 0.008
+        arrow_length = 0.06
+        arrow_width = 0.04
+
+        # X-AXIS (Red) - pointing along +X
+        x_shaft_verts, x_shaft_norms = GeometryBuilder.create_box(
+            axis_length, axis_thickness, axis_thickness,
+            center=(axis_length / 2, 0, axis_origin_z)
+        )
+        arrow_tip_x = axis_length + arrow_length
+        arrow_base_x = axis_length
+        x_arrow_verts = np.array([
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, -arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_base_x, -arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+            arrow_base_x, arrow_width/2, axis_origin_z - arrow_width/2,
+            arrow_base_x, arrow_width/2, axis_origin_z + arrow_width/2,
+            arrow_tip_x, 0, axis_origin_z,
+        ], dtype='f4')
+        x_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [0, -1, 0] * 3 + [0, 1, 0] * 3, dtype='f4')
+        x_axis_verts = np.concatenate([x_shaft_verts, x_arrow_verts])
+        x_axis_norms = np.concatenate([x_shaft_norms, x_arrow_norms])
+
+        self.x_axis_vbo = self.ctx.buffer(x_axis_verts.tobytes())
+        self.x_axis_nbo = self.ctx.buffer(x_axis_norms.tobytes())
+        self.x_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.x_axis_vbo, '3f', 'in_position'), (self.x_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Y-AXIS (Blue) - pointing along +Y
+        y_shaft_verts, y_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_length, axis_thickness,
+            center=(0, axis_length / 2, axis_origin_z)
+        )
+        arrow_tip_y = axis_length + arrow_length
+        arrow_base_y = axis_length
+        y_arrow_verts = np.array([
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            -arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            -arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+            arrow_width/2, arrow_base_y, axis_origin_z - arrow_width/2,
+            arrow_width/2, arrow_base_y, axis_origin_z + arrow_width/2,
+            0, arrow_tip_y, axis_origin_z,
+        ], dtype='f4')
+        y_arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        y_axis_verts = np.concatenate([y_shaft_verts, y_arrow_verts])
+        y_axis_norms = np.concatenate([y_shaft_norms, y_arrow_norms])
+
+        self.y_axis_vbo = self.ctx.buffer(y_axis_verts.tobytes())
+        self.y_axis_nbo = self.ctx.buffer(y_axis_norms.tobytes())
+        self.y_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.y_axis_vbo, '3f', 'in_position'), (self.y_axis_nbo, '3f', 'in_normal')]
+        )
+
+        # Z-AXIS (Green) - pointing along +Z (up)
+        z_shaft_verts, z_shaft_norms = GeometryBuilder.create_box(
+            axis_thickness, axis_thickness, axis_length,
+            center=(0, 0, axis_origin_z + axis_length / 2)
+        )
+        arrow_tip_z = axis_origin_z + axis_length + arrow_length
+        arrow_base_z = axis_origin_z + axis_length
+        z_arrow_verts = np.array([
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            -arrow_width/2, arrow_width/2, arrow_base_z,
+            -arrow_width/2, -arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+            arrow_width/2, -arrow_width/2, arrow_base_z,
+            arrow_width/2, arrow_width/2, arrow_base_z,
+            0, 0, arrow_tip_z,
+        ], dtype='f4')
+        z_arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        z_axis_verts = np.concatenate([z_shaft_verts, z_arrow_verts])
+        z_axis_norms = np.concatenate([z_shaft_norms, z_arrow_norms])
+
+        self.z_axis_vbo = self.ctx.buffer(z_axis_verts.tobytes())
+        self.z_axis_nbo = self.ctx.buffer(z_axis_norms.tobytes())
+        self.z_axis_vao = self.ctx.vertex_array(
+            self.program,
+            [(self.z_axis_vbo, '3f', 'in_position'), (self.z_axis_nbo, '3f', 'in_normal')]
+        )
+
     def _create_segment_beams(self):
         """Create per-segment rectangular beams (one VAO per segment for individual colors)."""
         self.beam_program = self.ctx.program(
@@ -1652,6 +1763,17 @@ class PixelBarRenderer(FixtureRenderer):
         self.program['emissive_strength'].value = 0.0
         self.vao.render(moderngl.TRIANGLES)
 
+        # Render coordinate axes
+        if hasattr(self, 'x_axis_vao') and self.x_axis_vao:
+            self.program['base_color'].value = (0.9, 0.2, 0.2)  # Red
+            self.x_axis_vao.render(moderngl.TRIANGLES)
+        if hasattr(self, 'y_axis_vao') and self.y_axis_vao:
+            self.program['base_color'].value = (0.2, 0.4, 0.9)  # Blue
+            self.y_axis_vao.render(moderngl.TRIANGLES)
+        if hasattr(self, 'z_axis_vao') and self.z_axis_vao:
+            self.program['base_color'].value = (0.2, 0.8, 0.2)  # Green
+            self.z_axis_vao.render(moderngl.TRIANGLES)
+
         # Render each segment with its own color
         for i, vao in enumerate(self.segment_vaos):
             if i < len(self.segment_colors):
@@ -1736,6 +1858,13 @@ class PixelBarRenderer(FixtureRenderer):
         for abo in getattr(self, 'segment_beam_abos', []):
             if abo:
                 abo.release()
+        # Coordinate axes resources
+        for attr in ['x_axis_vao', 'x_axis_vbo', 'x_axis_nbo',
+                     'y_axis_vao', 'y_axis_vbo', 'y_axis_nbo',
+                     'z_axis_vao', 'z_axis_vbo', 'z_axis_nbo']:
+            obj = getattr(self, attr, None)
+            if obj:
+                obj.release()
 
 
 class SunstripRenderer(FixtureRenderer):
