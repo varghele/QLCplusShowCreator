@@ -18,7 +18,7 @@ Please read these files to understand the project:
 - .claude/OVERVIEW.md - Project context and architecture
 - .claude/PHASE_PLAN.md - Development roadmap
 
-Branch: bugfixes_pixelbars
+Branch: rework_light_lane_groups
 ```
 
 ---

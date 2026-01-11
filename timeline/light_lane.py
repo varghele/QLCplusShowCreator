@@ -12,18 +12,28 @@ class LightLane:
     and provides additional runtime functionality.
     """
 
-    def __init__(self, name: str, fixture_group: str):
+    def __init__(self, name: str, fixture_targets: List[str] = None):
         """Create a new light lane.
 
         Args:
             name: Display name for the lane
-            fixture_group: Name of the fixture group this lane controls
+            fixture_targets: List of fixture target strings (group names or "group:index")
         """
         self.name = name
-        self.fixture_group = fixture_group
+        self.fixture_targets = fixture_targets or []
         self.muted = False
         self.solo = False
         self.light_blocks: List[LightBlock] = []
+
+    @property
+    def fixture_group(self) -> str:
+        """Backward compatibility: returns first target or empty string."""
+        return self.fixture_targets[0] if self.fixture_targets else ""
+
+    @fixture_group.setter
+    def fixture_group(self, value: str):
+        """Backward compatibility: sets single target."""
+        self.fixture_targets = [value] if value else []
 
     def add_light_block(self, start_time: float, duration: float,
                         effect_name: str = "", parameters: dict = None) -> LightBlock:
@@ -140,7 +150,7 @@ class LightLane:
         from config.models import LightLane as LightLaneModel
         lane_model = LightLaneModel(
             name=self.name,
-            fixture_group=self.fixture_group,
+            fixture_targets=self.fixture_targets.copy(),
             muted=self.muted,
             solo=self.solo,
             light_blocks=self.light_blocks.copy()
@@ -157,9 +167,15 @@ class LightLane:
         Returns:
             New LightLane instance
         """
+        # Handle both new fixture_targets and old fixture_group
+        targets = getattr(lane_model, 'fixture_targets', None)
+        if targets is None:
+            old_group = getattr(lane_model, 'fixture_group', '')
+            targets = [old_group] if old_group else []
+
         lane = cls(
             name=lane_model.name,
-            fixture_group=lane_model.fixture_group
+            fixture_targets=targets
         )
         lane.muted = lane_model.muted
         lane.solo = lane_model.solo

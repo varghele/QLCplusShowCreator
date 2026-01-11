@@ -2,12 +2,13 @@
 # ArtNet output controller - integrates playback engine with DMX output
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSlot
-from typing import Optional
-from config.models import Configuration, LightBlock, DimmerBlock, ColourBlock, MovementBlock, SpecialBlock
+from typing import Optional, List
+from config.models import Configuration, LightBlock, DimmerBlock, ColourBlock, MovementBlock, SpecialBlock, Fixture
 from timeline.light_lane import LightLane
 from timeline.playback_engine import PlaybackEngine
 from .dmx_manager import DMXManager
 from .sender import ArtNetSender
+from utils.target_resolver import resolve_targets_unique
 
 
 class ArtNetOutputController(QObject):
@@ -130,25 +131,36 @@ class ArtNetOutputController(QObject):
             lane: LightLane containing the block
             block: LightBlock that was triggered
         """
-        fixture_group = lane.fixture_group
+        # Get fixture targets (with backward compatibility for old fixture_group field)
+        targets = getattr(lane, 'fixture_targets', [])
+        if not targets and hasattr(lane, 'fixture_group') and lane.fixture_group:
+            targets = [lane.fixture_group]
+
+        # Resolve targets to fixtures
+        resolved_fixtures = resolve_targets_unique(targets, self.config)
+        if not resolved_fixtures:
+            return
+
+        # Use lane name as key for tracking active blocks
+        lane_key = lane.name or targets[0] if targets else "unknown"
 
         # Register all sublane blocks with DMX manager
         for dimmer_block in block.dimmer_blocks:
             # Check if this block is currently active
             if dimmer_block.start_time <= self.current_time < dimmer_block.end_time:
-                self.dmx_manager.block_started(fixture_group, dimmer_block, 'dimmer', self.current_time)
+                self.dmx_manager.block_started(lane_key, resolved_fixtures, dimmer_block, 'dimmer', self.current_time)
 
         for colour_block in block.colour_blocks:
             if colour_block.start_time <= self.current_time < colour_block.end_time:
-                self.dmx_manager.block_started(fixture_group, colour_block, 'colour', self.current_time)
+                self.dmx_manager.block_started(lane_key, resolved_fixtures, colour_block, 'colour', self.current_time)
 
         for movement_block in block.movement_blocks:
             if movement_block.start_time <= self.current_time < movement_block.end_time:
-                self.dmx_manager.block_started(fixture_group, movement_block, 'movement', self.current_time)
+                self.dmx_manager.block_started(lane_key, resolved_fixtures, movement_block, 'movement', self.current_time)
 
         for special_block in block.special_blocks:
             if special_block.start_time <= self.current_time < special_block.end_time:
-                self.dmx_manager.block_started(fixture_group, special_block, 'special', self.current_time)
+                self.dmx_manager.block_started(lane_key, resolved_fixtures, special_block, 'special', self.current_time)
 
     @pyqtSlot(object, object)
     def _on_block_ended(self, lane: LightLane, block: LightBlock):
@@ -161,15 +173,21 @@ class ArtNetOutputController(QObject):
             lane: LightLane containing the block
             block: LightBlock that ended
         """
-        fixture_group = lane.fixture_group
+        # Get fixture targets (with backward compatibility for old fixture_group field)
+        targets = getattr(lane, 'fixture_targets', [])
+        if not targets and hasattr(lane, 'fixture_group') and lane.fixture_group:
+            targets = [lane.fixture_group]
+
+        # Use lane name as key for tracking active blocks
+        lane_key = lane.name or targets[0] if targets else "unknown"
 
         # Unregister all sublane blocks from DMX manager
         # Note: This clears all block types for simplicity
         # In practice, we should track which specific sublane blocks ended
-        self.dmx_manager.block_ended(fixture_group, 'dimmer')
-        self.dmx_manager.block_ended(fixture_group, 'colour')
-        self.dmx_manager.block_ended(fixture_group, 'movement')
-        self.dmx_manager.block_ended(fixture_group, 'special')
+        self.dmx_manager.block_ended(lane_key, 'dimmer')
+        self.dmx_manager.block_ended(lane_key, 'colour')
+        self.dmx_manager.block_ended(lane_key, 'movement')
+        self.dmx_manager.block_ended(lane_key, 'special')
 
     @pyqtSlot()
     def _update_and_send_dmx(self):
@@ -181,11 +199,16 @@ class ArtNetOutputController(QObject):
         if not self.output_enabled:
             return
 
-        # Update DMX state based on current time and active blocks
-        self.dmx_manager.update_dmx(self.current_time)
+        try:
+            # Update DMX state based on current time and active blocks
+            self.dmx_manager.update_dmx(self.current_time)
 
-        # Send DMX for all universes
-        self._send_all_universes()
+            # Send DMX for all universes
+            self._send_all_universes()
+        except Exception as e:
+            print(f"Error in DMX update: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _send_all_universes(self):
         """Send DMX data for all configured universes."""
