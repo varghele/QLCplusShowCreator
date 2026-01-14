@@ -756,7 +756,7 @@ shows:
           special_blocks: []
           start_time: 0.0
         muted: false
-        name: Lane 3
+        name: WASH
         solo: false
       - fixture_targets:
         - BARS
@@ -832,7 +832,7 @@ shows:
             zoom: 127.5
           start_time: 0.0
         muted: false
-        name: Lane 3
+        name: BARS
         solo: false
   SBD_cycle_of_a_pscho:
     effects: []

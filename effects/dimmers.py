@@ -400,7 +400,7 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
             # Build values in original fixture order for proper fixture_id mapping
             values = []
             for orig_idx, fixture in enumerate(fixture_conf):
-                fixture_id = fixture_id_map[id(fixture)]
+                fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
                 # Find this fixture's intensity in the sorted order
                 for sorted_idx, (oidx, f) in enumerate(sorted_indexed_fixtures):
                     if oidx == orig_idx:
@@ -528,7 +528,7 @@ def waterfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
             # Build per-fixture intensity based on wave position
             values = []
             for orig_idx, fixture in enumerate(fixture_conf):
-                fixture_id = fixture_id_map[id(fixture)]
+                fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
 
                 # Find this fixture's position in sorted order
                 for sorted_idx, (oidx, f) in enumerate(sorted_indexed_fixtures):

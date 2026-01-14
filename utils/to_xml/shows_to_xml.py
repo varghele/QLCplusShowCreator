@@ -298,7 +298,7 @@ def create_tracks(show_function, engine, show, effects_by_group, config, fixture
         # Add FixtureVal for fixtures in the group
         for fixture in config.groups[group_name].fixtures:
             fixture_val = ET.SubElement(scene, "FixtureVal")
-            fixture_val.set("ID", str(fixture_id_map[id(fixture)]))
+            fixture_val.set("ID", str(fixture_id_map[(fixture.universe, fixture.address)]))
 
             # Get number of channels
             num_channels = next((mode.channels for mode in fixture.available_modes
@@ -549,7 +549,8 @@ def create_tracks_old(function, root, effects, base_dir="../"):
     return current_id
 
 
-def _convert_dimmer_steps_to_rgb(steps, dimmer_block, colour_blocks, fixture_def, mode_name, fixture_num, fixture_start_id):
+def _convert_dimmer_steps_to_rgb(steps, dimmer_block, colour_blocks, fixture_def, mode_name, fixture_num, fixture_start_id,
+                                  fixture_conf=None, fixture_id_map=None):
     """
     Convert dimmer intensity steps to RGB channel steps for fixtures without dimmer capability.
 
@@ -560,7 +561,9 @@ def _convert_dimmer_steps_to_rgb(steps, dimmer_block, colour_blocks, fixture_def
         fixture_def: Fixture definition dictionary
         mode_name: Current fixture mode name
         fixture_num: Number of fixtures in group
-        fixture_start_id: Starting fixture ID
+        fixture_start_id: Starting fixture ID (legacy, used if fixture_id_map not provided)
+        fixture_conf: List of fixture objects (used with fixture_id_map)
+        fixture_id_map: Dict mapping (universe, address) to fixture IDs
 
     Returns:
         List of Step XML elements with RGB channel values
@@ -634,7 +637,12 @@ def _convert_dimmer_steps_to_rgb(steps, dimmer_block, colour_blocks, fixture_def
         total_values = 0
 
         for i in range(fixture_num):
-            fixture_id = fixture_start_id + i
+            # Look up actual fixture ID from map, or fall back to offset calculation
+            if fixture_id_map and fixture_conf and i < len(fixture_conf):
+                fixture = fixture_conf[i]
+                fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
+            else:
+                fixture_id = fixture_start_id + i
             intensity = fixture_intensities.get(fixture_id, 0)
 
             # Apply RGB values to ALL channel sets (e.g., all 10 segments)
@@ -729,7 +737,8 @@ def _map_rgb_to_color_wheel(r, g, b):
 
 def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixture_conf,
                                     fixture_start_id, bpm, signature, num_bars,
-                                    dimmer_block=None, colour_block=None, special_block=None):
+                                    dimmer_block=None, colour_block=None, special_block=None,
+                                    fixture_id_map=None):
     """
     Generate movement shape steps for a movement block.
 
@@ -961,8 +970,12 @@ def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixtu
 
         values = []
 
-        for fixture_idx in range(fixture_num):
-            fixture_id = fixture_start_id + fixture_idx
+        for fixture_idx, fixture in enumerate(fixture_conf):
+            # Look up actual fixture ID from map, or fall back to offset calculation
+            if fixture_id_map:
+                fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
+            else:
+                fixture_id = fixture_start_id + fixture_idx
 
             # Calculate phase offset for this fixture
             if phase_offset_enabled:
@@ -1168,322 +1181,413 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
             print(f"Warning: No valid fixtures for lane '{lane.name}', skipping")
             continue
 
-        # Calculate number of resolved fixtures
-        fixture_num = len(resolved_fixtures)
+        # Sort all fixtures in the lane by position (x coordinate) for cross-group effects
+        # This ensures ping-pong, waterfall, etc. work correctly across fixture groups
+        sorted_lane_fixtures = sorted(resolved_fixtures, key=lambda f: f.x)
 
-        # Create a display name for the lane (use lane name or first target)
-        lane_display_name = lane.name or targets[0]
-
-        # Create Track
-        track = ET.SubElement(show_function, "Track")
-        track.set("ID", str(track_id))
-        track.set("Name", lane_display_name.upper())
-        track.set("SceneID", str(function_id_counter))
-        track.set("isMute", "1" if lane.muted else "0")
-
-        # Create Scene
-        scene = ET.SubElement(engine, "Function")
-        scene.set("ID", str(function_id_counter))
-        scene.set("Type", "Scene")
-        scene.set("Name", f"Scene for {show.name} - {lane_display_name}")
-        scene.set("Hidden", "True")
-
-        # Add Scene properties
-        speed = ET.SubElement(scene, "Speed")
-        speed.set("FadeIn", "0")
-        speed.set("FadeOut", "0")
-        speed.set("Duration", "0")
-
-        # Add ChannelGroupsVal
-        ET.SubElement(scene, "ChannelGroupsVal").text = f"{track_id},0"
-
-        # Add FixtureVal for resolved fixtures
+        # Group fixtures by their fixture group for separate track processing
+        # This handles multi-target lanes by creating one track per fixture group
+        fixtures_by_group = {}
         for fixture in resolved_fixtures:
-            fixture_val = ET.SubElement(scene, "FixtureVal")
-            fixture_val.set("ID", str(fixture_id_map[id(fixture)]))
+            group_name = fixture.group
+            if group_name not in fixtures_by_group:
+                fixtures_by_group[group_name] = []
+            fixtures_by_group[group_name].append(fixture)
 
-            num_channels = next((mode.channels for mode in fixture.available_modes
-                                if mode.name == fixture.current_mode), 0)
-            channel_values = ",".join([f"{i},0" for i in range(num_channels)])
-            fixture_val.text = channel_values
+        # Process each fixture group as a separate track
+        for group_name, group_fixtures in fixtures_by_group.items():
+            # Calculate number of fixtures in this group
+            fixture_num = len(group_fixtures)
 
-        function_id_counter += 1
+            # Create a display name for this track
+            lane_display_name = group_name
 
-        # Create sequences for each light block
-        for block in lane.light_blocks:
-            if not block.effect_name:
-                continue
+            # Create Track
+            track = ET.SubElement(show_function, "Track")
+            track.set("ID", str(track_id))
+            track.set("Name", lane_display_name.upper())
+            track.set("SceneID", str(function_id_counter))
+            track.set("isMute", "1" if lane.muted else "0")
 
-            # Convert start_time from seconds to milliseconds
-            start_time_ms = int(block.start_time * 1000)
+            # Create Scene
+            scene = ET.SubElement(engine, "Function")
+            scene.set("ID", str(function_id_counter))
+            scene.set("Type", "Scene")
+            scene.set("Name", f"Scene for {show.name} - {lane_display_name}")
+            scene.set("Hidden", "True")
 
-            # Create sequence
-            sequence_name = f"{show.name}_{lane_display_name}_{start_time_ms}"
+            # Add Scene properties
+            speed = ET.SubElement(scene, "Speed")
+            speed.set("FadeIn", "0")
+            speed.set("FadeOut", "0")
+            speed.set("Duration", "0")
 
-            # Find BPM at block start
-            part_at_block = song_structure.get_part_at_time(block.start_time)
-            block_bpm = part_at_block.bpm if part_at_block else 120
+            # Add ChannelGroupsVal
+            ET.SubElement(scene, "ChannelGroupsVal").text = f"{track_id},0"
 
-            sequence = create_sequence(engine, function_id_counter, sequence_name,
-                                       scene.get("ID"), block_bpm)
+            # Add FixtureVal for this group's fixtures only
+            for fixture in group_fixtures:
+                fixture_val = ET.SubElement(scene, "FixtureVal")
+                fixture_val.set("ID", str(fixture_id_map[(fixture.universe, fixture.address)]))
 
-            # Split effect name into module and function
-            try:
-                module_name, func_name = block.effect_name.split('.')
-            except ValueError:
-                print(f"Invalid effect name format: {block.effect_name}")
-                continue
-
-            effect_module = effects.get(module_name)
-
-            if effect_module and hasattr(effect_module, func_name):
-                effect_func = getattr(effect_module, func_name)
-
-                # Get fixture definition from the first resolved fixture
-                first_fixture = resolved_fixtures[0]
-                fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
-                fixture_def = fixture_definitions.get(fixture_key)
-
-                if fixture_def and first_fixture.current_mode and part_at_block:
-                    # Calculate number of bars from block duration
-                    numerator, denominator = map(int, part_at_block.signature.split('/'))
-                    beats_per_bar = (numerator * 4) / denominator
-                    seconds_per_bar = beats_per_bar * (60.0 / block_bpm)
-                    num_bars = max(1, int(block.duration / seconds_per_bar))
-
-                    # Get parameters
-                    params = block.parameters or {}
-
-                    try:
-                        steps = effect_func(
-                            start_step=0,
-                            fixture_def=fixture_def,
-                            mode_name=first_fixture.current_mode,
-                            start_bpm=block_bpm,
-                            end_bpm=block_bpm,
-                            signature=part_at_block.signature,
-                            transition="instant",
-                            num_bars=num_bars,
-                            speed=params.get('speed', '1'),
-                            color=params.get('color', ''),
-                            fixture_conf=resolved_fixtures,
-                            fixture_start_id=fixture_start_id,
-                            intensity=params.get('intensity', 200),
-                            spot=config.spots.get(params.get('spot')) if params.get('spot') else None,
-                            fixture_definitions=fixture_definitions,
-                            fixture_id_map=fixture_id_map,
-                        )
-                        add_steps_to_sequence(sequence, steps)
-                    except Exception as e:
-                        print(f"Error creating effect steps: {e}")
-                        import traceback
-                        traceback.print_exc()
-
-            # Create ShowFunction
-            show_func = ET.SubElement(track, "ShowFunction")
-            show_func.set("ID", str(function_id_counter))
-            show_func.set("StartTime", str(start_time_ms))
-
-            # Use color from parameters or default
-            color = block.parameters.get('color', '#808080') if block.parameters else '#808080'
-            show_func.set("Color", color)
+                num_channels = next((mode.channels for mode in fixture.available_modes
+                                    if mode.name == fixture.current_mode), 0)
+                channel_values = ",".join([f"{i},0" for i in range(num_channels)])
+                fixture_val.text = channel_values
 
             function_id_counter += 1
 
-        # Check capabilities for this lane's targets
-        lane_capabilities = detect_targets_capabilities(targets, config, fixture_definitions)
-        has_dimmer = lane_capabilities.has_dimmer if lane_capabilities else True
-        has_colour = lane_capabilities.has_colour if lane_capabilities else False
+            # Get fixture definition from the first fixture in this group
+            first_fixture = group_fixtures[0]
+            fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
+            fixture_def = fixture_definitions.get(fixture_key)
 
-        # Process dimmer blocks for this lane
-        for block in lane.light_blocks:
-            for dimmer_block in block.dimmer_blocks:
-                # Get effect module
-                effect_module = effects.get("dimmers")
-                if not effect_module:
+            # Check capabilities for this specific fixture group
+            from utils.fixture_utils import detect_fixture_group_capabilities
+            group_capabilities = detect_fixture_group_capabilities(group_fixtures, fixture_definitions)
+            has_dimmer = group_capabilities.has_dimmer if group_capabilities else True
+            has_colour = group_capabilities.has_colour if group_capabilities else False
+            has_movement = group_capabilities.has_movement if group_capabilities else False
+
+            # Create sequences for each light block (legacy effect_name format)
+            for block in lane.light_blocks:
+                if not block.effect_name:
                     continue
-
-                # Get effect function based on effect_type
-                effect_func_name = dimmer_block.effect_type
-                if not hasattr(effect_module, effect_func_name):
-                    print(f"Warning: Effect function '{effect_func_name}' not found in dimmers module")
-                    continue
-
-                effect_func = getattr(effect_module, effect_func_name)
 
                 # Convert start_time from seconds to milliseconds
-                dimmer_start_time_ms = int(dimmer_block.start_time * 1000)
+                start_time_ms = int(block.start_time * 1000)
 
-                # Create sequence for this dimmer block
-                sequence_name = f"{show.name}_{lane_display_name}_dimmer_{dimmer_start_time_ms}"
+                # Create sequence
+                sequence_name = f"{show.name}_{lane_display_name}_{start_time_ms}"
 
-                # Find BPM and song part at dimmer block start
-                part_at_dimmer = song_structure.get_part_at_time(dimmer_block.start_time)
-                dimmer_bpm = part_at_dimmer.bpm if part_at_dimmer else 120
+                # Find BPM at block start
+                part_at_block = song_structure.get_part_at_time(block.start_time)
+                block_bpm = part_at_block.bpm if part_at_block else 120
 
                 sequence = create_sequence(engine, function_id_counter, sequence_name,
-                                          scene.get("ID"), dimmer_bpm)
+                                           scene.get("ID"), block_bpm)
 
-                # Get fixture definition from first resolved fixture
-                first_fixture = resolved_fixtures[0]
-                fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
-                fixture_def = fixture_definitions.get(fixture_key)
+                # Split effect name into module and function
+                try:
+                    module_name, func_name = block.effect_name.split('.')
+                except ValueError:
+                    print(f"Invalid effect name format: {block.effect_name}")
+                    continue
 
-                if fixture_def and first_fixture.current_mode and part_at_dimmer:
-                    # Calculate number of bars from dimmer block duration
-                    dimmer_duration = dimmer_block.end_time - dimmer_block.start_time
-                    numerator, denominator = map(int, part_at_dimmer.signature.split('/'))
-                    beats_per_bar = (numerator * 4) / denominator
-                    seconds_per_bar = beats_per_bar * (60.0 / dimmer_bpm)
-                    num_bars = max(1, int(dimmer_duration / seconds_per_bar))
+                effect_module = effects.get(module_name)
 
-                    try:
-                        # Call the effect function with dimmer block parameters
-                        steps = effect_func(
-                            start_step=0,
-                            fixture_def=fixture_def,
-                            mode_name=first_fixture.current_mode,
-                            start_bpm=dimmer_bpm,
-                            end_bpm=dimmer_bpm,
-                            signature=part_at_dimmer.signature,
-                            transition="instant",
-                            num_bars=num_bars,
-                            speed=dimmer_block.effect_speed,
-                            color=None,
-                            fixture_conf=resolved_fixtures,
-                            fixture_start_id=fixture_start_id,
-                            intensity=int(dimmer_block.intensity),
-                            spot=None,
-                            fixture_definitions=fixture_definitions,
-                            fixture_id_map=fixture_id_map,
-                        )
+                if effect_module and hasattr(effect_module, func_name):
+                    effect_func = getattr(effect_module, func_name)
 
-                        # If fixture has no dimmer, convert intensity steps to RGB steps
-                        if not has_dimmer and has_colour:
-                            steps = _convert_dimmer_steps_to_rgb(
-                                steps=steps,
-                                dimmer_block=dimmer_block,
-                                colour_blocks=block.colour_blocks,
+                    if fixture_def and first_fixture.current_mode and part_at_block:
+                        # Calculate number of bars from block duration
+                        numerator, denominator = map(int, part_at_block.signature.split('/'))
+                        beats_per_bar = (numerator * 4) / denominator
+                        seconds_per_bar = beats_per_bar * (60.0 / block_bpm)
+                        num_bars = max(1, int(block.duration / seconds_per_bar))
+
+                        # Get parameters
+                        params = block.parameters or {}
+
+                        try:
+                            steps = effect_func(
+                                start_step=0,
                                 fixture_def=fixture_def,
                                 mode_name=first_fixture.current_mode,
-                                fixture_num=fixture_num,
-                                fixture_start_id=fixture_start_id
+                                start_bpm=block_bpm,
+                                end_bpm=block_bpm,
+                                signature=part_at_block.signature,
+                                transition="instant",
+                                num_bars=num_bars,
+                                speed=params.get('speed', '1'),
+                                color=params.get('color', ''),
+                                fixture_conf=group_fixtures,
+                                fixture_start_id=fixture_start_id,
+                                intensity=params.get('intensity', 200),
+                                spot=config.spots.get(params.get('spot')) if params.get('spot') else None,
+                                fixture_definitions=fixture_definitions,
+                                fixture_id_map=fixture_id_map,
                             )
+                            add_steps_to_sequence(sequence, steps)
+                        except Exception as e:
+                            print(f"Error creating effect steps: {e}")
+                            import traceback
+                            traceback.print_exc()
 
-                        add_steps_to_sequence(sequence, steps)
-                    except Exception as e:
-                        print(f"Error creating dimmer effect steps: {e}")
-                        import traceback
-                        traceback.print_exc()
-
-                # Create ShowFunction for this dimmer block
+                # Create ShowFunction
                 show_func = ET.SubElement(track, "ShowFunction")
                 show_func.set("ID", str(function_id_counter))
-                show_func.set("StartTime", str(dimmer_start_time_ms))
+                show_func.set("StartTime", str(start_time_ms))
 
-                # Use color from song part for easy identification
-                color = part_at_dimmer.color if part_at_dimmer else '#808080'
+                # Use color from parameters or default
+                color = block.parameters.get('color', '#808080') if block.parameters else '#808080'
                 show_func.set("Color", color)
 
                 function_id_counter += 1
 
-        # Process movement blocks for this lane
-        for block in lane.light_blocks:
-            for movement_block in block.movement_blocks:
-                # Get fixture definition from first resolved fixture
-                first_fixture = resolved_fixtures[0]
-                fixture_key = f"{first_fixture.manufacturer}_{first_fixture.model}"
-                fixture_def = fixture_definitions.get(fixture_key)
+            # Process light blocks using unified sequence approach
+            # This creates ONE sequence per LightBlock with ALL effects combined
+            from utils.to_xml.unified_sequence import generate_unified_sequence_steps
 
-                # Find BPM and song part at movement block start
-                part_at_movement = song_structure.get_part_at_time(movement_block.start_time)
+            for block in lane.light_blocks:
+                # Check if this block has any sublane blocks
+                has_any_blocks = (
+                    block.dimmer_blocks or
+                    block.colour_blocks or
+                    block.movement_blocks or
+                    block.special_blocks
+                )
 
-                if not fixture_def or not first_fixture.current_mode or not part_at_movement:
-                    print(f"Warning: Skipping movement block - missing fixture_def, mode, or part")
+                if not has_any_blocks:
                     continue
 
-                # Find overlapping dimmer and colour blocks from the same LightBlock
-                # to include their channel values in the movement steps
-                overlapping_dimmer = None
-                for dimmer_block in block.dimmer_blocks:
-                    if (dimmer_block.start_time <= movement_block.start_time < dimmer_block.end_time or
-                        movement_block.start_time <= dimmer_block.start_time < movement_block.end_time):
-                        overlapping_dimmer = dimmer_block
-                        break
+                # Find the time range of all blocks in this LightBlock
+                all_sublane_blocks = (
+                    list(block.dimmer_blocks) +
+                    list(block.colour_blocks) +
+                    list(block.movement_blocks) +
+                    list(block.special_blocks)
+                )
 
-                overlapping_colour = None
-                for colour_block in block.colour_blocks:
-                    if (colour_block.start_time <= movement_block.start_time < colour_block.end_time or
-                        movement_block.start_time <= colour_block.start_time < movement_block.end_time):
-                        overlapping_colour = colour_block
-                        break
+                block_start_time = min(b.start_time for b in all_sublane_blocks)
+                block_end_time = max(b.end_time for b in all_sublane_blocks)
+                block_start_time_ms = int(block_start_time * 1000)
 
-                overlapping_special = None
-                for special_block in block.special_blocks:
-                    if (special_block.start_time <= movement_block.start_time < special_block.end_time or
-                        movement_block.start_time <= special_block.start_time < special_block.end_time):
-                        overlapping_special = special_block
-                        break
+                # Find BPM and song part at block start
+                part_at_block = song_structure.get_part_at_time(block_start_time)
+                block_bpm = part_at_block.bpm if part_at_block else 120
+                block_signature = part_at_block.signature if part_at_block else "4/4"
 
-                # Convert start_time from seconds to milliseconds
-                movement_start_time_ms = int(movement_block.start_time * 1000)
-
-                # Calculate movement block duration in milliseconds
-                movement_duration = movement_block.end_time - movement_block.start_time
-                movement_duration_ms = int(movement_duration * 1000)
-
-                # Calculate number of bars from movement block duration
-                movement_bpm = part_at_movement.bpm if part_at_movement else 120
-                numerator, denominator = map(int, part_at_movement.signature.split('/'))
-                beats_per_bar = (numerator * 4) / denominator
-                seconds_per_bar = beats_per_bar * (60.0 / movement_bpm)
-                num_bars = max(1, int(movement_duration / seconds_per_bar))
-
-                # Generate movement shape steps FIRST, before creating sequence
+                # Generate unified sequence steps
+                # Pass all_lane_fixtures (sorted by position) for cross-group effects like ping-pong
                 try:
-                    steps = _generate_movement_shape_steps(
-                        movement_block=movement_block,
-                        fixture_def=fixture_def,
-                        mode_name=first_fixture.current_mode,
-                        fixture_conf=resolved_fixtures,
-                        fixture_start_id=fixture_start_id,
-                        bpm=movement_bpm,
-                        signature=part_at_movement.signature,
-                        num_bars=num_bars,
-                        dimmer_block=overlapping_dimmer,
-                        colour_block=overlapping_colour,
-                        special_block=overlapping_special
+                    steps = generate_unified_sequence_steps(
+                        fixtures=group_fixtures,
+                        fixture_id_map=fixture_id_map,
+                        fixture_definitions=fixture_definitions,
+                        light_block=block,
+                        bpm=block_bpm,
+                        signature=block_signature,
+                        all_lane_fixtures=sorted_lane_fixtures  # All fixtures in lane for cross-group effects
                     )
 
                     if not steps:
-                        print(f"Warning: No steps generated for movement block at {movement_start_time_ms}ms")
+                        print(f"Warning: No unified steps generated for block at {block_start_time_ms}ms")
                         continue
 
                 except Exception as e:
-                    print(f"Error creating movement effect steps: {e}")
+                    print(f"Error creating unified sequence steps: {e}")
                     import traceback
                     traceback.print_exc()
                     continue
 
-                # Only create sequence and ShowFunction if we have valid steps
-                sequence_name = f"{show.name}_{lane_display_name}_movement_{movement_start_time_ms}"
+                # Create sequence for this unified block
+                sequence_name = f"{show.name}_{lane_display_name}_unified_{block_start_time_ms}"
                 sequence = create_sequence(engine, function_id_counter, sequence_name,
-                                          scene.get("ID"), movement_bpm)
+                                          scene.get("ID"), block_bpm)
                 add_steps_to_sequence(sequence, steps)
 
-                # Create ShowFunction for this movement block
+                # Create ShowFunction for this block
                 show_func = ET.SubElement(track, "ShowFunction")
                 show_func.set("ID", str(function_id_counter))
-                show_func.set("StartTime", str(movement_start_time_ms))
-                # Note: Duration is NOT set for Sequences - QLC+ determines duration from sequence steps
+                show_func.set("StartTime", str(block_start_time_ms))
 
-                # Use blue color for movement blocks
-                show_func.set("Color", "#6496FF")
+                # Use color based on which effects are present
+                if block.movement_blocks:
+                    color = "#6496FF"  # Blue for movement
+                elif block.colour_blocks:
+                    color = "#FF6496"  # Pink for color
+                else:
+                    color = "#4CAF50"  # Green for dimmer
+
+                show_func.set("Color", color)
 
                 function_id_counter += 1
 
-        fixture_start_id += fixture_num
-        track_id += 1
+            # LEGACY: Process dimmer blocks for this fixture group (disabled - using unified approach)
+            if False:  # Disabled - replaced by unified sequence approach above
+              for block_legacy in lane.light_blocks:
+                for dimmer_block in block_legacy.dimmer_blocks:
+                    # Get effect module
+                    effect_module = effects.get("dimmers")
+                    if not effect_module:
+                        continue
+
+                    # Get effect function based on effect_type
+                    effect_func_name = dimmer_block.effect_type
+                    if not hasattr(effect_module, effect_func_name):
+                        print(f"Warning: Effect function '{effect_func_name}' not found in dimmers module")
+                        continue
+
+                    effect_func = getattr(effect_module, effect_func_name)
+
+                    # Convert start_time from seconds to milliseconds
+                    dimmer_start_time_ms = int(dimmer_block.start_time * 1000)
+
+                    # Create sequence for this dimmer block
+                    sequence_name = f"{show.name}_{lane_display_name}_dimmer_{dimmer_start_time_ms}"
+
+                    # Find BPM and song part at dimmer block start
+                    part_at_dimmer = song_structure.get_part_at_time(dimmer_block.start_time)
+                    dimmer_bpm = part_at_dimmer.bpm if part_at_dimmer else 120
+
+                    sequence = create_sequence(engine, function_id_counter, sequence_name,
+                                              scene.get("ID"), dimmer_bpm)
+
+                    if fixture_def and first_fixture.current_mode and part_at_dimmer:
+                        # Calculate number of bars from dimmer block duration
+                        dimmer_duration = dimmer_block.end_time - dimmer_block.start_time
+                        numerator, denominator = map(int, part_at_dimmer.signature.split('/'))
+                        beats_per_bar = (numerator * 4) / denominator
+                        seconds_per_bar = beats_per_bar * (60.0 / dimmer_bpm)
+                        num_bars = max(1, int(dimmer_duration / seconds_per_bar))
+
+                        try:
+                            # Call the effect function with dimmer block parameters
+                            steps = effect_func(
+                                start_step=0,
+                                fixture_def=fixture_def,
+                                mode_name=first_fixture.current_mode,
+                                start_bpm=dimmer_bpm,
+                                end_bpm=dimmer_bpm,
+                                signature=part_at_dimmer.signature,
+                                transition="instant",
+                                num_bars=num_bars,
+                                speed=dimmer_block.effect_speed,
+                                color=None,
+                                fixture_conf=group_fixtures,
+                                fixture_start_id=fixture_start_id,
+                                intensity=int(dimmer_block.intensity),
+                                spot=None,
+                                fixture_definitions=fixture_definitions,
+                                fixture_id_map=fixture_id_map,
+                            )
+
+                            # If fixture has no dimmer, convert intensity steps to RGB steps
+                            if not has_dimmer and has_colour:
+                                steps = _convert_dimmer_steps_to_rgb(
+                                    steps=steps,
+                                    dimmer_block=dimmer_block,
+                                    colour_blocks=block.colour_blocks,
+                                    fixture_def=fixture_def,
+                                    mode_name=first_fixture.current_mode,
+                                    fixture_num=fixture_num,
+                                    fixture_start_id=fixture_start_id,
+                                    fixture_conf=group_fixtures,
+                                    fixture_id_map=fixture_id_map
+                                )
+
+                            add_steps_to_sequence(sequence, steps)
+                        except Exception as e:
+                            print(f"Error creating dimmer effect steps: {e}")
+                            import traceback
+                            traceback.print_exc()
+
+                    # Create ShowFunction for this dimmer block
+                    show_func = ET.SubElement(track, "ShowFunction")
+                    show_func.set("ID", str(function_id_counter))
+                    show_func.set("StartTime", str(dimmer_start_time_ms))
+
+                    # Use color from song part for easy identification
+                    color = part_at_dimmer.color if part_at_dimmer else '#808080'
+                    show_func.set("Color", color)
+
+                    function_id_counter += 1
+
+            # LEGACY: Process movement blocks (disabled - using unified approach)
+            if False and has_movement:  # Disabled
+                for block in lane.light_blocks:
+                    for movement_block in block.movement_blocks:
+                        # Find BPM and song part at movement block start
+                        part_at_movement = song_structure.get_part_at_time(movement_block.start_time)
+
+                        if not fixture_def or not first_fixture.current_mode or not part_at_movement:
+                            print(f"Warning: Skipping movement block - missing fixture_def, mode, or part")
+                            continue
+
+                        # Find overlapping dimmer and colour blocks from the same LightBlock
+                        # to include their channel values in the movement steps
+                        overlapping_dimmer = None
+                        for dimmer_block in block.dimmer_blocks:
+                            if (dimmer_block.start_time <= movement_block.start_time < dimmer_block.end_time or
+                                movement_block.start_time <= dimmer_block.start_time < movement_block.end_time):
+                                overlapping_dimmer = dimmer_block
+                                break
+
+                        overlapping_colour = None
+                        for colour_block in block.colour_blocks:
+                            if (colour_block.start_time <= movement_block.start_time < colour_block.end_time or
+                                movement_block.start_time <= colour_block.start_time < movement_block.end_time):
+                                overlapping_colour = colour_block
+                                break
+
+                        overlapping_special = None
+                        for special_block in block.special_blocks:
+                            if (special_block.start_time <= movement_block.start_time < special_block.end_time or
+                                movement_block.start_time <= special_block.start_time < special_block.end_time):
+                                overlapping_special = special_block
+                                break
+
+                        # Convert start_time from seconds to milliseconds
+                        movement_start_time_ms = int(movement_block.start_time * 1000)
+
+                        # Calculate movement block duration in milliseconds
+                        movement_duration = movement_block.end_time - movement_block.start_time
+                        movement_duration_ms = int(movement_duration * 1000)
+
+                        # Calculate number of bars from movement block duration
+                        movement_bpm = part_at_movement.bpm if part_at_movement else 120
+                        numerator, denominator = map(int, part_at_movement.signature.split('/'))
+                        beats_per_bar = (numerator * 4) / denominator
+                        seconds_per_bar = beats_per_bar * (60.0 / movement_bpm)
+                        num_bars = max(1, int(movement_duration / seconds_per_bar))
+
+                        # Generate movement shape steps FIRST, before creating sequence
+                        try:
+                            steps = _generate_movement_shape_steps(
+                                movement_block=movement_block,
+                                fixture_def=fixture_def,
+                                mode_name=first_fixture.current_mode,
+                                fixture_conf=group_fixtures,
+                                fixture_start_id=fixture_start_id,
+                                bpm=movement_bpm,
+                                signature=part_at_movement.signature,
+                                num_bars=num_bars,
+                                dimmer_block=overlapping_dimmer,
+                                colour_block=overlapping_colour,
+                                special_block=overlapping_special,
+                                fixture_id_map=fixture_id_map
+                            )
+
+                            if not steps:
+                                print(f"Warning: No steps generated for movement block at {movement_start_time_ms}ms")
+                                continue
+
+                        except Exception as e:
+                            print(f"Error creating movement effect steps: {e}")
+                            import traceback
+                            traceback.print_exc()
+                            continue
+
+                        # Only create sequence and ShowFunction if we have valid steps
+                        sequence_name = f"{show.name}_{lane_display_name}_movement_{movement_start_time_ms}"
+                        sequence = create_sequence(engine, function_id_counter, sequence_name,
+                                                  scene.get("ID"), movement_bpm)
+                        add_steps_to_sequence(sequence, steps)
+
+                        # Create ShowFunction for this movement block
+                        show_func = ET.SubElement(track, "ShowFunction")
+                        show_func.set("ID", str(function_id_counter))
+                        show_func.set("StartTime", str(movement_start_time_ms))
+                        # Note: Duration is NOT set for Sequences - QLC+ determines duration from sequence steps
+
+                        # Use blue color for movement blocks
+                        show_func.set("Color", "#6496FF")
+
+                        function_id_counter += 1
+
+            fixture_start_id += fixture_num
+            track_id += 1
 
     return function_id_counter
 
