@@ -549,7 +549,7 @@ def generate_group_controls(
     pan_tilt_fixtures = []  # [(fixture_id, pan_ch, tilt_ch), ...]
 
     for fixture in group.fixtures:
-        fixture_id = fixture_id_map.get(id(fixture))
+        fixture_id = fixture_id_map.get((fixture.universe, fixture.address))
         if fixture_id is None:
             continue
 

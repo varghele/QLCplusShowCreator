@@ -338,8 +338,11 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * intensity_multiplier)
 
-    elif effect_type == "waterfall":
-        # Light cascades through fixtures
+    elif effect_type in ("waterfall_down", "waterfall_up"):
+        # Waterfall effect: light cascades through fixtures with smooth tail
+        # Matches ArtNet implementation in dmx_manager.py
+        import hashlib
+
         speed = active_block.effect_speed
         if '/' in speed:
             num, denom = map(int, speed.split('/'))
@@ -347,14 +350,57 @@ def sample_dimmer_at_time(
         else:
             speed_mult = float(speed)
 
-        cycles = progress * total_cycles
-        wave_position = (cycles * total_fixtures) % total_fixtures
-        distance = (fixture_idx - wave_position) % total_fixtures
-        if distance > total_fixtures / 2:
-            distance = total_fixtures - distance
+        time_in_block = time_s - active_block.start_time
 
-        falloff = max(0, 1 - distance / 3)  # 3-fixture wide wave
-        return int(base_intensity * falloff)
+        if total_fixtures <= 1:
+            return base_intensity
+
+        # Calculate timing based on BPM: each fixture gets one beat at speed 1
+        seconds_per_beat = 60.0 / bpm
+        time_per_step = seconds_per_beat / speed_mult
+
+        # Calculate random offset for this fixture (slowly drifting)
+        # Use fixture_idx as seed since we don't have fixture name here
+        seed_str = f"waterfall_fixture_{fixture_idx}"
+        name_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+        base_offset = (name_hash % 1000) / 1000.0  # 0.0 to 1.0
+
+        # Slowly drifting component (changes over ~30 seconds)
+        drift_period = 30.0
+        drift_phase = (time_s / drift_period) * 2 * math.pi
+        drift_seed = (name_hash % 997) / 997.0 * 2 * math.pi
+        drift_amount = 0.3 * math.sin(drift_phase + drift_seed)  # +/- 0.3 cycle drift
+
+        total_offset = base_offset + drift_amount
+
+        # Full cycle time = total_fixtures beats (one per fixture)
+        cycle_time = time_per_step * total_fixtures
+
+        # Current position in cycle (0 to total_fixtures), with offset
+        cycle_progress = (time_in_block / cycle_time + total_offset) % 1.0
+        head_position = cycle_progress * total_fixtures  # 0 to total_fixtures
+
+        # For waterfall_down: head moves from last fixture (N-1) to first (0)
+        # For waterfall_up: head moves from first fixture (0) to last (N-1)
+        if effect_type == "waterfall_down":
+            head_position = (total_fixtures - 1) - head_position
+        # For waterfall_up, head_position is already 0 to N-1
+
+        # Calculate distance from head using circular/wrapped distance
+        # This creates a continuous seamless loop where the tail wraps around
+        if effect_type == "waterfall_down":
+            raw_distance = fixture_idx - head_position
+        else:  # waterfall_up
+            raw_distance = head_position - fixture_idx
+
+        # Use modulo to wrap the distance for continuous effect
+        circular_distance = raw_distance % total_fixtures
+
+        # Normalize and apply exponential decay
+        normalized_dist = circular_distance / total_fixtures
+        intensity_multiplier = math.exp(-1.5 * normalized_dist)
+
+        return int(base_intensity * intensity_multiplier)
 
     # Default: static
     return base_intensity
@@ -753,11 +799,17 @@ def build_unified_step(
         )
         num_rgb_segments = len(channels_dict.get("IntensityRed", [])) if "IntensityRed" in channels_dict else 0
 
-        # For pixelbars with twinkle effect: set master dimmer to full intensity
-        # The twinkle modulation is applied to the color channels instead
+        # For pixelbars with twinkle or waterfall effect: set master dimmer to full intensity
+        # The effect modulation is applied to the color channels instead
         is_pixelbar_twinkle = (
             active_dimmer_block and
             active_dimmer_block.effect_type == "twinkle" and
+            has_rgb_channels and
+            num_rgb_segments > 1
+        )
+        is_pixelbar_waterfall = (
+            active_dimmer_block and
+            active_dimmer_block.effect_type in ("waterfall_down", "waterfall_up") and
             has_rgb_channels and
             num_rgb_segments > 1
         )
@@ -766,9 +818,9 @@ def build_unified_step(
         for preset in ["IntensityMasterDimmer", "IntensityDimmer"]:
             if preset in channels_dict:
                 for ch in channels_dict[preset]:
-                    # For pixelbar twinkle, set dimmer to block's base intensity
-                    # (twinkle modulation happens in color channels)
-                    if is_pixelbar_twinkle:
+                    # For pixelbar twinkle/waterfall, set dimmer to block's base intensity
+                    # (effect modulation happens in color channels)
+                    if is_pixelbar_twinkle or is_pixelbar_waterfall:
                         dimmer_to_use = int(active_dimmer_block.intensity)
                     else:
                         dimmer_to_use = dimmer_value
@@ -850,8 +902,80 @@ def build_unified_step(
                                 scaled_value = int(base_value * twinkle_factor)
                                 channel_values.append(f"{ch['channel']},{scaled_value}")
                                 total_channel_count += 1
+
+                elif is_pixelbar_waterfall:
+                    # Calculate per-segment waterfall intensities (matches ArtNet implementation)
+                    import hashlib
+
+                    speed = active_dimmer_block.effect_speed
+                    if '/' in speed:
+                        num, denom = map(int, speed.split('/'))
+                        speed_mult = num / denom
+                    else:
+                        speed_mult = float(speed)
+
+                    time_in_block = time_s - active_dimmer_block.start_time
+                    effect_type = active_dimmer_block.effect_type
+
+                    # Calculate timing based on BPM: each segment gets one beat at speed 1
+                    seconds_per_beat = 60.0 / bpm
+                    time_per_step = seconds_per_beat / speed_mult
+
+                    # Calculate random offset for this fixture (slowly drifting)
+                    seed_str = f"waterfall_fixture_{global_fixture_idx}"
+                    name_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+                    base_offset = (name_hash % 1000) / 1000.0  # 0.0 to 1.0
+
+                    # Slowly drifting component (changes over ~30 seconds)
+                    drift_period = 30.0
+                    drift_phase = (time_s / drift_period) * 2 * math.pi
+                    drift_seed = (name_hash % 997) / 997.0 * 2 * math.pi
+                    drift_amount = 0.3 * math.sin(drift_phase + drift_seed)  # +/- 0.3 cycle drift
+
+                    total_offset = base_offset + drift_amount
+
+                    # Full cycle time = num_segments beats
+                    cycle_time = time_per_step * num_rgb_segments
+
+                    # Current position in cycle (0 to num_segments), with offset
+                    cycle_progress = (time_in_block / cycle_time + total_offset) % 1.0
+                    head_position = cycle_progress * num_rgb_segments  # 0 to num_segments
+
+                    # For waterfall_down: head moves from last segment (N-1) to first (0)
+                    # For waterfall_up: head moves from first segment (0) to last (N-1)
+                    if effect_type == "waterfall_down":
+                        head_position = (num_rgb_segments - 1) - head_position
+                    # For waterfall_up, head_position is already 0 to N-1
+
+                    # Calculate intensity for each segment using circular/wrapped distance
+                    segment_intensities = []
+                    for seg_idx in range(num_rgb_segments):
+                        # Calculate distance from head to this segment
+                        if effect_type == "waterfall_down":
+                            raw_distance = seg_idx - head_position
+                        else:  # waterfall_up
+                            raw_distance = head_position - seg_idx
+
+                        # Use modulo to wrap the distance for continuous effect
+                        circular_distance = raw_distance % num_rgb_segments
+
+                        # Normalize and apply exponential decay
+                        normalized_dist = circular_distance / num_rgb_segments
+                        intensity_factor = math.exp(-1.5 * normalized_dist)
+                        segment_intensities.append(intensity_factor)
+
+                    # Apply per-segment color values with waterfall
+                    for preset, base_value in color_mappings:
+                        if preset in channels_dict:
+                            for seg_idx, ch in enumerate(channels_dict[preset]):
+                                # Scale color value by segment's waterfall intensity
+                                waterfall_factor = segment_intensities[seg_idx] if seg_idx < len(segment_intensities) else 1.0
+                                scaled_value = int(base_value * waterfall_factor)
+                                channel_values.append(f"{ch['channel']},{scaled_value}")
+                                total_channel_count += 1
+
                 else:
-                    # No twinkle or single segment - apply uniform values
+                    # No twinkle/waterfall or single segment - apply uniform values
                     for preset, value in color_mappings:
                         if preset in channels_dict:
                             for ch in channels_dict[preset]:

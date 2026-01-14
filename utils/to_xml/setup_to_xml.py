@@ -179,13 +179,18 @@ def create_channels_groups(engine, config: Configuration, fixture_id_map: dict, 
                     for preset_name, display_name in capability_mappings:
                         if preset_name in channels_dict:
                             channel_list = channels_dict[preset_name]
-                            # Get the first channel for each capability
-                            if channel_list and isinstance(channel_list, list) and len(channel_list) > 0:
-                                channel_num = channel_list[0].get('channel') if isinstance(channel_list[0], dict) else channel_list[0]
-
+                            # Get ALL channels for each capability (important for pixelbars with multiple segments)
+                            # but deduplicate by channel number per fixture (ColorMacro returns multiple entries for same channel)
+                            if channel_list and isinstance(channel_list, list):
                                 if display_name not in capability_channels:
                                     capability_channels[display_name] = []
-                                capability_channels[display_name].append((fixture_id, channel_num))
+                                seen_channels = set()  # Track channels we've added for this fixture/capability
+                                for ch_entry in channel_list:
+                                    channel_num = ch_entry.get('channel') if isinstance(ch_entry, dict) else ch_entry
+                                    # Only add if we haven't seen this channel for this fixture yet
+                                    if (fixture_id, channel_num) not in seen_channels:
+                                        capability_channels[display_name].append((fixture_id, channel_num))
+                                        seen_channels.add((fixture_id, channel_num))
 
         # Create a ChannelsGroup for each capability
         for capability_name, channels in capability_channels.items():
