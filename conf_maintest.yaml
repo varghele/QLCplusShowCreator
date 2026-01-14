@@ -784,7 +784,7 @@ shows:
             yellow: 0.0
           dimmer_blocks:
           - effect_speed: '1'
-            effect_type: twinkle
+            effect_type: waterfall_down
             end_time: 8.0
             intensity: 255.0
             iris: 255.0
