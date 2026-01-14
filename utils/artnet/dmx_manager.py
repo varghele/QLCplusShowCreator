@@ -201,6 +201,15 @@ class DMXManager:
         for universe_id in self.dmx_state.keys():
             self.dmx_state[universe_id] = bytearray(512)
 
+    def clear_active_blocks(self):
+        """Clear all active block tracking state.
+
+        This should be called when switching shows to ensure the old show's
+        block state doesn't persist into the new show.
+        """
+        self.active_blocks.clear()
+        print("DMXManager: Cleared active blocks")
+
     def set_fixtures_visible(self):
         """Set all fixtures to a visible idle state (dimmer at 255, white color, shutter open, centered)."""
         for fixture_name, fixture_map in self.fixture_maps.items():

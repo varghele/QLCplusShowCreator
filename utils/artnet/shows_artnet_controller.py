@@ -116,7 +116,9 @@ class ShowsArtNetController(QObject):
         # Send multiple packets to ensure visualizer receives the reset state
         for _ in range(5):
             self._send_all_universes()
+        # Clear both controller and DMX manager block tracking
         self.active_block_ids.clear()
+        self.dmx_manager.clear_active_blocks()
         print("ArtNet output stopped - fixtures reset to visible")
 
     def pause_playback(self):
