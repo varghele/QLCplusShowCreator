@@ -89,7 +89,9 @@ def create_fixture_elements(engine, config: Configuration, id_start=0):
         config: Configuration object containing fixture data
         id_start: Starting ID number for fixtures (default 0)
     """
-    fixture_id_map = {}  # To store mapping of fixture objects to their IDs
+    # Use (universe, address) as stable key instead of id() since group fixtures
+    # are different Python objects than config.fixtures
+    fixture_id_map = {}  # To store mapping of (universe, address) to fixture IDs
 
     for index, fixture in enumerate(config.fixtures):
         fixture_elem = ET.SubElement(engine, "Fixture")
@@ -106,8 +108,9 @@ def create_fixture_elements(engine, config: Configuration, id_start=0):
                          if mode.name == fixture.current_mode), 0)
         ET.SubElement(fixture_elem, "Channels").text = str(channels)
 
-        # Store the mapping
-        fixture_id_map[id(fixture)] = index + id_start
+        # Store the mapping using stable key (universe, address)
+        fixture_key = (fixture.universe, fixture.address)
+        fixture_id_map[fixture_key] = index + id_start
 
     return fixture_id_map
 
@@ -159,7 +162,7 @@ def create_channels_groups(engine, config: Configuration, fixture_id_map: dict, 
         capability_channels = {}  # capability_name -> [(fixture_id, channel), ...]
 
         for fixture in group.fixtures:
-            fixture_id = fixture_id_map.get(id(fixture))
+            fixture_id = fixture_id_map.get((fixture.universe, fixture.address))
             if fixture_id is None:
                 continue
 

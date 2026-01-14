@@ -27,21 +27,27 @@ def get_fixture_dimmer_channels(fixture, fixture_definitions: Dict[str, Any]) ->
         fixture_definitions: Dict of fixture definitions
 
     Returns:
-        List of channel info dicts with 'channel' key, or dummy [{'channel': 0}] if none found
+        List of channel info dicts with 'channel' key, or empty list if none found
     """
     fixture_def = get_fixture_def(fixture, fixture_definitions)
     if not fixture_def:
-        return [{'channel': 0}]
+        return []
 
+    # Search for both IntensityMasterDimmer (used by moving heads) and IntensityDimmer
     channels_dict = get_channels_by_property(
-        fixture_def, fixture.current_mode, ["IntensityDimmer"]
+        fixture_def, fixture.current_mode, ["IntensityMasterDimmer", "IntensityDimmer"]
     )
 
-    if not channels_dict or 'IntensityDimmer' not in channels_dict:
-        # No dimmer channels - return dummy for RGB-only fixtures
-        return [{'channel': 0}]
+    if not channels_dict:
+        return []
 
-    return channels_dict['IntensityDimmer']
+    # Prefer IntensityMasterDimmer if available, otherwise use IntensityDimmer
+    if 'IntensityMasterDimmer' in channels_dict:
+        return channels_dict['IntensityMasterDimmer']
+    elif 'IntensityDimmer' in channels_dict:
+        return channels_dict['IntensityDimmer']
+
+    return []
 
 
 def get_fixture_colour_channels(fixture, fixture_definitions: Dict[str, Any]) -> Dict[str, List[Dict]]:
@@ -155,7 +161,7 @@ def build_dimmer_values_for_fixtures(
     """
     values = []
     for i, fixture in enumerate(fixtures):
-        fixture_id = fixture_id_map[id(fixture)]
+        fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
         intensity = intensity_per_fixture[i] if i < len(intensity_per_fixture) else 0
         channels = get_fixture_dimmer_channels(fixture, fixture_definitions)
 
