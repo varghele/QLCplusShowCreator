@@ -762,6 +762,61 @@ class DMXManager:
                     universe, channel = fixture_map.get_absolute_address(ch_offset)
                     self.set_dmx_value(universe, channel, int(block.intensity))
 
+        elif block.effect_type == "hit":
+            # Hit effect: instant attack to full intensity, decay over the beat
+            # One hit per beat at speed "1", scales with speed multiplier
+            # Decay takes the full beat duration
+            speed_multiplier = self._parse_speed(block.effect_speed)
+            time_in_block = current_time - block.start_time
+
+            # Get BPM for timing
+            if self.song_structure:
+                bpm = self.song_structure.get_bpm_at_time(current_time)
+            else:
+                bpm = 120.0
+
+            seconds_per_beat = 60.0 / bpm
+
+            # Time between hits (one beat at speed 1)
+            time_per_hit = seconds_per_beat / speed_multiplier
+
+            # Decay takes the full beat duration
+            decay_time = time_per_hit
+
+            # Calculate position within current hit cycle
+            time_in_cycle = time_in_block % time_per_hit
+
+            # Calculate intensity based on decay (full beat duration)
+            decay_progress = time_in_cycle / decay_time
+            # Exponential decay: e^(-3) ≈ 0.05, so multiply by 3 for ~95% decay
+            intensity_multiplier = math.exp(-decay_progress * 3)
+
+            # Check if this is a pixelbar type
+            fixture_type = getattr(fixture_map.fixture, 'type', '')
+            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
+
+            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
+                # For pixelbars: set master dimmer to full, control via color scaling
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, int(block.intensity))
+
+                # Store uniform intensity for all segments
+                num_segments = max(
+                    len(fixture_map.red_channels),
+                    len(fixture_map.green_channels),
+                    len(fixture_map.blue_channels),
+                    len(fixture_map.white_channels),
+                    1
+                )
+                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
+            else:
+                # For regular fixtures: control via dimmer channels
+                final_intensity = int(block.intensity * intensity_multiplier)
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, final_intensity)
+
         else:
             # Default: static intensity for all channels
             for ch_offset in fixture_map.dimmer_channels:
