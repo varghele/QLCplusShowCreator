@@ -402,6 +402,36 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * intensity_multiplier)
 
+    elif effect_type == "hit":
+        # Hit effect: instant attack, decay over the beat duration
+        # One hit per beat at speed 1, decay takes the full beat
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        seconds_per_beat = 60.0 / bpm
+
+        # Time between hits (one beat at speed 1)
+        time_per_hit = seconds_per_beat / speed_mult
+
+        # Decay takes the full beat duration
+        decay_time = time_per_hit
+
+        # Calculate position within current hit cycle
+        time_in_cycle = time_in_block % time_per_hit
+
+        # Calculate intensity based on decay (full beat duration)
+        decay_progress = time_in_cycle / decay_time
+        # Exponential decay: e^(-3) ≈ 0.05
+        intensity_multiplier = math.exp(-decay_progress * 3)
+
+        return int(base_intensity * intensity_multiplier)
+
     # Default: static
     return base_intensity
 
