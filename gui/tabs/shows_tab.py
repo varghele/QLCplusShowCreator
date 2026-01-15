@@ -383,26 +383,35 @@ class ShowsTab(BaseTab):
             if show.timeline_data.audio_file_path:
                 audio_filename = show.timeline_data.audio_file_path
 
-                # Check if it's just a filename (new format) or a full path (old format)
-                if not os.path.isabs(audio_filename):
-                    # New format: filename only, look in audiofiles folder
-                    if self.config.shows_directory:
-                        audio_path = os.path.join(self.config.shows_directory, "audiofiles", audio_filename)
-                        if os.path.exists(audio_path):
-                            self.audio_lane.load_audio_file(audio_path)
-                        else:
-                            print(f"Audio file not found: {audio_path}")
-                            self.audio_lane.clear_audio()
-                    else:
-                        print("No shows directory configured")
-                        self.audio_lane.clear_audio()
+                # ALWAYS try local audiofiles folder first (for both old and new format)
+                # Extract just the filename from the path
+                basename = os.path.basename(audio_filename)
+                local_audio_path = None
+
+                if self.config.shows_directory and basename:
+                    local_audio_path = os.path.join(self.config.shows_directory, "audiofiles", basename)
+
+                # Priority 1: Check local audiofiles folder
+                if local_audio_path and os.path.exists(local_audio_path):
+                    print(f"Using local audio file: {local_audio_path}")
+                    self.audio_lane.load_audio_file(local_audio_path)
+
+                    # Update config to use just filename for future (migrate old absolute paths)
+                    if os.path.isabs(audio_filename):
+                        show.timeline_data.audio_file_path = basename
+                        print(f"Migrated audio path to local: {basename}")
+
+                # Priority 2: Fall back to original path (for backward compatibility)
+                elif os.path.exists(audio_filename):
+                    print(f"Using audio file from original path: {audio_filename}")
+                    self.audio_lane.load_audio_file(audio_filename)
+
+                # Priority 3: File not found anywhere
                 else:
-                    # Old format: full path
-                    if os.path.exists(audio_filename):
-                        self.audio_lane.load_audio_file(audio_filename)
-                    else:
-                        print(f"Audio file not found: {audio_filename}")
-                        self.audio_lane.clear_audio()
+                    if local_audio_path:
+                        print(f"Audio file not found in local folder: {local_audio_path}")
+                    print(f"Audio file not found at original path: {audio_filename}")
+                    self.audio_lane.clear_audio()
             else:
                 # No audio for this show, clear it
                 self.audio_lane.clear_audio()

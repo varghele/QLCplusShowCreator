@@ -188,6 +188,8 @@ class ShowsArtNetController(QObject):
 
                         # Start block if not already active
                         if block_id not in self.active_block_ids[lane_key]['dimmer']:
+                            fixture_names = [f.name for f in resolved_fixtures]
+                            print(f"[{self.current_time:.2f}s] Starting {dimmer_block.effect_type} on {fixture_names} ({dimmer_block.start_time:.2f}s-{dimmer_block.end_time:.2f}s)")
                             self.dmx_manager.block_started(lane_key, resolved_fixtures, dimmer_block, 'dimmer', self.current_time)
                             self.active_block_ids[lane_key]['dimmer'].add(block_id)
 
@@ -225,8 +227,14 @@ class ShowsArtNetController(QObject):
             for sublane_type in ['dimmer', 'colour', 'movement', 'special']:
                 ended_blocks = self.active_block_ids[lane_key][sublane_type] - currently_active[sublane_type]
                 if ended_blocks:
-                    # End this specific sublane type
-                    self.dmx_manager.block_ended(lane_key, sublane_type)
+                    # Only clear the sublane if there are NO currently active blocks
+                    # If there are active blocks, they will maintain the state
+                    if not currently_active[sublane_type]:
+                        # No active blocks remaining, clear the sublane
+                        fixture_names = [f.name for f in resolved_fixtures]
+                        print(f"[{self.current_time:.2f}s] Ending {sublane_type} blocks on {fixture_names}")
+                        self.dmx_manager.block_ended(lane_key, sublane_type)
+                    # Always update tracking to reflect current active blocks
                     self.active_block_ids[lane_key][sublane_type] = currently_active[sublane_type]
 
     def _update_and_send_dmx(self):
