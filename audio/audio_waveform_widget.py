@@ -13,6 +13,29 @@ from .audio_file import AudioFile
 from .waveform_analyzer import WaveformAnalyzer, WaveformData
 
 
+class AudioLoaderThread(QThread):
+    """Background thread for loading audio files"""
+
+    audio_loaded = pyqtSignal(object)  # Emits AudioFile
+    error_occurred = pyqtSignal(str)  # Emits error message
+
+    def __init__(self, file_path: str):
+        super().__init__()
+        self.file_path = file_path
+
+    def run(self):
+        """Load audio file in background"""
+        try:
+            audio_file = AudioFile()
+            success = audio_file.load(self.file_path)
+            if success:
+                self.audio_loaded.emit(audio_file)
+            else:
+                self.error_occurred.emit(f"Failed to load audio file: {self.file_path}")
+        except Exception as e:
+            self.error_occurred.emit(f"Audio loading error: {str(e)}")
+
+
 class WaveformGeneratorThread(QThread):
     """Background thread for waveform generation"""
 
