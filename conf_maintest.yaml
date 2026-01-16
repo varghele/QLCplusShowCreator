@@ -1743,7 +1743,7 @@ shows:
           special_blocks: []
           start_time: 2.5
         muted: false
-        name: Lane 1
+        name: WASH_L
         solo: false
       - fixture_targets:
         - WASH:1
@@ -1836,7 +1836,201 @@ shows:
           special_blocks: []
           start_time: 2.5
         muted: false
-        name: Lane 2
+        name: WASH_R
+        solo: false
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 17.5
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 12.5
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 12.8125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 12.5
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 14.0625
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 12.8125
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 17.5
+          modified: true
+          movement_blocks: []
+          name: HIT_WASHES
+          parameters: &id001 {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 12.5
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 22.5
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 17.5
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 17.8125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 17.5
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 19.0625
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 17.8125
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 22.5
+          modified: true
+          movement_blocks: []
+          name: HIT_WASHES
+          parameters: *id001
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 17.5
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 27.5
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 22.5
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 22.8125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 22.5
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 24.0625
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 22.8125
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 27.5
+          modified: true
+          movement_blocks: []
+          name: HIT_WASHES
+          parameters: *id001
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 22.5
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 32.5
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 27.5
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 27.8125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 27.5
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 29.0625
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 27.8125
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 32.5
+          modified: true
+          movement_blocks: []
+          name: HIT_WASHES
+          parameters: *id001
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 27.5
+        muted: false
+        name: WASH_COMB
         solo: false
   SBD_old_school_medicine:
     effects: []
