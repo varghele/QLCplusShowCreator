@@ -212,9 +212,12 @@ def sample_dimmer_at_time(
         else:
             speed_mult = float(speed)
 
-        # Calculate strobe phase
-        cycles = progress * total_cycles * 4  # 4 cycles per beat at speed 1
-        if int(cycles * 2) % 2 == 0:
+        # Calculate strobe phase using BPM timing (matches ArtNet implementation)
+        time_in_block = time_s - active_block.start_time
+        strobe_hz = 2.0 * speed_mult  # Strobe at 2Hz * speed_mult
+        phase = (time_in_block * strobe_hz) % 1.0
+        # 50% duty cycle
+        if phase < 0.5:
             return base_intensity
         else:
             return 0

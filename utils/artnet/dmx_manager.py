@@ -396,6 +396,19 @@ class DMXManager:
                 sorted_fixtures = sorted(dimmer_fixtures, key=lambda f: f.x)
                 total_fixtures = len(sorted_fixtures)
 
+                # Debug: Print once around 12.5s
+                if 12.4 < current_time < 12.6 and not hasattr(self, '_debug_dmx_12_5'):
+                    self._debug_dmx_12_5 = True
+                    fixture_names = [f.name for f in sorted_fixtures]
+                    print(f"\n=== DMX DEBUG at {current_time:.3f}s ===")
+                    print(f"  Lane: {lane_key}")
+                    print(f"  Dimmer block: {dimmer_block.effect_type}, {dimmer_block.start_time:.2f}-{dimmer_block.end_time:.2f}")
+                    print(f"  Fixtures: {fixture_names}, total={total_fixtures}")
+                    for f in sorted_fixtures:
+                        in_maps = f.name in self.fixture_maps
+                        print(f"    {f.name}: in fixture_maps={in_maps}")
+                    print("=== END DMX DEBUG ===\n")
+
                 for fixture_index, fixture in enumerate(sorted_fixtures):
                     if fixture.name not in self.fixture_maps:
                         continue
