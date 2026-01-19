@@ -413,6 +413,9 @@ class OrientationPreviewWidget(QOpenGLWidget):
         # Create front indicator
         self._create_front_indicator(depth / 2 + segment_depth + 0.01, height * 0.4)
 
+        # Create coordinate axes on top of fixture (matching visualizer)
+        self._create_bar_coordinate_axes(depth / 2 + 0.01, width)
+
         self.front_depth = depth / 2 + segment_depth
 
     def _create_sunstrip_geometry(self):
@@ -1630,6 +1633,17 @@ class OrientationPreviewWidget(QOpenGLWidget):
             self.fixture_program['emissive_color'].value = (0.0, 0.0, 0.0)
             self.fixture_program['emissive_strength'].value = 0.0
             self.indicator_vao.render()
+
+        # Render coordinate axes (X=Red, Y=Blue, Z=Green)
+        if hasattr(self, 'bar_x_axis_vao') and self.bar_x_axis_vao:
+            self.fixture_program['base_color'].value = (0.9, 0.2, 0.2)
+            self.bar_x_axis_vao.render()
+        if hasattr(self, 'bar_y_axis_vao') and self.bar_y_axis_vao:
+            self.fixture_program['base_color'].value = (0.2, 0.4, 0.9)
+            self.bar_y_axis_vao.render()
+        if hasattr(self, 'bar_z_axis_vao') and self.bar_z_axis_vao:
+            self.fixture_program['base_color'].value = (0.2, 0.8, 0.2)
+            self.bar_z_axis_vao.render()
 
     def _render_sunstrip(self, mvp: glm.mat4, fixture_transform: glm.mat4):
         """Render sunstrip fixture with lamp bulbs.

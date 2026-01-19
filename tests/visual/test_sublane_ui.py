@@ -137,9 +137,7 @@ class SublaneTestWindow(QMainWindow):
         # Create a light lane
         lane = LightLane(
             name=f"{group_name} Lane",
-            fixture_group=group_name,
-            muted=False,
-            solo=False
+            fixture_targets=[group_name]
         )
 
         # Create the lane widget with config

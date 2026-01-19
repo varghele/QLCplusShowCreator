@@ -394,7 +394,7 @@ class ShowsTabTimeline(BaseTab):
             group_name = group_combo.currentText()
             lane = LightLane(
                 name=group_name,
-                fixture_group=group_name
+                fixture_targets=[group_name] if group_name else []
             )
             self.add_lane_widget(lane)
             self.playback_engine.set_lanes(self.lanes)

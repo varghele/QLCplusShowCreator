@@ -92,9 +92,9 @@ def test_artnet_output():
             effect_type="static"
         )
 
-        # Register with DMX manager
+        # Register with DMX manager (pass fixtures from the group)
         artnet_controller.dmx_manager.block_started(
-            group_name, dimmer_block, 'dimmer', 0.0
+            group_name, list(group.fixtures), dimmer_block, 'dimmer', 0.0
         )
 
     # Let it run for 5 seconds

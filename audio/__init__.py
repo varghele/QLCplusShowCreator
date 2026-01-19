@@ -8,7 +8,7 @@ from .audio_engine import AudioEngine
 from .audio_mixer import AudioMixer, AudioLaneState
 from .playback_synchronizer import PlaybackSynchronizer
 from .waveform_analyzer import WaveformAnalyzer, WaveformData, WaveformPeaks
-from .audio_waveform_widget import AudioWaveformWidget
+from .audio_waveform_widget import AudioWaveformWidget, AudioLoaderThread
 
 __all__ = [
     'DeviceManager', 'AudioDevice',
@@ -17,5 +17,5 @@ __all__ = [
     'AudioMixer', 'AudioLaneState',
     'PlaybackSynchronizer',
     'WaveformAnalyzer', 'WaveformData', 'WaveformPeaks',
-    'AudioWaveformWidget',
+    'AudioWaveformWidget', 'AudioLoaderThread',
 ]

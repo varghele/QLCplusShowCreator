@@ -660,10 +660,19 @@ class LightBlockWidget(QWidget):
                 effect_display = effect_type.capitalize()
                 return f"{effect_display} ({intensity})"
             elif sublane_type == "colour":
-                # Show color mode or RGB values
-                if hasattr(sublane_block, 'color_mode') and sublane_block.color_mode:
-                    return sublane_block.color_mode
-                return "RGB"
+                # Show actual color name or hex value
+                r = int(getattr(sublane_block, 'red', 0))
+                g = int(getattr(sublane_block, 'green', 0))
+                b = int(getattr(sublane_block, 'blue', 0))
+                w = int(getattr(sublane_block, 'white', 0))
+
+                # Check for common color names
+                color_name = self._get_color_name(r, g, b, w)
+                if color_name:
+                    return color_name
+
+                # Fall back to hex code
+                return f"#{r:02X}{g:02X}{b:02X}"
             elif sublane_type == "movement":
                 # Show effect type (and pan/tilt for static)
                 effect_type = getattr(sublane_block, 'effect_type', 'static')
@@ -685,6 +694,63 @@ class LightBlockWidget(QWidget):
                 return "FX"
         except Exception:
             pass
+        return ""
+
+    def _get_color_name(self, r: int, g: int, b: int, w: int) -> str:
+        """Get a human-readable color name for common colors.
+
+        Args:
+            r, g, b: RGB values (0-255)
+            w: White value (0-255)
+
+        Returns:
+            Color name string, or empty string if no match
+        """
+        # Tolerance for color matching
+        tolerance = 30
+
+        def close_to(val, target):
+            return abs(val - target) <= tolerance
+
+        # Check for white (either via W channel or RGB)
+        if w > 200 and r < tolerance and g < tolerance and b < tolerance:
+            return "White"
+        if close_to(r, 255) and close_to(g, 255) and close_to(b, 255):
+            return "White"
+
+        # Check for black/off
+        if r < tolerance and g < tolerance and b < tolerance and w < tolerance:
+            return "Off"
+
+        # Check for primary colors
+        if close_to(r, 255) and g < tolerance and b < tolerance:
+            return "Red"
+        if r < tolerance and close_to(g, 255) and b < tolerance:
+            return "Green"
+        if r < tolerance and g < tolerance and close_to(b, 255):
+            return "Blue"
+
+        # Check for secondary colors
+        if close_to(r, 255) and close_to(g, 255) and b < tolerance:
+            return "Yellow"
+        if close_to(r, 255) and g < tolerance and close_to(b, 255):
+            return "Magenta"
+        if r < tolerance and close_to(g, 255) and close_to(b, 255):
+            return "Cyan"
+
+        # Check for other common colors
+        if close_to(r, 255) and close_to(g, 165) and b < tolerance:
+            return "Orange"
+        if close_to(r, 255) and close_to(g, 100) and b < tolerance:
+            return "Amber"
+        if close_to(r, 128) and g < tolerance and close_to(b, 128):
+            return "Purple"
+        if close_to(r, 255) and close_to(g, 105) and close_to(b, 180):
+            return "Pink"
+        if close_to(r, 180) and close_to(g, 255) and b < tolerance:
+            return "Lime"
+
+        # No match found
         return ""
 
     def _draw_resize_handles(self, painter):
@@ -747,7 +813,7 @@ class LightBlockWidget(QWidget):
         )
 
     def _get_colour_block_color(self, colour_block):
-        """Get display color for colour block based on its RGB values.
+        """Get display color for colour block based on its RGBW values.
 
         Args:
             colour_block: The ColourBlock instance to get color from
@@ -758,11 +824,23 @@ class LightBlockWidget(QWidget):
         if not colour_block:
             return QColor(100, 255, 150)  # Default green
 
-        # Use RGB values if available
-        if colour_block.red > 0 or colour_block.green > 0 or colour_block.blue > 0:
-            return QColor(int(colour_block.red), int(colour_block.green), int(colour_block.blue))
+        r = int(colour_block.red)
+        g = int(colour_block.green)
+        b = int(colour_block.blue)
+        w = int(getattr(colour_block, 'white', 0))
 
-        # Default to green
+        # Blend white channel into RGB for display (same as preview logic)
+        if w > 0:
+            factor = w / 255.0
+            r = min(255, int(r + (255 - r) * factor))
+            g = min(255, int(g + (255 - g) * factor))
+            b = min(255, int(b + (255 - b) * factor))
+
+        # Use blended RGB values if any color is present
+        if r > 0 or g > 0 or b > 0:
+            return QColor(r, g, b)
+
+        # Default to green (no color set)
         return QColor(100, 255, 150)
 
     def _get_sublane_row_at_y(self, y_pos):
