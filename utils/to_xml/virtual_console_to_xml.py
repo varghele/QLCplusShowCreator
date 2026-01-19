@@ -464,9 +464,14 @@ def _create_button_frame(
     y: int,
     buttons_per_row: int = 5,
     fg_color: str = "Default",
-    bg_color: str = "Default"
+    bg_color: str = "Default",
+    solo: bool = False
 ) -> Tuple[ET.Element, int, int, int]:
     """Create a frame containing preset buttons.
+
+    Args:
+        solo: If True, create a SoloFrame where only one button can be active at a time.
+              Useful for color presets where selecting one should deactivate others.
 
     Returns:
         Tuple of (frame_element, next_widget_id, frame_width, frame_height)
@@ -481,11 +486,18 @@ def _create_button_frame(
     frame_width = buttons_in_widest_row * (BUTTON_SIZE + 5) + GROUP_PADDING * 2
     frame_height = num_rows * (BUTTON_SIZE + 5) + FRAME_HEADER_HEIGHT + GROUP_PADDING * 2
 
-    frame = create_vc_frame(
-        parent, widget_id, title,
-        x, y, frame_width, frame_height,
-        show_header=True, bg_color=bg_color, fg_color=fg_color
-    )
+    if solo:
+        frame = create_vc_solo_frame(
+            parent, widget_id, title,
+            x, y, frame_width, frame_height,
+            fg_color, bg_color
+        )
+    else:
+        frame = create_vc_frame(
+            parent, widget_id, title,
+            x, y, frame_width, frame_height,
+            show_header=True, bg_color=bg_color, fg_color=fg_color
+        )
     widget_id += 1
 
     btn_x = GROUP_PADDING
@@ -549,7 +561,7 @@ def generate_group_controls(
     pan_tilt_fixtures = []  # [(fixture_id, pan_ch, tilt_ch), ...]
 
     for fixture in group.fixtures:
-        fixture_id = fixture_id_map.get(id(fixture))
+        fixture_id = fixture_id_map.get((fixture.universe, fixture.address))
         if fixture_id is None:
             continue
 
@@ -801,11 +813,12 @@ def generate_group_controls(
     # Create color button frame below sliders/xypad
     button_frame_y = FRAME_HEADER_HEIGHT + GROUP_PADDING + controls_height + 10
 
-    # Colors frame
+    # Colors frame (solo so only one color can be active at a time)
     if color_buttons:
         _, widget_id_counter, _, h = _create_button_frame(
             frame, widget_id_counter, "Colors",
-            color_buttons, GROUP_PADDING, button_frame_y, color_buttons_per_row, frame_fg_color, frame_bg_color
+            color_buttons, GROUP_PADDING, button_frame_y, color_buttons_per_row, frame_fg_color, frame_bg_color,
+            solo=True
         )
 
     return frame, widget_id_counter, frame_width

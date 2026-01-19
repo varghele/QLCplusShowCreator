@@ -11,12 +11,13 @@ from .timeline_widget import TimelineWidget
 # Try to import audio components - may not be available in all installations
 try:
     from audio.audio_file import AudioFile
-    from audio.audio_waveform_widget import AudioWaveformWidget
+    from audio.audio_waveform_widget import AudioWaveformWidget, AudioLoaderThread
     AUDIO_AVAILABLE = True
 except ImportError:
     AUDIO_AVAILABLE = False
     AudioFile = None
     AudioWaveformWidget = None
+    AudioLoaderThread = None
 
 
 class AudioTimelineWidget(TimelineWidget):
@@ -82,6 +83,8 @@ class AudioLaneWidget(QFrame):
         super().__init__(parent)
         self.audio_file = None
         self.audio_file_path = ""
+        self.audio_loader_thread = None  # Background audio loader
+        self._is_loading_audio = False
 
         self.setFrameStyle(QFrame.Shape.Box)
         self.setLineWidth(1)
@@ -273,19 +276,44 @@ class AudioLaneWidget(QFrame):
             self.file_path_edit.setText(f"File not found: {file_path}")
             return
 
-        self.audio_file_path = file_path
-        self.file_path_edit.setText(os.path.basename(file_path))
-        self.file_path_edit.setToolTip(file_path)
+        # Cancel any ongoing load
+        if self.audio_loader_thread and self.audio_loader_thread.isRunning():
+            self.audio_loader_thread.quit()
+            self.audio_loader_thread.wait()
 
-        # Load audio file
-        try:
-            self.audio_file = AudioFile()
-            self.audio_file.load(file_path)
-            self.timeline_widget.load_audio(self.audio_file)
-            self.audio_file_changed.emit(file_path)
-        except Exception as e:
-            self.file_path_edit.setText(f"Error: {str(e)}")
-            self.audio_file = None
+        self.audio_file_path = file_path
+        self._is_loading_audio = True
+
+        # Show loading indicator
+        self.file_path_edit.setText(f"Loading {os.path.basename(file_path)}...")
+        self.file_path_edit.setToolTip(file_path)
+        self.load_button.setEnabled(False)
+
+        # Load audio file in background thread
+        self.audio_loader_thread = AudioLoaderThread(file_path)
+        self.audio_loader_thread.audio_loaded.connect(self._on_audio_loaded)
+        self.audio_loader_thread.error_occurred.connect(self._on_audio_load_error)
+        self.audio_loader_thread.start()
+
+    def _on_audio_loaded(self, audio_file: AudioFile):
+        """Handle audio file loaded successfully"""
+        self._is_loading_audio = False
+        self.audio_file = audio_file
+        self.file_path_edit.setText(os.path.basename(self.audio_file_path))
+        self.load_button.setEnabled(True)
+
+        # Load into timeline widget
+        self.timeline_widget.load_audio(self.audio_file)
+        self.audio_file_changed.emit(self.audio_file_path)
+
+    def _on_audio_load_error(self, error_message: str):
+        """Handle audio loading error"""
+        self._is_loading_audio = False
+        self.audio_file = None
+        self.file_path_edit.setText(f"Error loading file")
+        self.file_path_edit.setToolTip(error_message)
+        self.load_button.setEnabled(True)
+        print(f"Audio load error: {error_message}")
 
     def clear_audio(self):
         """Clear the current audio file and reset the display."""
@@ -376,4 +404,9 @@ class AudioLaneWidget(QFrame):
 
     def cleanup(self):
         """Clean up audio resources."""
+        # Stop any running audio loader thread
+        if self.audio_loader_thread and self.audio_loader_thread.isRunning():
+            self.audio_loader_thread.quit()
+            self.audio_loader_thread.wait()
+
         self.timeline_widget.cleanup()

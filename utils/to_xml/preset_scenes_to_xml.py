@@ -460,7 +460,7 @@ def create_color_preset_scene(
     target_hex = COLOR_PRESETS_HEX.get(color_name)
 
     for fixture in group.fixtures:
-        fixture_id = fixture_id_map.get(id(fixture))
+        fixture_id = fixture_id_map.get((fixture.universe, fixture.address))
         if fixture_id is None:
             continue
 
@@ -545,7 +545,7 @@ def create_intensity_preset_scene(
     fixture_values = []
 
     for fixture in group.fixtures:
-        fixture_id = fixture_id_map.get(id(fixture))
+        fixture_id = fixture_id_map.get((fixture.universe, fixture.address))
         if fixture_id is None:
             continue
 
@@ -610,7 +610,7 @@ def create_movement_preset_scene(
     target_z = position.get("z", 2.0)
 
     for fixture in group.fixtures:
-        fixture_id = fixture_id_map.get(id(fixture))
+        fixture_id = fixture_id_map.get((fixture.universe, fixture.address))
         if fixture_id is None:
             continue
 
@@ -686,7 +686,7 @@ def create_movement_efx_pattern(
     fixtures = []
 
     for fixture in group.fixtures:
-        fixture_id = fixture_id_map.get(id(fixture))
+        fixture_id = fixture_id_map.get((fixture.universe, fixture.address))
         if fixture_id is None:
             continue
 
@@ -813,7 +813,7 @@ def create_master_presets(
 
     for group_name, group in config.groups.items():
         for fixture in group.fixtures:
-            fixture_id = fixture_id_map.get(id(fixture))
+            fixture_id = fixture_id_map.get((fixture.universe, fixture.address))
             if fixture_id is not None:
                 all_fixtures.append((fixture_id, fixture))
 
@@ -1043,7 +1043,7 @@ def create_master_rainbow_scene(
         wheel_val = rainbow_colors_wheel[color_idx]
 
         for fixture in group.fixtures:
-            fixture_id = fixture_id_map.get(id(fixture))
+            fixture_id = fixture_id_map.get((fixture.universe, fixture.address))
             if fixture_id is None:
                 continue
 
