@@ -534,6 +534,8 @@ class StageTab(BaseTab):
             # Apply to group default if checkbox was checked
             if values['apply_to_group'] and self.config:
                 groups = set(f.group for f in fixture_items if hasattr(f, 'group') and f.group)
+                selected_fixture_names = {f.fixture_name for f in fixture_items}
+
                 for group_name in groups:
                     if group_name in self.config.groups:
                         group = self.config.groups[group_name]
@@ -542,6 +544,28 @@ class StageTab(BaseTab):
                         group.default_pitch = values['pitch']
                         group.default_roll = values['roll']
                         group.default_z_height = values['z_height']
+
+                        # Update all OTHER fixtures in the group that use group defaults
+                        for config_fixture in self.config.fixtures:
+                            if (config_fixture.group == group_name and
+                                    config_fixture.name not in selected_fixture_names and
+                                    config_fixture.orientation_uses_group_default):
+                                # Update config fixture to match new group defaults
+                                config_fixture.mounting = values['mounting']
+                                config_fixture.yaw = values['yaw']
+                                config_fixture.pitch = values['pitch']
+                                config_fixture.roll = values['roll']
+                                config_fixture.z = values['z_height']
+
+                                # Update the corresponding stage view item
+                                if config_fixture.name in self.stage_view.fixtures:
+                                    stage_item = self.stage_view.fixtures[config_fixture.name]
+                                    stage_item.mounting = values['mounting']
+                                    stage_item.rotation_angle = values['yaw']
+                                    stage_item.pitch = values['pitch']
+                                    stage_item.roll = values['roll']
+                                    stage_item.z_height = values['z_height']
+                                    stage_item.update()
 
             # Save changes and notify
             self.stage_view.save_positions_to_config()

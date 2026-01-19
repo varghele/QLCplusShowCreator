@@ -823,6 +823,30 @@ class FixturesTab(BaseTab):
         # No room in this universe, try next universe
         return self._find_next_free_address(universe + 1, channel_count, exclude_fixture)
 
+    def _generate_unique_copy_name(self, base_name: str) -> str:
+        """Generate a unique copy name for a fixture.
+
+        Args:
+            base_name: The original fixture name (e.g., "M1")
+
+        Returns:
+            A unique name like "M1 (Copy)", "M1 (Copy 2)", "M1 (Copy 3)", etc.
+        """
+        existing_names = {f.name for f in self.config.fixtures}
+
+        # Try simple "(Copy)" first
+        candidate = f"{base_name} (Copy)"
+        if candidate not in existing_names:
+            return candidate
+
+        # Try numbered copies
+        copy_num = 2
+        while True:
+            candidate = f"{base_name} (Copy {copy_num})"
+            if candidate not in existing_names:
+                return candidate
+            copy_num += 1
+
     def _duplicate_fixture(self):
         """Duplicate selected fixture with next available address"""
         selected_rows = self.table.selectedItems()
@@ -855,13 +879,16 @@ class FixturesTab(BaseTab):
             original_fixture.universe, channel_count
         )
 
+        # Generate unique copy name
+        new_name = self._generate_unique_copy_name(original_fixture.name)
+
         # Create duplicate
         new_fixture = Fixture(
             universe=new_universe,
             address=new_address,
             manufacturer=original_fixture.manufacturer,
             model=original_fixture.model,
-            name=f"{original_fixture.name} (Copy)",
+            name=new_name,
             group=original_fixture.group,
             current_mode=original_fixture.current_mode,
             available_modes=[

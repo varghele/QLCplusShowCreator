@@ -270,7 +270,16 @@ class ColourBlockDialog(QDialog):
 
         # Also update wheel position to closest match (if wheel available)
         if self.color_wheel_options and hasattr(self, 'wheel_combo'):
-            closest_index = self._find_closest_wheel_color(r, g, b)
+            # For wheel matching, blend white into RGB (same as preview)
+            # so that White preset (0,0,0,255) matches white on the wheel
+            match_r, match_g, match_b = r, g, b
+            if w > 0:
+                factor = w / 255.0
+                match_r = min(255, int(r + (255 - r) * factor))
+                match_g = min(255, int(g + (255 - g) * factor))
+                match_b = min(255, int(b + (255 - b) * factor))
+
+            closest_index = self._find_closest_wheel_color(match_r, match_g, match_b)
             if closest_index >= 0:
                 self.wheel_combo.blockSignals(True)
                 self.wheel_combo.setCurrentIndex(closest_index)
@@ -340,12 +349,12 @@ class ColourBlockDialog(QDialog):
         w = self.sliders["white"][1].value()
 
         # Blend white into RGB for preview
-        # If white is set, brighten the RGB values
+        # If white is set, brighten the RGB values towards white
         if w > 0:
             factor = w / 255.0
-            r = min(255, int(r + (255 - r) * factor * 0.5))
-            g = min(255, int(g + (255 - g) * factor * 0.5))
-            b = min(255, int(b + (255 - b) * factor * 0.5))
+            r = min(255, int(r + (255 - r) * factor))
+            g = min(255, int(g + (255 - g) * factor))
+            b = min(255, int(b + (255 - b) * factor))
 
         color = QColor(r, g, b)
         self.color_preview.set_color(color)

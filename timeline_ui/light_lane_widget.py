@@ -155,47 +155,43 @@ class LightLaneWidget(QFrame):
 
         layout.addLayout(name_layout)
 
-        # Row 2: Fixture group
-        group_layout = QHBoxLayout()
+        # Row 2: Fixture targets
+        targets_layout = QHBoxLayout()
 
-        group_label = QLabel("Group:")
-        group_label.setStyleSheet("color: white; font-weight: bold; font-size: 12px;")
-        group_layout.addWidget(group_label)
+        targets_label = QLabel("Targets:")
+        targets_label.setStyleSheet("color: white; font-weight: bold; font-size: 12px;")
+        targets_layout.addWidget(targets_label)
 
-        self.group_combo = QComboBox()
-        self.group_combo.addItems(self.fixture_groups)
-        if self.lane.fixture_group in self.fixture_groups:
-            self.group_combo.setCurrentText(self.lane.fixture_group)
-        self.group_combo.currentTextChanged.connect(self.on_group_changed)
-        self.group_combo.setStyleSheet("""
-            QComboBox {
+        self.targets_display = QLabel()
+        self.targets_display.setStyleSheet("""
+            QLabel {
                 background-color: #3d3d3d;
                 color: white;
                 border: 1px solid #555;
                 border-radius: 3px;
                 padding: 2px 5px;
             }
-            QComboBox::drop-down {
-                border: none;
-            }
-            QComboBox::down-arrow {
-                image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid white;
-                margin-right: 5px;
-            }
-            QComboBox QAbstractItemView {
+        """)
+        self._update_targets_display()
+        targets_layout.addWidget(self.targets_display, 1)
+
+        self.edit_targets_btn = QPushButton("...")
+        self.edit_targets_btn.setFixedWidth(30)
+        self.edit_targets_btn.setStyleSheet("""
+            QPushButton {
                 background-color: #3d3d3d;
                 color: white;
-                selection-background-color: #555;
-                selection-color: white;
                 border: 1px solid #555;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #4d4d4d;
             }
         """)
-        group_layout.addWidget(self.group_combo, 1)
+        self.edit_targets_btn.clicked.connect(self.open_target_selection)
+        targets_layout.addWidget(self.edit_targets_btn)
 
-        layout.addLayout(group_layout)
+        layout.addLayout(targets_layout)
 
         # Row 3: Mute, Solo, Add Block
         controls_layout = QHBoxLayout()
@@ -253,28 +249,20 @@ class LightLaneWidget(QFrame):
         return widget
 
     def _detect_group_capabilities(self):
-        """Detect capabilities from fixture group."""
+        """Detect capabilities from all fixture targets."""
         from config.models import FixtureGroupCapabilities
+        from utils.target_resolver import detect_targets_capabilities
 
         # If no config provided, return default (all capabilities)
         if not self.config:
             return FixtureGroupCapabilities(True, True, True, True)
 
-        # Check if group exists in config
-        if self.lane.fixture_group not in self.config.groups:
+        # If no targets, return default
+        if not self.lane.fixture_targets:
             return FixtureGroupCapabilities(True, True, True, True)
 
-        group = self.config.groups[self.lane.fixture_group]
-
-        # Check if capabilities already cached
-        if group.capabilities:
-            return group.capabilities
-
-        # Otherwise detect and cache
-        from utils.fixture_utils import detect_fixture_group_capabilities
-        caps = detect_fixture_group_capabilities(group.fixtures)
-        group.capabilities = caps
-        return caps
+        # Detect capabilities across all targets (union)
+        return detect_targets_capabilities(self.lane.fixture_targets, self.config)
 
     def _count_sublanes(self):
         """Count number of active sublanes."""
@@ -466,15 +454,54 @@ class LightLaneWidget(QFrame):
     def on_name_changed(self, text):
         self.lane.name = text
 
-    def on_group_changed(self, group_name):
-        """Handle fixture group change - update capabilities and sublanes."""
-        self.lane.fixture_group = group_name
+    def _update_targets_display(self):
+        """Update the targets display label."""
+        targets = self.lane.fixture_targets
+        if not targets:
+            self.targets_display.setText("(none)")
+            self.targets_display.setToolTip("")
+            return
 
-        # Clear cached capabilities for this group so they get re-detected
-        if self.config and group_name in self.config.groups:
-            self.config.groups[group_name].capabilities = None
+        from utils.target_resolver import get_target_display_name
 
-        # Re-detect capabilities for the new group
+        if len(targets) == 1:
+            display_text = get_target_display_name(targets[0], self.config) if self.config else targets[0]
+            self.targets_display.setText(display_text)
+        else:
+            first = get_target_display_name(targets[0], self.config) if self.config else targets[0]
+            self.targets_display.setText(f"{first} (+{len(targets) - 1} more)")
+
+        # Full list in tooltip
+        if self.config:
+            tooltip_lines = [get_target_display_name(t, self.config) for t in targets]
+            self.targets_display.setToolTip("\n".join(tooltip_lines))
+        else:
+            self.targets_display.setToolTip("\n".join(targets))
+
+    def open_target_selection(self):
+        """Open the target selection dialog."""
+        from timeline_ui.target_selection_dialog import TargetSelectionDialog
+        from PyQt6.QtWidgets import QDialog
+
+        if not self.config:
+            return
+
+        dialog = TargetSelectionDialog(
+            current_targets=self.lane.fixture_targets,
+            config=self.config,
+            parent=self
+        )
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            new_targets = dialog.get_selected_targets()
+            self.on_targets_changed(new_targets)
+
+    def on_targets_changed(self, targets):
+        """Handle fixture targets change - update capabilities and sublanes."""
+        self.lane.fixture_targets = targets
+        self._update_targets_display()
+
+        # Re-detect capabilities for the new targets
         self.capabilities = self._detect_group_capabilities()
         old_num_sublanes = self.num_sublanes
         self.num_sublanes = self._count_sublanes()
@@ -498,6 +525,9 @@ class LightLaneWidget(QFrame):
         # Trigger repaint
         self.timeline_widget.update()
         self.update()
+
+        # Emit block_edited to trigger auto-save
+        self.block_edited.emit()
 
     def on_mute_toggled(self, checked):
         self.lane.muted = checked
@@ -584,7 +614,7 @@ class LightLaneWidget(QFrame):
         self.create_light_block_widget(new_block)
 
     def update_fixture_groups(self, fixture_groups: list):
-        """Update the available fixture groups in the combo box.
+        """Update the available fixture groups list.
 
         Also refreshes capabilities since fixtures in groups may have changed.
 
@@ -592,26 +622,11 @@ class LightLaneWidget(QFrame):
             fixture_groups: List of fixture group names
         """
         self.fixture_groups = fixture_groups
-        current_text = self.group_combo.currentText()
 
-        self.group_combo.blockSignals(True)
-        self.group_combo.clear()
-        self.group_combo.addItems(self.fixture_groups)
+        # Update the targets display (names may have changed)
+        self._update_targets_display()
 
-        # Restore previous selection if still available
-        if current_text in self.fixture_groups:
-            self.group_combo.setCurrentText(current_text)
-        elif self.lane.fixture_group in self.fixture_groups:
-            self.group_combo.setCurrentText(self.lane.fixture_group)
-
-        self.group_combo.blockSignals(False)
-
-        # Clear capabilities cache for current group so it gets re-detected
-        # (fixtures in the group may have changed)
-        if self.config and self.lane.fixture_group in self.config.groups:
-            self.config.groups[self.lane.fixture_group].capabilities = None
-
-        # Refresh local capabilities (fixtures may have been added/removed from group)
+        # Refresh local capabilities (fixtures may have been added/removed from groups)
         self.capabilities = self._detect_group_capabilities()
         self.timeline_widget.capabilities = self.capabilities
 
