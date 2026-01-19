@@ -2,7 +2,7 @@
 # Simplified ArtNet controller for ShowsTab integration
 
 from PyQt6.QtCore import QObject, QTimer
-from typing import Optional, Dict, Tuple, List
+from typing import Optional, Dict, Tuple, List, Callable
 from config.models import Configuration, Fixture
 from timeline.light_lane import LightLane
 from .dmx_manager import DMXManager
@@ -47,8 +47,12 @@ class ShowsArtNetController(QObject):
         self.update_timer.setInterval(23)  # ~44Hz (22.7ms)
         self.update_timer.timeout.connect(self._update_and_send_dmx)
 
-        # Current playback time (set from ShowsTab)
+        # Current playback time (set from ShowsTab or callback)
         self.current_time = 0.0
+
+        # Position callback for getting fresh audio position
+        # When set, this is called on each DMX update to get sample-accurate time
+        self._position_callback: Optional[Callable[[], float]] = None
 
         # Track active blocks per lane - used for detecting block endings
         # lane_name -> {sublane_type -> set of block ids}
@@ -58,6 +62,18 @@ class ShowsArtNetController(QObject):
         self.light_lanes = []
 
         print("ShowsArtNet Controller initialized")
+
+    def set_position_callback(self, callback: Callable[[], float]):
+        """
+        Set callback for getting fresh audio position.
+
+        When set, the DMX update will call this to get sample-accurate
+        position from the audio engine, reducing sync drift.
+
+        Args:
+            callback: Function that returns current position in seconds
+        """
+        self._position_callback = callback
 
     def set_song_structure(self, song_structure):
         """
@@ -130,15 +146,18 @@ class ShowsArtNetController(QObject):
         """
         Update current playback position.
 
-        Called from ShowsTab during playback.
+        Called from ShowsTab during playback. When position_callback is set,
+        block processing is handled by _update_and_send_dmx with fresh audio
+        position, so we skip it here to avoid double-processing.
 
         Args:
             position: Current position in seconds
         """
         self.current_time = position
 
-        # Process active blocks for all lanes
-        if self.light_lanes:
+        # Only process blocks here if no position callback is set
+        # (otherwise _update_and_send_dmx handles it with fresh audio position)
+        if self.light_lanes and not self._position_callback:
             self._process_lane_blocks()
 
     def _process_lane_blocks(self):
@@ -259,6 +278,17 @@ class ShowsArtNetController(QObject):
         """
         if not self.output_enabled:
             return
+
+        # Get fresh position from callback if available (sample-accurate sync)
+        if self._position_callback:
+            try:
+                self.current_time = self._position_callback()
+            except Exception:
+                pass  # Keep using last known position
+
+        # Process active blocks with current time
+        if self.light_lanes:
+            self._process_lane_blocks()
 
         # Update DMX state based on current time and active blocks
         self.dmx_manager.update_dmx(self.current_time)
