@@ -1,5 +1,6 @@
 from utils.effects_utils import get_channels_by_property
 import xml.etree.ElementTree as ET
+import math
 from utils.to_xml.shows_to_xml import calculate_step_timing
 from effects.fixture_helpers import (
     get_fixture_dimmer_channels,
@@ -400,7 +401,7 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
             # Build values in original fixture order for proper fixture_id mapping
             values = []
             for orig_idx, fixture in enumerate(fixture_conf):
-                fixture_id = fixture_id_map[id(fixture)]
+                fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
                 # Find this fixture's intensity in the sorted order
                 for sorted_idx, (oidx, f) in enumerate(sorted_indexed_fixtures):
                     if oidx == orig_idx:
@@ -528,7 +529,7 @@ def waterfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
             # Build per-fixture intensity based on wave position
             values = []
             for orig_idx, fixture in enumerate(fixture_conf):
-                fixture_id = fixture_id_map[id(fixture)]
+                fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
 
                 # Find this fixture's position in sorted order
                 for sorted_idx, (oidx, f) in enumerate(sorted_indexed_fixtures):
@@ -593,5 +594,146 @@ def waterfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
 
         steps.append(step)
         current_step += 1
+
+    return steps
+
+
+def hit(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+        num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200, spot=None,
+        fixture_definitions=None, fixture_id_map=None):
+    """
+    Creates a hit/bump effect: instant attack, decay over the beat duration.
+
+    One hit per beat at speed "1". Decay takes the full beat duration.
+
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition (legacy)
+        mode_name: Name of the mode to use (legacy)
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Color value (not used for basic hit)
+        fixture_conf: List of fixture configurations with fixture coordinates
+        fixture_start_id: starting ID for fixtures (legacy)
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
+        fixture_definitions: Dict of fixture definitions (new)
+        fixture_id_map: Dict mapping id(fixture) to QLC+ fixture ID (new)
+
+    Returns:
+        list: List of XML Step elements
+    """
+    if not fixture_conf:
+        return []
+
+    fixture_num = len(fixture_conf)
+    use_per_fixture = fixture_definitions is not None and fixture_id_map is not None
+
+    # Parse speed multiplier
+    if '/' in speed:
+        parts = speed.split('/')
+        try:
+            speed_multiplier = float(parts[0]) / float(parts[1])
+        except (ValueError, ZeroDivisionError):
+            speed_multiplier = 1.0
+    else:
+        try:
+            speed_multiplier = float(speed)
+        except ValueError:
+            speed_multiplier = 1.0
+
+    # Parse time signature for beats per bar
+    try:
+        sig_parts = signature.split('/')
+        beats_per_bar = int(sig_parts[0])
+    except (ValueError, IndexError):
+        beats_per_bar = 4
+
+    # Calculate timing
+    avg_bpm = (start_bpm + end_bpm) / 2.0  # Use average BPM for step calculations
+    seconds_per_beat = 60.0 / avg_bpm
+    seconds_per_bar = seconds_per_beat * beats_per_bar
+
+    # Time between hits (one beat at speed 1)
+    time_per_hit = seconds_per_beat / speed_multiplier
+
+    # Decay takes the full beat duration
+    decay_time = time_per_hit
+    decay_ms = int(decay_time * 1000)
+
+    # Calculate total duration
+    total_duration = seconds_per_bar * num_bars
+
+    # Calculate number of hits in the block
+    num_hits = int(total_duration / time_per_hit)
+    if num_hits < 1:
+        num_hits = 1
+
+    time_per_hit_ms = int(time_per_hit * 1000)
+
+    # Count total channels
+    if use_per_fixture:
+        total_channels = count_total_dimmer_channels(fixture_conf, fixture_definitions)
+    else:
+        channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+        if not channels_dict:
+            channels_dict = {'IntensityDimmer': [{'channel': 0}]}
+        total_channels = len(channels_dict.get('IntensityDimmer', [])) * fixture_num
+
+    steps = []
+    current_step = start_step
+
+    # Generate steps for decay curve
+    # We'll use ~10 steps per decay for smooth falloff
+    steps_per_decay = 10
+    step_duration_in_decay = decay_ms // steps_per_decay
+
+    for hit_idx in range(num_hits):
+        # Generate decay steps for this hit
+        for decay_step in range(steps_per_decay):
+            step = ET.Element("Step")
+            step.set("Number", str(current_step))
+
+            # Calculate intensity at this point in decay
+            decay_progress = decay_step / steps_per_decay
+            # Exponential decay: e^(-3) ≈ 0.05
+            intensity_multiplier = math.exp(-decay_progress * 3)
+            step_intensity = int(intensity * intensity_multiplier)
+
+            # First step has no fade-in (instant attack), others fade
+            if decay_step == 0:
+                step.set("FadeIn", "0")
+            else:
+                step.set("FadeIn", str(step_duration_in_decay))
+
+            step.set("Hold", "0")
+            step.set("FadeOut", "0")
+            step.set("Values", str(total_channels))
+
+            # Build values string
+            if use_per_fixture:
+                intensity_per_fixture = [step_intensity] * fixture_num
+                step.text = build_dimmer_values_for_fixtures(
+                    fixture_conf, fixture_id_map, fixture_definitions, intensity_per_fixture
+                )
+            else:
+                channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+                if not channels_dict:
+                    channels_dict = {'IntensityDimmer': [{'channel': 0}]}
+                values = []
+                for i in range(fixture_num):
+                    channel_values = []
+                    for channel_info in channels_dict['IntensityDimmer']:
+                        channel = channel_info['channel']
+                        channel_values.extend([str(channel), str(step_intensity)])
+                    values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+                step.text = ":".join(values)
+
+            steps.append(step)
+            current_step += 1
 
     return steps
