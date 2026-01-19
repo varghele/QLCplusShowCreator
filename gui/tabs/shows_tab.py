@@ -732,6 +732,18 @@ class ShowsTab(BaseTab):
         if self.playback_sync:
             self.playback_sync.on_seek_requested(position)
 
+    def _get_current_position(self) -> float:
+        """Get current playback position (sample-accurate if audio available).
+
+        Used by ArtNet controller to get fresh position on each DMX update.
+
+        Returns:
+            Current position in seconds
+        """
+        if self.playback_sync and self.is_playing:
+            return self.playback_sync.get_accurate_position()
+        return self.playhead_position
+
     def _update_playback(self):
         """Called by timer during playback to update position."""
         if not self.is_playing or not self.song_structure:
@@ -778,7 +790,7 @@ class ShowsTab(BaseTab):
                 if hasattr(self, 'audio_settings') and self.audio_settings:
                     device_index = self.audio_settings.get('device_index')
                     sample_rate = self.audio_settings.get('sample_rate', 44100)
-                    buffer_size = self.audio_settings.get('buffer_size', 1024)
+                    buffer_size = self.audio_settings.get('buffer_size', 512)
                     self.audio_engine.sample_rate = sample_rate
                     self.audio_engine.buffer_size = buffer_size
 
@@ -862,6 +874,10 @@ class ShowsTab(BaseTab):
                 self.artnet_controller.set_light_lanes(
                     [widget.lane for widget in self.lane_widgets]
                 )
+
+                # Set position callback for sample-accurate sync
+                # This allows ArtNet to get fresh audio position on each DMX update
+                self.artnet_controller.set_position_callback(self._get_current_position)
 
                 # Enable output if checkbox is checked
                 if self.artnet_enabled:
