@@ -848,11 +848,22 @@ class DMXManager:
         # If so, scale color values per segment for pixelbar twinkle effect
         twinkle_intensities = getattr(fixture_map, '_twinkle_segment_intensities', None)
 
+        # Get base RGB values
+        red_value = block.red
+        green_value = block.green
+        blue_value = block.blue
+
+        # If fixture has no white channel, mix white into RGB
+        if not fixture_map.white_channels and block.white > 0:
+            red_value = min(255, red_value + block.white)
+            green_value = min(255, green_value + block.white)
+            blue_value = min(255, blue_value + block.white)
+
         # Set RGB/RGBW channels
         color_mapping = [
-            (fixture_map.red_channels, block.red),
-            (fixture_map.green_channels, block.green),
-            (fixture_map.blue_channels, block.blue),
+            (fixture_map.red_channels, red_value),
+            (fixture_map.green_channels, green_value),
+            (fixture_map.blue_channels, blue_value),
             (fixture_map.white_channels, block.white),
             (fixture_map.amber_channels, block.amber),
             (fixture_map.cyan_channels, block.cyan),
