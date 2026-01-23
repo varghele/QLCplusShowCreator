@@ -844,7 +844,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: null
+      audio_file_path: ''
       lanes: []
   SBD_cycle_of_a_pscho:
     effects: []
@@ -1122,7 +1122,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: null
+      audio_file_path: ''
       lanes: []
   SBD_everybody:
     effects: []
@@ -1200,7 +1200,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: null
+      audio_file_path: ''
       lanes: []
   SBD_highway_to_hell:
     effects: []
@@ -1266,7 +1266,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: null
+      audio_file_path: ''
       lanes: []
   SBD_hit_the_road_jack:
     effects: []
@@ -1350,7 +1350,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: null
+      audio_file_path: ''
       lanes: []
   SBD_insane:
     effects: []
@@ -1416,7 +1416,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: null
+      audio_file_path: ''
       lanes: []
   SBD_intro_and_devils_dance:
     effects: []
@@ -1542,7 +1542,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: null
+      audio_file_path: ''
       lanes: []
   SBD_monsters_in_my_head:
     effects: []
@@ -1650,7 +1650,7 @@ shows:
       signature: 4/4
       transition: gradual
     timeline_data:
-      audio_file_path: ''
+      audio_file_path: C:/Users/varghele/PycharmProjects/QLCplusShowCreator/shows/audiofiles/light_monsters_in_my_head.mp3
       lanes:
       - fixture_targets:
         - WASH:0
@@ -3117,7 +3117,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: null
+      audio_file_path: ''
       lanes: []
   SBD_party_of_one:
     effects: []

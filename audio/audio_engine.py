@@ -127,6 +127,9 @@ class AudioEngine:
             return False
 
         with self._lock:
+            # Clear any pending seek from previous stop operation
+            self._seek_pending = False
+
             # Seek to start position
             start_frame = int(start_position * self.sample_rate)
             self._current_frame = start_frame
