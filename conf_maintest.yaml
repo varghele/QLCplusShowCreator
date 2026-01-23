@@ -941,81 +941,7 @@ shows:
       transition: instant
     timeline_data:
       audio_file_path: ''
-      lanes:
-      - fixture_targets:
-        - MH
-        light_blocks:
-        - colour_blocks:
-          - amber: 0.0
-            blue: 0.0
-            color_mode: RGB
-            color_wheel_position: 0
-            cyan: 0.0
-            end_time: 9.27536231884058
-            green: 255.0
-            hue: 0.0
-            lime: 0.0
-            magenta: 0.0
-            modified: false
-            red: 0.0
-            saturation: 0.0
-            start_time: 0.0
-            uv: 0.0
-            value: 0.0
-            white: 0.0
-            yellow: 0.0
-          dimmer_blocks:
-          - effect_speed: '1'
-            effect_type: twinkle
-            end_time: 9.27536231884058
-            intensity: 255.0
-            iris: 255.0
-            modified: false
-            start_time: 0.0
-            strobe_speed: 0.0
-          duration: 9.27536231884058
-          effect_name: ''
-          end_time: 9.27536231884058
-          modified: true
-          movement_blocks:
-          - effect_speed: '1'
-            effect_type: triangle
-            end_time: 9.27536231884058
-            interpolate_from_previous: true
-            lissajous_ratio: '1:2'
-            modified: false
-            pan: 127.5
-            pan_amplitude: 50.0
-            pan_fine: 0.0
-            pan_max: 255.0
-            pan_min: 0.0
-            phase_offset_degrees: 0.0
-            phase_offset_enabled: false
-            speed: 0.0
-            start_time: 0.0
-            tilt: 127.5
-            tilt_amplitude: 50.0
-            tilt_fine: 0.0
-            tilt_max: 255.0
-            tilt_min: 0.0
-          name: null
-          parameters: {}
-          riff_source: null
-          riff_version: null
-          special_blocks:
-          - end_time: 9.27536231884058
-            focus: 127.5
-            gobo_index: 0
-            gobo_rotation: 0.0
-            modified: false
-            prism_enabled: false
-            prism_rotation: 0.0
-            start_time: 0.0
-            zoom: 127.5
-          start_time: 0.0
-        muted: false
-        name: Lane 1
-        solo: false
+      lanes: []
   SBD_devils_dance:
     effects: []
     parts:
@@ -1123,7 +1049,81 @@ shows:
       transition: instant
     timeline_data:
       audio_file_path: ''
-      lanes: []
+      lanes:
+      - fixture_targets:
+        - MH
+        light_blocks:
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 9.27536231884058
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 0.0
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: twinkle
+            end_time: 9.27536231884058
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 0.0
+            strobe_speed: 0.0
+          duration: 9.27536231884058
+          effect_name: ''
+          end_time: 9.27536231884058
+          modified: true
+          movement_blocks:
+          - effect_speed: '1'
+            effect_type: triangle
+            end_time: 9.27536231884058
+            interpolate_from_previous: true
+            lissajous_ratio: '1:2'
+            modified: false
+            pan: 127.5
+            pan_amplitude: 50.0
+            pan_fine: 0.0
+            pan_max: 255.0
+            pan_min: 0.0
+            phase_offset_degrees: 0.0
+            phase_offset_enabled: false
+            speed: 0.0
+            start_time: 0.0
+            tilt: 127.5
+            tilt_amplitude: 50.0
+            tilt_fine: 0.0
+            tilt_max: 255.0
+            tilt_min: 0.0
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks:
+          - end_time: 9.27536231884058
+            focus: 127.5
+            gobo_index: 0
+            gobo_rotation: 0.0
+            modified: false
+            prism_enabled: false
+            prism_rotation: 0.0
+            start_time: 0.0
+            zoom: 127.5
+          start_time: 0.0
+        muted: false
+        name: Lane 1
+        solo: false
   SBD_everybody:
     effects: []
     parts:
@@ -1650,7 +1650,7 @@ shows:
       signature: 4/4
       transition: gradual
     timeline_data:
-      audio_file_path: C:/Users/varghele/PycharmProjects/QLCplusShowCreator/shows/audiofiles/light_monsters_in_my_head.mp3
+      audio_file_path: C:/Users/mgmfi/PycharmProjects/QLCplusShowCreator/shows/audiofiles/light_monsters_in_my_head.mp3
       lanes:
       - fixture_targets:
         - WASH:0
