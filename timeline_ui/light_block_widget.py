@@ -66,6 +66,9 @@ class LightBlockWidget(QWidget):
         self.dragging_intensity_handle = None  # Which dimmer block's intensity handle is being dragged
         self.drag_start_intensity = None  # Initial intensity value when drag started
 
+        # Multi-selection state
+        self._is_multi_selected = False
+
         self.setMinimumHeight(30)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setMouseTracking(True)  # Enable mouse tracking for cursor updates on hover
@@ -105,6 +108,29 @@ class LightBlockWidget(QWidget):
     def update_display(self):
         """Update the display after block data changes."""
         self.update()  # Trigger repaint
+
+    @property
+    def is_multi_selected(self) -> bool:
+        """Check if this block is part of a multi-selection."""
+        return self._is_multi_selected
+
+    def set_multi_selected(self, selected: bool) -> None:
+        """Set multi-selection state.
+
+        Args:
+            selected: True to mark as multi-selected
+        """
+        if self._is_multi_selected != selected:
+            self._is_multi_selected = selected
+            self.update()  # Trigger repaint for visual update
+
+    def get_block_time_bounds(self) -> tuple:
+        """Get the time bounds of this block.
+
+        Returns:
+            Tuple of (start_time, end_time)
+        """
+        return (self.block.start_time, self.block.end_time)
 
     def update_position(self):
         """Update widget position and size based on block envelope data."""
@@ -161,10 +187,16 @@ class LightBlockWidget(QWidget):
         envelope_color = QColor(60, 60, 60, 100)
         painter.setBrush(QBrush(envelope_color))
 
-        # Border color - thicker dashed line
-        border_color = QColor(150, 150, 150, 200)
-        pen = QPen(border_color, 2, Qt.PenStyle.DashLine)
-        pen.setDashPattern([4, 3])  # Custom dash pattern: 4px dash, 3px gap
+        if self._is_multi_selected:
+            # Multi-selection highlight - solid blue border
+            border_color = QColor(0, 120, 215, 255)
+            pen = QPen(border_color, 3, Qt.PenStyle.SolidLine)
+        else:
+            # Border color - thicker dashed line
+            border_color = QColor(150, 150, 150, 200)
+            pen = QPen(border_color, 2, Qt.PenStyle.DashLine)
+            pen.setDashPattern([4, 3])  # Custom dash pattern: 4px dash, 3px gap
+
         painter.setPen(pen)
 
         # Draw envelope rectangle
@@ -1491,7 +1523,16 @@ class LightBlockWidget(QWidget):
 
         menu.addSeparator()
 
-        copy_action = menu.addAction("Copy Effect")
+        # Dynamic copy label based on selection count
+        copy_label = "Copy Effect"
+        if self._is_multi_selected:
+            shows_tab = self._get_shows_tab()
+            if shows_tab and hasattr(shows_tab, 'selection_manager'):
+                count = shows_tab.selection_manager.get_selection_count()
+                if count > 1:
+                    copy_label = f"Copy {count} Effects"
+
+        copy_action = menu.addAction(copy_label)
         copy_action.triggered.connect(self.copy_effect)
 
         menu.addSeparator()
@@ -1501,8 +1542,17 @@ class LightBlockWidget(QWidget):
 
         menu.addSeparator()
 
-        delete_action = menu.addAction("Delete Entire Effect")
-        delete_action.triggered.connect(lambda: self.remove_requested.emit(self))
+        # Dynamic delete label based on selection count
+        delete_label = "Delete Entire Effect"
+        if self._is_multi_selected:
+            shows_tab = self._get_shows_tab()
+            if shows_tab and hasattr(shows_tab, 'selection_manager'):
+                count = shows_tab.selection_manager.get_selection_count()
+                if count > 1:
+                    delete_label = f"Delete {count} Effects"
+
+        delete_action = menu.addAction(delete_label)
+        delete_action.triggered.connect(self._delete_effect_or_selection)
 
         menu.exec(event.globalPos())
 
@@ -1677,9 +1727,44 @@ class LightBlockWidget(QWidget):
             special_block.end_time += time_delta
 
     def copy_effect(self):
-        """Copy this effect to the clipboard."""
-        from .effect_clipboard import copy_effect
+        """Copy this effect (or all selected effects) to the clipboard."""
+        from .effect_clipboard import copy_effect, copy_multiple_effects
+
+        # Check if this block is part of a multi-selection
+        if self._is_multi_selected:
+            # Try to get selection manager from parent chain
+            shows_tab = self._get_shows_tab()
+            if shows_tab and hasattr(shows_tab, 'selection_manager'):
+                selected_blocks = shows_tab.selection_manager.get_selected_blocks()
+                if len(selected_blocks) > 1:
+                    copy_multiple_effects(selected_blocks)
+                    return
+
+        # Fall back to single block copy
         copy_effect(self.block)
+
+    def _get_shows_tab(self):
+        """Get the ShowsTab parent widget if available."""
+        if self.lane_widget:
+            # Walk up the parent chain to find ShowsTab (has selection_manager)
+            widget = self.lane_widget.parent()
+            while widget is not None:
+                if hasattr(widget, 'selection_manager'):
+                    return widget
+                widget = widget.parent()
+        return None
+
+    def _delete_effect_or_selection(self):
+        """Delete this effect or all selected effects."""
+        # Check if this block is part of a multi-selection
+        if self._is_multi_selected:
+            shows_tab = self._get_shows_tab()
+            if shows_tab and hasattr(shows_tab, '_delete_selected_blocks'):
+                shows_tab._delete_selected_blocks()
+                return
+
+        # Fall back to single block delete
+        self.remove_requested.emit(self)
 
     def wheelEvent(self, event):
         """Handle mouse wheel for speed adjustment (Ctrl+wheel) on dimmer and movement blocks."""

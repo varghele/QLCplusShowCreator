@@ -6,12 +6,18 @@ import csv
 from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QComboBox, QPushButton,
                              QLabel, QSlider, QScrollArea, QWidget, QFrame,
                              QSplitter, QSizePolicy, QInputDialog, QMessageBox, QCheckBox)
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint, QRect
+from PyQt6.QtGui import QShortcut, QKeySequence
 from config.models import Configuration, Show, ShowPart, TimelineData, LightBlock, ShowEffect
 from timeline.song_structure import SongStructure
 from timeline.light_lane import LightLane
 from utils.fixture_utils import load_fixture_definitions_from_qlc, get_cached_fixture_definitions
 from timeline_ui import (MasterTimelineContainer, LightLaneWidget, AudioLaneWidget)
+from timeline_ui.selection_manager import SelectionManager
+from timeline_ui.selection_overlay import SelectionOverlay
+from timeline_ui.effect_clipboard import (copy_multiple_effects, paste_multiple_effects,
+                                          has_multi_clipboard_data, has_clipboard_data,
+                                          paste_effect)
 from gui.progress_manager import get_progress_manager
 from .base_tab import BaseTab
 
@@ -81,6 +87,16 @@ class ShowsTab(BaseTab):
         self.playback_timer.setInterval(16)  # ~60 FPS
         self.playback_timer.timeout.connect(self._update_playback)
 
+        # Selection manager for multi-select
+        self.selection_manager = SelectionManager()
+
+        # Selection state for rubber-band
+        self._is_selecting = False
+        self._selection_start_global = QPoint()
+        self._selection_extend = False
+        self._selection_source_timeline = None
+        self._selection_overlay = None
+
         super().__init__(config, parent)
 
     def setup_ui(self):
@@ -117,6 +133,10 @@ class ShowsTab(BaseTab):
 
         self.lanes_scroll.setWidget(self.lanes_container)
         main_layout.addWidget(self.lanes_scroll, 1)  # Takes remaining space
+
+        # Create selection overlay for rubber-band selection (parented to self for proper stacking)
+        self._selection_overlay = SelectionOverlay(self)
+        self._selection_overlay.hide()
 
         # Bottom playback controls
         playback_bar = self._create_playback_controls()
@@ -288,6 +308,9 @@ class ShowsTab(BaseTab):
         self.audio_lane.zoom_changed.connect(self._on_external_zoom_changed)
         self.audio_lane.playhead_moved.connect(self._on_playhead_moved)
         self.audio_lane.audio_file_changed.connect(self._on_audio_file_loaded)
+
+        # Keyboard shortcuts for selection operations
+        self._setup_selection_shortcuts()
 
     def update_from_config(self):
         """Refresh timeline from configuration."""
@@ -475,6 +498,12 @@ class ShowsTab(BaseTab):
         lane_widget.zoom_changed.connect(self._on_external_zoom_changed)
         lane_widget.playhead_moved.connect(self._on_playhead_moved)
         lane_widget.block_edited.connect(self.save_to_config)  # Auto-save on effect edit
+
+        # Install event filter on timeline widget for rubber-band selection
+        lane_widget.timeline_widget.installEventFilter(self)
+        lane_widget.timeline_widget.setMouseTracking(True)
+        # Also install on the scroll area viewport in case events go there
+        lane_widget.timeline_scroll.viewport().installEventFilter(self)
 
         # Insert before the stretch
         self.lanes_layout.insertWidget(len(self.lane_widgets), lane_widget)
@@ -1124,3 +1153,414 @@ class ShowsTab(BaseTab):
             self._load_show(self.show_combo.currentText())
 
         print(f"Successfully imported {imported_count} show(s) from {shows_dir}")
+
+    # === Selection/Rubber-Band Methods ===
+
+    def _setup_selection_shortcuts(self):
+        """Set up keyboard shortcuts for selection operations."""
+        # Ctrl+C - Copy selected blocks
+        copy_shortcut = QShortcut(QKeySequence.StandardKey.Copy, self)
+        copy_shortcut.activated.connect(self._copy_selected_blocks)
+
+        # Ctrl+V - Paste at playhead
+        paste_shortcut = QShortcut(QKeySequence.StandardKey.Paste, self)
+        paste_shortcut.activated.connect(self._paste_at_playhead)
+
+        # Delete - Delete selected blocks
+        delete_shortcut = QShortcut(QKeySequence.StandardKey.Delete, self)
+        delete_shortcut.activated.connect(self._delete_selected_blocks)
+
+        # Backspace - Also delete selected blocks
+        backspace_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Backspace), self)
+        backspace_shortcut.activated.connect(self._delete_selected_blocks)
+
+        # Escape - Clear selection
+        escape_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        escape_shortcut.activated.connect(self._clear_selection)
+
+        # Ctrl+A - Select all blocks
+        select_all_shortcut = QShortcut(QKeySequence.StandardKey.SelectAll, self)
+        select_all_shortcut.activated.connect(self._select_all_blocks)
+
+    def eventFilter(self, obj, event):
+        """Filter events for rubber-band selection on timeline widgets."""
+        from PyQt6.QtCore import QEvent
+        from timeline_ui import TimelineWidget
+
+        # Find which lane this widget belongs to (could be timeline widget or viewport)
+        source_lane = None
+        timeline_widget = None
+
+        for lane_widget in self.lane_widgets:
+            if lane_widget.timeline_widget is obj:
+                source_lane = lane_widget
+                timeline_widget = obj
+                break
+            elif lane_widget.timeline_scroll.viewport() is obj:
+                source_lane = lane_widget
+                timeline_widget = lane_widget.timeline_widget
+                break
+
+        if source_lane is None:
+            return super().eventFilter(obj, event)
+
+        if event.type() == QEvent.Type.MouseButtonPress:
+            if event.button() == Qt.MouseButton.LeftButton:
+                pos = event.position().toPoint()
+                # Map position to timeline widget coordinates if needed
+                if obj is not timeline_widget:
+                    pos = timeline_widget.mapFrom(obj, pos)
+                # Check if click is on empty space (not on a block widget)
+                if self._is_click_on_empty_space_in_timeline(timeline_widget, pos):
+                    self._start_rubber_band_selection(timeline_widget, pos, event)
+                    return True  # Consume event to prevent playhead movement
+
+        elif event.type() == QEvent.Type.MouseMove:
+            if self._is_selecting:
+                pos = event.position().toPoint()
+                # Map position to source timeline widget coordinates
+                if obj is not self._selection_source_timeline:
+                    pos = self._selection_source_timeline.mapFromGlobal(obj.mapToGlobal(pos))
+                self._update_rubber_band_selection(self._selection_source_timeline, pos)
+                return True
+
+        elif event.type() == QEvent.Type.MouseButtonRelease:
+            if event.button() == Qt.MouseButton.LeftButton and self._is_selecting:
+                self._finish_rubber_band_selection(event)
+                return True
+
+        return super().eventFilter(obj, event)
+
+    def _is_click_on_empty_space_in_timeline(self, timeline_widget, pos: QPoint) -> bool:
+        """Check if a click position in a timeline widget is on empty space.
+
+        Args:
+            timeline_widget: The TimelineWidget being clicked
+            pos: Position relative to timeline_widget
+
+        Returns:
+            True if clicking on empty space (not on a block)
+        """
+        # Find the lane widget for this timeline
+        for lane_widget in self.lane_widgets:
+            if lane_widget.timeline_widget is timeline_widget:
+                # Check if position is on any block widget
+                for block_widget in lane_widget.light_block_widgets:
+                    # Map pos to block widget coordinates
+                    block_pos = block_widget.mapFrom(timeline_widget, pos)
+                    if block_widget.rect().contains(block_pos):
+                        return False  # Clicked on a block
+                return True  # Clicked on empty space in this lane
+
+        return True  # Default to empty space
+
+    def _start_rubber_band_selection(self, timeline_widget, pos: QPoint, event):
+        """Start rubber-band selection.
+
+        Args:
+            timeline_widget: The timeline widget where selection started
+            pos: Start position relative to timeline_widget
+            event: The mouse event
+        """
+        # Check for Shift modifier to extend selection
+        extend = bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+
+        if not extend:
+            # Clear existing selection if not Shift+drag
+            self.selection_manager.clear_selection()
+
+        self._is_selecting = True
+        self._selection_extend = extend
+        self._selection_source_timeline = timeline_widget
+
+        # Grab mouse to ensure we get all move/release events
+        timeline_widget.grabMouse()
+
+        # Store the global position for the selection start
+        global_pos = timeline_widget.mapToGlobal(pos)
+        self._selection_start_global = global_pos
+
+        # Position and show the overlay over the lanes scroll area
+        scroll_rect = self.lanes_scroll.geometry()
+        self._selection_overlay.setGeometry(scroll_rect)
+        self._selection_overlay.show()
+        self._selection_overlay.raise_()
+
+        # Convert to overlay-relative coordinates
+        overlay_pos = self._selection_overlay.mapFromGlobal(global_pos)
+        self._selection_overlay.start_selection(overlay_pos)
+
+    def _update_rubber_band_selection(self, timeline_widget, pos: QPoint):
+        """Update rubber-band selection rectangle.
+
+        Args:
+            timeline_widget: The timeline widget receiving the mouse move
+            pos: Current position relative to timeline_widget
+        """
+        if not self._is_selecting:
+            return
+
+        # Convert to global then to overlay coordinates
+        global_pos = timeline_widget.mapToGlobal(pos)
+        overlay_pos = self._selection_overlay.mapFromGlobal(global_pos)
+
+        self._selection_overlay.update_selection(overlay_pos)
+
+        # Highlight blocks that intersect with the selection
+        self._highlight_blocks_in_selection()
+
+    def _finish_rubber_band_selection(self, event):
+        """Finish rubber-band selection.
+
+        Args:
+            event: The mouse event
+        """
+        if not self._is_selecting:
+            return
+
+        # Release mouse grab
+        if self._selection_source_timeline:
+            self._selection_source_timeline.releaseMouse()
+
+        # Finalize selection
+        self._selection_overlay.finish_selection()
+
+        # Select all highlighted blocks
+        self._finalize_selection()
+
+        # Reset state
+        self._is_selecting = False
+        self._selection_overlay.hide()
+        self._selection_source_timeline = None
+
+    def _highlight_blocks_in_selection(self):
+        """Highlight blocks that intersect with the current selection rectangle."""
+        # Get selection rectangle in overlay coordinates
+        rect = self._selection_overlay.get_selection_rect()
+
+        # Convert rectangle corners to time values
+        start_time, end_time = self._overlay_rect_to_time_range(rect)
+
+        if start_time is None or end_time is None:
+            return
+
+        # For each lane, check if it intersects with the selection rectangle vertically
+        for lane_widget in self.lane_widgets:
+            # Get lane's position in overlay coordinates (use the lane widget itself, not just timeline)
+            lane_rect = self._get_lane_rect_in_overlay(lane_widget)
+
+            # Check Y overlap between selection rect and lane
+            y_overlap = (rect.top() <= lane_rect.bottom() and
+                        rect.bottom() >= lane_rect.top())
+
+            if not y_overlap:
+                # Lane doesn't intersect - remove highlight from its blocks
+                for block in lane_widget.get_all_block_widgets():
+                    if not self.selection_manager.is_selected(block):
+                        block.set_multi_selected(False)
+                continue
+
+            # Get blocks in time range for this lane
+            blocks_in_range = lane_widget.get_blocks_in_time_range(start_time, end_time)
+
+            # Highlight matching blocks
+            for block in blocks_in_range:
+                block.set_multi_selected(True)
+
+            # Remove highlight from blocks not in range (unless already selected)
+            for block in lane_widget.get_all_block_widgets():
+                if block not in blocks_in_range and not self.selection_manager.is_selected(block):
+                    block.set_multi_selected(False)
+
+    def _finalize_selection(self):
+        """Finalize the selection by adding all highlighted blocks to selection manager."""
+        # Get selection rectangle in overlay coordinates
+        rect = self._selection_overlay.get_selection_rect()
+
+        # Convert to time range
+        start_time, end_time = self._overlay_rect_to_time_range(rect)
+
+        if start_time is None or end_time is None:
+            return
+
+        blocks_to_select = []
+
+        for lane_widget in self.lane_widgets:
+            # Check Y overlap using the lane widget rect (not just timeline)
+            lane_rect = self._get_lane_rect_in_overlay(lane_widget)
+
+            y_overlap = (rect.top() <= lane_rect.bottom() and
+                        rect.bottom() >= lane_rect.top())
+
+            if not y_overlap:
+                continue
+
+            # Get blocks in time range
+            blocks = lane_widget.get_blocks_in_time_range(start_time, end_time)
+            blocks_to_select.extend(blocks)
+
+        # Add to selection manager
+        if blocks_to_select:
+            self.selection_manager.select_multiple(blocks_to_select, self._selection_extend)
+
+    def _get_timeline_rect_in_overlay(self, lane_widget) -> QRect:
+        """Get a lane's timeline widget rectangle in overlay coordinates.
+
+        Args:
+            lane_widget: LightLaneWidget instance
+
+        Returns:
+            QRect of timeline widget in overlay coordinates
+        """
+        timeline = lane_widget.timeline_widget
+        # Get timeline's global position
+        global_top_left = timeline.mapToGlobal(QPoint(0, 0))
+        global_bottom_right = timeline.mapToGlobal(QPoint(timeline.width(), timeline.height()))
+
+        # Convert to overlay coordinates
+        overlay_top_left = self._selection_overlay.mapFromGlobal(global_top_left)
+        overlay_bottom_right = self._selection_overlay.mapFromGlobal(global_bottom_right)
+
+        return QRect(overlay_top_left, overlay_bottom_right)
+
+    def _get_lane_rect_in_overlay(self, lane_widget) -> QRect:
+        """Get a lane widget's rectangle in overlay coordinates.
+
+        Uses the full lane widget bounds for accurate Y-overlap detection.
+
+        Args:
+            lane_widget: LightLaneWidget instance
+
+        Returns:
+            QRect of lane widget in overlay coordinates
+        """
+        # Get lane widget's global position
+        global_top_left = lane_widget.mapToGlobal(QPoint(0, 0))
+        global_bottom_right = lane_widget.mapToGlobal(QPoint(lane_widget.width(), lane_widget.height()))
+
+        # Convert to overlay coordinates
+        overlay_top_left = self._selection_overlay.mapFromGlobal(global_top_left)
+        overlay_bottom_right = self._selection_overlay.mapFromGlobal(global_bottom_right)
+
+        return QRect(overlay_top_left, overlay_bottom_right)
+
+    def _overlay_rect_to_time_range(self, rect: QRect):
+        """Convert a rectangle in overlay coordinates to a time range.
+
+        Args:
+            rect: Rectangle in overlay coordinates
+
+        Returns:
+            Tuple of (start_time, end_time) or (None, None) if conversion fails
+        """
+        if not self.lane_widgets:
+            return (None, None)
+
+        # Use first lane's timeline widget for coordinate conversion
+        lane_widget = self.lane_widgets[0]
+        timeline = lane_widget.timeline_widget
+
+        # Convert overlay rect corners to timeline coordinates
+        overlay_left = QPoint(rect.left(), rect.top())
+        overlay_right = QPoint(rect.right(), rect.top())
+
+        global_left = self._selection_overlay.mapToGlobal(overlay_left)
+        global_right = self._selection_overlay.mapToGlobal(overlay_right)
+
+        timeline_left = timeline.mapFromGlobal(global_left)
+        timeline_right = timeline.mapFromGlobal(global_right)
+
+        # Convert pixel positions to time
+        x_start = timeline_left.x()
+        x_end = timeline_right.x()
+
+        # Clamp to valid range
+        x_start = max(0, x_start)
+        x_end = max(0, x_end)
+
+        # Ensure start < end
+        if x_start > x_end:
+            x_start, x_end = x_end, x_start
+
+        # Convert pixels to time using timeline's conversion method
+        start_time = timeline.pixel_to_time(x_start)
+        end_time = timeline.pixel_to_time(x_end)
+
+        return (start_time, end_time)
+
+    def _copy_selected_blocks(self):
+        """Copy selected blocks to clipboard."""
+        selected = self.selection_manager.get_selected_blocks()
+        if selected:
+            copy_multiple_effects(selected)
+            print(f"Copied {len(selected)} block(s) to clipboard")
+
+    def _paste_at_playhead(self):
+        """Paste clipboard blocks at playhead position."""
+        if has_multi_clipboard_data():
+            # Paste multiple blocks
+            results = paste_multiple_effects(self.playhead_position, self.lane_widgets)
+            for lane_widget, new_block in results:
+                # Add to lane data
+                lane_widget.lane.light_blocks.append(new_block)
+                # Create widget
+                lane_widget.create_light_block_widget(new_block)
+
+            if results:
+                print(f"Pasted {len(results)} block(s)")
+                self.save_to_config()
+
+        elif has_clipboard_data():
+            # Paste single block - use first lane or currently focused lane
+            if self.lane_widgets:
+                target_lane = self.lane_widgets[0]
+                new_block = paste_effect(self.playhead_position)
+                if new_block:
+                    target_lane.lane.light_blocks.append(new_block)
+                    target_lane.create_light_block_widget(new_block)
+                    print("Pasted 1 block")
+                    self.save_to_config()
+
+    def _delete_selected_blocks(self):
+        """Delete all selected blocks."""
+        selected = self.selection_manager.get_selected_blocks()
+        if not selected:
+            return
+
+        count = len(selected)
+
+        for block_widget in selected:
+            # Find the lane widget this block belongs to
+            lane_widget = block_widget.lane_widget
+            if lane_widget:
+                # Remove from selection first
+                self.selection_manager.remove_block(block_widget)
+                # Remove the block (without using undo to avoid issues)
+                lane_widget.remove_light_block_widget(block_widget, use_undo=False)
+
+        print(f"Deleted {count} block(s)")
+        self.save_to_config()
+
+    def _clear_selection(self):
+        """Clear all selection."""
+        self.selection_manager.clear_selection()
+
+        # Also cancel any in-progress rubber-band
+        if self._is_selecting:
+            # Release mouse grab
+            if self._selection_source_timeline:
+                self._selection_source_timeline.releaseMouse()
+            self._is_selecting = False
+            self._selection_source_timeline = None
+            self._selection_overlay.cancel_selection()
+            self._selection_overlay.hide()
+
+    def _select_all_blocks(self):
+        """Select all blocks in all lanes."""
+        all_blocks = []
+        for lane_widget in self.lane_widgets:
+            all_blocks.extend(lane_widget.get_all_block_widgets())
+
+        if all_blocks:
+            self.selection_manager.select_multiple(all_blocks, extend=False)
+            print(f"Selected {len(all_blocks)} block(s)")
