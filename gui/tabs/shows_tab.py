@@ -685,13 +685,25 @@ class ShowsTab(BaseTab):
         if AUDIO_AVAILABLE and self.audio_lane.get_audio_file():
             self._init_audio_engine()
             if self.playback_sync:
-                self.playback_sync.on_play_requested(self.playhead_position)
+                # Try to start audio playback - if it fails, fall back to timer-based
+                if not self.playback_sync.on_play_requested(self.playhead_position):
+                    print("Audio playback failed, falling back to timer-based playback")
+                    # Clean up failed audio engine so it can be reinitialized
+                    if self.audio_engine:
+                        try:
+                            self.audio_engine.cleanup()
+                        except Exception:
+                            pass
+                        self.audio_engine = None
+                    self.playback_sync = None
 
         # Initialize and start ArtNet if enabled
         if ARTNET_AVAILABLE and self.artnet_enabled:
             if self.artnet_controller is None:
                 self._init_artnet_controller()
             if self.artnet_controller:
+                # Set initial position before starting playback
+                self.artnet_controller.update_position(self.playhead_position)
                 self.artnet_controller.start_playback()
 
         self.playback_timer.start()
@@ -795,7 +807,8 @@ class ShowsTab(BaseTab):
                     self.audio_engine.buffer_size = buffer_size
 
                 # Initialize audio engine with device
-                self.audio_engine.initialize(device_index=device_index)
+                if not self.audio_engine.initialize(device_index=device_index):
+                    raise Exception("Audio device initialization failed")
 
                 self.playback_sync = PlaybackSynchronizer(
                     self.audio_engine, self.audio_mixer

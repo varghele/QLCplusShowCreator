@@ -37,16 +37,24 @@ class PlaybackSynchronizer(QObject):
         # Playback state
         self._is_playing = False
 
-    def on_play_requested(self, position: float):
-        """Handle play request from PlaybackEngine"""
+    def on_play_requested(self, position: float) -> bool:
+        """Handle play request from PlaybackEngine.
+
+        Returns:
+            True if audio playback started successfully, False otherwise.
+        """
         try:
-            self.audio_engine.start_playback(position)
+            if not self.audio_engine.start_playback(position):
+                print(f"Audio engine failed to start playback at position {position}")
+                return False
             self._is_playing = True
             self._last_qt_position = position
             self._drift_check_timer.start()
+            return True
 
         except Exception as e:
             print(f"Error starting audio playback: {e}")
+            return False
 
     def on_pause_requested(self):
         """Handle pause request from PlaybackEngine"""

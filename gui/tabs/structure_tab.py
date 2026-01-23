@@ -1550,7 +1550,8 @@ class StructureTab(BaseTab):
                     self.audio_engine.buffer_size = buffer_size
 
                 # Initialize audio engine with device
-                self.audio_engine.initialize(device_index=device_index)
+                if not self.audio_engine.initialize(device_index=device_index):
+                    raise Exception("Audio device initialization failed")
 
                 self.playback_sync = PlaybackSynchronizer(
                     self.audio_engine, self.audio_mixer
