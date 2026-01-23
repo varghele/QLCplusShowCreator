@@ -107,14 +107,14 @@ def calculate_unified_step_grid(
             movement_steps_needed = max(movement_steps_needed, 1)
 
     # Calculate steps needed for dimmer effects
-    dimmer_steps_needed = 0
+    # We need to calculate the minimum step interval required across all effects
+    # then apply that to the total duration
+    min_step_interval_ms = total_duration_ms  # Start with max (will be reduced)
     numerator, denominator = map(int, signature.split('/'))
     beats_per_bar = (numerator * 4) / denominator
     ms_per_beat = 60000 / bpm
 
     for block in dimmer_blocks:
-        block_duration_ms = (block.end_time - block.start_time) * 1000
-
         # Parse speed multiplier
         speed = block.effect_speed
         if '/' in speed:
@@ -123,17 +123,40 @@ def calculate_unified_step_grid(
         else:
             speed_mult = float(speed)
 
-        # Calculate steps based on effect type
+        # Calculate the step interval needed for this effect type
         if block.effect_type == "static":
-            steps = 1
+            # Static effects only need steps at block boundaries
+            # We'll handle this with block boundary detection below
+            pass
         elif block.effect_type == "strobe":
-            # Strobe needs fast steps
-            steps = int(block_duration_ms / (ms_per_beat / speed_mult / 2))
+            # Strobe needs fast steps - half beat per toggle
+            step_interval = (ms_per_beat / speed_mult) / 2
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
+        elif block.effect_type == "hit":
+            # Hit effects need fine steps to show exponential decay
+            # At minimum, 8 steps per hit cycle for decent decay curve
+            hit_cycle_ms = ms_per_beat / speed_mult  # one beat per hit
+            step_interval = hit_cycle_ms / 8  # 8 steps per hit for smooth decay
+            step_interval = max(step_interval, MIN_STEP_DURATION_MS)
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
+        elif block.effect_type == "ping_pong_smooth":
+            # Ping pong smooth has exponential decay that needs fine steps
+            # Similar to hit, use 8-10 steps per fixture transition for smooth decay
+            beat_ms = ms_per_beat / speed_mult  # one beat per fixture
+            step_interval = beat_ms / 10  # 10 steps per beat for smooth decay animation
+            step_interval = max(step_interval, MIN_STEP_DURATION_MS)
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
         else:
-            # Other effects (twinkle, ping_pong, etc.)
-            steps = int(block_duration_ms / (ms_per_beat / speed_mult))
+            # Other effects (twinkle, waterfall, etc.)
+            # One step per beat is usually sufficient
+            step_interval = ms_per_beat / speed_mult
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
 
-        dimmer_steps_needed = max(dimmer_steps_needed, steps)
+    # Ensure minimum step interval is reasonable
+    min_step_interval_ms = max(min_step_interval_ms, MIN_STEP_DURATION_MS)
+
+    # Calculate dimmer steps needed based on total duration and minimum interval
+    dimmer_steps_needed = int(total_duration_ms / min_step_interval_ms) if min_step_interval_ms > 0 else 1
 
     # Use the maximum steps needed
     total_steps = max(movement_steps_needed, dimmer_steps_needed, 1)
@@ -874,11 +897,28 @@ def build_unified_step(
 
             # Apply RGB channels if fixture has them
             if has_rgb_channels:
+                # Check if fixture has a white channel
+                has_white_channel = "IntensityWhite" in channels_dict
+
+                # Get base color values
+                red_val = colour_values.get('red', 0)
+                green_val = colour_values.get('green', 0)
+                blue_val = colour_values.get('blue', 0)
+                white_val = colour_values.get('white', 0)
+
+                # RGBW to RGB conversion: if fixture has no white channel,
+                # add the white value to R, G, B to approximate the color
+                if not has_white_channel and white_val > 0:
+                    red_val = min(255, red_val + white_val)
+                    green_val = min(255, green_val + white_val)
+                    blue_val = min(255, blue_val + white_val)
+                    white_val = 0  # Clear white since we've converted it
+
                 color_mappings = [
-                    ("IntensityRed", colour_values.get('red', 0)),
-                    ("IntensityGreen", colour_values.get('green', 0)),
-                    ("IntensityBlue", colour_values.get('blue', 0)),
-                    ("IntensityWhite", colour_values.get('white', 0)),
+                    ("IntensityRed", red_val),
+                    ("IntensityGreen", green_val),
+                    ("IntensityBlue", blue_val),
+                    ("IntensityWhite", white_val),
                     ("IntensityAmber", colour_values.get('amber', 0)),
                     ("IntensityCyan", colour_values.get('cyan', 0)),
                     ("IntensityMagenta", colour_values.get('magenta', 0)),
@@ -1140,12 +1180,18 @@ def generate_unified_sequence_steps(
     movement_blocks = light_block.movement_blocks if hasattr(light_block, 'movement_blocks') else []
     special_blocks = light_block.special_blocks if hasattr(light_block, 'special_blocks') else []
 
+    # Debug: Log block counts
+    print(f"        [unified_sequence] dimmer={len(dimmer_blocks)}, colour={len(colour_blocks)}, movement={len(movement_blocks)}, special={len(special_blocks)}")
+
     # Calculate the unified step grid
     step_times_ms, step_duration_ms = calculate_unified_step_grid(
         dimmer_blocks, colour_blocks, movement_blocks, special_blocks, bpm, signature
     )
 
+    print(f"        [unified_sequence] step_times_ms count={len(step_times_ms)}, step_duration_ms={step_duration_ms}")
+
     if not step_times_ms:
+        print(f"        [unified_sequence] Returning empty - no step times calculated")
         return []
 
     total_steps = len(step_times_ms)
