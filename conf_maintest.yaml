@@ -1650,7 +1650,7 @@ shows:
       signature: 4/4
       transition: gradual
     timeline_data:
-      audio_file_path: C:\Users\varghele\PycharmProjects\QLCplusShowCreator\shows\audiofiles\light_monsters_in_my_head.mp3
+      audio_file_path: ''
       lanes:
       - fixture_targets:
         - WASH:0
@@ -1941,7 +1941,54 @@ shows:
             color_mode: RGB
             color_wheel_position: 0
             cyan: 0.0
-            end_time: 27.5
+            end_time: 31.25
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 26.25
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 26.5625
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 26.25
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 27.8125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 26.5625
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 31.25
+          modified: true
+          movement_blocks: []
+          name: HIT_WASHES
+          parameters: *id001
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 26.25
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 26.25
             green: 255.0
             hue: 0.0
             lime: 0.0
@@ -1971,9 +2018,9 @@ shows:
             modified: false
             start_time: 22.8125
             strobe_speed: 0.0
-          duration: 5.0
+          duration: 3.75
           effect_name: ''
-          end_time: 27.5
+          end_time: 26.25
           modified: true
           movement_blocks: []
           name: HIT_WASHES
@@ -1984,11 +2031,303 @@ shows:
           start_time: 22.5
         - colour_blocks:
           - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 9
+            cyan: 0.0
+            end_time: 35.625
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 31.25
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 113
+            cyan: 0.0
+            end_time: 36.25
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 35.625
+            uv: 0.0
+            value: 0.0
+            white: 255.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 35.625
+            intensity: 105.0
+            iris: 255.0
+            modified: false
+            start_time: 31.25
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 35.9375
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 35.625
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 36.25
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 35.9375
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 36.25
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: &id002 {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 31.25
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 9
+            cyan: 0.0
+            end_time: 40.625
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 36.25
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 113
+            cyan: 0.0
+            end_time: 41.25
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 40.625
+            uv: 0.0
+            value: 0.0
+            white: 255.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 40.625
+            intensity: 121.0
+            iris: 255.0
+            modified: false
+            start_time: 36.25
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 40.9375
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 40.625
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 41.25
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 40.9375
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 41.25
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: *id002
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 36.25
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 9
+            cyan: 0.0
+            end_time: 45.625
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 41.25
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 113
+            cyan: 0.0
+            end_time: 46.25
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 45.625
+            uv: 0.0
+            value: 0.0
+            white: 255.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 45.625
+            intensity: 121.0
+            iris: 255.0
+            modified: false
+            start_time: 41.25
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 45.9375
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 45.625
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 46.25
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 45.9375
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 46.25
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: *id002
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 41.25
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 9
+            cyan: 0.0
+            end_time: 50.625
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 46.25
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 113
+            cyan: 0.0
+            end_time: 51.25
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 50.625
+            uv: 0.0
+            value: 0.0
+            white: 255.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 50.625
+            intensity: 121.0
+            iris: 255.0
+            modified: false
+            start_time: 46.25
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 50.9375
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 50.625
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 51.25
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 50.9375
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 51.25
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: *id002
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 46.25
+        - colour_blocks:
+          - amber: 0.0
             blue: 255.0
             color_mode: RGB
             color_wheel_position: 0
             cyan: 0.0
-            end_time: 32.5
+            end_time: 66.25
             green: 255.0
             hue: 0.0
             lime: 0.0
@@ -1996,7 +2335,7 @@ shows:
             modified: false
             red: 255.0
             saturation: 0.0
-            start_time: 27.5
+            start_time: 61.25
             uv: 0.0
             value: 0.0
             white: 0.0
@@ -2004,23 +2343,23 @@ shows:
           dimmer_blocks:
           - effect_speed: '1'
             effect_type: hit
-            end_time: 27.8125
+            end_time: 61.5625
             intensity: 255.0
             iris: 255.0
             modified: false
-            start_time: 27.5
+            start_time: 61.25
             strobe_speed: 0.0
           - effect_speed: 1/4
             effect_type: hit
-            end_time: 29.0625
+            end_time: 62.8125
             intensity: 255.0
             iris: 255.0
             modified: false
-            start_time: 27.8125
+            start_time: 61.5625
             strobe_speed: 0.0
           duration: 5.0
           effect_name: ''
-          end_time: 32.5
+          end_time: 66.25
           modified: true
           movement_blocks: []
           name: HIT_WASHES
@@ -2028,7 +2367,659 @@ shows:
           riff_source: null
           riff_version: null
           special_blocks: []
-          start_time: 27.5
+          start_time: 61.25
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 71.25
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 66.25
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 66.5625
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 66.25
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 67.8125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 66.5625
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 71.25
+          modified: true
+          movement_blocks: []
+          name: HIT_WASHES
+          parameters: *id001
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 66.25
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 75.0
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 71.25
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 71.5625
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 71.25
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 72.8125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 71.5625
+            strobe_speed: 0.0
+          duration: 3.75
+          effect_name: ''
+          end_time: 75.0
+          modified: true
+          movement_blocks: []
+          name: HIT_WASHES
+          parameters: *id001
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 71.25
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 9
+            cyan: 0.0
+            end_time: 93.125
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 88.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 113
+            cyan: 0.0
+            end_time: 93.75
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 93.125
+            uv: 0.0
+            value: 0.0
+            white: 255.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 93.125
+            intensity: 105.0
+            iris: 255.0
+            modified: false
+            start_time: 88.75
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 93.4375
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 93.125
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 93.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 93.4375
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 93.75
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: *id002
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 88.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 9
+            cyan: 0.0
+            end_time: 98.125
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 93.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 113
+            cyan: 0.0
+            end_time: 98.75
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 98.125
+            uv: 0.0
+            value: 0.0
+            white: 255.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 98.125
+            intensity: 105.0
+            iris: 255.0
+            modified: false
+            start_time: 93.75
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 98.4375
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 98.125
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 98.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 98.4375
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 98.75
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: *id002
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 93.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 9
+            cyan: 0.0
+            end_time: 103.125
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 98.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 113
+            cyan: 0.0
+            end_time: 103.75
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 103.125
+            uv: 0.0
+            value: 0.0
+            white: 255.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 103.125
+            intensity: 105.0
+            iris: 255.0
+            modified: false
+            start_time: 98.75
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 103.4375
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 103.125
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 103.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 103.4375
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 103.75
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: *id002
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 98.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 9
+            cyan: 0.0
+            end_time: 108.125
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 103.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 113
+            cyan: 0.0
+            end_time: 108.75
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 108.125
+            uv: 0.0
+            value: 0.0
+            white: 255.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 108.125
+            intensity: 105.0
+            iris: 255.0
+            modified: false
+            start_time: 103.75
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 108.4375
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 108.125
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 108.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 108.4375
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 108.75
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: *id002
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 103.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 61.25
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 51.25
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: ping_pong_smooth
+            end_time: 61.25
+            intensity: 99.78260869565216
+            iris: 255.0
+            modified: false
+            start_time: 51.25
+            strobe_speed: 0.0
+          duration: 10.0
+          effect_name: ''
+          end_time: 61.25
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: &id003 {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 51.25
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 118.75
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 108.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: ping_pong_smooth
+            end_time: 118.75
+            intensity: 99.78260869565216
+            iris: 255.0
+            modified: false
+            start_time: 108.75
+            strobe_speed: 0.0
+          duration: 10.0
+          effect_name: ''
+          end_time: 118.75
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: *id003
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 108.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 78.75
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 75.0
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 75.3125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 75.0
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 76.5625
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 75.3125
+            strobe_speed: 0.0
+          duration: 3.75
+          effect_name: ''
+          end_time: 78.75
+          modified: true
+          movement_blocks: []
+          name: HIT_WASHES
+          parameters: *id001
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 75.0
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 123.75
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 118.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 119.0625
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 118.75
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 120.3125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 119.0625
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 123.75
+          modified: true
+          movement_blocks: []
+          name: HIT_WASHES
+          parameters: *id001
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 118.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 128.75
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 123.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 124.0625
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 123.75
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 125.3125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 124.0625
+            strobe_speed: 0.0
+          duration: 5.0
+          effect_name: ''
+          end_time: 128.75
+          modified: true
+          movement_blocks: []
+          name: HIT_WASHES
+          parameters: *id001
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 123.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 132.5
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 128.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 129.0625
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 128.75
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 130.3125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 129.0625
+            strobe_speed: 0.0
+          duration: 3.75
+          effect_name: ''
+          end_time: 132.5
+          modified: true
+          movement_blocks: []
+          name: HIT_WASHES
+          parameters: *id001
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 128.75
         muted: false
         name: WASH_COMB
         solo: false
