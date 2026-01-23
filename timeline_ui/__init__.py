@@ -8,6 +8,8 @@ from .light_block_widget import LightBlockWidget
 from .effect_block_dialog import EffectBlockDialog
 from .audio_lane_widget import AudioLaneWidget, AudioTimelineWidget
 from .riff_browser_widget import RiffBrowserWidget
+from .selection_manager import SelectionManager
+from .selection_overlay import SelectionOverlay
 
 __all__ = [
     'TimelineWidget',
@@ -18,5 +20,7 @@ __all__ = [
     'EffectBlockDialog',
     'AudioLaneWidget',
     'AudioTimelineWidget',
-    'RiffBrowserWidget'
+    'RiffBrowserWidget',
+    'SelectionManager',
+    'SelectionOverlay'
 ]

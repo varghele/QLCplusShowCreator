@@ -164,7 +164,7 @@ class TimelineWidget(QWidget):
 
     def contextMenuEvent(self, event):
         """Handle right-click context menu for paste."""
-        from timeline_ui.effect_clipboard import has_clipboard_data
+        from timeline_ui.effect_clipboard import has_clipboard_data, has_multi_clipboard_data, get_multi_clipboard_count
 
         menu = QMenu(self)
 
@@ -175,7 +175,13 @@ class TimelineWidget(QWidget):
 
         # Add paste action if clipboard has data
         if has_clipboard_data():
-            paste_action = menu.addAction("Paste Effect")
+            # Show count if multiple effects in clipboard
+            if has_multi_clipboard_data():
+                count = get_multi_clipboard_count()
+                paste_label = f"Paste {count} Effects"
+            else:
+                paste_label = "Paste Effect"
+            paste_action = menu.addAction(paste_label)
             paste_action.triggered.connect(lambda: self.paste_requested.emit(click_time))
         else:
             paste_action = menu.addAction("Paste Effect (no effect copied)")

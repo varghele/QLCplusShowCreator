@@ -600,9 +600,26 @@ class LightLaneWidget(QFrame):
         Args:
             target_time: Start time for the pasted effect
         """
-        from timeline_ui.effect_clipboard import paste_effect
+        from timeline_ui.effect_clipboard import paste_effect, has_multi_clipboard_data, paste_multiple_effects
 
-        # Create new block from clipboard
+        # Check if we have multi-clipboard data
+        if has_multi_clipboard_data():
+            # Need to paste to multiple lanes - delegate to ShowsTab
+            shows_tab = self._get_shows_tab()
+            if shows_tab:
+                # Get all lane widgets from shows_tab
+                lane_widgets = shows_tab.lane_widgets
+                results = paste_multiple_effects(target_time, lane_widgets)
+                for lane_widget, new_block in results:
+                    # Add to lane data
+                    lane_widget.lane.light_blocks.append(new_block)
+                    # Create widget
+                    lane_widget.create_light_block_widget(new_block)
+                if results:
+                    shows_tab.save_to_config()
+                return
+
+        # Single effect paste
         new_block = paste_effect(target_time)
         if new_block is None:
             return
@@ -612,6 +629,16 @@ class LightLaneWidget(QFrame):
 
         # Create widget for the new block
         self.create_light_block_widget(new_block)
+
+    def _get_shows_tab(self):
+        """Get the ShowsTab parent widget if available."""
+        # Walk up the parent chain to find ShowsTab (has lane_widgets)
+        widget = self.parent()
+        while widget is not None:
+            if hasattr(widget, 'lane_widgets') and hasattr(widget, 'save_to_config'):
+                return widget
+            widget = widget.parent()
+        return None
 
     def update_fixture_groups(self, fixture_groups: list):
         """Update the available fixture groups list.
@@ -780,3 +807,29 @@ class LightLaneWidget(QFrame):
 
             # Remove from lane data
             self.lane.light_blocks.remove(block)
+
+    def get_blocks_in_time_range(self, start_time: float, end_time: float) -> list:
+        """Get block widgets that intersect with the given time range.
+
+        Args:
+            start_time: Start of time range
+            end_time: End of time range
+
+        Returns:
+            List of LightBlockWidget instances that overlap with the range
+        """
+        intersecting = []
+        for widget in self.light_block_widgets:
+            block_start, block_end = widget.get_block_time_bounds()
+            # Check for intersection
+            if block_start < end_time and block_end > start_time:
+                intersecting.append(widget)
+        return intersecting
+
+    def get_all_block_widgets(self) -> list:
+        """Get all block widgets in this lane.
+
+        Returns:
+            List of all LightBlockWidget instances
+        """
+        return list(self.light_block_widgets)
