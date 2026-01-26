@@ -20,6 +20,7 @@ class LightBlockWidget(QWidget):
     block_edited = pyqtSignal()  # Emitted when block content is edited (for auto-save)
 
     RESIZE_HANDLE_WIDTH = 8  # Pixels for resize handle area
+    HEADER_HEIGHT = 24  # Pixels reserved for header/handle area (drag entire effect)
 
     def __init__(self, block: LightBlock, timeline_widget, lane_widget, parent=None):
         """Create a light block widget.
@@ -1066,7 +1067,24 @@ class LightBlockWidget(QWidget):
             # Check if Shift is held for copy operation
             shift_held = event.modifiers() & Qt.KeyboardModifier.ShiftModifier
 
-            # First, check if clicking on a sublane block
+            # Check if clicking in header zone (top area) - always drags entire envelope
+            if pos.y() < self.HEADER_HEIGHT:
+                # Deselect any sublane block
+                self.selected_sublane_type = None
+                self.selected_sublane_block = None
+                self.update()
+
+                # Header zone always moves entire effect (no resize from here)
+                self.dragging = True
+                if shift_held:
+                    self.shift_drag_copying = True
+
+                self.drag_start_pos = event.globalPosition().toPoint()
+                self.drag_start_time = self.block.start_time
+                self.drag_start_duration = self.block.end_time - self.block.start_time
+                return
+
+            # Below header: check if clicking on a sublane block
             sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
 
             if sublane_block is not None:
@@ -1137,6 +1155,12 @@ class LightBlockWidget(QWidget):
             # Update cursor based on position
             pos = event.pos()
 
+            # Check if hovering over header zone (drag handle for entire effect)
+            if pos.y() < self.HEADER_HEIGHT:
+                # Always show move cursor in header zone
+                self.setCursor(Qt.CursorShape.SizeAllCursor)
+                return
+
             # Check if hovering over a sublane block
             sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
             if sublane_block:
@@ -1170,6 +1194,28 @@ class LightBlockWidget(QWidget):
 
             if self.snap_to_grid:
                 new_time = self.timeline_widget.find_nearest_beat_time(new_time)
+
+            # Calculate actual delta to apply to sublane blocks
+            actual_delta = new_time - self.block.start_time
+
+            # Move entire effect (envelope + all sublane blocks) by the same delta
+            if actual_delta != 0:
+                # Move envelope
+                self.block.end_time += actual_delta
+
+                # Move all sublane blocks
+                for sublane_block in self.block.dimmer_blocks:
+                    sublane_block.start_time += actual_delta
+                    sublane_block.end_time += actual_delta
+                for sublane_block in self.block.colour_blocks:
+                    sublane_block.start_time += actual_delta
+                    sublane_block.end_time += actual_delta
+                for sublane_block in self.block.movement_blocks:
+                    sublane_block.start_time += actual_delta
+                    sublane_block.end_time += actual_delta
+                for sublane_block in self.block.special_blocks:
+                    sublane_block.start_time += actual_delta
+                    sublane_block.end_time += actual_delta
 
             self.block.start_time = new_time
             self.update_position()

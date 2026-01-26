@@ -1650,7 +1650,7 @@ shows:
       signature: 4/4
       transition: gradual
     timeline_data:
-      audio_file_path: C:/Users/mgmfi/PycharmProjects/QLCplusShowCreator/shows/audiofiles/light_monsters_in_my_head.mp3
+      audio_file_path: C:\Users\varghele\PycharmProjects\QLCplusShowCreator\shows\audiofiles\light_monsters_in_my_head.mp3
       lanes:
       - fixture_targets:
         - WASH:0
@@ -3022,6 +3022,57 @@ shows:
           start_time: 128.75
         muted: false
         name: WASH_COMB
+        solo: false
+      - fixture_targets:
+        - BARS
+        light_blocks:
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 5.0
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 3.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 5.0
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 3.75
+            strobe_speed: 0.0
+          duration: 1.25
+          effect_name: ''
+          end_time: 5.0
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 3.75
+        muted: false
+        name: Lane 4
+        solo: false
+      - fixture_targets:
+        - SUNS
+        light_blocks: []
+        muted: false
+        name: Lane 5
         solo: false
   SBD_old_school_medicine:
     effects: []
