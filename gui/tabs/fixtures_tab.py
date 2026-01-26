@@ -318,12 +318,18 @@ class FixturesTab(BaseTab):
             main_window.on_groups_changed()
 
     def _update_groups(self):
-        """Rebuild groups from fixtures, preserving colors"""
-        # Store existing colors
-        existing_colors = {
-            name: group.color
+        """Rebuild groups from fixtures, preserving colors and orientation defaults"""
+        # Store existing group properties (colors and orientation defaults)
+        existing_props = {
+            name: {
+                'color': getattr(group, 'color', '#808080'),
+                'default_mounting': getattr(group, 'default_mounting', 'hanging'),
+                'default_yaw': getattr(group, 'default_yaw', 0.0),
+                'default_pitch': getattr(group, 'default_pitch', 0.0),
+                'default_roll': getattr(group, 'default_roll', 0.0),
+                'default_z_height': getattr(group, 'default_z_height', 3.0),
+            }
             for name, group in self.config.groups.items()
-            if hasattr(group, 'color')
         }
 
         # Clear and rebuild groups
@@ -332,11 +338,16 @@ class FixturesTab(BaseTab):
         for fixture in self.config.fixtures:
             if fixture.group:
                 if fixture.group not in self.config.groups:
-                    color = existing_colors.get(fixture.group, '#808080')
+                    props = existing_props.get(fixture.group, {})
                     self.config.groups[fixture.group] = FixtureGroup(
                         fixture.group,
                         [],
-                        color=color
+                        color=props.get('color', '#808080'),
+                        default_mounting=props.get('default_mounting', 'hanging'),
+                        default_yaw=props.get('default_yaw', 0.0),
+                        default_pitch=props.get('default_pitch', 0.0),
+                        default_roll=props.get('default_roll', 0.0),
+                        default_z_height=props.get('default_z_height', 3.0),
                     )
                 self.config.groups[fixture.group].fixtures.append(fixture)
 

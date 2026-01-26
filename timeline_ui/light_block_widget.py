@@ -1715,7 +1715,9 @@ class LightBlockWidget(QWidget):
             dialog = ColourBlockDialog(sublane_block, color_wheel_options=color_wheel_options, parent=self)
         elif sublane_type == "movement":
             from .movement_block_dialog import MovementBlockDialog
-            dialog = MovementBlockDialog(sublane_block, parent=self)
+            # Pass config for spot selection
+            config = self.lane_widget.config if self.lane_widget else None
+            dialog = MovementBlockDialog(sublane_block, parent=self, config=config)
         elif sublane_type == "special":
             from .special_block_dialog import SpecialBlockDialog
             dialog = SpecialBlockDialog(sublane_block, parent=self)
