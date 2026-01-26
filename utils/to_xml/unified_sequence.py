@@ -139,11 +139,11 @@ def calculate_unified_step_grid(
             step_interval = hit_cycle_ms / 8  # 8 steps per hit for smooth decay
             step_interval = max(step_interval, MIN_STEP_DURATION_MS)
             min_step_interval_ms = min(min_step_interval_ms, step_interval)
-        elif block.effect_type == "ping_pong_smooth":
-            # Ping pong smooth has exponential decay that needs fine steps
-            # Similar to hit, use 8-10 steps per fixture transition for smooth decay
+        elif block.effect_type in ("ping_pong_smooth", "random_strobe", "snake"):
+            # Ping pong smooth, random strobe, and snake have smooth animations that need fine steps
+            # Similar to hit, use 8-10 steps per fixture transition for smooth animation
             beat_ms = ms_per_beat / speed_mult  # one beat per fixture
-            step_interval = beat_ms / 10  # 10 steps per beat for smooth decay animation
+            step_interval = beat_ms / 10  # 10 steps per beat for smooth animation
             step_interval = max(step_interval, MIN_STEP_DURATION_MS)
             min_step_interval_ms = min(min_step_interval_ms, step_interval)
         else:
@@ -360,6 +360,126 @@ def sample_dimmer_at_time(
                 intensity_multiplier = 0.0
         else:
             # Not active, not adjacent - off
+            intensity_multiplier = 0.0
+
+        return int(base_intensity * intensity_multiplier)
+
+    elif effect_type == "random_strobe":
+        # Random strobe: one fixture lights up at a time in shuffled order
+        # When all fixtures have been lit, reshuffle (like a deck of cards)
+        import random
+
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        if total_fixtures <= 1:
+            # Single fixture - just stay on
+            return base_intensity
+
+        # Calculate timing based on BPM: each fixture gets one beat at speed 1
+        seconds_per_beat = 60.0 / bpm
+        time_per_fixture = seconds_per_beat / speed_mult
+
+        # Time for one full cycle (all fixtures once)
+        cycle_time = time_per_fixture * total_fixtures
+
+        # Which cycle are we in?
+        cycle_number = int(time_in_block / cycle_time)
+
+        # Time within current cycle
+        time_in_cycle = time_in_block % cycle_time
+
+        # Which step within the cycle?
+        current_step = time_in_cycle / time_per_fixture
+        step_index = int(current_step)
+        time_within_step = (current_step - step_index) * time_per_fixture
+
+        # Generate shuffled order deterministically based on block start time + cycle
+        seed = int(active_block.start_time * 1000) + cycle_number
+        rng = random.Random(seed)
+        shuffled_indices = list(range(total_fixtures))
+        rng.shuffle(shuffled_indices)
+
+        # Which fixture is active at this step?
+        active_fixture = shuffled_indices[step_index % total_fixtures]
+
+        # Calculate intensity multiplier for this fixture
+        if fixture_idx == active_fixture:
+            # This is the active fixture - instant full brightness with smooth decay
+            decay_progress = time_within_step / time_per_fixture if time_per_fixture > 0 else 0
+            intensity_multiplier = 0.2 + 0.8 * math.exp(-decay_progress * 3)
+        else:
+            # Not active - off
+            intensity_multiplier = 0.0
+
+        return int(base_intensity * intensity_multiplier)
+
+    elif effect_type == "snake":
+        # Snake effect: a "snake" with fading tail moves through fixtures
+        # Bounces back and forth like classic Snake game
+        # 4 beats = full cycle (forward + backward)
+        # Tail spans approximately half the fixtures
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        if total_fixtures <= 1:
+            # Single fixture - just stay on
+            return base_intensity
+
+        # Tail spans half the fixtures
+        tail_length = max(1, total_fixtures // 2)
+
+        # 4 beats = full cycle (forward + backward)
+        seconds_per_beat = 60.0 / bpm
+        time_per_pass = (seconds_per_beat * 2) / speed_mult  # 2 beats per pass
+        cycle_time = time_per_pass * 2  # Full cycle
+
+        # Current position in cycle
+        time_in_cycle = time_in_block % cycle_time
+
+        # Calculate head position (0 to total_fixtures-1, bouncing)
+        if time_in_cycle < time_per_pass:
+            # Forward pass
+            progress = time_in_cycle / time_per_pass
+            head_position = progress * (total_fixtures - 1)
+            going_forward = True
+        else:
+            # Backward pass
+            progress = (time_in_cycle - time_per_pass) / time_per_pass
+            head_position = (total_fixtures - 1) * (1.0 - progress)
+            going_forward = False
+
+        # Calculate distance from head for this fixture (considering direction)
+        if going_forward:
+            distance = head_position - fixture_idx
+        else:
+            distance = fixture_idx - head_position
+
+        # Calculate intensity based on distance
+        if distance < -0.5:
+            # Ahead of head - off
+            intensity_multiplier = 0.0
+        elif distance < 0.5:
+            # At head - full intensity
+            intensity_multiplier = 1.0
+        elif distance <= tail_length:
+            # In tail - fade based on distance
+            fade_factor = 1.0 - (distance / (tail_length + 1))
+            intensity_multiplier = fade_factor * 0.8  # Max 80% for tail
+        else:
+            # Beyond tail - off
             intensity_multiplier = 0.0
 
         return int(base_intensity * intensity_multiplier)

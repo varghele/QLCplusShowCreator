@@ -660,7 +660,7 @@ def _convert_dimmer_steps_to_rgb(steps, dimmer_block, colour_blocks, fixture_def
                     random.seed(int(step.get("Number")) * 1000 + seg_idx + fixture_id)
                     seg_intensity = random.randint(0, 255)
 
-                elif dimmer_block.effect_type in ["ping_pong_smooth", "waterfall_down", "waterfall_up"]:
+                elif dimmer_block.effect_type in ["ping_pong_smooth", "random_strobe", "snake", "waterfall_down", "waterfall_up"]:
                     # Wave pattern: offset intensity based on segment index
                     # Create a wave that moves across segments
                     step_num = int(step.get("Number"))

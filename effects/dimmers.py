@@ -443,6 +443,291 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
     return steps
 
 
+def random_strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4",
+                  transition="gradual", num_bars=1, speed="1", color=None, fixture_conf=None,
+                  fixture_start_id=0, intensity=200, spot=None,
+                  fixture_definitions=None, fixture_id_map=None):
+    """
+    Creates a random strobe effect where fixtures light up one at a time in shuffled order.
+    Once all fixtures have been lit, the order is reshuffled (like shuffling a deck of cards).
+
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition (legacy)
+        mode_name: Name of the mode to use (legacy)
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Color value (not used for basic random strobe)
+        fixture_conf: List of fixture configurations with fixture coordinates
+        fixture_start_id: starting ID for fixtures (legacy)
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
+        fixture_definitions: Dict of fixture definitions (new)
+        fixture_id_map: Dict mapping id(fixture) to QLC+ fixture ID (new)
+    """
+    import random
+
+    if not fixture_conf:
+        return []
+
+    fixture_num = len(fixture_conf)
+    use_per_fixture = fixture_definitions is not None and fixture_id_map is not None
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    # Count total channels
+    if use_per_fixture:
+        total_channels = count_total_dimmer_channels(fixture_conf, fixture_definitions)
+    else:
+        channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+        if not channels_dict:
+            channels_dict = {'IntensityDimmer': [{'channel': 0}]}
+        total_channels = len(channels_dict.get('IntensityDimmer', [])) * fixture_num
+
+    steps = []
+    current_step = start_step
+
+    # Create shuffled fixture indices - reshuffle when we've used all fixtures
+    shuffled_indices = list(range(fixture_num))
+    random.seed(42)  # Use fixed seed for reproducible export
+    random.shuffle(shuffled_indices)
+    shuffle_position = 0
+
+    for step_duration in step_timings:
+        # Get next fixture from shuffled order
+        active_fixture_idx = shuffled_indices[shuffle_position]
+
+        # Move to next position, reshuffle if we've cycled through all
+        shuffle_position += 1
+        if shuffle_position >= fixture_num:
+            shuffle_position = 0
+            random.shuffle(shuffled_indices)
+
+        # Create step with full duration fade
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(step_duration))
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+        step.set("Values", str(total_channels))
+
+        # Build intensity per fixture - lit fixture at active_fixture_idx, others off
+        if use_per_fixture:
+            values = []
+            for orig_idx, fixture in enumerate(fixture_conf):
+                fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
+                fix_intensity = int(intensity) if orig_idx == active_fixture_idx else 0
+
+                channels = get_fixture_dimmer_channels(fixture, fixture_definitions)
+                channel_values = []
+                for ch_info in channels:
+                    channel_values.extend([str(ch_info['channel']), str(fix_intensity)])
+                values.append(f"{fixture_id}:{','.join(channel_values)}")
+
+            step.text = ":".join(values)
+        else:
+            # Legacy mode
+            channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+            if not channels_dict:
+                channels_dict = {'IntensityDimmer': [{'channel': 0}]}
+
+            values = []
+            for i in range(fixture_num):
+                channel_values = []
+                fix_intensity = int(intensity) if i == active_fixture_idx else 0
+                for channel in channels_dict['IntensityDimmer']:
+                    channel_values.extend([str(channel['channel']), str(fix_intensity)])
+                values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+            step.text = ":".join(values)
+
+        steps.append(step)
+        current_step += 1
+
+    return steps
+
+
+def snake(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4",
+          transition="gradual", num_bars=1, speed="1", color=None, fixture_conf=None,
+          fixture_start_id=0, intensity=200, spot=None,
+          fixture_definitions=None, fixture_id_map=None):
+    """
+    Creates a snake effect where a "snake" with a fading tail moves through fixtures,
+    bouncing back and forth like the classic Snake game.
+
+    - 4 beats = full cycle (bottom→top→bottom)
+    - Tail spans approximately half the fixtures
+    - Head at full intensity, tail fades smoothly
+
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition (legacy)
+        mode_name: Name of the mode to use (legacy)
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Color value (not used)
+        fixture_conf: List of fixture configurations
+        fixture_start_id: starting ID for fixtures (legacy)
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused)
+        fixture_definitions: Dict of fixture definitions (new)
+        fixture_id_map: Dict mapping id(fixture) to QLC+ fixture ID (new)
+    """
+    if not fixture_conf:
+        return []
+
+    fixture_num = len(fixture_conf)
+    use_per_fixture = fixture_definitions is not None and fixture_id_map is not None
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    # Count total channels
+    if use_per_fixture:
+        total_channels = count_total_dimmer_channels(fixture_conf, fixture_definitions)
+    else:
+        channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+        if not channels_dict:
+            channels_dict = {'IntensityDimmer': [{'channel': 0}]}
+        total_channels = len(channels_dict.get('IntensityDimmer', [])) * fixture_num
+
+    # Sort fixtures by position for proper traversal
+    sorted_indexed_fixtures = sort_fixtures_by_position(fixture_conf, axis='x', reverse=False)
+
+    steps = []
+    current_step = start_step
+
+    # Snake parameters
+    tail_length = max(1, fixture_num // 2)  # Tail spans half the fixtures
+
+    # 4 beats = full cycle (forward + backward)
+    # So 2 beats for forward pass, 2 beats for backward pass
+    # steps_in_half_cycle = fixture_num steps to traverse all fixtures
+    steps_in_cycle = fixture_num * 2  # Full ping-pong cycle
+
+    for step_idx, step_duration in enumerate(step_timings):
+        # Calculate snake head position (ping-pong pattern)
+        cycle_position = step_idx % steps_in_cycle
+
+        if cycle_position < fixture_num:
+            # Going forward (0 to fixture_num-1)
+            head_position = cycle_position
+        else:
+            # Going backward (fixture_num-1 to 0)
+            head_position = steps_in_cycle - cycle_position - 1
+
+        # Create step
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(step_duration))
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+        step.set("Values", str(total_channels))
+
+        # Build intensity per fixture based on distance from snake head
+        if use_per_fixture:
+            values = []
+            for orig_idx, fixture in enumerate(fixture_conf):
+                fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
+
+                # Find this fixture's position in sorted order
+                for sorted_idx, (oidx, f) in enumerate(sorted_indexed_fixtures):
+                    if oidx == orig_idx:
+                        fixture_position = sorted_idx
+                        break
+                else:
+                    fixture_position = 0
+
+                # Calculate distance from head (considering direction)
+                if cycle_position < fixture_num:
+                    # Going forward - tail extends backward
+                    distance = head_position - fixture_position
+                else:
+                    # Going backward - tail extends forward
+                    distance = fixture_position - head_position
+
+                # Calculate intensity based on distance
+                if distance < 0:
+                    # Ahead of head - off
+                    fix_intensity = 0
+                elif distance == 0:
+                    # At head - full intensity
+                    fix_intensity = int(intensity)
+                elif distance <= tail_length:
+                    # In tail - fade based on distance
+                    fade_factor = 1.0 - (distance / (tail_length + 1))
+                    fix_intensity = int(intensity * fade_factor * 0.8)  # Max 80% for tail
+                else:
+                    # Beyond tail - off
+                    fix_intensity = 0
+
+                channels = get_fixture_dimmer_channels(fixture, fixture_definitions)
+                channel_values = []
+                for ch_info in channels:
+                    channel_values.extend([str(ch_info['channel']), str(fix_intensity)])
+                values.append(f"{fixture_id}:{','.join(channel_values)}")
+
+            step.text = ":".join(values)
+        else:
+            # Legacy mode
+            channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
+            if not channels_dict:
+                channels_dict = {'IntensityDimmer': [{'channel': 0}]}
+
+            values = []
+            for i in range(fixture_num):
+                # Calculate distance from head
+                if cycle_position < fixture_num:
+                    distance = head_position - i
+                else:
+                    distance = i - head_position
+
+                if distance < 0:
+                    fix_intensity = 0
+                elif distance == 0:
+                    fix_intensity = int(intensity)
+                elif distance <= tail_length:
+                    fade_factor = 1.0 - (distance / (tail_length + 1))
+                    fix_intensity = int(intensity * fade_factor * 0.8)
+                else:
+                    fix_intensity = 0
+
+                channel_values = []
+                for channel in channels_dict['IntensityDimmer']:
+                    channel_values.extend([str(channel['channel']), str(fix_intensity)])
+                values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+            step.text = ":".join(values)
+
+        steps.append(step)
+        current_step += 1
+
+    return steps
+
+
 def waterfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
               num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200, spot=None,
               direction="down", wave_size=3,
