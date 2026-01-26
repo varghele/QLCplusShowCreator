@@ -7,13 +7,16 @@ from typing import Tuple, Optional
 
 
 # Base rotations for each mounting preset
+# These define the fixture orientation so that at pan=0, tilt=0, the beam points
+# in the expected direction for that mounting type.
+# Visualizer coordinate system: Y-up, beam starts at local +X
 MOUNTING_BASE_ROTATIONS = {
-    'hanging': {'pitch': 90.0, 'yaw': 0.0},       # Fixture hanging from truss, beam down (base up)
-    'standing': {'pitch': -90.0, 'yaw': 0.0},     # Fixture on floor, beam up (base down)
-    'wall_left': {'pitch': 0.0, 'yaw': -90.0},    # Base against stage-right wall
-    'wall_right': {'pitch': 0.0, 'yaw': 90.0},    # Base against stage-left wall
-    'wall_back': {'pitch': 0.0, 'yaw': 0.0},      # Base against back wall, beam toward audience
-    'wall_front': {'pitch': 0.0, 'yaw': 180.0},   # Base toward audience, beam toward back
+    'hanging': {'pitch': 0.0, 'yaw': 0.0, 'roll': -90.0},   # Beam points down at pan=0, tilt=0
+    'standing': {'pitch': 0.0, 'yaw': 0.0, 'roll': 90.0},   # Beam points up at pan=0, tilt=0
+    'wall_left': {'pitch': 0.0, 'yaw': -90.0, 'roll': 0.0}, # Base against stage-right wall
+    'wall_right': {'pitch': 0.0, 'yaw': 90.0, 'roll': 0.0}, # Base against stage-left wall
+    'wall_back': {'pitch': 0.0, 'yaw': 0.0, 'roll': 0.0},   # Base against back wall
+    'wall_front': {'pitch': 0.0, 'yaw': 180.0, 'roll': 0.0},# Base toward audience
 }
 
 
@@ -83,53 +86,97 @@ def calculate_pan_tilt(
     """
     Calculate pan and tilt angles for a fixture to point at a world position.
 
+    Uses the same coordinate system as the visualizer:
+    - Stage coordinates: X=right, Y=toward audience, Z=up
+    - Visualizer 3D: X=right, Y=up, Z=depth (stage Y -> 3D Z, stage Z -> 3D Y)
+    - Fixture local: beam points +X at pan=0, tilt=0
+    - Pan rotates around local Z, Tilt rotates around local Y (negative)
+
     Args:
-        fixture_x, fixture_y, fixture_z: Fixture position in world space (meters)
-        target_x, target_y, target_z: Target position in world space (meters)
-        mounting: Mounting preset name
-        yaw, pitch, roll: Fixture orientation angles (degrees)
+        fixture_x, fixture_y, fixture_z: Fixture position in stage space (meters)
+        target_x, target_y, target_z: Target position in stage space (meters)
+        mounting: Mounting preset name (not currently used - orientation is explicit)
+        yaw, pitch, roll: Fixture orientation angles (degrees) - already includes mounting
         pan_range: Total pan range in degrees (default 540)
         tilt_range: Total tilt range in degrees (default 270)
 
     Returns:
         Tuple of (pan_degrees, tilt_degrees) where:
-        - pan_degrees: Pan angle in degrees (0 = center)
-        - tilt_degrees: Tilt angle in degrees (0 = center)
+        - pan_degrees: Pan angle in degrees (0 = center/home)
+        - tilt_degrees: Tilt angle in degrees (0 = center/home)
     """
-    # Calculate direction vector from fixture to target in world space
-    direction_world = np.array([
-        target_x - fixture_x,
-        target_y - fixture_y,
-        target_z - fixture_z
-    ])
+    # Calculate direction vector from fixture to target in stage coordinates
+    dx_stage = target_x - fixture_x
+    dy_stage = target_y - fixture_y
+    dz_stage = target_z - fixture_z
 
-    # Normalize the direction
-    length = np.linalg.norm(direction_world)
+    length = math.sqrt(dx_stage*dx_stage + dy_stage*dy_stage + dz_stage*dz_stage)
     if length < 0.001:  # Target is at fixture position
         return 0.0, 0.0
-    direction_world = direction_world / length
 
-    # Get fixture's rotation matrix (local to world)
-    R = get_rotation_matrix(mounting, yaw, pitch, roll)
+    # Normalize direction
+    dx_stage /= length
+    dy_stage /= length
+    dz_stage /= length
 
-    # Transform direction to fixture-local space (world to local is R.T)
-    direction_local = R.T @ direction_world
+    # Convert to visualizer 3D coordinates (Y-up):
+    # Stage X -> 3D X, Stage Y -> 3D Z, Stage Z -> 3D Y
+    target_dir_3d = np.array([dx_stage, dz_stage, dy_stage])
 
-    # In fixture local space:
-    # - X axis is typically the pan=0 reference direction
-    # - Y axis is perpendicular in the horizontal plane
-    # - Z axis is the beam direction at home position
+    # Build inverse fixture orientation matrix to transform world direction to local space
+    # Visualizer applies: yaw around Y, pitch around X, roll around Z (in that order)
+    # We need the inverse to go from world to local
+    yaw_rad = math.radians(yaw)
+    pitch_rad = math.radians(pitch)
+    roll_rad = math.radians(roll)
 
-    # Calculate pan angle (rotation around Y axis to align X with target direction)
-    # pan = atan2(local_y, local_x) - but we need to project to XZ plane first
-    pan_rad = math.atan2(direction_local[1], direction_local[0])
-    pan_degrees = math.degrees(pan_rad)
+    # Rotation matrices (same as visualizer)
+    cy, sy = math.cos(yaw_rad), math.sin(yaw_rad)
+    cp, sp = math.cos(pitch_rad), math.sin(pitch_rad)
+    cr, sr = math.cos(roll_rad), math.sin(roll_rad)
 
-    # Calculate tilt angle (elevation from horizontal)
-    # Project direction onto XY plane for horizontal component
-    horizontal_dist = math.sqrt(direction_local[0]**2 + direction_local[1]**2)
-    tilt_rad = math.atan2(direction_local[2], horizontal_dist)
+    # Yaw around Y: [[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]]
+    Ry = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]])
+
+    # Pitch around X: [[1, 0, 0], [0, cp, -sp], [0, sp, cp]]
+    Rx = np.array([[1, 0, 0], [0, cp, -sp], [0, sp, cp]])
+
+    # Roll around Z: [[cr, -sr, 0], [sr, cr, 0], [0, 0, 1]]
+    Rz = np.array([[cr, -sr, 0], [sr, cr, 0], [0, 0, 1]])
+
+    # Combined fixture orientation: Ry @ Rx @ Rz (same order as visualizer)
+    fixture_orientation = Ry @ Rx @ Rz
+
+    # Transform target direction to fixture-local space
+    local_dir = fixture_orientation.T @ target_dir_3d
+
+    # Now we need to find pan and tilt such that:
+    # pan_mat @ tilt_mat @ [1, 0, 0] = local_dir
+    #
+    # In visualizer: tilt rotates around Y by -angle, pan rotates around Z
+    # After tilt t: [cos(t), 0, sin(t)]
+    # After pan p: [cos(t)*cos(p), cos(t)*sin(p), sin(t)]
+    #
+    # Matching to local_dir = [lx, ly, lz]:
+    # sin(t) = lz -> t = asin(lz)
+    # cos(t)*sin(p) = ly, cos(t)*cos(p) = lx -> p = atan2(ly, lx)
+
+    lx, ly, lz = local_dir
+
+    # Calculate tilt angle
+    # Clamp lz to [-1, 1] to avoid asin domain errors
+    lz_clamped = max(-1.0, min(1.0, lz))
+    tilt_rad = math.asin(lz_clamped)
     tilt_degrees = math.degrees(tilt_rad)
+
+    # Calculate pan angle
+    cos_tilt = math.cos(tilt_rad)
+    if abs(cos_tilt) < 0.001:
+        # Beam is pointing straight up or down, pan is undefined
+        pan_degrees = 0.0
+    else:
+        pan_rad = math.atan2(ly, lx)
+        pan_degrees = math.degrees(pan_rad)
 
     # Clamp to fixture's range
     half_pan = pan_range / 2

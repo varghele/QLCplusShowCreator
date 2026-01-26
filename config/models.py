@@ -70,6 +70,7 @@ class Spot:
     name: str
     x: float = 0.0     # X position in meters
     y: float = 0.0     # Y position in meters
+    z: float = 0.0     # Z height in meters (for 3D targeting)
 
 
 @dataclass
@@ -265,6 +266,9 @@ class MovementBlock:
     phase_offset_enabled: bool = False  # Enable phase offset between fixtures
     phase_offset_degrees: float = 0.0  # Phase offset in degrees (0-360)
 
+    # Target spot for automatic pan/tilt calculation
+    target_spot_name: Optional[str] = None  # Name of spot to point at (None = use manual pan/tilt)
+
     modified: bool = False  # True if user edited this block after riff insertion
 
     def to_dict(self) -> Dict:
@@ -288,6 +292,7 @@ class MovementBlock:
             "lissajous_ratio": self.lissajous_ratio,
             "phase_offset_enabled": self.phase_offset_enabled,
             "phase_offset_degrees": self.phase_offset_degrees,
+            "target_spot_name": self.target_spot_name,
             "modified": self.modified
         }
 
@@ -313,6 +318,7 @@ class MovementBlock:
             lissajous_ratio=data.get("lissajous_ratio", "1:2"),
             phase_offset_enabled=data.get("phase_offset_enabled", False),
             phase_offset_degrees=data.get("phase_offset_degrees", 0.0),
+            target_spot_name=data.get("target_spot_name"),
             modified=data.get("modified", False)
         )
 
@@ -1265,25 +1271,11 @@ class Configuration:
             fixtures.append(Fixture(**f_data))
 
         # Handle groups with colors and orientation defaults
+        # Groups reference the same fixture objects as the top-level fixtures list
         groups = {}
         for name, group_data in data.get('groups', {}).items():
-            group_fixtures = []
-            for f_data in group_data.get('fixtures', []):
-                if 'available_modes' in f_data:
-                    modes = []
-                    for mode_data in f_data['available_modes']:
-                        mode = FixtureMode(
-                            name=mode_data['name'],
-                            channels=mode_data['channels']
-                        )
-                        modes.append(mode)
-                    f_data['available_modes'] = modes
-
-                # Remove deprecated fields if present (direction, rotation)
-                f_data.pop('direction', None)
-                f_data.pop('rotation', None)
-
-                group_fixtures.append(Fixture(**f_data))
+            # Find fixtures that belong to this group from the top-level fixtures
+            group_fixtures = [f for f in fixtures if f.group == name]
 
             groups[name] = FixtureGroup(
                 name=name,

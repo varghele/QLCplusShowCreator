@@ -22,6 +22,7 @@ class FixtureItem(QGraphicsItem):
         self.pitch = 0.0
         self.roll = 0.0
         self.orientation_uses_group_default = True
+        self.z_uses_group_default = True  # Whether to use group's default_z_height
 
         # Enable dragging and mouse interaction
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
@@ -238,6 +239,9 @@ class FixtureItem(QGraphicsItem):
             else:
                 self.z_height = max(0, self.z_height - z_step)
 
+            # Mark that user has set a custom Z value (don't use group default anymore)
+            self.z_uses_group_default = False
+
             self.update()
 
             # Auto-save to config after z-height change
@@ -442,14 +446,16 @@ class SpotItem(QGraphicsItem):
         super().__init__(parent)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        self.setAcceptHoverEvents(True)
         self.size = 20  # Size of the X
         self.name = name
+        self.z_height = 0.0  # Z height in meters (for 3D targeting)
         self.last_pos = self.pos()  # Store last position for snapping
 
     def boundingRect(self):
-        text_width = len(self.name) * 8  # Approximate width of text
+        text_width = max(len(self.name) * 8, 60)  # Approximate width of text
         return QRectF(-self.size/2 - 2, -self.size/2 - 2,
-                     max(self.size + 4, text_width), self.size + 20)
+                     max(self.size + 4, text_width), self.size + 35)  # Extra space for Z-height
 
     def mouseMoveEvent(self, event):
         view = self.scene().views()[0]  # Get the main view
@@ -469,6 +475,35 @@ class SpotItem(QGraphicsItem):
         # Auto-save to config after move
         if hasattr(view, 'save_positions_to_config'):
             view.save_positions_to_config()
+
+    def wheelEvent(self, event):
+        """Handle mouse wheel events for changing z-height (Shift+scroll)."""
+        modifiers = event.modifiers()
+
+        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+            if hasattr(event, 'angleDelta'):
+                delta = event.angleDelta().y()
+            else:
+                delta = event.delta()
+
+            delta = delta / 120.0
+            z_step = 0.1
+
+            if delta > 0:
+                self.z_height = self.z_height + z_step
+            else:
+                self.z_height = self.z_height - z_step
+
+            self.update()
+
+            # Auto-save to config after z-height change
+            view = self.scene().views()[0]
+            if hasattr(view, 'save_positions_to_config'):
+                view.save_positions_to_config()
+
+            event.accept()
+        else:
+            event.ignore()
 
     def paint(self, painter, option, widget):
         if self.isSelected():
@@ -490,4 +525,10 @@ class SpotItem(QGraphicsItem):
         painter.setPen(QPen(Qt.GlobalColor.black, 1))
         painter.setFont(QFont("Arial", 10))
         painter.drawText(QPointF(-self.size/2, self.size + 5), self.name)
+
+        # Draw Z-height below the name
+        font = painter.font()
+        font.setBold(True)
+        painter.setFont(font)
+        painter.drawText(QPointF(-self.size/2, self.size + 18), f"Z: {self.z_height:.1f}m")
 

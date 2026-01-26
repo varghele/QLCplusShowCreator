@@ -514,7 +514,8 @@ class StageTab(BaseTab):
                 fixture_item.pitch = values['pitch']
                 fixture_item.roll = values['roll']
                 fixture_item.z_height = values['z_height']
-                fixture_item.orientation_uses_group_default = False  # User set custom value
+                fixture_item.orientation_uses_group_default = False  # User set custom orientation
+                fixture_item.z_uses_group_default = False  # User set custom Z height
                 fixture_item.update()
 
                 # Update the config fixture
@@ -530,6 +531,7 @@ class StageTab(BaseTab):
                         config_fixture.roll = values['roll']
                         config_fixture.z = values['z_height']
                         config_fixture.orientation_uses_group_default = False
+                        config_fixture.z_uses_group_default = False
 
             # Apply to group default if checkbox was checked
             if values['apply_to_group'] and self.config:
@@ -548,23 +550,28 @@ class StageTab(BaseTab):
                         # Update all OTHER fixtures in the group that use group defaults
                         for config_fixture in self.config.fixtures:
                             if (config_fixture.group == group_name and
-                                    config_fixture.name not in selected_fixture_names and
-                                    config_fixture.orientation_uses_group_default):
-                                # Update config fixture to match new group defaults
-                                config_fixture.mounting = values['mounting']
-                                config_fixture.yaw = values['yaw']
-                                config_fixture.pitch = values['pitch']
-                                config_fixture.roll = values['roll']
-                                config_fixture.z = values['z_height']
+                                    config_fixture.name not in selected_fixture_names):
+                                # Update orientation if fixture uses group defaults for orientation
+                                if config_fixture.orientation_uses_group_default:
+                                    config_fixture.mounting = values['mounting']
+                                    config_fixture.yaw = values['yaw']
+                                    config_fixture.pitch = values['pitch']
+                                    config_fixture.roll = values['roll']
+
+                                # Update z if fixture uses group defaults for z
+                                if config_fixture.z_uses_group_default:
+                                    config_fixture.z = values['z_height']
 
                                 # Update the corresponding stage view item
                                 if config_fixture.name in self.stage_view.fixtures:
                                     stage_item = self.stage_view.fixtures[config_fixture.name]
-                                    stage_item.mounting = values['mounting']
-                                    stage_item.rotation_angle = values['yaw']
-                                    stage_item.pitch = values['pitch']
-                                    stage_item.roll = values['roll']
-                                    stage_item.z_height = values['z_height']
+                                    if config_fixture.orientation_uses_group_default:
+                                        stage_item.mounting = values['mounting']
+                                        stage_item.rotation_angle = values['yaw']
+                                        stage_item.pitch = values['pitch']
+                                        stage_item.roll = values['roll']
+                                    if config_fixture.z_uses_group_default:
+                                        stage_item.z_height = values['z_height']
                                     stage_item.update()
 
             # Save changes and notify

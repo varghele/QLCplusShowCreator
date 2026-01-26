@@ -2829,11 +2829,13 @@ class MovingHeadRenderer(FixtureRenderer):
         tilt_combined = (tilt_coarse * 256 + tilt_fine) / 65535.0
 
         # Map to rotation angles using fixture's pan_max and tilt_max
-        # Pan=0: 0°, Pan=255: pan_max degrees
-        self.current_pan = pan_combined * self.pan_max
+        # Center-based mapping: DMX 127 = center (0°)
+        # DMX 0 = -pan_max/2, DMX 255 = +pan_max/2
+        self.current_pan = (pan_combined - 0.5) * self.pan_max
 
-        # Tilt=0: 0° (forward), Tilt=255: tilt_max degrees
-        self.current_tilt = tilt_combined * self.tilt_max
+        # Same for tilt: DMX 127 = center (0°)
+        # DMX 0 = -tilt_max/2, DMX 255 = +tilt_max/2
+        self.current_tilt = (tilt_combined - 0.5) * self.tilt_max
 
     def get_beam_direction(self) -> glm.vec3:
         """Get the beam direction vector based on current pan/tilt and fixture orientation.

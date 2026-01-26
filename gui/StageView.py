@@ -118,6 +118,7 @@ class StageView(QtWidgets.QGraphicsView):
         if hasattr(self.config, 'fixtures'):
             for fixture in self.config.fixtures:
                 group_color = '#808080'
+                group = None
                 if fixture.group and hasattr(self.config, 'groups'):
                     group = self.config.groups.get(fixture.group)
                     if group:
@@ -133,15 +134,20 @@ class StageView(QtWidgets.QGraphicsView):
                 x_px, y_px = self.meters_to_pixels(fixture.x, fixture.y)
                 fixture_item.setPos(x_px, y_px)
 
-                # Set z-height and yaw rotation directly from fixture properties
-                fixture_item.z_height = fixture.z
-                fixture_item.rotation_angle = fixture.yaw  # Use yaw for 2D rotation
+                # Get effective values (respecting group defaults if flags are set)
+                mounting, yaw, pitch, roll = fixture.get_effective_orientation(group)
+                effective_z = fixture.get_effective_z(group)
 
-                # Set orientation fields
-                fixture_item.mounting = fixture.mounting
-                fixture_item.pitch = fixture.pitch
-                fixture_item.roll = fixture.roll
+                # Set z-height and yaw rotation using effective values
+                fixture_item.z_height = effective_z
+                fixture_item.rotation_angle = yaw  # Use yaw for 2D rotation
+
+                # Set orientation fields using effective values
+                fixture_item.mounting = mounting
+                fixture_item.pitch = pitch
+                fixture_item.roll = roll
                 fixture_item.orientation_uses_group_default = fixture.orientation_uses_group_default
+                fixture_item.z_uses_group_default = fixture.z_uses_group_default
 
                 # Store additional properties
                 fixture_item.universe = fixture.universe
@@ -161,6 +167,8 @@ class StageView(QtWidgets.QGraphicsView):
                 spot_item = SpotItem(name=spot_name)
                 x_px, y_px = self.meters_to_pixels(spot_data.x, spot_data.y)
                 spot_item.setPos(x_px, y_px)
+                # Load z_height from config (default to 0.0 for backwards compatibility)
+                spot_item.z_height = getattr(spot_data, 'z', 0.0)
 
                 self.scene.addItem(spot_item)
                 self.spots[spot_name] = spot_item
@@ -189,6 +197,13 @@ class StageView(QtWidgets.QGraphicsView):
                 config_fixture.z = fixture_item.z_height
                 config_fixture.yaw = fixture_item.rotation_angle  # Use yaw for 2D rotation
 
+                # Save orientation fields
+                config_fixture.mounting = fixture_item.mounting
+                config_fixture.pitch = fixture_item.pitch
+                config_fixture.roll = fixture_item.roll
+                config_fixture.orientation_uses_group_default = fixture_item.orientation_uses_group_default
+                config_fixture.z_uses_group_default = fixture_item.z_uses_group_default
+
         # Save spot positions
         for spot_name, spot_item in self.spots.items():
             if spot_name in self.config.spots:
@@ -196,6 +211,7 @@ class StageView(QtWidgets.QGraphicsView):
                 x_m, y_m = self.pixels_to_meters(pos.x(), pos.y())
                 self.config.spots[spot_name].x = x_m
                 self.config.spots[spot_name].y = y_m
+                self.config.spots[spot_name].z = spot_item.z_height
 
         # Emit signal to notify listeners (e.g., for TCP visualizer updates)
         self.fixtures_changed.emit()
@@ -234,15 +250,17 @@ class StageView(QtWidgets.QGraphicsView):
 
         self.save_positions_to_config()
 
-    def add_spot(self, x_m=0.0, y_m=0.0):
+    def add_spot(self, x_m=0.0, y_m=0.0, z_m=0.0):
         """Add a new spot to the stage
 
         Args:
             x_m: X position in meters (0 = center)
             y_m: Y position in meters (0 = center)
+            z_m: Z height in meters (default 0.0)
         """
         spot_name = f"Spot{self.spot_counter}"
         spot = SpotItem(name=spot_name)
+        spot.z_height = z_m
 
         # Convert center-based meters to pixels
         x_px, y_px = self.meters_to_pixels(x_m, y_m)
@@ -257,7 +275,8 @@ class StageView(QtWidgets.QGraphicsView):
             self.config.spots[spot_name] = Spot(
                 name=spot_name,
                 x=x_m,
-                y=y_m
+                y=y_m,
+                z=z_m
             )
         return spot
 
@@ -587,6 +606,8 @@ class StageView(QtWidgets.QGraphicsView):
                     fixture_item.z_height = max(0, fixture_item.z_height + z_step)
                 else:
                     fixture_item.z_height = max(0, fixture_item.z_height - z_step)
+                # Mark that user has set a custom Z value
+                fixture_item.z_uses_group_default = False
                 fixture_item.update()
 
             # Save changes

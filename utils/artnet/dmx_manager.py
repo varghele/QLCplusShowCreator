@@ -6,6 +6,7 @@ import math
 from typing import Dict, List, Optional, Tuple, Any
 from config.models import Configuration, Fixture, LightBlock, DimmerBlock, ColourBlock, MovementBlock, SpecialBlock
 from utils.effects_utils import get_channels_by_property
+from utils.orientation import calculate_pan_tilt, pan_tilt_to_dmx
 
 
 class FixtureChannelMap:
@@ -1316,14 +1317,63 @@ class DMXManager:
 
         # Get parameters
         effect_type = block.effect_type
-        center_pan = block.pan
-        center_tilt = block.tilt
         pan_amplitude = block.pan_amplitude
         tilt_amplitude = block.tilt_amplitude
         pan_min = block.pan_min
         pan_max = block.pan_max
         tilt_min = block.tilt_min
         tilt_max = block.tilt_max
+
+        # Check if we have a target spot - if so, calculate pan/tilt to point at it
+        if block.target_spot_name and self.config and hasattr(self.config, 'spots'):
+            spot = self.config.spots.get(block.target_spot_name)
+            if spot:
+                # Get fixture position and orientation
+                fixture = fixture_map.fixture
+
+                # Get effective orientation (considering group defaults)
+                group = self.config.groups.get(fixture.group) if fixture.group else None
+                mounting, yaw, pitch, roll = fixture.get_effective_orientation(group)
+                fixture_z = fixture.get_effective_z(group)
+
+                # Calculate pan/tilt angles to point at the spot
+                pan_degrees, tilt_degrees = calculate_pan_tilt(
+                    fixture_x=fixture.x,
+                    fixture_y=fixture.y,
+                    fixture_z=fixture_z,
+                    target_x=spot.x,
+                    target_y=spot.y,
+                    target_z=spot.z,
+                    mounting=mounting,
+                    yaw=yaw,
+                    pitch=pitch,
+                    roll=roll
+                )
+
+                # Convert to DMX values (0-255 where 127 = center)
+                pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
+
+                # Debug output - log once per fixture
+                debug_key = f"_spot_debug_{fixture.name}"
+                if not hasattr(self, debug_key):
+                    setattr(self, debug_key, True)
+                    print(f"[SPOT TARGET] {fixture.name} at ({fixture.x}, {fixture.y}, {fixture_z}) "
+                          f"-> Spot '{block.target_spot_name}' at ({spot.x}, {spot.y}, {spot.z})")
+                    print(f"  orientation: mounting={mounting}, yaw={yaw}, pitch={pitch}, roll={roll}")
+                    print(f"  calculated: pan={pan_degrees:.1f}°, tilt={tilt_degrees:.1f}°")
+                    print(f"  DMX: pan={pan_dmx}, tilt={tilt_dmx}")
+
+                # Use calculated values as center position
+                center_pan = float(pan_dmx)
+                center_tilt = float(tilt_dmx)
+            else:
+                # Spot not found, fall back to manual values
+                center_pan = block.pan
+                center_tilt = block.tilt
+        else:
+            # No target spot, use manual values
+            center_pan = block.pan
+            center_tilt = block.tilt
 
         # Calculate speed multiplier
         speed_multiplier = self._parse_speed(block.effect_speed)
@@ -1464,6 +1514,14 @@ class DMXManager:
         # Apply clipping to boundaries
         pan = max(pan_min, min(pan_max, pan))
         tilt = max(tilt_min, min(tilt_max, tilt))
+
+        # Debug output - log final DMX values once per fixture
+        if block.target_spot_name:
+            final_debug_key = f"_spot_final_debug_{fixture_map.fixture.name}"
+            if not hasattr(self, final_debug_key):
+                setattr(self, final_debug_key, True)
+                print(f"  [DMX OUTPUT] {fixture_map.fixture.name}: final pan={int(pan)}, tilt={int(tilt)} "
+                      f"(effect={effect_type}, center_pan={center_pan:.1f}, center_tilt={center_tilt:.1f})")
 
         # Set pan/tilt channels
         for ch_offset in fixture_map.pan_channels:

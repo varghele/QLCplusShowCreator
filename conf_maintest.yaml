@@ -30,7 +30,7 @@ fixtures:
   y: 2.0
   yaw: 0.0
   z: 0.0
-  z_uses_group_default: true
+  z_uses_group_default: false
 - address: 7
   available_modes:
   - channels: 6
@@ -53,7 +53,7 @@ fixtures:
   model: Wild Wash Pro 648 RGB LED
   mounting: standing
   name: W2
-  orientation_uses_group_default: true
+  orientation_uses_group_default: false
   pitch: -90.0
   roll: 0.0
   type: WASH
@@ -62,7 +62,7 @@ fixtures:
   y: 2.0
   yaw: 0.0
   z: 0.0
-  z_uses_group_default: true
+  z_uses_group_default: false
 - address: 13
   available_modes:
   - channels: 3
@@ -93,8 +93,8 @@ fixtures:
   x: -4.5
   y: -2.0
   yaw: 0.0
-  z: 2.0000000000000004
-  z_uses_group_default: true
+  z: 2.0
+  z_uses_group_default: false
 - address: 64
   available_modes:
   - channels: 8
@@ -105,18 +105,18 @@ fixtures:
   group: MH
   manufacturer: Varytec
   model: Hero Spot 60
-  mounting: hanging
+  mounting: wall_back
   name: M1
   orientation_uses_group_default: false
-  pitch: 90.0
+  pitch: 0.0
   roll: 0.0
   type: MH
   universe: 1
   x: -3.5
   y: -2.0
   yaw: 0.0
-  z: 2.0000000000000004
-  z_uses_group_default: true
+  z: 2.0
+  z_uses_group_default: false
 - address: 78
   available_modes:
   - channels: 1
@@ -141,8 +141,8 @@ fixtures:
   x: -2.5
   y: -2.0
   yaw: 0.0
-  z: 2.0000000000000004
-  z_uses_group_default: true
+  z: 2.0
+  z_uses_group_default: false
 - address: 88
   available_modes:
   - channels: 8
@@ -153,17 +153,17 @@ fixtures:
   group: MH
   manufacturer: Varytec
   model: Hero Spot 60
-  mounting: hanging
+  mounting: wall_back
   name: M2
   orientation_uses_group_default: true
-  pitch: 90.0
+  pitch: 0.0
   roll: 0.0
   type: MH
   universe: 1
   x: -1.5
   y: -2.0
   yaw: 0.0
-  z: 2.0000000000000004
+  z: 2.0
   z_uses_group_default: true
 - address: 102
   available_modes:
@@ -195,7 +195,7 @@ fixtures:
   x: -0.5
   y: -2.0
   yaw: 0.0
-  z: 2.0000000000000004
+  z: 2.0
   z_uses_group_default: true
 - address: 153
   available_modes:
@@ -227,7 +227,7 @@ fixtures:
   x: 0.5
   y: -2.0
   yaw: 0.0
-  z: 2.0000000000000004
+  z: 2.0
   z_uses_group_default: true
 - address: 204
   available_modes:
@@ -239,17 +239,17 @@ fixtures:
   group: MH
   manufacturer: Varytec
   model: Hero Spot 60
-  mounting: hanging
+  mounting: wall_back
   name: M3
   orientation_uses_group_default: true
-  pitch: 90.0
+  pitch: 0.0
   roll: 0.0
   type: MH
   universe: 1
   x: 1.5
   y: -2.0
   yaw: 0.0
-  z: 2.0000000000000004
+  z: 2.0
   z_uses_group_default: true
 - address: 218
   available_modes:
@@ -275,7 +275,7 @@ fixtures:
   x: 2.5
   y: -2.0
   yaw: 0.0
-  z: 2.0000000000000004
+  z: 2.0
   z_uses_group_default: true
 - address: 228
   available_modes:
@@ -287,17 +287,17 @@ fixtures:
   group: MH
   manufacturer: Varytec
   model: Hero Spot 60
-  mounting: hanging
+  mounting: wall_back
   name: M4
   orientation_uses_group_default: true
-  pitch: 90.0
+  pitch: 0.0
   roll: 0.0
   type: MH
   universe: 1
   x: 3.5
   y: -2.0
   yaw: 0.0
-  z: 2.0000000000000004
+  z: 2.0
   z_uses_group_default: true
 - address: 242
   available_modes:
@@ -329,7 +329,7 @@ fixtures:
   x: 4.5
   y: -2.0
   yaw: 0.0
-  z: 2.0000000000000004
+  z: 2.0
   z_uses_group_default: true
 - address: 293
   available_modes:
@@ -340,29 +340,29 @@ fixtures:
   - channels: 8
     name: 8 Channel
   current_mode: 8 Channel
-  group: PARS
+  group: FP
   manufacturer: Stairville
   model: 'Retro Flat Par 18x12W RGBW '
   mounting: standing
-  name: PF
+  name: FP
   orientation_uses_group_default: false
   pitch: -90.0
   roll: 0.0
   type: WASH
   universe: 1
   x: 0.0
-  y: -2.0
+  y: 0.0
   yaw: 0.0
   z: 0.0
-  z_uses_group_default: true
+  z_uses_group_default: false
 groups:
   BARS:
     color: '#e6e6fa'
-    default_mounting: hanging
+    default_mounting: custom
     default_pitch: 0.0
-    default_roll: 0.0
+    default_roll: 90.0
     default_yaw: 0.0
-    default_z_height: 3.0
+    default_z_height: 2.0
     fixtures:
     - address: 13
       available_modes:
@@ -394,8 +394,8 @@ groups:
       x: -4.5
       y: -2.0
       yaw: 0.0
-      z: 2.0000000000000004
-      z_uses_group_default: true
+      z: 2.0
+      z_uses_group_default: false
     - address: 102
       available_modes:
       - channels: 3
@@ -426,7 +426,7 @@ groups:
       x: -0.5
       y: -2.0
       yaw: 0.0
-      z: 2.0000000000000004
+      z: 2.0
       z_uses_group_default: true
     - address: 153
       available_modes:
@@ -458,7 +458,7 @@ groups:
       x: 0.5
       y: -2.0
       yaw: 0.0
-      z: 2.0000000000000004
+      z: 2.0
       z_uses_group_default: true
     - address: 242
       available_modes:
@@ -490,108 +490,11 @@ groups:
       x: 4.5
       y: -2.0
       yaw: 0.0
-      z: 2.0000000000000004
+      z: 2.0
       z_uses_group_default: true
     name: BARS
-  MH:
-    color: '#add8e6'
-    default_mounting: hanging
-    default_pitch: 0.0
-    default_roll: 0.0
-    default_yaw: 0.0
-    default_z_height: 3.0
-    fixtures:
-    - address: 64
-      available_modes:
-      - channels: 8
-        name: 8 Channel
-      - channels: 14
-        name: 14 Channel
-      current_mode: 14 Channel
-      group: MH
-      manufacturer: Varytec
-      model: Hero Spot 60
-      mounting: hanging
-      name: M1
-      orientation_uses_group_default: false
-      pitch: 90.0
-      roll: 0.0
-      type: MH
-      universe: 1
-      x: -3.5
-      y: -2.0
-      yaw: 0.0
-      z: 2.0000000000000004
-      z_uses_group_default: true
-    - address: 88
-      available_modes:
-      - channels: 8
-        name: 8 Channel
-      - channels: 14
-        name: 14 Channel
-      current_mode: 14 Channel
-      group: MH
-      manufacturer: Varytec
-      model: Hero Spot 60
-      mounting: hanging
-      name: M2
-      orientation_uses_group_default: true
-      pitch: 90.0
-      roll: 0.0
-      type: MH
-      universe: 1
-      x: -1.5
-      y: -2.0
-      yaw: 0.0
-      z: 2.0000000000000004
-      z_uses_group_default: true
-    - address: 204
-      available_modes:
-      - channels: 8
-        name: 8 Channel
-      - channels: 14
-        name: 14 Channel
-      current_mode: 14 Channel
-      group: MH
-      manufacturer: Varytec
-      model: Hero Spot 60
-      mounting: hanging
-      name: M3
-      orientation_uses_group_default: true
-      pitch: 90.0
-      roll: 0.0
-      type: MH
-      universe: 1
-      x: 1.5
-      y: -2.0
-      yaw: 0.0
-      z: 2.0000000000000004
-      z_uses_group_default: true
-    - address: 228
-      available_modes:
-      - channels: 8
-        name: 8 Channel
-      - channels: 14
-        name: 14 Channel
-      current_mode: 14 Channel
-      group: MH
-      manufacturer: Varytec
-      model: Hero Spot 60
-      mounting: hanging
-      name: M4
-      orientation_uses_group_default: true
-      pitch: 90.0
-      roll: 0.0
-      type: MH
-      universe: 1
-      x: 3.5
-      y: -2.0
-      yaw: 0.0
-      z: 2.0000000000000004
-      z_uses_group_default: true
-    name: MH
-  PARS:
-    color: '#ffffe0'
+  FP:
+    color: '#90ee90'
     default_mounting: hanging
     default_pitch: 0.0
     default_roll: 0.0
@@ -607,29 +510,126 @@ groups:
       - channels: 8
         name: 8 Channel
       current_mode: 8 Channel
-      group: PARS
+      group: FP
       manufacturer: Stairville
       model: 'Retro Flat Par 18x12W RGBW '
       mounting: standing
-      name: PF
+      name: FP
       orientation_uses_group_default: false
       pitch: -90.0
       roll: 0.0
       type: WASH
       universe: 1
       x: 0.0
-      y: -2.0
+      y: 0.0
       yaw: 0.0
       z: 0.0
-      z_uses_group_default: true
-    name: PARS
-  SUNS:
-    color: '#b0c4de'
-    default_mounting: hanging
+      z_uses_group_default: false
+    name: FP
+  MH:
+    color: '#add8e6'
+    default_mounting: wall_back
     default_pitch: 0.0
     default_roll: 0.0
     default_yaw: 0.0
-    default_z_height: 3.0
+    default_z_height: 2.0
+    fixtures:
+    - address: 64
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      mounting: wall_back
+      name: M1
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: -3.5
+      y: -2.0
+      yaw: 0.0
+      z: 2.0
+      z_uses_group_default: false
+    - address: 88
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      mounting: wall_back
+      name: M2
+      orientation_uses_group_default: true
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: -1.5
+      y: -2.0
+      yaw: 0.0
+      z: 2.0
+      z_uses_group_default: true
+    - address: 204
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      mounting: wall_back
+      name: M3
+      orientation_uses_group_default: true
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: 1.5
+      y: -2.0
+      yaw: 0.0
+      z: 2.0
+      z_uses_group_default: true
+    - address: 228
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      mounting: wall_back
+      name: M4
+      orientation_uses_group_default: true
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: 3.5
+      y: -2.0
+      yaw: 0.0
+      z: 2.0
+      z_uses_group_default: true
+    name: MH
+  SUNS:
+    color: '#b0c4de'
+    default_mounting: custom
+    default_pitch: 0.0
+    default_roll: 90.0
+    default_yaw: 0.0
+    default_z_height: 2.0
     fixtures:
     - address: 78
       available_modes:
@@ -655,8 +655,8 @@ groups:
       x: -2.5
       y: -2.0
       yaw: 0.0
-      z: 2.0000000000000004
-      z_uses_group_default: true
+      z: 2.0
+      z_uses_group_default: false
     - address: 218
       available_modes:
       - channels: 1
@@ -681,16 +681,16 @@ groups:
       x: 2.5
       y: -2.0
       yaw: 0.0
-      z: 2.0000000000000004
+      z: 2.0
       z_uses_group_default: true
     name: SUNS
   WASH:
     color: '#ffdab9'
-    default_mounting: hanging
-    default_pitch: 0.0
+    default_mounting: standing
+    default_pitch: -90.0
     default_roll: 0.0
     default_yaw: 0.0
-    default_z_height: 3.0
+    default_z_height: 0.0
     fixtures:
     - address: 1
       available_modes:
@@ -723,7 +723,7 @@ groups:
       y: 2.0
       yaw: 0.0
       z: 0.0
-      z_uses_group_default: true
+      z_uses_group_default: false
     - address: 7
       available_modes:
       - channels: 6
@@ -746,7 +746,7 @@ groups:
       model: Wild Wash Pro 648 RGB LED
       mounting: standing
       name: W2
-      orientation_uses_group_default: true
+      orientation_uses_group_default: false
       pitch: -90.0
       roll: 0.0
       type: WASH
@@ -755,7 +755,7 @@ groups:
       y: 2.0
       yaw: 0.0
       z: 0.0
-      z_uses_group_default: true
+      z_uses_group_default: false
     name: WASH
 shows:
   NTEST:
@@ -868,6 +868,7 @@ shows:
             phase_offset_enabled: false
             speed: 0.0
             start_time: 0.0
+            target_spot_name: null
             tilt: 127.5
             tilt_amplitude: 50.0
             tilt_fine: 0.0
@@ -1106,81 +1107,7 @@ shows:
       transition: instant
     timeline_data:
       audio_file_path: ''
-      lanes:
-      - fixture_targets:
-        - MH
-        light_blocks:
-        - colour_blocks:
-          - amber: 0.0
-            blue: 0.0
-            color_mode: RGB
-            color_wheel_position: 0
-            cyan: 0.0
-            end_time: 9.27536231884058
-            green: 255.0
-            hue: 0.0
-            lime: 0.0
-            magenta: 0.0
-            modified: false
-            red: 0.0
-            saturation: 0.0
-            start_time: 0.0
-            uv: 0.0
-            value: 0.0
-            white: 0.0
-            yellow: 0.0
-          dimmer_blocks:
-          - effect_speed: '1'
-            effect_type: twinkle
-            end_time: 9.27536231884058
-            intensity: 255.0
-            iris: 255.0
-            modified: false
-            start_time: 0.0
-            strobe_speed: 0.0
-          duration: 9.27536231884058
-          effect_name: ''
-          end_time: 9.27536231884058
-          modified: true
-          movement_blocks:
-          - effect_speed: '1'
-            effect_type: triangle
-            end_time: 9.27536231884058
-            interpolate_from_previous: true
-            lissajous_ratio: '1:2'
-            modified: false
-            pan: 127.5
-            pan_amplitude: 50.0
-            pan_fine: 0.0
-            pan_max: 255.0
-            pan_min: 0.0
-            phase_offset_degrees: 0.0
-            phase_offset_enabled: false
-            speed: 0.0
-            start_time: 0.0
-            tilt: 127.5
-            tilt_amplitude: 50.0
-            tilt_fine: 0.0
-            tilt_max: 255.0
-            tilt_min: 0.0
-          name: null
-          parameters: {}
-          riff_source: null
-          riff_version: null
-          special_blocks:
-          - end_time: 9.27536231884058
-            focus: 127.5
-            gobo_index: 0
-            gobo_rotation: 0.0
-            modified: false
-            prism_enabled: false
-            prism_rotation: 0.0
-            start_time: 0.0
-            zoom: 127.5
-          start_time: 0.0
-        muted: false
-        name: Lane 1
-        solo: false
+      lanes: []
   SBD_everybody:
     effects: []
     parts:
@@ -1258,7 +1185,82 @@ shows:
       transition: instant
     timeline_data:
       audio_file_path: ''
-      lanes: []
+      lanes:
+      - fixture_targets:
+        - MH
+        light_blocks:
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 9.27536231884058
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 0.0
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: twinkle
+            end_time: 9.27536231884058
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 0.0
+            strobe_speed: 0.0
+          duration: 9.27536231884058
+          effect_name: ''
+          end_time: 9.27536231884058
+          modified: true
+          movement_blocks:
+          - effect_speed: '1'
+            effect_type: triangle
+            end_time: 9.27536231884058
+            interpolate_from_previous: true
+            lissajous_ratio: '1:2'
+            modified: false
+            pan: 127.5
+            pan_amplitude: 50.0
+            pan_fine: 0.0
+            pan_max: 255.0
+            pan_min: 0.0
+            phase_offset_degrees: 0.0
+            phase_offset_enabled: false
+            speed: 0.0
+            start_time: 0.0
+            target_spot_name: null
+            tilt: 127.5
+            tilt_amplitude: 50.0
+            tilt_fine: 0.0
+            tilt_max: 255.0
+            tilt_min: 0.0
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks:
+          - end_time: 9.27536231884058
+            focus: 127.5
+            gobo_index: 0
+            gobo_rotation: 0.0
+            modified: false
+            prism_enabled: false
+            prism_rotation: 0.0
+            start_time: 0.0
+            zoom: 127.5
+          start_time: 0.0
+        muted: false
+        name: Lane 1
+        solo: false
   SBD_highway_to_hell:
     effects: []
     parts:
@@ -3763,7 +3765,7 @@ shows:
             color_mode: RGB
             color_wheel_position: 0
             cyan: 0.0
-            end_time: 51.25
+            end_time: 6.5
             green: 255.0
             hue: 0.0
             lime: 0.0
@@ -3771,7 +3773,7 @@ shows:
             modified: false
             red: 255.0
             saturation: 0.0
-            start_time: 31.25
+            start_time: 2.5
             uv: 0.0
             value: 0.0
             white: 0.0
@@ -3779,33 +3781,34 @@ shows:
           dimmer_blocks:
           - effect_speed: '1'
             effect_type: static
-            end_time: 51.25
+            end_time: 6.5
             intensity: 255.0
             iris: 255.0
             modified: false
-            start_time: 31.25
+            start_time: 2.5
             strobe_speed: 0.0
-          duration: 20.0
+          duration: 4.0
           effect_name: ''
-          end_time: 51.25
+          end_time: 6.5
           modified: true
           movement_blocks:
-          - effect_speed: 1/4
-            effect_type: lissajous
-            end_time: 51.25
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 6.5
             interpolate_from_previous: true
-            lissajous_ratio: '2:1'
+            lissajous_ratio: '1:2'
             modified: false
-            pan: 192.4
+            pan: 127.5
             pan_amplitude: 50.0
             pan_fine: 0.0
             pan_max: 255.0
             pan_min: 0.0
-            phase_offset_degrees: 20.0
-            phase_offset_enabled: true
+            phase_offset_degrees: 0.0
+            phase_offset_enabled: false
             speed: 0.0
-            start_time: 31.25
-            tilt: 67.2
+            start_time: 2.5
+            target_spot_name: Spot1
+            tilt: 127.5
             tilt_amplitude: 50.0
             tilt_fine: 0.0
             tilt_max: 255.0
@@ -3815,16 +3818,16 @@ shows:
           riff_source: null
           riff_version: null
           special_blocks:
-          - end_time: 51.25
-            focus: 127.0
-            gobo_index: 1
+          - end_time: 6.5
+            focus: 127.5
+            gobo_index: 0
             gobo_rotation: 0.0
             modified: false
             prism_enabled: false
             prism_rotation: 0.0
-            start_time: 31.25
-            zoom: 127.0
-          start_time: 31.25
+            start_time: 2.5
+            zoom: 127.5
+          start_time: 2.5
         muted: false
         name: Lane 6
         solo: false
@@ -4006,7 +4009,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: null
+      audio_file_path: ''
       lanes: []
   SBD_swingin_it:
     effects: []
@@ -4464,7 +4467,12 @@ shows:
     timeline_data:
       audio_file_path: null
       lanes: []
-spots: {}
+spots:
+  Spot1:
+    name: Spot1
+    x: 0.0
+    y: 2.5
+    z: 0.0
 universes:
   '1':
     name: Universe 1
