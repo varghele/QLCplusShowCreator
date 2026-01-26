@@ -1009,6 +1009,153 @@ class DMXManager:
                     universe, channel = fixture_map.get_absolute_address(ch_offset)
                     self.set_dmx_value(universe, channel, intensity)
 
+        elif block.effect_type == "zigzag":
+            # Zigzag effect: snake moves across ALL fixtures as one continuous chain
+            # Unlike 'snake' which runs independently per fixture, 'zigzag' treats all
+            # segments across all fixtures as one long strip
+            speed_multiplier = self._parse_speed(block.effect_speed)
+            time_in_block = current_time - block.start_time
+
+            # Get BPM for timing
+            if self.song_structure:
+                bpm = self.song_structure.get_bpm_at_time(current_time)
+            else:
+                bpm = 120.0
+
+            seconds_per_beat = 60.0 / bpm
+
+            # Check fixture type for segment-based control
+            fixture_type = getattr(fixture_map.fixture, 'type', '')
+            is_segmented = fixture_type in ('PIXELBAR', 'BAR', 'SUNSTRIP')
+
+            # Determine segment info for THIS fixture
+            has_color_segments = fixture_map.red_channels or fixture_map.white_channels
+            has_dimmer_segments = len(fixture_map.dimmer_channels) > 1
+
+            if is_segmented and (has_color_segments or has_dimmer_segments):
+                # SEGMENT-BASED ZIGZAG
+                if has_color_segments:
+                    num_segments = max(
+                        len(fixture_map.red_channels),
+                        len(fixture_map.green_channels),
+                        len(fixture_map.blue_channels),
+                        len(fixture_map.white_channels),
+                        1
+                    )
+                    is_dimmer_only = False
+                else:
+                    num_segments = len(fixture_map.dimmer_channels)
+                    is_dimmer_only = True
+
+                # Calculate total segments across ALL fixtures
+                # Assume all fixtures have the same number of segments
+                total_segments = num_segments * total_fixtures
+
+                # Calculate global segment offset for this fixture
+                # (which segment index does this fixture start at?)
+                global_segment_offset = fixture_index * num_segments
+
+                # Tail spans half the total segments
+                tail_length = max(1, total_segments // 2)
+
+                # 4 beats = full cycle (forward + backward through all segments)
+                time_per_pass = (seconds_per_beat * 2) / speed_multiplier
+                cycle_time = time_per_pass * 2
+
+                # Current position in cycle
+                time_in_cycle = time_in_block % cycle_time
+
+                # Calculate head position (0 to total_segments-1, bouncing)
+                if time_in_cycle < time_per_pass:
+                    # Forward pass
+                    progress = time_in_cycle / time_per_pass
+                    head_position = progress * (total_segments - 1)
+                    going_forward = True
+                else:
+                    # Backward pass
+                    progress = (time_in_cycle - time_per_pass) / time_per_pass
+                    head_position = (total_segments - 1) * (1.0 - progress)
+                    going_forward = False
+
+                # Calculate intensity for each segment of THIS fixture
+                segment_intensities = []
+                for seg_idx in range(num_segments):
+                    # Global position of this segment
+                    global_seg_pos = global_segment_offset + seg_idx
+
+                    # Calculate distance from head (considering direction)
+                    if going_forward:
+                        distance = head_position - global_seg_pos
+                    else:
+                        distance = global_seg_pos - head_position
+
+                    # Calculate intensity based on distance
+                    if distance < -0.5:
+                        intensity_factor = 0.0
+                    elif distance < 0.5:
+                        intensity_factor = 1.0
+                    elif distance <= tail_length:
+                        fade_factor = 1.0 - (distance / (tail_length + 1))
+                        intensity_factor = fade_factor * 0.8
+                    else:
+                        intensity_factor = 0.0
+
+                    segment_intensities.append(intensity_factor)
+
+                if is_dimmer_only:
+                    # Sunstrip: apply intensities directly to dimmer channels
+                    for seg_idx, ch_offset in enumerate(fixture_map.dimmer_channels):
+                        if seg_idx < len(segment_intensities):
+                            seg_intensity = int(block.intensity * segment_intensities[seg_idx])
+                            universe, channel = fixture_map.get_absolute_address(ch_offset)
+                            self.set_dmx_value(universe, channel, seg_intensity)
+                else:
+                    # Pixelbar: set master dimmer to full, store intensities for colour_block
+                    for ch_offset in fixture_map.dimmer_channels:
+                        universe, channel = fixture_map.get_absolute_address(ch_offset)
+                        self.set_dmx_value(universe, channel, int(block.intensity))
+                    fixture_map._twinkle_segment_intensities = segment_intensities
+
+            else:
+                # FIXTURE-BASED ZIGZAG (non-segmented fixtures)
+                # Each fixture is treated as one unit in the chain
+                tail_length = max(1, total_fixtures // 2)
+
+                # 4 beats = full cycle
+                time_per_pass = (seconds_per_beat * 2) / speed_multiplier
+                cycle_time = time_per_pass * 2
+
+                time_in_cycle = time_in_block % cycle_time
+
+                if time_in_cycle < time_per_pass:
+                    progress = time_in_cycle / time_per_pass
+                    head_position = progress * (total_fixtures - 1)
+                    going_forward = True
+                else:
+                    progress = (time_in_cycle - time_per_pass) / time_per_pass
+                    head_position = (total_fixtures - 1) * (1.0 - progress)
+                    going_forward = False
+
+                if going_forward:
+                    distance = head_position - fixture_index
+                else:
+                    distance = fixture_index - head_position
+
+                if distance < -0.5:
+                    intensity_multiplier = 0.0
+                elif distance < 0.5:
+                    intensity_multiplier = 1.0
+                elif distance <= tail_length:
+                    fade_factor = 1.0 - (distance / (tail_length + 1))
+                    intensity_multiplier = fade_factor * 0.8
+                else:
+                    intensity_multiplier = 0.0
+
+                intensity = int(block.intensity * intensity_multiplier)
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, intensity)
+
         elif block.effect_type == "hit":
             # Hit effect: instant attack to full intensity, decay over the beat
             # One hit per beat at speed "1", scales with speed multiplier

@@ -3028,12 +3028,12 @@ shows:
         light_blocks:
         - colour_blocks:
           - amber: 0.0
-            blue: 255.0
+            blue: 0.0
             color_mode: RGB
             color_wheel_position: 0
             cyan: 0.0
-            end_time: 5.0
-            green: 255.0
+            end_time: 5.3125
+            green: 0.0
             hue: 0.0
             lime: 0.0
             magenta: 0.0
@@ -3047,16 +3047,16 @@ shows:
             yellow: 0.0
           dimmer_blocks:
           - effect_speed: '1'
-            effect_type: static
-            end_time: 5.0
+            effect_type: random_strobe
+            end_time: 5.3125
             intensity: 255.0
             iris: 255.0
             modified: false
             start_time: 3.75
             strobe_speed: 0.0
-          duration: 1.25
+          duration: 1.5625
           effect_name: ''
-          end_time: 5.0
+          end_time: 5.3125
           modified: true
           movement_blocks: []
           name: null

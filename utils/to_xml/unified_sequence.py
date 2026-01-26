@@ -139,8 +139,8 @@ def calculate_unified_step_grid(
             step_interval = hit_cycle_ms / 8  # 8 steps per hit for smooth decay
             step_interval = max(step_interval, MIN_STEP_DURATION_MS)
             min_step_interval_ms = min(min_step_interval_ms, step_interval)
-        elif block.effect_type in ("ping_pong_smooth", "random_strobe", "snake"):
-            # Ping pong smooth, random strobe, and snake have smooth animations that need fine steps
+        elif block.effect_type in ("ping_pong_smooth", "random_strobe", "snake", "zigzag"):
+            # Ping pong smooth, random strobe, snake, and zigzag have smooth animations that need fine steps
             # Similar to hit, use 8-10 steps per fixture transition for smooth animation
             beat_ms = ms_per_beat / speed_mult  # one beat per fixture
             step_interval = beat_ms / 10  # 10 steps per beat for smooth animation
@@ -480,6 +480,61 @@ def sample_dimmer_at_time(
             intensity_multiplier = fade_factor * 0.8  # Max 80% for tail
         else:
             # Beyond tail - off
+            intensity_multiplier = 0.0
+
+        return int(base_intensity * intensity_multiplier)
+
+    elif effect_type == "zigzag":
+        # Zigzag effect: snake moves across ALL fixtures as one continuous chain
+        # Unlike 'snake' which runs independently per fixture, 'zigzag' treats all
+        # fixtures as one long strip
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        if total_fixtures <= 1:
+            return base_intensity
+
+        # Tail spans half the fixtures
+        tail_length = max(1, total_fixtures // 2)
+
+        # 4 beats = full cycle (forward + backward)
+        seconds_per_beat = 60.0 / bpm
+        time_per_pass = (seconds_per_beat * 2) / speed_mult
+        cycle_time = time_per_pass * 2
+
+        time_in_cycle = time_in_block % cycle_time
+
+        # Calculate head position (0 to total_fixtures-1, bouncing)
+        if time_in_cycle < time_per_pass:
+            progress = time_in_cycle / time_per_pass
+            head_position = progress * (total_fixtures - 1)
+            going_forward = True
+        else:
+            progress = (time_in_cycle - time_per_pass) / time_per_pass
+            head_position = (total_fixtures - 1) * (1.0 - progress)
+            going_forward = False
+
+        # Calculate distance from head for this fixture
+        if going_forward:
+            distance = head_position - fixture_idx
+        else:
+            distance = fixture_idx - head_position
+
+        # Calculate intensity based on distance
+        if distance < -0.5:
+            intensity_multiplier = 0.0
+        elif distance < 0.5:
+            intensity_multiplier = 1.0
+        elif distance <= tail_length:
+            fade_factor = 1.0 - (distance / (tail_length + 1))
+            intensity_multiplier = fade_factor * 0.8
+        else:
             intensity_multiplier = 0.0
 
         return int(base_intensity * intensity_multiplier)
