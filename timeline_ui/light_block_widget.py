@@ -286,56 +286,63 @@ class LightBlockWidget(QWidget):
         """Draw individual sublane blocks within the envelope."""
         sublane_height = self.lane_widget.sublane_height
 
-        # Check if fixture has dimmer capability
-        has_dimmer = self.lane_widget.capabilities.has_dimmer if hasattr(self.lane_widget, 'capabilities') and self.lane_widget.capabilities else True
-        has_colour = self.lane_widget.capabilities.has_colour if hasattr(self.lane_widget, 'capabilities') and self.lane_widget.capabilities else False
+        # Get capabilities
+        caps = self.lane_widget.capabilities if hasattr(self.lane_widget, 'capabilities') and self.lane_widget.capabilities else None
+        has_dimmer = caps.has_dimmer if caps else True
+        has_colour = caps.has_colour if caps else False
+        has_movement = caps.has_movement if caps else False
+        has_special = caps.has_special if caps else False
 
-        # Draw dimmer blocks (iterate through list)
-        for dimmer_block in self.block.dimmer_blocks:
-            # Use orange/amber color if controlling RGB instead of dimmer
-            if not has_dimmer and has_colour:
-                dimmer_color = QColor(255, 140, 0)  # Orange (RGB control mode)
-            else:
-                dimmer_color = QColor(255, 200, 100)  # Warm yellow (normal dimmer)
+        # Draw dimmer blocks if lane has dimmer or colour capability
+        if has_dimmer or has_colour:
+            for dimmer_block in self.block.dimmer_blocks:
+                # Use orange/amber color if controlling RGB instead of dimmer
+                if not has_dimmer and has_colour:
+                    dimmer_color = QColor(255, 140, 0)  # Orange (RGB control mode)
+                else:
+                    dimmer_color = QColor(255, 200, 100)  # Warm yellow (normal dimmer)
 
-            self._draw_sublane_block(
-                painter,
-                dimmer_block,
-                "dimmer",
-                dimmer_color,
-                sublane_height
-            )
+                self._draw_sublane_block(
+                    painter,
+                    dimmer_block,
+                    "dimmer",
+                    dimmer_color,
+                    sublane_height
+                )
 
-        # Draw colour blocks (iterate through list)
-        for colour_block in self.block.colour_blocks:
-            color = self._get_colour_block_color(colour_block)
-            self._draw_sublane_block(
-                painter,
-                colour_block,
-                "colour",
-                color,
-                sublane_height
-            )
+        # Draw colour blocks if lane has colour capability
+        if has_colour:
+            for colour_block in self.block.colour_blocks:
+                color = self._get_colour_block_color(colour_block)
+                self._draw_sublane_block(
+                    painter,
+                    colour_block,
+                    "colour",
+                    color,
+                    sublane_height
+                )
 
-        # Draw movement blocks (iterate through list)
-        for movement_block in self.block.movement_blocks:
-            self._draw_sublane_block(
-                painter,
-                movement_block,
-                "movement",
-                QColor(100, 150, 255),  # Blue
-                sublane_height
-            )
+        # Draw movement blocks if lane has movement capability
+        if has_movement:
+            for movement_block in self.block.movement_blocks:
+                self._draw_sublane_block(
+                    painter,
+                    movement_block,
+                    "movement",
+                    QColor(100, 150, 255),  # Blue
+                    sublane_height
+                )
 
-        # Draw special blocks (iterate through list)
-        for special_block in self.block.special_blocks:
-            self._draw_sublane_block(
-                painter,
-                special_block,
-                "special",
-                QColor(200, 100, 255),  # Purple
-                sublane_height
-            )
+        # Draw special blocks if lane has special capability
+        if has_special:
+            for special_block in self.block.special_blocks:
+                self._draw_sublane_block(
+                    painter,
+                    special_block,
+                    "special",
+                    QColor(200, 100, 255),  # Purple
+                    sublane_height
+                )
 
     def _draw_sublane_block(self, painter, sublane_block, sublane_type, color, sublane_height):
         """Draw a single sublane block."""
@@ -415,27 +422,44 @@ class LightBlockWidget(QWidget):
         if width < MIN_WIDTH_FOR_LABEL:
             return  # Block too narrow, skip label
 
-        # Sublane type labels
-        sublane_labels = {
-            "dimmer": "Dimmer",
-            "colour": "Colour",
-            "movement": "Movement",
-            "special": "Special"
-        }
+        # For dimmer blocks, use effect type as the primary label
+        if sublane_type == "dimmer":
+            effect_type = getattr(sublane_block, 'effect_type', 'static')
+            # Format effect type nicely (e.g., "ping_pong_smooth" -> "Ping Pong")
+            label_text = effect_type.replace('_', ' ').title()
+            # Shorten some common names
+            label_text = label_text.replace('Ping Pong Smooth', 'Ping Pong')
+            label_text = label_text.replace('Random Strobe', 'Random')
+            label_text = label_text.replace('Waterfall Down', 'Waterfall ↓')
+            label_text = label_text.replace('Waterfall Up', 'Waterfall ↑')
 
-        # Get label text
-        label_text = sublane_labels.get(sublane_type, sublane_type.capitalize())
-
-        # Get additional info if block is wide enough
-        info_text = ""
-        if width >= 100:  # Wide enough for additional info
-            info_text = self._get_sublane_block_info(sublane_block, sublane_type)
-
-        # Combine label and info
-        if info_text:
-            full_text = f"{label_text}: {info_text}"
+            # Add intensity if wide enough
+            if width >= 100:
+                intensity = int(sublane_block.intensity)
+                full_text = f"{label_text} ({intensity})"
+            else:
+                full_text = label_text
         else:
-            full_text = label_text
+            # Sublane type labels for other types
+            sublane_labels = {
+                "colour": "Colour",
+                "movement": "Movement",
+                "special": "Special"
+            }
+
+            # Get label text
+            label_text = sublane_labels.get(sublane_type, sublane_type.capitalize())
+
+            # Get additional info if block is wide enough
+            info_text = ""
+            if width >= 100:  # Wide enough for additional info
+                info_text = self._get_sublane_block_info(sublane_block, sublane_type)
+
+            # Combine label and info
+            if info_text:
+                full_text = f"{label_text}: {info_text}"
+            else:
+                full_text = label_text
 
         # Set font
         font = QFont()
@@ -1067,7 +1091,19 @@ class LightBlockWidget(QWidget):
             # Check if Shift is held for copy operation
             shift_held = event.modifiers() & Qt.KeyboardModifier.ShiftModifier
 
-            # Check if clicking in header zone (top area) - always drags entire envelope
+            # FIRST: Check for intensity handle click (takes priority over header zone)
+            # This allows adjusting dimmer intensity even when the handle is in the header area
+            sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
+            if sublane_block is not None and self._is_on_intensity_handle(pos, sublane_type, sublane_block):
+                # Clicking on intensity handle - start intensity drag
+                self.selected_sublane_type = sublane_type
+                self.selected_sublane_block = sublane_block
+                self.dragging_intensity_handle = sublane_block
+                self.drag_start_pos = event.globalPosition().toPoint()
+                self.update()
+                return
+
+            # Check if clicking in header zone (top area) - drags entire envelope
             if pos.y() < self.HEADER_HEIGHT:
                 # Deselect any sublane block
                 self.selected_sublane_type = None
@@ -1084,8 +1120,8 @@ class LightBlockWidget(QWidget):
                 self.drag_start_duration = self.block.end_time - self.block.start_time
                 return
 
-            # Below header: check if clicking on a sublane block
-            sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
+            # Below header: handle sublane block interactions
+            # (sublane_type and sublane_block already retrieved above)
 
             if sublane_block is not None:
                 # Clicked on a sublane block - select it (CHANGED: store block reference)
@@ -1098,13 +1134,9 @@ class LightBlockWidget(QWidget):
                 self.drag_start_sublane_start = sublane_block.start_time
                 self.drag_start_sublane_end = sublane_block.end_time
 
-                # Check if clicking on intensity handle (for dimmer blocks)
-                if self._is_on_intensity_handle(pos, sublane_type, sublane_block):
-                    # Start dragging intensity handle
-                    self.dragging_intensity_handle = sublane_block
-                    self.drag_start_intensity = sublane_block.intensity
                 # Check if clicking on edge for resizing
-                elif self._is_on_sublane_block_edge(pos, sublane_type, sublane_block):
+                # (intensity handle is already checked at the top of this function)
+                if self._is_on_sublane_block_edge(pos, sublane_type, sublane_block):
                     # Start resizing sublane block (CHANGED: store block reference)
                     self.resizing_sublane = sublane_block
                     edge = self._is_on_sublane_block_edge(pos, sublane_type, sublane_block)
@@ -1155,20 +1187,21 @@ class LightBlockWidget(QWidget):
             # Update cursor based on position
             pos = event.pos()
 
+            # FIRST: Check for intensity handle (takes priority over header zone)
+            sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
+            if sublane_block and self._is_on_intensity_handle(pos, sublane_type, sublane_block):
+                # On intensity handle - show vertical resize cursor
+                self.setCursor(Qt.CursorShape.SizeVerCursor)
+                return
+
             # Check if hovering over header zone (drag handle for entire effect)
             if pos.y() < self.HEADER_HEIGHT:
-                # Always show move cursor in header zone
+                # Show move cursor in header zone (unless on intensity handle, checked above)
                 self.setCursor(Qt.CursorShape.SizeAllCursor)
                 return
 
             # Check if hovering over a sublane block
-            sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
             if sublane_block:
-                # Check if hovering over intensity handle
-                if self._is_on_intensity_handle(pos, sublane_type, sublane_block):
-                    # On intensity handle - show vertical resize cursor
-                    self.setCursor(Qt.CursorShape.SizeVerCursor)
-                    return
                 # Check if hovering over edge
                 edge = self._is_on_sublane_block_edge(pos, sublane_type, sublane_block)
                 if edge:
@@ -1370,17 +1403,21 @@ class LightBlockWidget(QWidget):
             # Redraw to update handle position and label
             self.update()
 
-    def _get_sublane_block_by_type(self, sublane_type):
-        """Get sublane block object by type."""
+    def _get_sublane_blocks_by_type(self, sublane_type):
+        """Get list of sublane block objects by type.
+
+        Returns:
+            List of blocks for the given sublane type, or empty list if not found.
+        """
         if sublane_type == "dimmer":
-            return self.block.dimmer_block
+            return self.block.dimmer_blocks
         elif sublane_type == "colour":
-            return self.block.colour_block
+            return self.block.colour_blocks
         elif sublane_type == "movement":
-            return self.block.movement_block
+            return self.block.movement_blocks
         elif sublane_type == "special":
-            return self.block.special_block
-        return None
+            return self.block.special_blocks
+        return []
 
     def _check_overlap(self, sublane_type, start_time, end_time, exclude_block=None):
         """Check if a time range would overlap with existing blocks in a sublane.

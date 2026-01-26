@@ -176,8 +176,8 @@ class DMXManager:
                 fm = self.fixture_maps[fixture.name]
                 # Enhanced logging for moving heads
                 if getattr(fixture, 'type', '') == 'MH':
-                    print(f"DMXManager: Mapped MH '{fixture.name}': dimmer={fm.dimmer_channels} "
-                          f"shutter={fm.strobe_channels} color_wheel={fm.color_wheel_channels}")
+                    print(f"DMXManager: Mapped MH '{fixture.name}': pan={fm.pan_channels} tilt={fm.tilt_channels} "
+                          f"dimmer={fm.dimmer_channels} shutter={fm.strobe_channels}")
                 else:
                     print(f"DMXManager: Mapped fixture '{fixture.name}' with {len(fm.dimmer_channels)} dimmer channels")
             else:
@@ -427,11 +427,25 @@ class DMXManager:
 
             # Apply movement block to its resolved fixtures
             if movement_block and movement_fixtures:
-                for fixture in movement_fixtures:
+                # Sort fixtures by x-position for consistent phase offset ordering
+                sorted_movement_fixtures = sorted(movement_fixtures, key=lambda f: f.x)
+                total_movement_fixtures = len(sorted_movement_fixtures)
+
+                # Debug: log movement block application once
+                if not hasattr(self, '_debug_movement_logged'):
+                    self._debug_movement_logged = True
+                    fixture_names = [f.name for f in sorted_movement_fixtures]
+                    print(f"[DMX DEBUG] Movement block: {movement_block.effect_type} on {fixture_names}, "
+                          f"pan={movement_block.pan}, tilt={movement_block.tilt}, "
+                          f"phase_offset={movement_block.phase_offset_enabled}, "
+                          f"phase_degrees={movement_block.phase_offset_degrees}")
+
+                for fixture_index, fixture in enumerate(sorted_movement_fixtures):
                     if fixture.name not in self.fixture_maps:
                         continue
                     fixture_map = self.fixture_maps[fixture.name]
-                    self._apply_movement_block(fixture_map, movement_block, current_time)
+                    self._apply_movement_block(fixture_map, movement_block, current_time,
+                                               fixture_index, total_movement_fixtures)
 
             # Apply special block to its resolved fixtures
             if special_block and special_fixtures:
@@ -1285,8 +1299,17 @@ class DMXManager:
                     universe, channel = fixture_map.get_absolute_address(ch_offset)
                     self.set_dmx_value(universe, channel, int(wheel_value))
 
-    def _apply_movement_block(self, fixture_map: FixtureChannelMap, block: MovementBlock, current_time: float):
-        """Apply movement block to fixture channels with real-time shape calculation."""
+    def _apply_movement_block(self, fixture_map: FixtureChannelMap, block: MovementBlock, current_time: float,
+                               fixture_index: int = 0, total_fixtures: int = 1):
+        """Apply movement block to fixture channels with real-time shape calculation.
+
+        Args:
+            fixture_map: Channel mapping for this fixture
+            block: MovementBlock with effect settings
+            current_time: Current playback time in seconds
+            fixture_index: This fixture's index within the group (for phase offset)
+            total_fixtures: Total fixtures in the group (for phase offset)
+        """
         # Calculate current position based on effect type
         time_in_block = current_time - block.start_time
         block_duration = block.end_time - block.start_time
@@ -1322,6 +1345,13 @@ class DMXManager:
             progress = 0
         t = 2 * math.pi * total_cycles * progress
 
+        # Apply phase offset if enabled
+        # Each fixture gets a phase shift based on its index
+        if block.phase_offset_enabled and total_fixtures > 1:
+            # Convert degrees to radians and multiply by fixture index
+            phase_offset_radians = block.phase_offset_degrees * math.pi / 180.0
+            t = t + (fixture_index * phase_offset_radians)
+
         # Calculate pan/tilt based on effect type
         if effect_type == "static":
             pan = center_pan
@@ -1334,6 +1364,10 @@ class DMXManager:
         elif effect_type == "diamond":
             # Diamond: 4 corners traversed linearly
             phase = progress * 4 * total_cycles
+            # Apply phase offset for shape effects (normalized to cycles)
+            if block.phase_offset_enabled and total_fixtures > 1:
+                phase_offset_cycles = (fixture_index * block.phase_offset_degrees / 360.0) * 4
+                phase = phase + phase_offset_cycles
             corner = int(phase) % 4
             local_t = phase - int(phase)
             corners = [
@@ -1350,6 +1384,10 @@ class DMXManager:
         elif effect_type == "square":
             # Square: 4 corners traversed linearly
             phase = progress * 4 * total_cycles
+            # Apply phase offset for shape effects (normalized to cycles)
+            if block.phase_offset_enabled and total_fixtures > 1:
+                phase_offset_cycles = (fixture_index * block.phase_offset_degrees / 360.0) * 4
+                phase = phase + phase_offset_cycles
             corner = int(phase) % 4
             local_t = phase - int(phase)
             corners = [
@@ -1366,6 +1404,10 @@ class DMXManager:
         elif effect_type == "triangle":
             # Triangle: 3 corners traversed linearly
             phase = progress * 3 * total_cycles
+            # Apply phase offset for shape effects (normalized to cycles)
+            if block.phase_offset_enabled and total_fixtures > 1:
+                phase_offset_cycles = (fixture_index * block.phase_offset_degrees / 360.0) * 3
+                phase = phase + phase_offset_cycles
             corner = int(phase) % 3
             local_t = phase - int(phase)
             corners = [
@@ -1405,6 +1447,10 @@ class DMXManager:
         elif effect_type == "bounce":
             # Bouncing pattern using triangle waves
             bounce_t = progress * 4 * total_cycles
+            # Apply phase offset for bounce effect (normalized to cycles)
+            if block.phase_offset_enabled and total_fixtures > 1:
+                phase_offset_cycles = (fixture_index * block.phase_offset_degrees / 360.0) * 4
+                bounce_t = bounce_t + phase_offset_cycles
             pan_t = abs((bounce_t % 2) - 1)
             tilt_t = abs(((bounce_t + 0.5) % 2) - 1)
             pan = center_pan - pan_amplitude + 2 * pan_amplitude * pan_t
