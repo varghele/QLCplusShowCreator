@@ -1541,7 +1541,7 @@ shows:
     - bpm: 192.0
       color: '#55ff00'
       name: bridge
-      num_bars: 8
+      num_bars: 16
       signature: 4/4
       transition: instant
     - bpm: 192.0
@@ -1561,7 +1561,7 @@ shows:
       name: chorus3
       num_bars: 10
       signature: 4/4
-      transition: gradual
+      transition: instant
     - bpm: 192.0
       color: '#ff557f'
       name: chorus_repeat
@@ -1587,7 +1587,7 @@ shows:
       signature: 4/4
       transition: gradual
     timeline_data:
-      audio_file_path: C:/Users/varghele/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT/light_monsters_in_my_head/light_track_monsters_in_my_head.wav
+      audio_file_path: C:/Users/varghele/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT/MASTER\audiofiles\light_track_monsters_in_my_head.wav
       lanes:
       - fixture_targets:
         - WASH:0
@@ -3209,6 +3209,92 @@ shows:
           riff_version: null
           special_blocks: []
           start_time: 128.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: Wheel
+            color_wheel_position: 57
+            cyan: 0.0
+            end_time: 153.75
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 143.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: 1/2
+            effect_type: ping_pong_smooth
+            end_time: 153.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 143.75
+            strobe_speed: 0.0
+          duration: 10.0
+          effect_name: ''
+          end_time: 153.75
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 143.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: Wheel
+            color_wheel_position: 57
+            cyan: 0.0
+            end_time: 163.75
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 153.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 161.25
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 153.75
+            strobe_speed: 0.0
+          - effect_speed: '2'
+            effect_type: ping_pong_smooth
+            end_time: 163.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 161.25
+            strobe_speed: 20.0
+          duration: 10.0
+          effect_name: ''
+          end_time: 163.75
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 153.75
         muted: false
         name: WASH_COMB
         solo: false
@@ -4241,6 +4327,92 @@ shows:
           riff_version: null
           special_blocks: []
           start_time: 135.0
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 153.75
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 143.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 153.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 143.75
+            strobe_speed: 0.0
+          duration: 10.0
+          effect_name: ''
+          end_time: 153.75
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 143.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 163.75
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 153.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 161.25
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 153.75
+            strobe_speed: 0.0
+          - effect_speed: '2'
+            effect_type: zigzag
+            end_time: 163.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 161.25
+            strobe_speed: 0.0
+          duration: 10.0
+          effect_name: ''
+          end_time: 163.75
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 153.75
         muted: false
         name: Lane 4
         solo: false
@@ -5108,6 +5280,48 @@ shows:
           riff_version: null
           special_blocks: []
           start_time: 142.5
+        - colour_blocks: []
+          dimmer_blocks:
+          - effect_speed: 1/2
+            effect_type: snake
+            end_time: 153.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 143.75
+            strobe_speed: 0.0
+          duration: 10.0
+          effect_name: ''
+          end_time: 153.75
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 143.75
+        - colour_blocks: []
+          dimmer_blocks:
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 163.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 153.75
+            strobe_speed: 0.0
+          duration: 10.0
+          effect_name: ''
+          end_time: 163.75
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 153.75
         muted: false
         name: Lane 5
         solo: false
@@ -5794,6 +6008,395 @@ shows:
             start_time: 128.75
             zoom: 127.5
           start_time: 128.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 143.75
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 133.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 135.0
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 133.75
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: random_strobe
+            end_time: 136.25
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 135.0
+            strobe_speed: 0.0
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 137.5
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 136.25
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: random_strobe
+            end_time: 138.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 137.5
+            strobe_speed: 0.0
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 140.0
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 138.75
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: random_strobe
+            end_time: 141.25
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 140.0
+            strobe_speed: 0.0
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 143.125
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 141.25
+            strobe_speed: 0.0
+          duration: 10.0
+          effect_name: ''
+          end_time: 143.75
+          modified: true
+          movement_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 143.75
+            interpolate_from_previous: true
+            lissajous_ratio: '1:2'
+            modified: false
+            pan: 127.5
+            pan_amplitude: 50.0
+            pan_fine: 0.0
+            pan_max: 255.0
+            pan_min: 0.0
+            phase_offset_degrees: 0.0
+            phase_offset_enabled: false
+            speed: 0.0
+            start_time: 133.75
+            target_spot_name: Spot2
+            tilt: 127.5
+            tilt_amplitude: 50.0
+            tilt_fine: 0.0
+            tilt_max: 255.0
+            tilt_min: 0.0
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks:
+          - end_time: 143.75
+            focus: 127.5
+            gobo_index: 0
+            gobo_rotation: 0.0
+            modified: false
+            prism_enabled: false
+            prism_rotation: 0.0
+            start_time: 133.75
+            zoom: 127.5
+          start_time: 133.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 12
+            cyan: 0.0
+            end_time: 163.75
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 0.0
+            saturation: 0.0
+            start_time: 143.75
+            uv: 0.0
+            value: 0.0
+            white: 255.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 161.25
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 143.75
+            strobe_speed: 0.0
+          - effect_speed: '2'
+            effect_type: random_strobe
+            end_time: 163.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 161.25
+            strobe_speed: 0.0
+          duration: 20.0
+          effect_name: ''
+          end_time: 163.75
+          modified: true
+          movement_blocks:
+          - effect_speed: 1/8
+            effect_type: lissajous
+            end_time: 163.75
+            interpolate_from_previous: true
+            lissajous_ratio: '2:3'
+            modified: false
+            pan: 127.5
+            pan_amplitude: 50.0
+            pan_fine: 0.0
+            pan_max: 255.0
+            pan_min: 0.0
+            phase_offset_degrees: 0.0
+            phase_offset_enabled: false
+            speed: 0.0
+            start_time: 143.75
+            target_spot_name: Spot2
+            tilt: 127.5
+            tilt_amplitude: 50.0
+            tilt_fine: 0.0
+            tilt_max: 255.0
+            tilt_min: 0.0
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks:
+          - end_time: 153.75
+            focus: 127.5
+            gobo_index: 0
+            gobo_rotation: 0.0
+            modified: false
+            prism_enabled: false
+            prism_rotation: 0.0
+            start_time: 143.75
+            zoom: 127.5
+          - end_time: 163.75
+            focus: 127.0
+            gobo_index: 0
+            gobo_rotation: 0.0
+            modified: false
+            prism_enabled: true
+            prism_rotation: 0.0
+            start_time: 153.75
+            zoom: 127.0
+          start_time: 143.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 173.75
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 163.75
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 165.0
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 164.375
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 166.25
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 165.625
+            strobe_speed: 0.0
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 167.5
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 166.875
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 168.75
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 168.125
+            strobe_speed: 0.0
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 170.0
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 169.375
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 171.25
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 170.625
+            strobe_speed: 0.0
+          - effect_speed: 1/2
+            effect_type: hit
+            end_time: 172.5
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 171.25
+            strobe_speed: 0.0
+          duration: 10.0
+          effect_name: ''
+          end_time: 173.75
+          modified: true
+          movement_blocks:
+          - effect_speed: 1/4
+            effect_type: lissajous
+            end_time: 173.75
+            interpolate_from_previous: true
+            lissajous_ratio: '2:3'
+            modified: false
+            pan: 127.5
+            pan_amplitude: 50.0
+            pan_fine: 0.0
+            pan_max: 255.0
+            pan_min: 0.0
+            phase_offset_degrees: 0.0
+            phase_offset_enabled: false
+            speed: 0.0
+            start_time: 163.75
+            target_spot_name: Spot2
+            tilt: 127.5
+            tilt_amplitude: 50.0
+            tilt_fine: 0.0
+            tilt_max: 255.0
+            tilt_min: 0.0
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks:
+          - end_time: 173.75
+            focus: 127.5
+            gobo_index: 0
+            gobo_rotation: 0.0
+            modified: false
+            prism_enabled: false
+            prism_rotation: 0.0
+            start_time: 163.75
+            zoom: 127.5
+          start_time: 163.75
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 187.5
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 175.0
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 187.5
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 175.0
+            strobe_speed: 0.0
+          duration: 12.5
+          effect_name: ''
+          end_time: 187.5
+          modified: true
+          movement_blocks:
+          - effect_speed: '1'
+            effect_type: static
+            end_time: 187.5
+            interpolate_from_previous: true
+            lissajous_ratio: '1:2'
+            modified: false
+            pan: 127.5
+            pan_amplitude: 50.0
+            pan_fine: 0.0
+            pan_max: 255.0
+            pan_min: 0.0
+            phase_offset_degrees: 0.0
+            phase_offset_enabled: false
+            speed: 0.0
+            start_time: 175.0
+            target_spot_name: Spot1
+            tilt: 127.5
+            tilt_amplitude: 50.0
+            tilt_fine: 0.0
+            tilt_max: 255.0
+            tilt_min: 0.0
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks:
+          - end_time: 187.5
+            focus: 127.0
+            gobo_index: 0
+            gobo_rotation: 0.0
+            modified: false
+            prism_enabled: false
+            prism_rotation: 0.0
+            start_time: 175.0
+            zoom: 127.0
+          start_time: 175.0
         muted: false
         name: Lane 6
         solo: false
