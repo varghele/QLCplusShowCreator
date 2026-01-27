@@ -357,10 +357,16 @@ class ShowsTab(BaseTab):
     def _on_audio_file_loaded(self, file_path: str):
         """Handle audio file loaded.
 
-        Note: Show structure is now set in the Structure tab, so no extension check is performed.
+        Updates the audio mixer with the new file if the engine is already initialized.
         """
-        # Audio file loaded - no action needed as structure is managed in Structure tab
-        pass
+        # Update the audio mixer if it exists (engine already initialized)
+        if self.audio_mixer:
+            audio_file = self.audio_lane.get_audio_file()
+            if audio_file:
+                # Remove old audio and add new one
+                self.audio_mixer.remove_lane("audio")
+                self.audio_mixer.add_lane("audio", audio_file, 1.0)
+                print(f"Audio mixer updated with: {os.path.basename(file_path)}")
 
     def _load_show(self, show_name: str):
         """Load show into timeline."""
@@ -435,9 +441,15 @@ class ShowsTab(BaseTab):
                         print(f"Audio file not found in local folder: {local_audio_path}")
                     print(f"Audio file not found at original path: {audio_filename}")
                     self.audio_lane.clear_audio()
+                    # Also clear the mixer
+                    if self.audio_mixer:
+                        self.audio_mixer.remove_lane("audio")
             else:
                 # No audio for this show, clear it
                 self.audio_lane.clear_audio()
+                # Also clear the mixer
+                if self.audio_mixer:
+                    self.audio_mixer.remove_lane("audio")
 
             # Create lane widgets with progress indicator
             progress = get_progress_manager()
@@ -462,6 +474,8 @@ class ShowsTab(BaseTab):
         else:
             # No timeline data, clear audio
             self.audio_lane.clear_audio()
+            if self.audio_mixer:
+                self.audio_mixer.remove_lane("audio")
 
     def _clear_timeline(self):
         """Clear all timeline data."""

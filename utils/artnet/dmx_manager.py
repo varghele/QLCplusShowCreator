@@ -167,6 +167,9 @@ class DMXManager:
 
     def _build_fixture_maps(self):
         """Build channel maps for all fixtures."""
+        mapped_count = 0
+        missing_defs = []
+
         for fixture in self.config.fixtures:
             # Get fixture definition - keys are "manufacturer_model" strings
             fixture_key = f"{fixture.manufacturer}_{fixture.model}"
@@ -174,15 +177,13 @@ class DMXManager:
 
             if fixture_def:
                 self.fixture_maps[fixture.name] = FixtureChannelMap(fixture, fixture_def, self.config)
-                fm = self.fixture_maps[fixture.name]
-                # Enhanced logging for moving heads
-                if getattr(fixture, 'type', '') == 'MH':
-                    print(f"DMXManager: Mapped MH '{fixture.name}': pan={fm.pan_channels} tilt={fm.tilt_channels} "
-                          f"dimmer={fm.dimmer_channels} shutter={fm.strobe_channels}")
-                else:
-                    print(f"DMXManager: Mapped fixture '{fixture.name}' with {len(fm.dimmer_channels)} dimmer channels")
+                mapped_count += 1
             else:
-                print(f"Warning: No fixture definition found for {fixture.name} ({fixture_key})")
+                missing_defs.append(fixture.name)
+
+        # Summary logging instead of per-fixture
+        if missing_defs:
+            print(f"DMXManager: Warning - no definitions for: {', '.join(missing_defs)}")
 
     def rebuild_fixture_maps(self):
         """Rebuild fixture maps when fixtures are added, removed, or modified."""
@@ -190,12 +191,14 @@ class DMXManager:
         self._build_fixture_maps()
 
         # Ensure all fixture universes are initialized in dmx_state
+        new_universes = []
         for fixture in self.config.fixtures:
             if fixture.universe not in self.dmx_state:
                 self.dmx_state[fixture.universe] = bytearray(512)
-                print(f"DMXManager: Initialized universe {fixture.universe} for fixture {fixture.name}")
+                new_universes.append(fixture.universe)
 
-        print(f"DMXManager: Rebuilt fixture maps, now tracking {len(self.fixture_maps)} fixtures")
+        if new_universes:
+            print(f"DMXManager: Added universe(s) {new_universes}")
 
     def clear_all_dmx(self):
         """Clear all DMX values to 0."""
@@ -209,7 +212,6 @@ class DMXManager:
         block state doesn't persist into the new show.
         """
         self.active_blocks.clear()
-        print("DMXManager: Cleared active blocks")
 
     def set_fixtures_visible(self):
         """Set all fixtures to a visible idle state (dimmer at 255, white color, shutter open, centered)."""
