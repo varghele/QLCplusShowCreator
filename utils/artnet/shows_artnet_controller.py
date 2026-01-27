@@ -61,6 +61,9 @@ class ShowsArtNetController(QObject):
         # Reference to light lanes (set from ShowsTab)
         self.light_lanes = []
 
+        # Track fixture fingerprint to avoid redundant rebuilds
+        self._last_fixture_fingerprint = self._get_fixture_fingerprint()
+
         print("ShowsArtNet Controller initialized")
 
     def set_position_callback(self, callback: Callable[[], float]):
@@ -93,17 +96,34 @@ class ShowsArtNetController(QObject):
         """
         self.light_lanes = lanes
 
-    def update_fixtures(self):
+    def _get_fixture_fingerprint(self) -> str:
+        """Generate a fingerprint of current fixtures for change detection."""
+        # Create a string that changes when fixtures are added/removed/modified
+        parts = []
+        for f in self.config.fixtures:
+            parts.append(f"{f.name}:{f.universe}:{f.address}:{f.current_mode}")
+        return "|".join(sorted(parts))
+
+    def update_fixtures(self, force: bool = False):
         """
         Rebuild fixture mappings when fixtures are added, removed, or modified.
 
         Call this when fixtures change (e.g., after duplicating or adding fixtures).
+
+        Args:
+            force: If True, rebuild even if no changes detected
         """
+        # Check if fixtures actually changed to avoid redundant rebuilds
+        current_fingerprint = self._get_fixture_fingerprint()
+        if not force and current_fingerprint == self._last_fixture_fingerprint:
+            return  # No changes, skip rebuild
+
+        self._last_fixture_fingerprint = current_fingerprint
         self.dmx_manager.rebuild_fixture_maps()
         # Also reset fixtures to visible state so new fixtures appear
         self.dmx_manager.set_fixtures_visible()
         self._send_all_universes()
-        print("ShowsArtNet: Fixture mappings updated")
+        print(f"ShowsArtNet: Fixture mappings updated ({len(self.config.fixtures)} fixtures)")
 
     def enable_output(self):
         """Enable ArtNet output."""

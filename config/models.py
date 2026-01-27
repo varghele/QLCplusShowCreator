@@ -1588,27 +1588,31 @@ class Configuration:
         """
         Ensure universes exist for all fixtures.
 
-        Creates universes automatically based on fixture assignments if none exist.
+        Creates universes automatically based on fixture assignments.
         Uses ArtNet broadcast output for visualizer compatibility.
 
         Returns:
-            bool: True if universes were created, False if they already existed
+            bool: True if any universes were created, False if all already existed
         """
-        if self.universes:
-            # Universes already configured
-            return False
-
         if not self.fixtures:
             # No fixtures, nothing to do
             return False
 
         # Collect all unique universe IDs from fixtures
-        universe_ids = set()
+        universe_ids_needed = set()
         for fixture in self.fixtures:
-            universe_ids.add(fixture.universe)
+            universe_ids_needed.add(fixture.universe)
 
-        # Create universes for each unique ID
-        for universe_id in sorted(universe_ids):
+        # Find missing universes
+        existing_ids = set(self.universes.keys())
+        missing_ids = universe_ids_needed - existing_ids
+
+        if not missing_ids:
+            # All needed universes already exist
+            return False
+
+        # Create universes for each missing ID
+        for universe_id in sorted(missing_ids):
             self.universes[universe_id] = Universe(
                 id=universe_id,
                 name=f"Universe {universe_id}",
@@ -1624,8 +1628,7 @@ class Configuration:
                 }
             )
 
-        if universe_ids:
-            print(f"Auto-created {len(universe_ids)} universe(s) for visualizer: {sorted(universe_ids)}")
+        print(f"Auto-created {len(missing_ids)} universe(s) for visualizer: {sorted(missing_ids)}")
 
         return True
 

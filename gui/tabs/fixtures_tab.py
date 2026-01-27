@@ -41,6 +41,9 @@ class FixturesTab(BaseTab):
         self.existing_groups = set()
         self.fixture_paths = []
 
+        # Track fixture state to avoid unnecessary rebuilds
+        self._last_fixture_fingerprint = None
+
         super().__init__(config, parent)
 
     def setup_ui(self):
@@ -131,8 +134,28 @@ class FixturesTab(BaseTab):
         self.duplicate_btn.clicked.connect(self._duplicate_fixture)
         self.table.itemChanged.connect(self.save_to_config)
 
-    def update_from_config(self):
-        """Refresh fixture table from configuration"""
+    def _get_fixture_fingerprint(self) -> str:
+        """Generate fingerprint of fixtures and groups for change detection."""
+        parts = []
+        for f in self.config.fixtures:
+            parts.append(f"{f.name}:{f.universe}:{f.address}:{f.manufacturer}:{f.model}:{f.current_mode}:{f.group}")
+        # Also include groups in fingerprint
+        parts.append(f"groups:{','.join(sorted(self.config.groups.keys()))}")
+        return "|".join(parts)
+
+    def update_from_config(self, force: bool = False):
+        """Refresh fixture table from configuration.
+
+        Args:
+            force: If True, rebuild even if no changes detected
+        """
+        # Check if rebuild is needed
+        current_fingerprint = self._get_fixture_fingerprint()
+        if not force and current_fingerprint == self._last_fixture_fingerprint:
+            return  # No changes, skip expensive rebuild
+
+        self._last_fixture_fingerprint = current_fingerprint
+
         # Disable visual updates during population to prevent row-by-row rendering
         self.table.setUpdatesEnabled(False)
         # Block signals during population
@@ -311,6 +334,12 @@ class FixturesTab(BaseTab):
                     fixture.group = ""
 
         self._update_groups()
+
+        # Ensure universes exist for all fixtures (auto-create if fixture uses new universe)
+        self.config.ensure_universes_for_fixtures()
+
+        # Update fingerprint to reflect saved changes
+        self._last_fixture_fingerprint = self._get_fixture_fingerprint()
 
         # Notify main window of group changes if needed
         main_window = self.window()
