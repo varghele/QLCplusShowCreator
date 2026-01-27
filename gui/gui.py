@@ -389,6 +389,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # File menu actions
         self.actionSaveConfig.triggered.connect(self.save_configuration)
+        self.actionSaveConfigAs.triggered.connect(self.save_configuration_as)
         self.actionLoadConfig.triggered.connect(self.load_configuration)
         self.actionImportWorkspace.triggered.connect(self.import_workspace)
         self.actionCreateWorkspace.triggered.connect(self.create_workspace)
@@ -524,6 +525,49 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 if not file_path:
                     return
                 self.config_path = file_path
+
+            # Save configuration
+            self.config.save(self.config_path)
+            QMessageBox.information(
+                self,
+                "Success",
+                f"Configuration saved to {self.config_path}"
+            )
+            print(f"Configuration saved to {self.config_path}")
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to save configuration: {str(e)}"
+            )
+            print(f"Error saving configuration: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def save_configuration_as(self):
+        """Save configuration to a new YAML file (always prompts for location)"""
+        try:
+            # Save all tabs to configuration
+            self.config_tab.save_to_config()
+            self.fixtures_tab.save_to_config()
+            self.stage_tab.save_to_config()
+            self.structure_tab.save_to_config()
+            self.shows_tab.save_to_config()
+
+            # Always prompt for file path
+            default_dir = os.path.dirname(self.config_path) if self.config_path else ""
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Configuration As",
+                default_dir,
+                "YAML Files (*.yaml);;All Files (*)"
+            )
+            if not file_path:
+                return
+
+            # Update the current config path to the new location
+            self.config_path = file_path
 
             # Save configuration
             self.config.save(self.config_path)
