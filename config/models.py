@@ -1239,7 +1239,8 @@ class Configuration:
                 name: asdict(spot)
                 for name, spot in self.spots.items()
             },
-            'workspace_path': self.workspace_path
+            'workspace_path': self.workspace_path,
+            'shows_directory': self.shows_directory
         }
 
         with open(filename, 'w') as f:
@@ -1363,7 +1364,8 @@ class Configuration:
             universes=universes,
             shows=shows,
             spots=spots,
-            workspace_path=data.get('workspace_path')
+            workspace_path=data.get('workspace_path'),
+            shows_directory=data.get('shows_directory')
         )
 
         return config

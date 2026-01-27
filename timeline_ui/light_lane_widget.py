@@ -52,8 +52,8 @@ class LightLaneWidget(QFrame):
         self.setLineWidth(1)
 
         # Dynamic height based on number of sublanes, with minimum for control panel
-        # Add buffer for margins, padding, and horizontal scrollbar
-        buffer_height = 40  # Extra space for layout margins and scrollbar
+        # Add buffer for margins and padding
+        buffer_height = 15  # Extra space for layout margins
         total_height = max(self.min_lane_height, self.num_sublanes * self.sublane_height + buffer_height)
         self.setMinimumHeight(total_height)
         self.setMaximumHeight(total_height)
@@ -100,7 +100,7 @@ class LightLaneWidget(QFrame):
 
         self.timeline_scroll.setWidget(self.timeline_widget)
         self.timeline_scroll.setWidgetResizable(False)
-        self.timeline_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.timeline_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.timeline_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         # Connect scroll events
