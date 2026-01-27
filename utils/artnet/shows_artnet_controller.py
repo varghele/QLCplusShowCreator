@@ -319,8 +319,10 @@ class ShowsArtNetController(QObject):
     def _send_all_universes(self):
         """Send DMX data for all configured universes."""
         for universe_id in self.config.universes.keys():
-            dmx_data = self.dmx_manager.get_dmx_data(universe_id)
-            self.artnet_sender.send_dmx(universe_id, dmx_data)
+            # Ensure universe_id is int (YAML may load as string)
+            universe_int = int(universe_id)
+            dmx_data = self.dmx_manager.get_dmx_data(universe_int)
+            self.artnet_sender.send_dmx(universe_int, dmx_data)
 
     def set_target_ip(self, ip: str):
         """

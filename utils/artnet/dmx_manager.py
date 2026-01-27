@@ -136,9 +136,9 @@ class DMXManager:
         # DMX state - universe_id -> 512-byte array
         self.dmx_state: Dict[int, bytearray] = {}
 
-        # Initialize universes from configuration
+        # Initialize universes from configuration (ensure int keys - YAML may load as string)
         for universe_id in config.universes.keys():
-            self.dmx_state[universe_id] = bytearray(512)
+            self.dmx_state[int(universe_id)] = bytearray(512)
 
         # Also initialize universes for all fixtures (in case fixture uses unconfigured universe)
         for fixture in config.fixtures:
