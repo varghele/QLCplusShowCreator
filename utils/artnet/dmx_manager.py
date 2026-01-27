@@ -1173,6 +1173,110 @@ class DMXManager:
                     universe, channel = fixture_map.get_absolute_address(ch_offset)
                     self.set_dmx_value(universe, channel, intensity)
 
+        elif block.effect_type == "pulse":
+            # Pulse effect: like hit but with a minimum intensity floor
+            # Sharp attack to full, exponential decay to ~30%, synced to BPM
+            speed_multiplier = self._parse_speed(block.effect_speed)
+            time_in_block = current_time - block.start_time
+
+            # Get BPM for timing
+            if self.song_structure:
+                bpm = self.song_structure.get_bpm_at_time(current_time)
+            else:
+                bpm = 120.0
+
+            seconds_per_beat = 60.0 / bpm
+            time_per_pulse = seconds_per_beat / speed_multiplier
+
+            # Calculate position within current pulse cycle
+            time_in_cycle = time_in_block % time_per_pulse
+
+            # Calculate intensity: exponential decay from 1.0 to min_intensity
+            min_intensity = 0.7  # Floor at 70% - keeps fixtures bright between pulses
+            decay_progress = time_in_cycle / time_per_pulse
+            # Exponential decay that bottoms out at min_intensity
+            intensity_multiplier = min_intensity + (1.0 - min_intensity) * math.exp(-decay_progress * 4)
+
+            # Check if this is a pixelbar type
+            fixture_type = getattr(fixture_map.fixture, 'type', '')
+            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
+
+            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
+                # For pixelbars: set master dimmer to full, control via color scaling
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, int(block.intensity))
+
+                num_segments = max(
+                    len(fixture_map.red_channels),
+                    len(fixture_map.green_channels),
+                    len(fixture_map.blue_channels),
+                    len(fixture_map.white_channels),
+                    1
+                )
+                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
+            else:
+                # For regular fixtures: control via dimmer channels
+                final_intensity = int(block.intensity * intensity_multiplier)
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, final_intensity)
+
+        elif block.effect_type == "pulse_staggered":
+            # Pulse staggered: same as pulse but with phase offset per fixture
+            # Creates a wave effect across multiple fixtures
+            speed_multiplier = self._parse_speed(block.effect_speed)
+            time_in_block = current_time - block.start_time
+
+            # Get BPM for timing
+            if self.song_structure:
+                bpm = self.song_structure.get_bpm_at_time(current_time)
+            else:
+                bpm = 120.0
+
+            seconds_per_beat = 60.0 / bpm
+            time_per_pulse = seconds_per_beat / speed_multiplier
+
+            # Calculate phase offset based on fixture index
+            # Spread fixtures evenly across one pulse cycle
+            if total_fixtures > 1:
+                phase_offset = (fixture_index / total_fixtures) * time_per_pulse
+            else:
+                phase_offset = 0.0
+
+            # Calculate position within current pulse cycle (with phase offset)
+            time_in_cycle = (time_in_block + phase_offset) % time_per_pulse
+
+            # Calculate intensity: exponential decay from 1.0 to min_intensity
+            min_intensity = 0.7  # Floor at 70% - keeps fixtures bright between pulses
+            decay_progress = time_in_cycle / time_per_pulse
+            intensity_multiplier = min_intensity + (1.0 - min_intensity) * math.exp(-decay_progress * 4)
+
+            # Check if this is a pixelbar type
+            fixture_type = getattr(fixture_map.fixture, 'type', '')
+            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
+
+            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
+                # For pixelbars: set master dimmer to full, control via color scaling
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, int(block.intensity))
+
+                num_segments = max(
+                    len(fixture_map.red_channels),
+                    len(fixture_map.green_channels),
+                    len(fixture_map.blue_channels),
+                    len(fixture_map.white_channels),
+                    1
+                )
+                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
+            else:
+                # For regular fixtures: control via dimmer channels
+                final_intensity = int(block.intensity * intensity_multiplier)
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, final_intensity)
+
         elif block.effect_type == "hit":
             # Hit effect: instant attack to full intensity, decay over the beat
             # One hit per beat at speed "1", scales with speed multiplier
