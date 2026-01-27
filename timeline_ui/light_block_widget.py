@@ -1859,7 +1859,7 @@ class LightBlockWidget(QWidget):
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             if self.selected_sublane_type in ["dimmer", "movement"] and self.selected_sublane_block:
                 # Speed options in order
-                speed_options = ["1/4", "1/2", "1", "2", "4"]
+                speed_options = ["1/16", "1/8", "1/4", "1/2", "1", "2", "4", "8", "16"]
 
                 # Get current speed
                 current_speed = getattr(self.selected_sublane_block, 'effect_speed', '1')

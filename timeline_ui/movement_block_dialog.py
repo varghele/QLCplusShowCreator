@@ -447,7 +447,7 @@ class MovementBlockDialog(QDialog):
 
         # Effect speed selector
         self.effect_speed_combo = QComboBox()
-        self.effect_speed_combo.addItems(["1/4", "1/2", "1", "2", "4"])
+        self.effect_speed_combo.addItems(["1/16", "1/8", "1/4", "1/2", "1", "2", "4", "8", "16"])
         self.effect_speed_combo.setCurrentText("1")
         effect_layout.addRow("Speed:", self.effect_speed_combo)
 
