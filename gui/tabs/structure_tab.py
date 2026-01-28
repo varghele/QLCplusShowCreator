@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QWidget, QLabel,
                              QLineEdit, QSpinBox, QDoubleSpinBox, QColorDialog,
                              QMessageBox, QSplitter, QInputDialog, QSlider,
                              QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
-                             QSizePolicy, QMenu, QFileDialog)
+                             QSizePolicy, QMenu, QFileDialog, QProgressDialog)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont, QAction
 import shutil
@@ -1284,24 +1284,7 @@ class StructureTab(BaseTab):
         if not self._ensure_shows_directory():
             return
 
-        csv_path = os.path.join(self.config.shows_directory, f"{self.current_show_name}.csv")
-
-        try:
-            with open(csv_path, 'w', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=['showpart', 'signature', 'bpm', 'num_bars', 'transition', 'color'])
-                writer.writeheader()
-
-                for part in self.current_show.parts:
-                    writer.writerow({
-                        'showpart': part.name,
-                        'signature': part.signature,
-                        'bpm': part.bpm,
-                        'num_bars': part.num_bars,
-                        'transition': part.transition,
-                        'color': part.color
-                    })
-        except Exception as e:
-            print(f"Failed to save CSV: {e}")
+        self._save_show_to_csv(self.current_show_name, self.current_show)
 
     def _import_all_shows_from_csv(self):
         """Import all show structures from CSV files in the shows directory."""
@@ -1578,11 +1561,69 @@ class StructureTab(BaseTab):
             self.playback_sync = None
 
     def save_to_config(self):
-        """Save current show structure to configuration and CSV file."""
-        # Save current show to CSV
-        if self.current_show_name and self.current_show:
-            self._save_to_csv()
-            print(f"Saved CSV for show: {self.current_show_name}")
+        """Save all show structures to configuration and CSV files."""
+        # Ensure shows directory is configured
+        if not self._ensure_shows_directory():
+            return
+
+        # Get all shows that have parts
+        shows_to_save = [(name, show) for name, show in self.config.shows.items()
+                         if show.parts]
+
+        if not shows_to_save:
+            print("No shows with parts to save")
+            return
+
+        # Create progress dialog
+        progress = QProgressDialog("Saving show structures...", "Cancel", 0, len(shows_to_save), self)
+        progress.setWindowTitle("Saving Shows")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)  # Show immediately
+        progress.setValue(0)
+
+        saved_count = 0
+        for i, (show_name, show) in enumerate(shows_to_save):
+            if progress.wasCanceled():
+                break
+
+            progress.setLabelText(f"Saving {show_name}...")
+            progress.setValue(i)
+
+            # Save this show to CSV
+            self._save_show_to_csv(show_name, show)
+            saved_count += 1
+
+        progress.setValue(len(shows_to_save))
+        print(f"Saved {saved_count} show(s) to CSV")
+
+    def _save_show_to_csv(self, show_name: str, show: Show):
+        """Save a specific show structure to CSV file.
+
+        Args:
+            show_name: Name of the show
+            show: Show object containing parts
+        """
+        if not show.parts:
+            return
+
+        csv_path = os.path.join(self.config.shows_directory, f"{show_name}.csv")
+
+        try:
+            with open(csv_path, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=['showpart', 'signature', 'bpm', 'num_bars', 'transition', 'color'])
+                writer.writeheader()
+
+                for part in show.parts:
+                    writer.writerow({
+                        'showpart': part.name,
+                        'signature': part.signature,
+                        'bpm': part.bpm,
+                        'num_bars': part.num_bars,
+                        'transition': part.transition,
+                        'color': part.color
+                    })
+        except Exception as e:
+            print(f"Failed to save CSV for {show_name}: {e}")
 
     def on_tab_activated(self):
         """Called when tab becomes visible."""
