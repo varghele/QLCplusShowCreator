@@ -1026,6 +1026,117 @@ class DMXManager:
                     universe, channel = fixture_map.get_absolute_address(ch_offset)
                     self.set_dmx_value(universe, channel, intensity)
 
+        elif block.effect_type == "fill_unfill":
+            # Fill/unfill effect: fills from center outward, then unfills back to center
+            # 4 beats = full cycle (2 beats fill, 2 beats unfill) at speed "1"
+            speed_multiplier = self._parse_speed(block.effect_speed)
+            time_in_block = current_time - block.start_time
+
+            # Get BPM for timing
+            if self.song_structure:
+                bpm = self.song_structure.get_bpm_at_time(current_time)
+            else:
+                bpm = 120.0
+
+            seconds_per_beat = 60.0 / bpm
+
+            # Check fixture type for segment-based control
+            fixture_type = getattr(fixture_map.fixture, 'type', '')
+            is_segmented = fixture_type in ('PIXELBAR', 'BAR', 'SUNSTRIP')
+
+            # Determine if this has segments
+            has_color_segments = fixture_map.red_channels or fixture_map.white_channels
+            has_dimmer_segments = len(fixture_map.dimmer_channels) > 1
+
+            if is_segmented and (has_color_segments or has_dimmer_segments):
+                # SEGMENT-BASED: Fill/unfill segments from center outward
+                if has_color_segments:
+                    num_segments = max(
+                        len(fixture_map.red_channels),
+                        len(fixture_map.green_channels),
+                        len(fixture_map.blue_channels),
+                        len(fixture_map.white_channels),
+                        1
+                    )
+                    is_dimmer_only = False
+                else:
+                    num_segments = len(fixture_map.dimmer_channels)
+                    is_dimmer_only = True
+
+                # 4 beats = full cycle (2 beats fill, 2 beats unfill)
+                time_per_phase = (seconds_per_beat * 2) / speed_multiplier
+                cycle_time = time_per_phase * 2
+
+                # Current position in cycle
+                time_in_cycle = time_in_block % cycle_time
+
+                # Calculate fill progress (0 to 1 for fill, 1 to 0 for unfill)
+                if time_in_cycle < time_per_phase:
+                    # Fill phase: expanding from center
+                    fill_progress = time_in_cycle / time_per_phase
+                else:
+                    # Unfill phase: contracting to center
+                    fill_progress = 1.0 - ((time_in_cycle - time_per_phase) / time_per_phase)
+
+                # Calculate center index (or indices for even number of segments)
+                center = (num_segments - 1) / 2.0
+
+                # Calculate how far the fill has expanded from center
+                # At progress=0, only center is lit; at progress=1, all segments lit
+                max_distance = center  # Maximum distance from center to edge
+                current_fill_distance = fill_progress * max_distance
+
+                # Calculate intensity for each segment based on distance from center
+                segment_intensities = []
+                for seg_idx in range(num_segments):
+                    distance_from_center = abs(seg_idx - center)
+
+                    if distance_from_center <= current_fill_distance:
+                        # Within filled area - full intensity
+                        # Add smooth edge transition
+                        if current_fill_distance > 0 and distance_from_center > current_fill_distance - 1:
+                            # Near the edge - smooth transition
+                            edge_progress = current_fill_distance - distance_from_center
+                            intensity_factor = min(1.0, edge_progress + 0.2)
+                        else:
+                            intensity_factor = 1.0
+                    else:
+                        # Outside filled area - off
+                        intensity_factor = 0.0
+
+                    segment_intensities.append(intensity_factor)
+
+                if is_dimmer_only:
+                    # Sunstrip: apply intensities directly to dimmer channels
+                    for seg_idx, ch_offset in enumerate(fixture_map.dimmer_channels):
+                        if seg_idx < len(segment_intensities):
+                            seg_intensity = int(block.intensity * segment_intensities[seg_idx])
+                            universe, channel = fixture_map.get_absolute_address(ch_offset)
+                            self.set_dmx_value(universe, channel, seg_intensity)
+                else:
+                    # Pixelbar: set master dimmer to full, store intensities for colour_block
+                    for ch_offset in fixture_map.dimmer_channels:
+                        universe, channel = fixture_map.get_absolute_address(ch_offset)
+                        self.set_dmx_value(universe, channel, int(block.intensity))
+                    fixture_map._twinkle_segment_intensities = segment_intensities
+
+            else:
+                # NON-SEGMENTED: Pulse behavior (on during fill, off during unfill)
+                time_per_phase = (seconds_per_beat * 2) / speed_multiplier
+                cycle_time = time_per_phase * 2
+                time_in_cycle = time_in_block % cycle_time
+
+                # On during fill phase, off during unfill phase
+                if time_in_cycle < time_per_phase:
+                    intensity_multiplier = 1.0
+                else:
+                    intensity_multiplier = 0.0
+
+                intensity = int(block.intensity * intensity_multiplier)
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, intensity)
+
         elif block.effect_type == "zigzag":
             # Zigzag effect: snake moves across ALL fixtures as one continuous chain
             # Unlike 'snake' which runs independently per fixture, 'zigzag' treats all
