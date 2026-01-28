@@ -32,6 +32,7 @@ class SimpleAudioPlayer:
         self._start_time: float = 0.0  # When playback started (wall clock)
         self._start_position: float = 0.0  # Position when playback started
         self._paused_position: float = 0.0
+        self._volume: float = 1.0  # Volume level (0.0 to 1.0)
 
         # Position tracking thread
         self._position_callback: Optional[Callable[[float], None]] = None
@@ -207,6 +208,23 @@ class SimpleAudioPlayer:
     def is_loaded(self) -> bool:
         """Check if a file is loaded."""
         return self._current_file is not None
+
+    def set_volume(self, volume: float):
+        """Set playback volume.
+
+        Args:
+            volume: Volume level from 0.0 (silent) to 1.0 (full volume)
+        """
+        self._volume = max(0.0, min(1.0, volume))
+        if self._is_initialized:
+            try:
+                pygame.mixer.music.set_volume(self._volume)
+            except Exception as e:
+                print(f"Failed to set volume: {e}")
+
+    def get_volume(self) -> float:
+        """Get current volume level."""
+        return self._volume
 
 
 # Quick test

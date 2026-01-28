@@ -968,6 +968,19 @@ class ShowsTab(BaseTab):
                     if audio_path:
                         self.simple_audio_player.load(audio_path)
 
+                    # Connect volume slider to simple audio player
+                    # Disconnect any previous connections first
+                    try:
+                        self.audio_lane.volume_slider.valueChanged.disconnect()
+                    except TypeError:
+                        pass  # No connections to disconnect
+                    self.audio_lane.volume_slider.valueChanged.connect(
+                        lambda v: self.simple_audio_player.set_volume(v / 100.0) if self.simple_audio_player else None
+                    )
+                    # Set initial volume
+                    initial_volume = self.audio_lane.volume_slider.value() / 100.0
+                    self.simple_audio_player.set_volume(initial_volume)
+
                     print("Using SimpleAudioPlayer (pygame) for audio playback")
                     return  # Success with simple player
 
