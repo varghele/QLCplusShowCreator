@@ -64,7 +64,15 @@ class ShowsArtNetController(QObject):
         # Track fixture fingerprint to avoid redundant rebuilds
         self._last_fixture_fingerprint = self._get_fixture_fingerprint()
 
+        # Debug: Print initialization info for WASH fixtures
         print("ShowsArtNet Controller initialized")
+        print(f"  Fixture definitions loaded: {list(fixture_definitions.keys())}")
+        print(f"  Fixture maps created: {list(self.dmx_manager.fixture_maps.keys())}")
+        print(f"  DMX universes: {list(self.dmx_manager.dmx_state.keys())}")
+        for f in self.config.fixtures:
+            if 'W1' in f.name or 'W2' in f.name or 'WASH' in f.name.upper():
+                in_maps = f.name in self.dmx_manager.fixture_maps
+                print(f"  WASH fixture: {f.name}, universe={f.universe}, address={f.address}, in_maps={in_maps}")
 
     def set_position_callback(self, callback: Callable[[], float]):
         """
@@ -195,6 +203,30 @@ class ShowsArtNetController(QObject):
                     print(f"      LB {lb.start_time:.2f}-{lb.end_time:.2f}: {len(lb.dimmer_blocks)} dimmer, {len(lb.colour_blocks)} colour")
             print("=== END DEBUG ===\n")
 
+        # Debug: Print WASH info around 137s (when WASH:0 block should start)
+        if 137.0 < self.current_time < 137.5 and not hasattr(self, '_debug_printed_137'):
+            self._debug_printed_137 = True
+            print(f"\n=== WASH DEBUG at {self.current_time:.3f}s ===")
+            print(f"Total lanes: {len(self.light_lanes)}")
+            print(f"Available groups: {list(self.config.groups.keys())}")
+            if 'WASH' in self.config.groups:
+                wash_group = self.config.groups['WASH']
+                print(f"WASH group has {len(wash_group.fixtures)} fixtures:")
+                for i, f in enumerate(wash_group.fixtures):
+                    print(f"  [{i}] {f.name}: universe={f.universe}, address={f.address}")
+            print(f"DMX Manager fixture_maps: {list(self.dmx_manager.fixture_maps.keys())}")
+            print(f"DMX universes: {list(self.dmx_manager.dmx_state.keys())}")
+            for i, lane in enumerate(self.light_lanes):
+                targets = getattr(lane, 'fixture_targets', [])
+                if 'WASH' in str(targets):
+                    print(f"  Lane {i}: name={lane.name}, targets={targets}, muted={lane.muted}")
+                    resolved = resolve_targets_unique(targets, self.config)
+                    print(f"    Resolved fixtures: {[f.name for f in resolved]}")
+                    print(f"    light_blocks: {len(lane.light_blocks)}")
+                    for lb in lane.light_blocks:
+                        print(f"      LB {lb.start_time:.2f}-{lb.end_time:.2f}: {len(lb.dimmer_blocks)} dimmer, {len(lb.colour_blocks)} colour")
+            print("=== END WASH DEBUG ===\n")
+
         for lane in self.light_lanes:
             if lane.muted:
                 continue
@@ -318,6 +350,19 @@ class ShowsArtNetController(QObject):
 
     def _send_all_universes(self):
         """Send DMX data for all configured universes."""
+        # Debug: Check universe 2 data once around 137s
+        if 137.0 < self.current_time < 137.5 and not hasattr(self, '_debug_universe2_sent'):
+            self._debug_universe2_sent = True
+            print(f"\n=== UNIVERSE 2 DEBUG at {self.current_time:.3f}s ===")
+            print(f"Configured universes: {list(self.config.universes.keys())}")
+            for universe_id in self.config.universes.keys():
+                universe_int = int(universe_id)
+                dmx_data = self.dmx_manager.get_dmx_data(universe_int)
+                non_zero = sum(1 for b in dmx_data if b > 0)
+                first_12 = list(dmx_data[:12])
+                print(f"  Universe {universe_int}: {non_zero} non-zero bytes, first 12: {first_12}")
+            print("=== END UNIVERSE 2 DEBUG ===\n")
+
         for universe_id in self.config.universes.keys():
             # Ensure universe_id is int (YAML may load as string)
             universe_int = int(universe_id)

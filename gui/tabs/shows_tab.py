@@ -505,6 +505,11 @@ class ShowsTab(BaseTab):
         lane_widget = LightLaneWidget(lane, fixture_groups, self, config=self.config)
         lane_widget.set_song_structure(self.song_structure)
         lane_widget.set_zoom_factor(self.zoom_slider.value() / 100.0)
+        # Sync playhead position with existing lanes
+        lane_widget.set_playhead_position(self.playhead_position)
+        # Sync scroll position with master timeline
+        master_scroll_pos = self.master_timeline.timeline_scroll.horizontalScrollBar().value()
+        lane_widget.sync_scroll_position(master_scroll_pos)
 
         # Connect signals
         lane_widget.remove_requested.connect(self._remove_lane_widget)
@@ -545,6 +550,12 @@ class ShowsTab(BaseTab):
         lane = LightLane(f"Lane {lane_num}")
         self._add_lane_widget(lane)
 
+        # Update ArtNet controller with the new lane list
+        if self.artnet_controller:
+            self.artnet_controller.set_light_lanes(
+                [widget.lane for widget in self.lane_widgets]
+            )
+
         if progress:
             progress.finish_status()
 
@@ -559,6 +570,12 @@ class ShowsTab(BaseTab):
             self.lanes_layout.removeWidget(lane_widget)
             self.lane_widgets.remove(lane_widget)
             lane_widget.deleteLater()
+
+            # Update ArtNet controller with the updated lane list
+            if self.artnet_controller:
+                self.artnet_controller.set_light_lanes(
+                    [widget.lane for widget in self.lane_widgets]
+                )
 
     def _convert_effects_to_timeline(self, show: Show):
         """Convert old ShowEffect data to LightBlock timeline format."""
