@@ -1395,7 +1395,8 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                         light_block=block,
                         bpm=block_bpm,
                         signature=block_signature,
-                        all_lane_fixtures=sorted_lane_fixtures  # All fixtures in lane for cross-group effects
+                        all_lane_fixtures=sorted_lane_fixtures,  # All fixtures in lane for cross-group effects
+                        config=config  # Pass config for spot targeting
                     )
 
                     print(f"      Generated {len(steps) if steps else 0} steps")
