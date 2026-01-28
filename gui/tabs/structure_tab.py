@@ -1578,8 +1578,11 @@ class StructureTab(BaseTab):
             self.playback_sync = None
 
     def save_to_config(self):
-        """Save to configuration (already saved via auto-save)."""
-        pass
+        """Save current show structure to configuration and CSV file."""
+        # Save current show to CSV
+        if self.current_show_name and self.current_show:
+            self._save_to_csv()
+            print(f"Saved CSV for show: {self.current_show_name}")
 
     def on_tab_activated(self):
         """Called when tab becomes visible."""

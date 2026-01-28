@@ -6,6 +6,14 @@ from PyQt6 import QtWidgets
 from PyQt6.QtGui import QIcon
 from gui import MainWindow
 
+# Performance profiling - enable with --profile flag
+PROFILING_ENABLED = '--profile' in sys.argv
+if PROFILING_ENABLED:
+    import profile_playback
+    profile_playback.install_all_patches()
+    profile_playback.enable_profiling()
+    print("\n*** PROFILING ENABLED - Press Ctrl+P in console to print report ***\n")
+
 def main():
     try:
         # Get the project root directory
@@ -35,6 +43,20 @@ def main():
 
         window = MainWindow()
         window.show()
+
+        # If profiling, set up periodic report printing
+        if PROFILING_ENABLED:
+            from PyQt6.QtCore import QTimer
+            def print_profile_report():
+                profile_playback.print_timings(min_total_ms=10.0)
+                profile_playback.reset_timings()
+
+            # Print report every 15 seconds
+            profile_timer = QTimer()
+            profile_timer.timeout.connect(print_profile_report)
+            profile_timer.start(15000)
+            print("Profiling report will print every 15 seconds during playback")
+
         sys.exit(app.exec())
 
     except Exception as e:

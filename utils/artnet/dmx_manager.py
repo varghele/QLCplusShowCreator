@@ -8,6 +8,9 @@ from config.models import Configuration, Fixture, LightBlock, DimmerBlock, Colou
 from utils.effects_utils import get_channels_by_property
 from utils.orientation import calculate_pan_tilt, pan_tilt_to_dmx
 
+# Debug flag - set to False to disable verbose prints (improves performance significantly)
+DEBUG_PRINTS = False
+
 
 class FixtureChannelMap:
     """
@@ -202,8 +205,9 @@ class DMXManager:
 
     def clear_all_dmx(self):
         """Clear all DMX values to 0."""
+        # PERFORMANCE: Use fill() instead of creating new bytearray objects
         for universe_id in self.dmx_state.keys():
-            self.dmx_state[universe_id] = bytearray(512)
+            self.dmx_state[universe_id][:] = b'\x00' * 512
 
     def clear_active_blocks(self):
         """Clear all active block tracking state.
@@ -400,7 +404,7 @@ class DMXManager:
                 total_fixtures = len(sorted_fixtures)
 
                 # Debug: Print once around 12.5s
-                if 12.4 < current_time < 12.6 and not hasattr(self, '_debug_dmx_12_5'):
+                if DEBUG_PRINTS and 12.4 < current_time < 12.6 and not hasattr(self, '_debug_dmx_12_5'):
                     self._debug_dmx_12_5 = True
                     fixture_names = [f.name for f in sorted_fixtures]
                     print(f"\n=== DMX DEBUG at {current_time:.3f}s ===")
@@ -413,23 +417,24 @@ class DMXManager:
                     print("=== END DMX DEBUG ===\n")
 
                 # Debug: Print WASH fixtures around 137s
-                fixture_names_check = [f.name for f in sorted_fixtures]
-                if 137.0 < current_time < 137.5 and any('W1' in n or 'W2' in n for n in fixture_names_check):
-                    if not hasattr(self, '_debug_dmx_wash'):
-                        self._debug_dmx_wash = True
-                        print(f"\n=== DMX WASH DEBUG at {current_time:.3f}s ===")
-                        print(f"  Lane: {lane_key}")
-                        print(f"  Dimmer block: {dimmer_block.effect_type}, intensity={dimmer_block.intensity}")
-                        print(f"  Block time range: {dimmer_block.start_time:.2f}-{dimmer_block.end_time:.2f}")
-                        print(f"  Fixtures: {fixture_names_check}")
-                        for f in sorted_fixtures:
-                            in_maps = f.name in self.fixture_maps
-                            print(f"    {f.name}: universe={f.universe}, address={f.address}, in_maps={in_maps}")
-                            if in_maps:
-                                fm = self.fixture_maps[f.name]
-                                print(f"      dimmer_channels={fm.dimmer_channels}, red={fm.red_channels}, green={fm.green_channels}, blue={fm.blue_channels}")
-                        print(f"  DMX state universes: {list(self.dmx_state.keys())}")
-                        print("=== END DMX WASH DEBUG ===\n")
+                if DEBUG_PRINTS:
+                    fixture_names_check = [f.name for f in sorted_fixtures]
+                    if 137.0 < current_time < 137.5 and any('W1' in n or 'W2' in n for n in fixture_names_check):
+                        if not hasattr(self, '_debug_dmx_wash'):
+                            self._debug_dmx_wash = True
+                            print(f"\n=== DMX WASH DEBUG at {current_time:.3f}s ===")
+                            print(f"  Lane: {lane_key}")
+                            print(f"  Dimmer block: {dimmer_block.effect_type}, intensity={dimmer_block.intensity}")
+                            print(f"  Block time range: {dimmer_block.start_time:.2f}-{dimmer_block.end_time:.2f}")
+                            print(f"  Fixtures: {fixture_names_check}")
+                            for f in sorted_fixtures:
+                                in_maps = f.name in self.fixture_maps
+                                print(f"    {f.name}: universe={f.universe}, address={f.address}, in_maps={in_maps}")
+                                if in_maps:
+                                    fm = self.fixture_maps[f.name]
+                                    print(f"      dimmer_channels={fm.dimmer_channels}, red={fm.red_channels}, green={fm.green_channels}, blue={fm.blue_channels}")
+                            print(f"  DMX state universes: {list(self.dmx_state.keys())}")
+                            print("=== END DMX WASH DEBUG ===\n")
 
                 for fixture_index, fixture in enumerate(sorted_fixtures):
                     if fixture.name not in self.fixture_maps:
@@ -442,16 +447,17 @@ class DMXManager:
             # Apply colour block to its resolved fixtures
             if colour_block and colour_fixtures:
                 # Debug: Print WASH colour blocks around 137s
-                colour_fixture_names = [f.name for f in colour_fixtures]
-                if 137.0 < current_time < 137.5 and any('W1' in n or 'W2' in n for n in colour_fixture_names):
-                    if not hasattr(self, '_debug_colour_wash'):
-                        self._debug_colour_wash = True
-                        print(f"\n=== COLOUR WASH DEBUG at {current_time:.3f}s ===")
-                        print(f"  Lane: {lane_key}")
-                        print(f"  Colour block: R={colour_block.red}, G={colour_block.green}, B={colour_block.blue}")
-                        print(f"  Block time range: {colour_block.start_time:.2f}-{colour_block.end_time:.2f}")
-                        print(f"  Fixtures: {colour_fixture_names}")
-                        print("=== END COLOUR WASH DEBUG ===\n")
+                if DEBUG_PRINTS:
+                    colour_fixture_names = [f.name for f in colour_fixtures]
+                    if 137.0 < current_time < 137.5 and any('W1' in n or 'W2' in n for n in colour_fixture_names):
+                        if not hasattr(self, '_debug_colour_wash'):
+                            self._debug_colour_wash = True
+                            print(f"\n=== COLOUR WASH DEBUG at {current_time:.3f}s ===")
+                            print(f"  Lane: {lane_key}")
+                            print(f"  Colour block: R={colour_block.red}, G={colour_block.green}, B={colour_block.blue}")
+                            print(f"  Block time range: {colour_block.start_time:.2f}-{colour_block.end_time:.2f}")
+                            print(f"  Fixtures: {colour_fixture_names}")
+                            print("=== END COLOUR WASH DEBUG ===\n")
 
                 for fixture in colour_fixtures:
                     if fixture.name not in self.fixture_maps:
@@ -466,7 +472,7 @@ class DMXManager:
                 total_movement_fixtures = len(sorted_movement_fixtures)
 
                 # Debug: log movement block application once
-                if not hasattr(self, '_debug_movement_logged'):
+                if DEBUG_PRINTS and not hasattr(self, '_debug_movement_logged'):
                     self._debug_movement_logged = True
                     fixture_names = [f.name for f in sorted_movement_fixtures]
                     print(f"[DMX DEBUG] Movement block: {movement_block.effect_type} on {fixture_names}, "
@@ -1602,14 +1608,15 @@ class DMXManager:
                 pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
 
                 # Debug output - log once per fixture
-                debug_key = f"_spot_debug_{fixture.name}"
-                if not hasattr(self, debug_key):
-                    setattr(self, debug_key, True)
-                    print(f"[SPOT TARGET] {fixture.name} at ({fixture.x}, {fixture.y}, {fixture_z}) "
-                          f"-> Spot '{block.target_spot_name}' at ({spot.x}, {spot.y}, {spot.z})")
-                    print(f"  orientation: mounting={mounting}, yaw={yaw}, pitch={pitch}, roll={roll}")
-                    print(f"  calculated: pan={pan_degrees:.1f}°, tilt={tilt_degrees:.1f}°")
-                    print(f"  DMX: pan={pan_dmx}, tilt={tilt_dmx}")
+                if DEBUG_PRINTS:
+                    debug_key = f"_spot_debug_{fixture.name}"
+                    if not hasattr(self, debug_key):
+                        setattr(self, debug_key, True)
+                        print(f"[SPOT TARGET] {fixture.name} at ({fixture.x}, {fixture.y}, {fixture_z}) "
+                              f"-> Spot '{block.target_spot_name}' at ({spot.x}, {spot.y}, {spot.z})")
+                        print(f"  orientation: mounting={mounting}, yaw={yaw}, pitch={pitch}, roll={roll}")
+                        print(f"  calculated: pan={pan_degrees:.1f}°, tilt={tilt_degrees:.1f}°")
+                        print(f"  DMX: pan={pan_dmx}, tilt={tilt_dmx}")
 
                 # Use calculated values as center position
                 center_pan = float(pan_dmx)
@@ -1764,7 +1771,7 @@ class DMXManager:
         tilt = max(tilt_min, min(tilt_max, tilt))
 
         # Debug output - log final DMX values once per fixture
-        if block.target_spot_name:
+        if DEBUG_PRINTS and block.target_spot_name:
             final_debug_key = f"_spot_final_debug_{fixture_map.fixture.name}"
             if not hasattr(self, final_debug_key):
                 setattr(self, final_debug_key, True)

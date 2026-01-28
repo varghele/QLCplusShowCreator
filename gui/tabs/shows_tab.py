@@ -21,7 +21,14 @@ from timeline_ui.effect_clipboard import (copy_multiple_effects, paste_multiple_
 from gui.progress_manager import get_progress_manager
 from .base_tab import BaseTab
 
-# Try to import audio components - may not be available
+# Try to import simple audio player (pygame-based) - preferred for performance
+try:
+    from audio.simple_audio_player import SimpleAudioPlayer, PYGAME_AVAILABLE
+    SIMPLE_AUDIO_AVAILABLE = PYGAME_AVAILABLE
+except ImportError:
+    SIMPLE_AUDIO_AVAILABLE = False
+
+# Try to import legacy audio components - fallback if pygame not available
 try:
     from audio.audio_file import AudioFile
     from audio.audio_engine import AudioEngine
@@ -69,6 +76,10 @@ class ShowsTab(BaseTab):
         self.playhead_position = 0.0
 
         # Audio components (lazy init)
+        # Simple audio player (pygame-based) - preferred for performance
+        self.simple_audio_player = None
+        self.use_simple_audio = SIMPLE_AUDIO_AVAILABLE  # Use pygame if available
+        # Legacy audio components (PyAudio-based) - fallback
         self.audio_engine = None
         self.audio_mixer = None
         self.playback_sync = None
@@ -86,6 +97,11 @@ class ShowsTab(BaseTab):
         self.playback_timer = QTimer()
         self.playback_timer.setInterval(16)  # ~60 FPS
         self.playback_timer.timeout.connect(self._update_playback)
+
+        # Visual update throttling - reduce UI repaint frequency during playback
+        # ArtNet updates happen every frame, but visual playhead updates are throttled
+        self._visual_update_counter = 0
+        self._visual_update_interval = 2  # Update visuals every 2 frames (~30 FPS)
 
         # Selection manager for multi-select
         self.selection_manager = SelectionManager()
@@ -357,16 +373,61 @@ class ShowsTab(BaseTab):
     def _on_audio_file_loaded(self, file_path: str):
         """Handle audio file loaded.
 
-        Updates the audio mixer with the new file if the engine is already initialized.
+        Copies the audio file to the local audiofiles/ folder if not already there,
+        then updates the audio player with the local copy.
         """
-        # Update the audio mixer if it exists (engine already initialized)
-        if self.audio_mixer:
+        import shutil
+
+        local_path = file_path
+        basename = os.path.basename(file_path)
+
+        # Copy to local audiofiles folder if shows_directory is set
+        if self.config.shows_directory:
+            audiofiles_dir = os.path.join(self.config.shows_directory, "audiofiles")
+            local_path = os.path.join(audiofiles_dir, basename)
+
+            # Check if file is already in the audiofiles folder
+            if os.path.normpath(file_path) != os.path.normpath(local_path):
+                # Create audiofiles directory if needed
+                os.makedirs(audiofiles_dir, exist_ok=True)
+
+                # Copy the file to local folder
+                try:
+                    if os.path.exists(file_path):
+                        shutil.copy2(file_path, local_path)
+                        print(f"Copied audio file to: {local_path}")
+
+                        # Update the audio lane to use the local copy
+                        self.audio_lane.audio_file_path = local_path
+                        self.audio_lane.file_path_edit.setText(basename)
+                        self.audio_lane.file_path_edit.setToolTip(local_path)
+                except Exception as e:
+                    print(f"Failed to copy audio file: {e}")
+                    local_path = file_path  # Fall back to original
+
+            # Update the show's timeline_data to store just the filename
+            if self.current_show_name and self.current_show_name in self.config.shows:
+                show = self.config.shows[self.current_show_name]
+                if show.timeline_data:
+                    show.timeline_data.audio_file_path = basename
+                    print(f"Stored audio filename in show: {basename}")
+
+        # Update simple audio player if it exists
+        if self.simple_audio_player:
+            try:
+                self.simple_audio_player.load(local_path)
+                print(f"SimpleAudioPlayer loaded: {basename}")
+            except Exception as e:
+                print(f"Failed to load audio in SimpleAudioPlayer: {e}")
+
+        # Update the legacy audio mixer if it exists (engine already initialized)
+        elif self.audio_mixer:
             audio_file = self.audio_lane.get_audio_file()
             if audio_file:
                 # Remove old audio and add new one
                 self.audio_mixer.remove_lane("audio")
                 self.audio_mixer.add_lane("audio", audio_file, 1.0)
-                print(f"Audio mixer updated with: {os.path.basename(file_path)}")
+                print(f"Audio mixer updated with: {basename}")
 
     def _load_show(self, show_name: str):
         """Load show into timeline."""
@@ -741,10 +802,26 @@ class ShowsTab(BaseTab):
         self.is_playing = True
         self.play_btn.setText("Pause")
 
+        # Reset visual update counter for consistent timing
+        self._visual_update_counter = 0
+
         # Initialize audio if available
-        if AUDIO_AVAILABLE and self.audio_lane.get_audio_file():
+        audio_path = self.audio_lane.get_audio_file_path()
+        if audio_path:
             self._init_audio_engine()
-            if self.playback_sync:
+
+            # Try simple audio player first
+            if self.simple_audio_player:
+                try:
+                    # Load file if not already loaded or different file
+                    if not self.simple_audio_player.is_loaded():
+                        self.simple_audio_player.load(audio_path)
+                    self.simple_audio_player.play(self.playhead_position)
+                except Exception as e:
+                    print(f"SimpleAudioPlayer playback failed: {e}")
+
+            # Fallback to PyAudio
+            elif self.playback_sync:
                 # Try to start audio playback - if it fails, fall back to timer-based
                 if not self.playback_sync.on_play_requested(self.playhead_position):
                     print("Audio playback failed, falling back to timer-based playback")
@@ -774,7 +851,10 @@ class ShowsTab(BaseTab):
         self.play_btn.setText("Play")
         self.playback_timer.stop()
 
-        if self.playback_sync:
+        # Pause audio (simple player or PyAudio)
+        if self.simple_audio_player:
+            self.simple_audio_player.pause()
+        elif self.playback_sync:
             self.playback_sync.on_pause_requested()
 
         # Pause ArtNet output
@@ -787,7 +867,10 @@ class ShowsTab(BaseTab):
         self.play_btn.setText("Play")
         self.playback_timer.stop()
 
-        if self.playback_sync:
+        # Stop audio (simple player or PyAudio)
+        if self.simple_audio_player:
+            self.simple_audio_player.stop()
+        elif self.playback_sync:
             self.playback_sync.on_stop_requested()
 
         # Stop ArtNet output
@@ -801,7 +884,10 @@ class ShowsTab(BaseTab):
         self.playhead_position = position
         self._on_playhead_moved(position)
 
-        if self.playback_sync:
+        # Seek audio (simple player or PyAudio)
+        if self.simple_audio_player:
+            self.simple_audio_player.seek(position)
+        elif self.playback_sync:
             self.playback_sync.on_seek_requested(position)
 
     def _get_current_position(self) -> float:
@@ -812,7 +898,9 @@ class ShowsTab(BaseTab):
         Returns:
             Current position in seconds
         """
-        if self.playback_sync and self.is_playing:
+        if self.simple_audio_player and self.is_playing:
+            return self.simple_audio_player.get_current_position()
+        elif self.playback_sync and self.is_playing:
             return self.playback_sync.get_accurate_position()
         return self.playhead_position
 
@@ -822,7 +910,9 @@ class ShowsTab(BaseTab):
             return
 
         # Get position from audio if available, otherwise use timer
-        if self.playback_sync:
+        if self.simple_audio_player and self.simple_audio_player.is_playing():
+            position = self.simple_audio_player.get_current_position()
+        elif self.playback_sync:
             position = self.playback_sync.get_accurate_position()
         else:
             # Fallback: increment by timer interval
@@ -834,20 +924,59 @@ class ShowsTab(BaseTab):
             return
 
         self.playhead_position = position
-        self._update_playhead_display(position)
 
-        # Update all timeline playheads
-        self.master_timeline.set_playhead_position(position)
-        self.audio_lane.set_playhead_position(position)
-        for lane in self.lane_widgets:
-            lane.set_playhead_position(position)
-
-        # Update ArtNet controller position
+        # Update ArtNet controller position FIRST (high priority, every frame)
         if self.artnet_controller:
             self.artnet_controller.update_position(position)
 
+        # Throttle visual updates to reduce UI repaint overhead
+        self._visual_update_counter += 1
+        if self._visual_update_counter >= self._visual_update_interval:
+            self._visual_update_counter = 0
+
+            # Update time display and slider
+            self._update_playhead_display(position)
+
+            # Update all timeline playheads
+            self.master_timeline.set_playhead_position(position)
+            self.audio_lane.set_playhead_position(position)
+            for lane in self.lane_widgets:
+                lane.set_playhead_position(position)
+
     def _init_audio_engine(self):
-        """Initialize audio engine on first use."""
+        """Initialize audio engine on first use.
+
+        Prefers SimpleAudioPlayer (pygame) for better performance.
+        Falls back to PyAudio-based engine if pygame not available.
+        """
+        # Try simple audio player first (pygame-based, much faster)
+        if self.use_simple_audio and SIMPLE_AUDIO_AVAILABLE:
+            if self.simple_audio_player is None:
+                try:
+                    self.simple_audio_player = SimpleAudioPlayer()
+
+                    # Get buffer size from settings if available
+                    buffer_size = 2048
+                    if hasattr(self, 'audio_settings') and self.audio_settings:
+                        buffer_size = self.audio_settings.get('buffer_size', 2048)
+
+                    if not self.simple_audio_player.initialize(buffer_size=buffer_size):
+                        raise Exception("pygame mixer initialization failed")
+
+                    # Load audio file if available
+                    audio_path = self.audio_lane.get_audio_file_path()
+                    if audio_path:
+                        self.simple_audio_player.load(audio_path)
+
+                    print("Using SimpleAudioPlayer (pygame) for audio playback")
+                    return  # Success with simple player
+
+                except Exception as e:
+                    print(f"SimpleAudioPlayer failed: {e}, falling back to PyAudio")
+                    self.simple_audio_player = None
+                    self.use_simple_audio = False
+
+        # Fallback to PyAudio-based engine
         if not AUDIO_AVAILABLE:
             return
 
@@ -886,6 +1015,8 @@ class ShowsTab(BaseTab):
                 self.audio_lane.mute_button.toggled.connect(
                     lambda m: self.audio_mixer.set_mute_state("audio", m) if self.audio_mixer else None
                 )
+
+                print("Using PyAudio for audio playback")
 
             except Exception as e:
                 print(f"Failed to initialize audio engine: {e}")
@@ -1053,7 +1184,15 @@ class ShowsTab(BaseTab):
         """Clean up audio and ArtNet resources."""
         self._stop_playback()
 
-        # Clean up audio
+        # Clean up simple audio player
+        if self.simple_audio_player:
+            try:
+                self.simple_audio_player.cleanup()
+            except Exception:
+                pass
+            self.simple_audio_player = None
+
+        # Clean up legacy audio engine
         if self.audio_engine:
             try:
                 self.audio_engine.shutdown()
