@@ -5,6 +5,7 @@ import math
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional, Tuple
 from utils.effects_utils import get_channels_by_property, find_closest_color_dmx
+from utils.orientation import calculate_pan_tilt, pan_tilt_to_dmx
 
 
 def _map_rgb_to_color_wheel(r: int, g: int, b: int) -> int:
@@ -645,7 +646,9 @@ def sample_movement_at_time(
     step_idx: int,
     total_steps: int,
     bpm: float = 120.0,
-    signature: str = "4/4"
+    signature: str = "4/4",
+    config: Any = None,
+    fixture: Any = None
 ) -> Optional[Tuple[int, int]]:
     """
     Sample the pan/tilt position at a given time.
@@ -659,6 +662,8 @@ def sample_movement_at_time(
         total_steps: Total number of steps
         bpm: Beats per minute for timing calculations
         signature: Time signature (e.g., "4/4")
+        config: Configuration object (for spot lookup)
+        fixture: Fixture object (for position and orientation)
 
     Returns:
         Tuple of (pan, tilt) values (0-255) or None if no movement block at this time
@@ -674,8 +679,44 @@ def sample_movement_at_time(
         return None
 
     effect_type = active_block.effect_type
-    center_pan = active_block.pan
-    center_tilt = active_block.tilt
+
+    # Check if we have a target spot - if so, calculate pan/tilt to point at it
+    if active_block.target_spot_name and config and fixture and hasattr(config, 'spots'):
+        spot = config.spots.get(active_block.target_spot_name)
+        if spot:
+            # Get effective orientation (considering group defaults)
+            group = config.groups.get(fixture.group) if fixture.group else None
+            mounting, yaw, pitch, roll = fixture.get_effective_orientation(group)
+            fixture_z = fixture.get_effective_z(group)
+
+            # Calculate pan/tilt angles to point at the spot
+            pan_degrees, tilt_degrees = calculate_pan_tilt(
+                fixture_x=fixture.x,
+                fixture_y=fixture.y,
+                fixture_z=fixture_z,
+                target_x=spot.x,
+                target_y=spot.y,
+                target_z=spot.z,
+                mounting=mounting,
+                yaw=yaw,
+                pitch=pitch,
+                roll=roll
+            )
+
+            # Convert to DMX values (0-255 where 127 = center)
+            pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
+
+            # Use calculated values as center position
+            center_pan = float(pan_dmx)
+            center_tilt = float(tilt_dmx)
+        else:
+            # Spot not found, fall back to manual values
+            center_pan = active_block.pan
+            center_tilt = active_block.tilt
+    else:
+        # No target spot, use manual values
+        center_pan = active_block.pan
+        center_tilt = active_block.tilt
     pan_amplitude = active_block.pan_amplitude
     tilt_amplitude = active_block.tilt_amplitude
     pan_min = active_block.pan_min
@@ -895,7 +936,8 @@ def build_unified_step(
     total_steps: int,
     all_lane_fixtures: List = None,  # Full fixture list for cross-group effects
     bpm: float = 120.0,  # BPM for timing calculations
-    signature: str = "4/4"  # Time signature for movement calculations
+    signature: str = "4/4",  # Time signature for movement calculations
+    config: Any = None  # Configuration object for spot targeting
 ) -> ET.Element:
     """
     Build a single unified step with all channel values for all fixtures.
@@ -915,6 +957,7 @@ def build_unified_step(
         all_lane_fixtures: Full fixture list for cross-group effects (ping-pong, waterfall)
         bpm: BPM for timing calculations
         signature: Time signature for movement calculations
+        config: Configuration object for spot targeting
 
     Returns:
         ET.Element for the Step
@@ -977,7 +1020,7 @@ def build_unified_step(
         # Sample all effect types at this time
         # Use global_fixture_idx and total_fixtures_for_effects for cross-group effects
         dimmer_value = sample_dimmer_at_time(time_s, dimmer_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm)
-        movement_values = sample_movement_at_time(time_s, movement_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm, signature)
+        movement_values = sample_movement_at_time(time_s, movement_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm, signature, config, fixture)
         colour_values = sample_colour_at_time(time_s, colour_blocks)
         special_values = sample_special_at_time(time_s, special_blocks)
 
@@ -1326,7 +1369,8 @@ def generate_unified_sequence_steps(
     light_block,  # LightBlock object
     bpm: float,
     signature: str = "4/4",
-    all_lane_fixtures: List = None  # All fixtures in the lane for cross-group effects
+    all_lane_fixtures: List = None,  # All fixtures in the lane for cross-group effects
+    config: Any = None  # Configuration object for spot targeting
 ) -> List[ET.Element]:
     """
     Generate unified sequence steps for a light block.
@@ -1343,6 +1387,7 @@ def generate_unified_sequence_steps(
         signature: Time signature
         all_lane_fixtures: All fixtures in the lane (for cross-group effects like ping-pong)
                           If None, uses fixtures (single-group behavior)
+        config: Configuration object for spot targeting
 
     Returns:
         List of Step ET.Elements
@@ -1389,7 +1434,8 @@ def generate_unified_sequence_steps(
             total_steps=total_steps,
             all_lane_fixtures=all_lane_fixtures,  # Pass full fixture list for cross-group effects
             bpm=bpm,  # Pass BPM for timing-based effects like ping-pong
-            signature=signature  # Pass signature for movement timing
+            signature=signature,  # Pass signature for movement timing
+            config=config  # Pass config for spot targeting
         )
 
         steps.append(step)
