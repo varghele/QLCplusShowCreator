@@ -43,8 +43,27 @@ class FixturesTab(BaseTab):
 
         # Track fixture state to avoid unnecessary rebuilds
         self._last_fixture_fingerprint = None
+        # Lazy loading flag - update when tab becomes visible
+        self._pending_update = False
 
         super().__init__(config, parent)
+
+    def showEvent(self, event):
+        """Handle tab becoming visible - trigger pending update if needed."""
+        super().showEvent(event)
+        if self._pending_update:
+            self._pending_update = False
+            # Use QTimer to defer update slightly, avoiding Qt stack issues
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(50, lambda: self.update_from_config(force=True))
+
+    def schedule_update(self):
+        """Schedule an update for when the tab becomes visible."""
+        self._pending_update = True
+        # If already visible, update now
+        if self.isVisible():
+            self._pending_update = False
+            self.update_from_config(force=True)
 
     def setup_ui(self):
         """Set up fixture management UI"""
@@ -156,18 +175,23 @@ class FixturesTab(BaseTab):
 
         self._last_fixture_fingerprint = current_fingerprint
 
-        # Disable visual updates during population to prevent row-by-row rendering
-        self.table.setUpdatesEnabled(False)
         # Block signals during population
         self.table.blockSignals(True)
         self.table.setRowCount(0)
 
+        # Process events periodically to avoid Qt stack overflow with large configs
+        from PyQt6.QtWidgets import QApplication
+
         # Update existing groups set
         self.existing_groups = set(self.config.groups.keys())
 
-        for fixture in self.config.fixtures:
+        for idx, fixture in enumerate(self.config.fixtures):
             row = self.table.rowCount()
             self.table.insertRow(row)
+
+            # Process events every 3 rows to prevent Qt stack overflow
+            if idx > 0 and idx % 3 == 0:
+                QApplication.processEvents()
 
             # Universe spinbox
             universe_spin = QtWidgets.QSpinBox()
@@ -280,8 +304,6 @@ class FixturesTab(BaseTab):
         # Re-enable signals and update colors
         self.table.blockSignals(False)
         self._update_row_colors()
-        # Re-enable visual updates now that all changes are complete
-        self.table.setUpdatesEnabled(True)
 
     def save_to_config(self, item=None):
         """Update configuration from table values"""
@@ -433,8 +455,7 @@ class FixturesTab(BaseTab):
 
     def _update_row_colors(self):
         """Apply group colors to table rows"""
-        # Disable updates during batch color changes to prevent row-by-row rendering
-        self.table.setUpdatesEnabled(False)
+        # Note: setUpdatesEnabled removed to avoid Qt stack overflow with large configs
         try:
             # Track which colors are already in use to avoid duplicates
             used_colors = set()
@@ -502,8 +523,7 @@ class FixturesTab(BaseTab):
                             if cell_widget:
                                 cell_widget.setStyleSheet("background-color: white;")
         finally:
-            # Re-enable updates and trigger single repaint
-            self.table.setUpdatesEnabled(True)
+            pass  # setUpdatesEnabled removed to avoid Qt stack overflow
 
     def _add_fixture(self):
         """Show dialog to add fixture from QLC+ definitions"""

@@ -489,7 +489,7 @@ class ShowsTab(BaseTab):
                     # Update config to use just filename for future (migrate old absolute paths)
                     if os.path.isabs(audio_filename):
                         show.timeline_data.audio_file_path = basename
-                        print(f"Migrated audio path to local: {basename}")
+                        print(f"Stored audio filename in show: {basename}")
 
                 # Priority 2: Fall back to original path (for backward compatibility)
                 elif os.path.exists(audio_filename):
@@ -512,20 +512,11 @@ class ShowsTab(BaseTab):
                 if self.audio_mixer:
                     self.audio_mixer.remove_lane("audio")
 
-            # Create lane widgets with progress indicator
-            progress = get_progress_manager()
+            # Create lane widgets
             lane_count = len(show.timeline_data.lanes)
-            if progress and lane_count > 0:
-                progress.start_status(f"Loading {lane_count} lane(s)...", lane_count)
-
             for i, lane_data in enumerate(show.timeline_data.lanes):
-                if progress:
-                    progress.update_status(i + 1, f"Loading lane {i + 1}/{lane_count}...")
                 runtime_lane = LightLane.from_data_model(lane_data)
                 self._add_lane_widget(runtime_lane)
-
-            if progress:
-                progress.finish_status()
 
             # Update ArtNet controller with loaded lanes
             if self.artnet_controller:

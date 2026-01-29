@@ -1,5 +1,11 @@
-from utils.effects_utils import list_effects_in_directory
 import sys
+
+# Increase recursion limit for loading large YAML configuration files
+# PyYAML uses recursive descent parsing which can exceed Python's default limit (1000)
+# for deeply nested structures like timeline data with many light blocks
+sys.setrecursionlimit(10000)
+
+from utils.effects_utils import list_effects_in_directory
 import os
 import json
 from PyQt6 import QtWidgets
