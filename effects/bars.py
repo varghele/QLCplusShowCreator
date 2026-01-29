@@ -1973,3 +1973,714 @@ def starfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="
         current_step += 1
 
     return steps
+
+
+# =============================================================================
+# Helper Utilities for Color Manipulation
+# =============================================================================
+
+def hex_to_rgb(color):
+    """Convert hex color string to RGB tuple."""
+    color = color.lstrip('#')
+    return tuple(int(color[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def rgb_to_hex(r, g, b):
+    """Convert RGB values to hex color string."""
+    return "#{:02x}{:02x}{:02x}".format(int(r), int(g), int(b))
+
+
+def shift_hue(color, degrees):
+    """
+    Shift the hue of a color by given degrees (0-360).
+    Returns new hex color string.
+    """
+    r, g, b = hex_to_rgb(color)
+    # Convert RGB to HSV
+    r_norm, g_norm, b_norm = r / 255.0, g / 255.0, b / 255.0
+    max_c = max(r_norm, g_norm, b_norm)
+    min_c = min(r_norm, g_norm, b_norm)
+    diff = max_c - min_c
+
+    # Calculate hue
+    if diff == 0:
+        h = 0
+    elif max_c == r_norm:
+        h = (60 * ((g_norm - b_norm) / diff) + 360) % 360
+    elif max_c == g_norm:
+        h = (60 * ((b_norm - r_norm) / diff) + 120) % 360
+    else:
+        h = (60 * ((r_norm - g_norm) / diff) + 240) % 360
+
+    # Saturation and Value
+    s = 0 if max_c == 0 else diff / max_c
+    v = max_c
+
+    # Shift hue
+    h = (h + degrees) % 360
+
+    # Convert back to RGB
+    c = v * s
+    x = c * (1 - abs((h / 60) % 2 - 1))
+    m = v - c
+
+    if h < 60:
+        r_new, g_new, b_new = c, x, 0
+    elif h < 120:
+        r_new, g_new, b_new = x, c, 0
+    elif h < 180:
+        r_new, g_new, b_new = 0, c, x
+    elif h < 240:
+        r_new, g_new, b_new = 0, x, c
+    elif h < 300:
+        r_new, g_new, b_new = x, 0, c
+    else:
+        r_new, g_new, b_new = c, 0, x
+
+    return rgb_to_hex((r_new + m) * 255, (g_new + m) * 255, (b_new + m) * 255)
+
+
+def blend_colors(color1, color2, ratio):
+    """
+    Linear interpolation between two hex colors.
+    ratio=0 returns color1, ratio=1 returns color2.
+    """
+    r1, g1, b1 = hex_to_rgb(color1)
+    r2, g2, b2 = hex_to_rgb(color2)
+    r = int(r1 + (r2 - r1) * ratio)
+    g = int(g1 + (g2 - g1) * ratio)
+    b = int(b1 + (b2 - b1) * ratio)
+    return rgb_to_hex(r, g, b)
+
+
+# =============================================================================
+# New Background Effects for Pixelbars/Sunstrips
+# =============================================================================
+
+def breathing_sync(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+                   num_bars=1, speed="1", color="#FFFFFF", fixture_conf=None, fixture_start_id=0,
+                   intensity=255, spot=None, floor=0.3, **kwargs):
+    """
+    Breathing effect - all pixels fade in/out together smoothly in a sine curve pattern.
+
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FFFFFF")
+        fixture_conf: List of fixture configurations
+        fixture_start_id: starting ID for the fixture
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
+        floor: Minimum intensity as fraction (0.0-1.0), default 0.3
+    """
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
+    channels_dict = get_channels_by_property(
+        fixture_def, mode_name,
+        ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite", "IntensityDimmer"]
+    )
+    if not channels_dict:
+        return []
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Parse base color
+    r_base, g_base, b_base = hex_to_rgb(color)
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    total_duration = sum(step_timings)
+
+    # Animation frames - use more frames for smoother animation
+    num_frames = min(32, max(16, int(total_steps)))
+    frame_duration = total_duration / num_frames
+
+    steps = []
+    current_step = start_step
+
+    for frame in range(num_frames):
+        # Sine wave for smooth breathing (0 to 1)
+        phase = (frame / num_frames) * 2 * math.pi
+        brightness = floor + (1 - floor) * (math.sin(phase) + 1) / 2
+
+        # Apply brightness to color
+        r = int(r_base * brightness * intensity / 255)
+        g = int(g_base * brightness * intensity / 255)
+        b = int(b_base * brightness * intensity / 255)
+
+        # Create step with fade for smoothness
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        fade_time = int(frame_duration / 2)
+        step.set("FadeIn", str(fade_time))
+        step.set("Hold", str(int(frame_duration - fade_time)))
+        step.set("FadeOut", "0")
+
+        # Build values for all fixtures
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            if 'IntensityRed' in channels_dict:
+                for channel in channels_dict['IntensityRed']:
+                    channel_values.extend([str(channel['channel']), str(r)])
+
+            if 'IntensityGreen' in channels_dict:
+                for channel in channels_dict['IntensityGreen']:
+                    channel_values.extend([str(channel['channel']), str(g)])
+
+            if 'IntensityBlue' in channels_dict:
+                for channel in channels_dict['IntensityBlue']:
+                    channel_values.extend([str(channel['channel']), str(b)])
+
+            if 'IntensityWhite' in channels_dict:
+                for channel in channels_dict['IntensityWhite']:
+                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    channel_values.extend([str(channel['channel']), str(white_value)])
+
+            if 'IntensityDimmer' in channels_dict:
+                for channel in channels_dict['IntensityDimmer']:
+                    dimmer_value = int(brightness * intensity)
+                    channel_values.extend([str(channel['channel']), str(dimmer_value)])
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.set("Values", str(total_channels * fixture_num))
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+    return steps
+
+
+def wave_travel(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+                num_bars=1, speed="1", color="#FFFFFF", fixture_conf=None, fixture_start_id=0,
+                intensity=255, spot=None, direction="right", wavelength=None, **kwargs):
+    """
+    Wave effect - intensity wave travels across pixels like a stadium wave.
+
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FFFFFF")
+        fixture_conf: List of fixture configurations
+        fixture_start_id: starting ID for the fixture
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
+        direction: "left" or "right" (default: "right")
+        wavelength: How many pixels wide the wave is (default: num_pixels/2)
+    """
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
+    channels_dict = get_channels_by_property(
+        fixture_def, mode_name,
+        ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"]
+    )
+    if not channels_dict:
+        return []
+
+    # Count total channels and determine pixel count
+    total_channels = 0
+    pixel_count = 1
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+            if preset == 'IntensityRed':
+                pixel_count = len(channels)
+
+    # Set default wavelength if not provided
+    if wavelength is None:
+        wavelength = max(2, pixel_count // 2)
+
+    # Parse base color
+    r_base, g_base, b_base = hex_to_rgb(color)
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    num_frames = len(step_timings)
+
+    steps = []
+    current_step = start_step
+
+    for frame_idx, step_duration in enumerate(step_timings):
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(step_duration))
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+
+        # Build values for all fixtures
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            # Calculate per-pixel intensity for this frame
+            for pixel_idx in range(pixel_count):
+                # Wave position calculation
+                if direction == "left":
+                    wave_pos = 2 * math.pi * (pixel_idx / wavelength + frame_idx / num_frames)
+                else:  # right
+                    wave_pos = 2 * math.pi * (pixel_idx / wavelength - frame_idx / num_frames)
+
+                # Sine wave intensity (0 to 1)
+                pixel_intensity = (math.sin(wave_pos) + 1) / 2
+
+                # Apply intensity to color
+                r = int(r_base * pixel_intensity * intensity / 255)
+                g = int(g_base * pixel_intensity * intensity / 255)
+                b = int(b_base * pixel_intensity * intensity / 255)
+
+                # Add channels for this pixel
+                if 'IntensityRed' in channels_dict and pixel_idx < len(channels_dict['IntensityRed']):
+                    channel_values.extend([str(channels_dict['IntensityRed'][pixel_idx]['channel']), str(r)])
+
+                if 'IntensityGreen' in channels_dict and pixel_idx < len(channels_dict['IntensityGreen']):
+                    channel_values.extend([str(channels_dict['IntensityGreen'][pixel_idx]['channel']), str(g)])
+
+                if 'IntensityBlue' in channels_dict and pixel_idx < len(channels_dict['IntensityBlue']):
+                    channel_values.extend([str(channels_dict['IntensityBlue'][pixel_idx]['channel']), str(b)])
+
+                if 'IntensityWhite' in channels_dict and pixel_idx < len(channels_dict['IntensityWhite']):
+                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    channel_values.extend([str(channels_dict['IntensityWhite'][pixel_idx]['channel']), str(white_value)])
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.set("Values", str(total_channels * fixture_num))
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+    return steps
+
+
+def gradient_shift(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+                   num_bars=1, speed="1", color="#FF0000", fixture_conf=None, fixture_start_id=0,
+                   intensity=255, spot=None, color2=None, direction="right", **kwargs):
+    """
+    Gradient Shift effect - color gradient across the bar that slowly shifts position.
+
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code for start of gradient (e.g. "#FF0000")
+        fixture_conf: List of fixture configurations
+        fixture_start_id: starting ID for the fixture
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
+        color2: End color for gradient (default: complementary color)
+        direction: "left" or "right" (default: "right")
+    """
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
+    channels_dict = get_channels_by_property(
+        fixture_def, mode_name,
+        ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"]
+    )
+    if not channels_dict:
+        return []
+
+    # Count total channels and determine pixel count
+    total_channels = 0
+    pixel_count = 1
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+            if preset == 'IntensityRed':
+                pixel_count = len(channels)
+
+    # Set default color2 as complementary if not provided
+    if color2 is None:
+        color2 = shift_hue(color, 180)
+
+    # Parse colors
+    r1, g1, b1 = hex_to_rgb(color)
+    r2, g2, b2 = hex_to_rgb(color2)
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    num_frames = len(step_timings)
+
+    steps = []
+    current_step = start_step
+
+    for frame_idx, step_duration in enumerate(step_timings):
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(step_duration))
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+
+        # Calculate offset for this frame (wrapping around)
+        if direction == "left":
+            offset = frame_idx / num_frames
+        else:  # right
+            offset = -frame_idx / num_frames
+
+        # Build values for all fixtures
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            # Calculate per-pixel color based on gradient position + offset
+            for pixel_idx in range(pixel_count):
+                # Position in gradient (0 to 1) with offset, wrapping
+                gradient_pos = ((pixel_idx / max(1, pixel_count - 1)) + offset) % 1.0
+
+                # Linear interpolation between colors
+                r = int((r1 + (r2 - r1) * gradient_pos) * intensity / 255)
+                g = int((g1 + (g2 - g1) * gradient_pos) * intensity / 255)
+                b = int((b1 + (b2 - b1) * gradient_pos) * intensity / 255)
+
+                # Add channels for this pixel
+                if 'IntensityRed' in channels_dict and pixel_idx < len(channels_dict['IntensityRed']):
+                    channel_values.extend([str(channels_dict['IntensityRed'][pixel_idx]['channel']), str(r)])
+
+                if 'IntensityGreen' in channels_dict and pixel_idx < len(channels_dict['IntensityGreen']):
+                    channel_values.extend([str(channels_dict['IntensityGreen'][pixel_idx]['channel']), str(g)])
+
+                if 'IntensityBlue' in channels_dict and pixel_idx < len(channels_dict['IntensityBlue']):
+                    channel_values.extend([str(channels_dict['IntensityBlue'][pixel_idx]['channel']), str(b)])
+
+                if 'IntensityWhite' in channels_dict and pixel_idx < len(channels_dict['IntensityWhite']):
+                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    channel_values.extend([str(channels_dict['IntensityWhite'][pixel_idx]['channel']), str(white_value)])
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.set("Values", str(total_channels * fixture_num))
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+    return steps
+
+
+def heartbeat_pulse(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+                    num_bars=1, speed="1", color="#FF0000", fixture_conf=None, fixture_start_id=0,
+                    intensity=255, spot=None, floor=0.2, **kwargs):
+    """
+    Heartbeat effect - double-pulse pattern mimicking heartbeat rhythm (bump-bump... pause... bump-bump).
+
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Hex color code (e.g. "#FF0000" for red)
+        fixture_conf: List of fixture configurations
+        fixture_start_id: starting ID for the fixture
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
+        floor: Minimum intensity between beats (default: 0.2)
+
+    Timing pattern per cycle:
+        - Beat 1 up: 10% of cycle
+        - Beat 1 down: 10% of cycle
+        - Beat 2 up: 10% of cycle
+        - Beat 2 down: 20% of cycle
+        - Rest: 50% of cycle
+    """
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
+    channels_dict = get_channels_by_property(
+        fixture_def, mode_name,
+        ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"]
+    )
+    if not channels_dict:
+        return []
+
+    # Count total channels
+    total_channels = 0
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+
+    # Parse base color
+    r_base, g_base, b_base = hex_to_rgb(color)
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    total_duration = sum(step_timings)
+
+    # Create heartbeat pattern frames
+    # Pattern: beat1_up, beat1_down, beat2_up, beat2_down, rest
+    # Timing:    10%,       10%,       10%,       20%,     50%
+    pattern_frames = 20  # Number of frames per heartbeat cycle
+    num_cycles = max(1, int(len(step_timings) / pattern_frames))
+    num_frames = num_cycles * pattern_frames
+
+    frame_duration = total_duration / num_frames
+
+    steps = []
+    current_step = start_step
+
+    for frame in range(num_frames):
+        # Position within current cycle (0 to 1)
+        cycle_pos = (frame % pattern_frames) / pattern_frames
+
+        # Calculate beat level based on position in cycle
+        if cycle_pos < 0.10:
+            # Beat 1 up: quick fade up to 100%
+            beat_level = floor + (1.0 - floor) * (cycle_pos / 0.10)
+        elif cycle_pos < 0.20:
+            # Beat 1 down: quick fade to 60%
+            beat_level = 1.0 - (1.0 - 0.6) * ((cycle_pos - 0.10) / 0.10)
+        elif cycle_pos < 0.30:
+            # Beat 2 up: quick fade up to 80%
+            beat_level = 0.6 + (0.8 - 0.6) * ((cycle_pos - 0.20) / 0.10)
+        elif cycle_pos < 0.50:
+            # Beat 2 down: fade down to floor
+            beat_level = 0.8 - (0.8 - floor) * ((cycle_pos - 0.30) / 0.20)
+        else:
+            # Rest: stay at floor
+            beat_level = floor
+
+        # Apply beat level to color
+        r = int(r_base * beat_level * intensity / 255)
+        g = int(g_base * beat_level * intensity / 255)
+        b = int(b_base * beat_level * intensity / 255)
+
+        # Create step
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        fade_time = int(frame_duration / 2)
+        step.set("FadeIn", str(fade_time))
+        step.set("Hold", str(int(frame_duration - fade_time)))
+        step.set("FadeOut", "0")
+
+        # Build values for all fixtures (uniform across all)
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            if 'IntensityRed' in channels_dict:
+                for channel in channels_dict['IntensityRed']:
+                    channel_values.extend([str(channel['channel']), str(r)])
+
+            if 'IntensityGreen' in channels_dict:
+                for channel in channels_dict['IntensityGreen']:
+                    channel_values.extend([str(channel['channel']), str(g)])
+
+            if 'IntensityBlue' in channels_dict:
+                for channel in channels_dict['IntensityBlue']:
+                    channel_values.extend([str(channel['channel']), str(b)])
+
+            if 'IntensityWhite' in channels_dict:
+                for channel in channels_dict['IntensityWhite']:
+                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    channel_values.extend([str(channel['channel']), str(white_value)])
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.set("Values", str(total_channels * fixture_num))
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+    return steps
+
+
+def aurora(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
+           num_bars=1, speed="1", color="#00FF88", fixture_conf=None, fixture_start_id=0,
+           intensity=255, spot=None, color2=None, color3=None, **kwargs):
+    """
+    Aurora effect - slow, flowing waves of color like northern lights.
+    Multiple overlapping color waves at different frequencies creating organic, flowing patterns.
+
+    Parameters:
+        start_step: Starting step number
+        fixture_def: Dictionary containing fixture definition
+        mode_name: Name of the mode to use
+        start_bpm: Starting BPM
+        end_bpm: Ending BPM
+        signature: Time signature as string (e.g. "4/4")
+        transition: Type of transition ("instant" or "gradual")
+        num_bars: Number of bars to fill
+        speed: Speed multiplier ("1/4", "1/2", "1", "2", "4" etc)
+        color: Primary color (e.g. "#00FF88" green-cyan)
+        fixture_conf: List of fixture configurations
+        fixture_start_id: starting ID for the fixture
+        intensity: Maximum intensity value for channels (0-255)
+        spot: Spot object (unused in this effect)
+        color2: Secondary color (default: shifted hue of primary)
+        color3: Tertiary color (default: complementary)
+    """
+    fixture_num = len(fixture_conf) if fixture_conf else 1
+
+    channels_dict = get_channels_by_property(
+        fixture_def, mode_name,
+        ["IntensityRed", "IntensityGreen", "IntensityBlue", "IntensityWhite"]
+    )
+    if not channels_dict:
+        return []
+
+    # Count total channels and determine pixel count
+    total_channels = 0
+    pixel_count = 1
+    for preset, channels in channels_dict.items():
+        if isinstance(channels, list):
+            total_channels += len(channels)
+            if preset == 'IntensityRed':
+                pixel_count = len(channels)
+
+    # Set default colors if not provided
+    if color2 is None:
+        color2 = shift_hue(color, 60)  # Shifted by 60 degrees
+    if color3 is None:
+        color3 = shift_hue(color, 180)  # Complementary
+
+    # Parse colors
+    r1, g1, b1 = hex_to_rgb(color)
+    r2, g2, b2 = hex_to_rgb(color2)
+    r3, g3, b3 = hex_to_rgb(color3)
+
+    # Get step timings
+    step_timings, total_steps = calculate_step_timing(
+        signature=signature,
+        start_bpm=start_bpm,
+        end_bpm=end_bpm,
+        num_bars=num_bars,
+        speed=speed,
+        transition=transition
+    )
+
+    num_frames = len(step_timings)
+
+    # Wave parameters - different frequencies and phases for organic movement
+    wave1_freq = 1.0  # Base frequency
+    wave2_freq = 1.7  # Slightly different
+    wave3_freq = 0.6  # Slower
+    wave1_speed = 1.0
+    wave2_speed = 0.7  # Different speeds
+    wave3_speed = 1.3
+
+    steps = []
+    current_step = start_step
+
+    for frame_idx, step_duration in enumerate(step_timings):
+        step = ET.Element("Step")
+        step.set("Number", str(current_step))
+        step.set("FadeIn", str(step_duration))
+        step.set("Hold", "0")
+        step.set("FadeOut", "0")
+
+        # Time progress for this frame
+        t = frame_idx / max(1, num_frames - 1)
+
+        # Build values for all fixtures
+        values = []
+        for i in range(fixture_num):
+            channel_values = []
+
+            # Calculate per-pixel color based on overlapping waves
+            for pixel_idx in range(pixel_count):
+                # Normalized position (0 to 1)
+                pos = pixel_idx / max(1, pixel_count - 1)
+
+                # Calculate three overlapping sine waves
+                wave1 = (math.sin(2 * math.pi * (pos * wave1_freq + t * wave1_speed)) + 1) / 2
+                wave2 = (math.sin(2 * math.pi * (pos * wave2_freq + t * wave2_speed + 0.33)) + 1) / 2
+                wave3 = (math.sin(2 * math.pi * (pos * wave3_freq + t * wave3_speed + 0.66)) + 1) / 2
+
+                # Normalize wave intensities so they sum to 1
+                total_wave = wave1 + wave2 + wave3
+                if total_wave > 0:
+                    wave1 /= total_wave
+                    wave2 /= total_wave
+                    wave3 /= total_wave
+
+                # Blend colors based on wave intensities
+                r = int((r1 * wave1 + r2 * wave2 + r3 * wave3) * intensity / 255)
+                g = int((g1 * wave1 + g2 * wave2 + g3 * wave3) * intensity / 255)
+                b = int((b1 * wave1 + b2 * wave2 + b3 * wave3) * intensity / 255)
+
+                # Clamp values
+                r = min(255, max(0, r))
+                g = min(255, max(0, g))
+                b = min(255, max(0, b))
+
+                # Add channels for this pixel
+                if 'IntensityRed' in channels_dict and pixel_idx < len(channels_dict['IntensityRed']):
+                    channel_values.extend([str(channels_dict['IntensityRed'][pixel_idx]['channel']), str(r)])
+
+                if 'IntensityGreen' in channels_dict and pixel_idx < len(channels_dict['IntensityGreen']):
+                    channel_values.extend([str(channels_dict['IntensityGreen'][pixel_idx]['channel']), str(g)])
+
+                if 'IntensityBlue' in channels_dict and pixel_idx < len(channels_dict['IntensityBlue']):
+                    channel_values.extend([str(channels_dict['IntensityBlue'][pixel_idx]['channel']), str(b)])
+
+                if 'IntensityWhite' in channels_dict and pixel_idx < len(channels_dict['IntensityWhite']):
+                    white_value = min(255, max(0, int((r + g + b) / 3)))
+                    channel_values.extend([str(channels_dict['IntensityWhite'][pixel_idx]['channel']), str(white_value)])
+
+            values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
+
+        step.set("Values", str(total_channels * fixture_num))
+        step.text = ":".join(values)
+        steps.append(step)
+        current_step += 1
+
+    return steps
