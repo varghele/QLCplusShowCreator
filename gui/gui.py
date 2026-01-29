@@ -632,15 +632,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         try:
             file_path = self._pending_config_path
 
+            # Close the progress dialog immediately to avoid Qt crashes
+            self.progress_manager.finish_modal()
+
             # Load configuration
-            self.progress_manager.update_modal(1, "Parsing YAML configuration...")
-            QApplication.processEvents()
             self.config = Configuration.load(file_path)
             self.config_path = file_path
 
-            # Pre-load fixture definitions into cache to speed up tab switching
-            self.progress_manager.update_modal(2, "Loading fixture definitions...")
-            QApplication.processEvents()
+            # Pre-load fixture definitions into cache
             self._preload_fixture_definitions()
 
             # Update all tabs with new configuration
@@ -650,44 +649,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.structure_tab.config = self.config
             self.shows_tab.config = self.config
 
-            # Refresh all tabs
-            self.progress_manager.update_modal(3, "Updating Configuration tab...")
-            QApplication.processEvents()
+            # Refresh tabs
             self.config_tab.update_from_config()
 
-            self.progress_manager.update_modal(4, "Updating Fixtures tab...")
-            QApplication.processEvents()
-            self.fixtures_tab.update_from_config()
+            # Schedule fixtures_tab for lazy update (avoids Qt stack overflow with large configs)
+            self.fixtures_tab.schedule_update()
 
-            self.progress_manager.update_modal(5, "Updating Stage tab...")
-            QApplication.processEvents()
             self.stage_tab.update_from_config()
-
-            self.progress_manager.update_modal(6, "Updating Structure tab...")
-            QApplication.processEvents()
             self.structure_tab.update_from_config()
-
-            self.progress_manager.update_modal(7, "Updating Shows tab...")
-            QApplication.processEvents()
             self.shows_tab.update_from_config()
 
-            self.progress_manager.update_modal(8, "Done!")
-            self.progress_manager.finish_modal()
-
-            QMessageBox.information(
-                self,
-                "Success",
-                f"Configuration loaded from {file_path}"
-            )
             print(f"Configuration loaded from {file_path}")
 
         except Exception as e:
             self.progress_manager.finish_modal()
-            QMessageBox.critical(
-                self,
-                "Error",
-                f"Failed to load configuration: {str(e)}"
-            )
             print(f"Error loading configuration: {e}")
             import traceback
             traceback.print_exc()
