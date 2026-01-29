@@ -147,6 +147,14 @@ def calculate_unified_step_grid(
             step_interval = beat_ms / 10  # 10 steps per beat for smooth animation
             step_interval = max(step_interval, MIN_STEP_DURATION_MS)
             min_step_interval_ms = min(min_step_interval_ms, step_interval)
+        elif block.effect_type in ("breathing_sync", "wave_travel", "heartbeat_pulse"):
+            # Smooth animated effects need fine steps for visual quality
+            # Use ~16 steps per bar for smooth sine waves and heartbeat pattern
+            bar_ms = ms_per_beat * 4  # Assuming 4/4 time
+            cycle_ms = bar_ms / speed_mult
+            step_interval = cycle_ms / 16  # 16 steps per cycle
+            step_interval = max(step_interval, MIN_STEP_DURATION_MS)
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
         else:
             # Other effects (twinkle, waterfall, etc.)
             # One step per beat is usually sufficient
@@ -633,6 +641,117 @@ def sample_dimmer_at_time(
         intensity_multiplier = math.exp(-decay_progress * 3)
 
         return int(base_intensity * intensity_multiplier)
+
+    elif effect_type == "breathing_sync":
+        # Breathing effect: all fixtures fade in/out together smoothly in a sine curve
+        # One full breath cycle per bar at speed 1
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        # Calculate timing: one breath cycle per bar at speed 1
+        seconds_per_beat = 60.0 / bpm
+        seconds_per_bar = seconds_per_beat * 4  # Assuming 4/4 time
+        cycle_time = seconds_per_bar / speed_mult
+
+        # Calculate phase in the breathing cycle (0 to 2*pi)
+        phase = (time_in_block / cycle_time) * 2 * math.pi
+
+        # Minimum intensity floor (30% of base)
+        floor = 0.3
+
+        # Sine wave for smooth breathing: floor + (1-floor) * (sin(phase) + 1) / 2
+        # This gives a smooth oscillation between floor and 1.0
+        brightness = floor + (1 - floor) * (math.sin(phase) + 1) / 2
+
+        return int(base_intensity * brightness)
+
+    elif effect_type == "wave_travel":
+        # Wave effect: intensity wave travels across fixtures like a stadium wave
+        # One wave cycle per bar at speed 1
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        if total_fixtures <= 1:
+            # Single fixture - just use breathing pattern
+            seconds_per_beat = 60.0 / bpm
+            seconds_per_bar = seconds_per_beat * 4
+            cycle_time = seconds_per_bar / speed_mult
+            phase = (time_in_block / cycle_time) * 2 * math.pi
+            brightness = (math.sin(phase) + 1) / 2
+            return int(base_intensity * brightness)
+
+        # Calculate timing: one wave cycle per bar at speed 1
+        seconds_per_beat = 60.0 / bpm
+        seconds_per_bar = seconds_per_beat * 4
+        cycle_time = seconds_per_bar / speed_mult
+
+        # Wavelength: how many fixtures the wave spans (half the fixtures)
+        wavelength = max(2, total_fixtures / 2)
+
+        # Calculate wave position for this fixture at this time
+        # Wave moves from left to right (direction = "right")
+        time_progress = time_in_block / cycle_time
+        wave_pos = 2 * math.pi * (fixture_idx / wavelength - time_progress)
+
+        # Sine wave intensity (0 to 1)
+        brightness = (math.sin(wave_pos) + 1) / 2
+
+        return int(base_intensity * brightness)
+
+    elif effect_type == "heartbeat_pulse":
+        # Heartbeat effect: double-pulse pattern (bump-bump... pause... bump-bump)
+        # One heartbeat cycle per bar at speed 1
+        # Timing: Beat1 up (10%), Beat1 down (10%), Beat2 up (10%), Beat2 down (20%), Rest (50%)
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        # Calculate timing: one heartbeat cycle per bar at speed 1
+        seconds_per_beat = 60.0 / bpm
+        seconds_per_bar = seconds_per_beat * 4
+        cycle_time = seconds_per_bar / speed_mult
+
+        # Position within current cycle (0 to 1)
+        cycle_pos = (time_in_block % cycle_time) / cycle_time
+
+        # Minimum intensity floor (20% of base)
+        floor = 0.2
+
+        # Calculate beat level based on position in cycle
+        if cycle_pos < 0.10:
+            # Beat 1 up: quick fade up to 100%
+            beat_level = floor + (1.0 - floor) * (cycle_pos / 0.10)
+        elif cycle_pos < 0.20:
+            # Beat 1 down: quick fade to 60%
+            beat_level = 1.0 - (1.0 - 0.6) * ((cycle_pos - 0.10) / 0.10)
+        elif cycle_pos < 0.30:
+            # Beat 2 up: quick fade up to 80%
+            beat_level = 0.6 + (0.8 - 0.6) * ((cycle_pos - 0.20) / 0.10)
+        elif cycle_pos < 0.50:
+            # Beat 2 down: fade down to floor
+            beat_level = 0.8 - (0.8 - floor) * ((cycle_pos - 0.30) / 0.20)
+        else:
+            # Rest: stay at floor
+            beat_level = floor
+
+        return int(base_intensity * beat_level)
 
     # Default: static
     return base_intensity
