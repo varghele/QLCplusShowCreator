@@ -852,7 +852,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: light_track_cycle_of_a_psycho.wav
+      audio_file_path: ''
       lanes:
       - fixture_targets:
         - MH
@@ -18898,6 +18898,138 @@ shows:
         muted: false
         name: Lane 7
         solo: false
+  'SBD_monsters_in_my_head (# Edit conflict 2026-01-29 w0xfzgC #)':
+    effects: []
+    parts:
+    - bpm: 192.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#0040ff'
+      name: bpart
+      num_bars: 15
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 11
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: postchorus1
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 11
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff007f'
+      name: postchorus2
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#0040ff'
+      name: interlude
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff8000'
+      name: bpart
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#55ff00'
+      name: bridge
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#0000ff'
+      name: drop
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ffffff'
+      name: pause
+      num_bars: 2
+      signature: 2/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff557f'
+      name: chorus_repeat
+      num_bars: 5
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ffaaff'
+      name: chorus_out
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0000'
+      name: ritartando
+      num_bars: 2
+      signature: 4/4
+      transition: gradual
+    - bpm: 107.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 8
+      signature: 4/4
+      transition: gradual
+    timeline_data:
+      audio_file_path: null
+      lanes: []
   SBD_old_school_medicine:
     effects: []
     parts:
@@ -25374,35 +25506,517 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: ''
+      audio_file_path: C:/Users/varghele/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT/MASTER\audiofiles\light_outro.wav
       lanes:
       - fixture_targets:
         - MH
-        light_blocks: []
+        light_blocks:
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: Wheel
+            color_wheel_position: 12
+            cyan: 0.0
+            end_time: 63.99999999999999
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 2.6666666666666665
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '4'
+            effect_type: random_strobe
+            end_time: 5.333333333333333
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 2.6666666666666665
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 26.666666666666668
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 5.333333333333333
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 27.333333333333332
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 26.666666666666668
+            strobe_speed: 0.0
+          - effect_speed: '4'
+            effect_type: random_strobe
+            end_time: 29.333333333333332
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 27.333333333333332
+            strobe_speed: 0.0
+          - effect_speed: 1/2
+            effect_type: random_strobe
+            end_time: 50.666666666666664
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 29.333333333333332
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 61.33333333333333
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 50.666666666666664
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 63.99999999999999
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 61.33333333333333
+            strobe_speed: 0.0
+          duration: 61.33333333333333
+          effect_name: ''
+          end_time: 63.99999999999999
+          modified: true
+          movement_blocks:
+          - effect_speed: 1/8
+            effect_type: lissajous
+            end_time: 63.99999999999999
+            interpolate_from_previous: true
+            lissajous_ratio: '4:3'
+            modified: false
+            pan: 127.5
+            pan_amplitude: 50.0
+            pan_fine: 0.0
+            pan_max: 255.0
+            pan_min: 0.0
+            phase_offset_degrees: 0.0
+            phase_offset_enabled: false
+            speed: 0.0
+            start_time: 2.6666666666666665
+            target_spot_name: Spot2
+            tilt: 127.5
+            tilt_amplitude: 50.0
+            tilt_fine: 0.0
+            tilt_max: 255.0
+            tilt_min: 0.0
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks:
+          - end_time: 63.99999999999999
+            focus: 127.0
+            gobo_index: 0
+            gobo_rotation: 0.0
+            modified: false
+            prism_enabled: true
+            prism_rotation: 0.0
+            start_time: 2.6666666666666665
+            zoom: 127.0
+          start_time: 2.6666666666666665
         muted: false
         name: Lane 1
         solo: false
       - fixture_targets:
         - BARS
-        light_blocks: []
+        light_blocks:
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 29.333333333333332
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 2.6666666666666665
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '4'
+            effect_type: random_strobe
+            end_time: 5.333333333333333
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 2.6666666666666665
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: pulse
+            end_time: 26.666666666666668
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 5.333333333333333
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 27.333333333333332
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 26.666666666666668
+            strobe_speed: 0.0
+          - effect_speed: '4'
+            effect_type: random_strobe
+            end_time: 29.333333333333332
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 27.333333333333332
+            strobe_speed: 0.0
+          duration: 26.666666666666664
+          effect_name: ''
+          end_time: 29.333333333333332
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 2.6666666666666665
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 88.0
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 29.333333333333332
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: 1/4
+            effect_type: twinkle
+            end_time: 61.33333333333333
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 29.333333333333332
+            strobe_speed: 0.0
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 63.99999999999999
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 61.33333333333333
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: random_strobe
+            end_time: 82.66666666666666
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 63.99999999999999
+            strobe_speed: 0.0
+          - effect_speed: 1/8
+            effect_type: hit
+            end_time: 88.0
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 82.66666666666666
+            strobe_speed: 0.0
+          duration: 58.66666666666667
+          effect_name: ''
+          end_time: 88.0
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 29.333333333333332
         muted: false
         name: Lane 2
         solo: false
       - fixture_targets:
         - SUNS
-        light_blocks: []
+        light_blocks:
+        - colour_blocks: []
+          dimmer_blocks:
+          - effect_speed: '4'
+            effect_type: hit
+            end_time: 5.333333333333333
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 2.6666666666666665
+            strobe_speed: 0.0
+          duration: 2.6666666666666665
+          effect_name: ''
+          end_time: 5.333333333333333
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 2.6666666666666665
+        - colour_blocks: []
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: ping_pong_smooth
+            end_time: 26.666666666666668
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 2.6666666666666665
+            strobe_speed: 0.0
+          duration: 24.0
+          effect_name: ''
+          end_time: 26.666666666666668
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 2.6666666666666665
+        - colour_blocks: []
+          dimmer_blocks:
+          - effect_speed: '4'
+            effect_type: zigzag
+            end_time: 29.333333333333332
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 26.666666666666668
+            strobe_speed: 0.0
+          duration: 2.6666666666666643
+          effect_name: ''
+          end_time: 29.333333333333332
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 26.666666666666668
+        - colour_blocks: []
+          dimmer_blocks:
+          - effect_speed: '2'
+            effect_type: waterfall_up
+            end_time: 61.33333333333333
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 29.333333333333332
+            strobe_speed: 0.0
+          duration: 31.999999999999996
+          effect_name: ''
+          end_time: 61.33333333333333
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 29.333333333333332
+        - colour_blocks: []
+          dimmer_blocks:
+          - effect_speed: 1/4
+            effect_type: hit
+            end_time: 63.99999999999999
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 61.33333333333333
+            strobe_speed: 0.0
+          duration: 2.6666666666666643
+          effect_name: ''
+          end_time: 63.99999999999999
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 61.33333333333333
         muted: false
         name: Lane 3
         solo: false
       - fixture_targets:
         - WASH
-        light_blocks: []
+        light_blocks:
+        - colour_blocks:
+          - amber: 0.0
+            blue: 255.0
+            color_mode: RGB
+            color_wheel_position: 0
+            cyan: 0.0
+            end_time: 29.333333333333332
+            green: 255.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 2.6666666666666665
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '4'
+            effect_type: hit
+            end_time: 5.333333333333333
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 2.6666666666666665
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: ping_pong_smooth
+            end_time: 26.666666666666668
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 5.333333333333333
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 27.333333333333332
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 26.666666666666668
+            strobe_speed: 0.0
+          - effect_speed: '4'
+            effect_type: ping_pong_smooth
+            end_time: 29.333333333333332
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 27.333333333333332
+            strobe_speed: 0.0
+          duration: 26.666666666666664
+          effect_name: ''
+          end_time: 29.333333333333332
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 2.6666666666666665
         muted: false
         name: Lane 4
         solo: false
       - fixture_targets:
         - FP
-        light_blocks: []
+        light_blocks:
+        - colour_blocks:
+          - amber: 0.0
+            blue: 0.0
+            color_mode: Wheel
+            color_wheel_position: 23
+            cyan: 0.0
+            end_time: 88.0
+            green: 0.0
+            hue: 0.0
+            lime: 0.0
+            magenta: 0.0
+            modified: false
+            red: 255.0
+            saturation: 0.0
+            start_time: 2.6666666666666665
+            uv: 0.0
+            value: 0.0
+            white: 0.0
+            yellow: 0.0
+          dimmer_blocks:
+          - effect_speed: '1'
+            effect_type: pulse
+            end_time: 26.666666666666668
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 5.333333333333333
+            strobe_speed: 0.0
+          - effect_speed: '1'
+            effect_type: hit
+            end_time: 27.333333333333332
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 26.666666666666668
+            strobe_speed: 0.0
+          - effect_speed: '4'
+            effect_type: pulse
+            end_time: 29.333333333333332
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 27.333333333333332
+            strobe_speed: 0.0
+          - effect_speed: 1/2
+            effect_type: pulse
+            end_time: 82.66666666666666
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 29.333333333333332
+            strobe_speed: 0.0
+          - effect_speed: 1/8
+            effect_type: hit
+            end_time: 88.0
+            intensity: 255.0
+            iris: 255.0
+            modified: false
+            start_time: 82.66666666666666
+            strobe_speed: 0.0
+          duration: 85.33333333333333
+          effect_name: ''
+          end_time: 88.0
+          modified: true
+          movement_blocks: []
+          name: null
+          parameters: {}
+          riff_source: null
+          riff_version: null
+          special_blocks: []
+          start_time: 2.6666666666666665
         muted: false
         name: Lane 5
         solo: false
@@ -25724,13 +26338,13 @@ shows:
     - bpm: 193.0
       color: '#ffff00'
       name: prechorus3
-      num_bars: 18
+      num_bars: 16
       signature: 4/4
       transition: instant
     - bpm: 193.0
       color: '#ff0080'
       name: chorus3
-      num_bars: 15
+      num_bars: 16
       signature: 4/4
       transition: instant
     - bpm: 193.0
@@ -25742,7 +26356,7 @@ shows:
     - bpm: 193.0
       color: '#ff0000'
       name: outro2
-      num_bars: 9
+      num_bars: 10
       signature: 4/4
       transition: instant
     timeline_data:
@@ -33302,7 +33916,7 @@ shows:
         muted: false
         name: Lane 7
         solo: false
-shows_directory: C:/LICHT/SBD
+shows_directory: C:/Users/varghele/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT/MASTER
 spots:
   Spot1:
     name: Spot1
