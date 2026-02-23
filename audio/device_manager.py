@@ -141,7 +141,7 @@ class DeviceManager:
         default_config = {
             'device_index': None,  # None means use system default
             'sample_rate': 44100,
-            'buffer_size': 1024
+            'buffer_size': 512  # Reduced for lower latency
         }
 
         try:

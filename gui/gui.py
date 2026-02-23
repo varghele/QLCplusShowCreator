@@ -389,6 +389,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # File menu actions
         self.actionSaveConfig.triggered.connect(self.save_configuration)
+        self.actionSaveConfigAs.triggered.connect(self.save_configuration_as)
         self.actionLoadConfig.triggered.connect(self.load_configuration)
         self.actionImportWorkspace.triggered.connect(self.import_workspace)
         self.actionCreateWorkspace.triggered.connect(self.create_workspace)
@@ -544,6 +545,49 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             import traceback
             traceback.print_exc()
 
+    def save_configuration_as(self):
+        """Save configuration to a new YAML file (always prompts for location)"""
+        try:
+            # Save all tabs to configuration
+            self.config_tab.save_to_config()
+            self.fixtures_tab.save_to_config()
+            self.stage_tab.save_to_config()
+            self.structure_tab.save_to_config()
+            self.shows_tab.save_to_config()
+
+            # Always prompt for file path
+            default_dir = os.path.dirname(self.config_path) if self.config_path else ""
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Configuration As",
+                default_dir,
+                "YAML Files (*.yaml);;All Files (*)"
+            )
+            if not file_path:
+                return
+
+            # Update the current config path to the new location
+            self.config_path = file_path
+
+            # Save configuration
+            self.config.save(self.config_path)
+            QMessageBox.information(
+                self,
+                "Success",
+                f"Configuration saved to {self.config_path}"
+            )
+            print(f"Configuration saved to {self.config_path}")
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to save configuration: {str(e)}"
+            )
+            print(f"Error saving configuration: {e}")
+            import traceback
+            traceback.print_exc()
+
     def load_configuration(self):
         """Load configuration from YAML file"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -588,15 +632,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         try:
             file_path = self._pending_config_path
 
+            # Close the progress dialog immediately to avoid Qt crashes
+            self.progress_manager.finish_modal()
+
             # Load configuration
-            self.progress_manager.update_modal(1, "Parsing YAML configuration...")
-            QApplication.processEvents()
             self.config = Configuration.load(file_path)
             self.config_path = file_path
 
-            # Pre-load fixture definitions into cache to speed up tab switching
-            self.progress_manager.update_modal(2, "Loading fixture definitions...")
-            QApplication.processEvents()
+            # Pre-load fixture definitions into cache
             self._preload_fixture_definitions()
 
             # Update all tabs with new configuration
@@ -606,44 +649,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.structure_tab.config = self.config
             self.shows_tab.config = self.config
 
-            # Refresh all tabs
-            self.progress_manager.update_modal(3, "Updating Configuration tab...")
-            QApplication.processEvents()
+            # Refresh tabs
             self.config_tab.update_from_config()
 
-            self.progress_manager.update_modal(4, "Updating Fixtures tab...")
-            QApplication.processEvents()
-            self.fixtures_tab.update_from_config()
+            # Schedule fixtures_tab for lazy update (avoids Qt stack overflow with large configs)
+            self.fixtures_tab.schedule_update()
 
-            self.progress_manager.update_modal(5, "Updating Stage tab...")
-            QApplication.processEvents()
             self.stage_tab.update_from_config()
-
-            self.progress_manager.update_modal(6, "Updating Structure tab...")
-            QApplication.processEvents()
             self.structure_tab.update_from_config()
-
-            self.progress_manager.update_modal(7, "Updating Shows tab...")
-            QApplication.processEvents()
             self.shows_tab.update_from_config()
 
-            self.progress_manager.update_modal(8, "Done!")
-            self.progress_manager.finish_modal()
-
-            QMessageBox.information(
-                self,
-                "Success",
-                f"Configuration loaded from {file_path}"
-            )
             print(f"Configuration loaded from {file_path}")
 
         except Exception as e:
             self.progress_manager.finish_modal()
-            QMessageBox.critical(
-                self,
-                "Error",
-                f"Failed to load configuration: {str(e)}"
-            )
             print(f"Error loading configuration: {e}")
             import traceback
             traceback.print_exc()

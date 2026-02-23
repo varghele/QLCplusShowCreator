@@ -627,6 +627,11 @@ class VisualizerProtocol:
                 fixture.current_mode
             )
 
+            # Get group for effective orientation and z values
+            group = config.groups.get(fixture.group) if fixture.group else None
+            mounting, yaw, pitch, roll = fixture.get_effective_orientation(group)
+            fixture_z = fixture.get_effective_z(group)
+
             fixture_info = {
                 "name": fixture.name,
                 "manufacturer": fixture.manufacturer,
@@ -637,13 +642,13 @@ class VisualizerProtocol:
                 "position": {
                     "x": fixture.x,
                     "y": fixture.y,
-                    "z": fixture.z
+                    "z": fixture_z  # Use effective Z (considers group default)
                 },
                 "orientation": {
-                    "mounting": fixture.mounting,
-                    "yaw": fixture.yaw,
-                    "pitch": fixture.pitch,
-                    "roll": fixture.roll
+                    "mounting": mounting,  # Use effective orientation
+                    "yaw": yaw,
+                    "pitch": pitch,
+                    "roll": roll
                 },
                 # QXF-derived data for visualizer
                 "fixture_type": qxf_data.get('fixture_type', fixture.type),

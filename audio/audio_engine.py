@@ -22,7 +22,7 @@ class AudioCommand:
 class AudioEngine:
     """Core audio playback engine using PyAudio"""
 
-    def __init__(self, sample_rate: int = 44100, buffer_size: int = 1024):
+    def __init__(self, sample_rate: int = 44100, buffer_size: int = 512):
         self.sample_rate = sample_rate
         self.buffer_size = buffer_size
 
@@ -127,6 +127,9 @@ class AudioEngine:
             return False
 
         with self._lock:
+            # Clear any pending seek from previous stop operation
+            self._seek_pending = False
+
             # Seek to start position
             start_frame = int(start_position * self.sample_rate)
             self._current_frame = start_frame

@@ -70,6 +70,7 @@ class Spot:
     name: str
     x: float = 0.0     # X position in meters
     y: float = 0.0     # Y position in meters
+    z: float = 0.0     # Z height in meters (for 3D targeting)
 
 
 @dataclass
@@ -265,6 +266,9 @@ class MovementBlock:
     phase_offset_enabled: bool = False  # Enable phase offset between fixtures
     phase_offset_degrees: float = 0.0  # Phase offset in degrees (0-360)
 
+    # Target spot for automatic pan/tilt calculation
+    target_spot_name: Optional[str] = None  # Name of spot to point at (None = use manual pan/tilt)
+
     modified: bool = False  # True if user edited this block after riff insertion
 
     def to_dict(self) -> Dict:
@@ -288,6 +292,7 @@ class MovementBlock:
             "lissajous_ratio": self.lissajous_ratio,
             "phase_offset_enabled": self.phase_offset_enabled,
             "phase_offset_degrees": self.phase_offset_degrees,
+            "target_spot_name": self.target_spot_name,
             "modified": self.modified
         }
 
@@ -313,6 +318,7 @@ class MovementBlock:
             lissajous_ratio=data.get("lissajous_ratio", "1:2"),
             phase_offset_enabled=data.get("phase_offset_enabled", False),
             phase_offset_degrees=data.get("phase_offset_degrees", 0.0),
+            target_spot_name=data.get("target_spot_name"),
             modified=data.get("modified", False)
         )
 
@@ -1233,7 +1239,8 @@ class Configuration:
                 name: asdict(spot)
                 for name, spot in self.spots.items()
             },
-            'workspace_path': self.workspace_path
+            'workspace_path': self.workspace_path,
+            'shows_directory': self.shows_directory
         }
 
         with open(filename, 'w') as f:
@@ -1265,25 +1272,11 @@ class Configuration:
             fixtures.append(Fixture(**f_data))
 
         # Handle groups with colors and orientation defaults
+        # Groups reference the same fixture objects as the top-level fixtures list
         groups = {}
         for name, group_data in data.get('groups', {}).items():
-            group_fixtures = []
-            for f_data in group_data.get('fixtures', []):
-                if 'available_modes' in f_data:
-                    modes = []
-                    for mode_data in f_data['available_modes']:
-                        mode = FixtureMode(
-                            name=mode_data['name'],
-                            channels=mode_data['channels']
-                        )
-                        modes.append(mode)
-                    f_data['available_modes'] = modes
-
-                # Remove deprecated fields if present (direction, rotation)
-                f_data.pop('direction', None)
-                f_data.pop('rotation', None)
-
-                group_fixtures.append(Fixture(**f_data))
+            # Find fixtures that belong to this group from the top-level fixtures
+            group_fixtures = [f for f in fixtures if f.group == name]
 
             groups[name] = FixtureGroup(
                 name=name,
@@ -1371,7 +1364,8 @@ class Configuration:
             universes=universes,
             shows=shows,
             spots=spots,
-            workspace_path=data.get('workspace_path')
+            workspace_path=data.get('workspace_path'),
+            shows_directory=data.get('shows_directory')
         )
 
         return config
@@ -1594,27 +1588,31 @@ class Configuration:
         """
         Ensure universes exist for all fixtures.
 
-        Creates universes automatically based on fixture assignments if none exist.
+        Creates universes automatically based on fixture assignments.
         Uses ArtNet broadcast output for visualizer compatibility.
 
         Returns:
-            bool: True if universes were created, False if they already existed
+            bool: True if any universes were created, False if all already existed
         """
-        if self.universes:
-            # Universes already configured
-            return False
-
         if not self.fixtures:
             # No fixtures, nothing to do
             return False
 
         # Collect all unique universe IDs from fixtures
-        universe_ids = set()
+        universe_ids_needed = set()
         for fixture in self.fixtures:
-            universe_ids.add(fixture.universe)
+            universe_ids_needed.add(fixture.universe)
 
-        # Create universes for each unique ID
-        for universe_id in sorted(universe_ids):
+        # Find missing universes
+        existing_ids = set(self.universes.keys())
+        missing_ids = universe_ids_needed - existing_ids
+
+        if not missing_ids:
+            # All needed universes already exist
+            return False
+
+        # Create universes for each missing ID
+        for universe_id in sorted(missing_ids):
             self.universes[universe_id] = Universe(
                 id=universe_id,
                 name=f"Universe {universe_id}",
@@ -1630,8 +1628,7 @@ class Configuration:
                 }
             )
 
-        if universe_ids:
-            print(f"Auto-created {len(universe_ids)} universe(s) for visualizer: {sorted(universe_ids)}")
+        print(f"Auto-created {len(missing_ids)} universe(s) for visualizer: {sorted(missing_ids)}")
 
         return True
 

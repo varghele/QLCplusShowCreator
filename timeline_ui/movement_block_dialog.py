@@ -369,15 +369,17 @@ class PanTiltWidget(QFrame):
 class MovementBlockDialog(QDialog):
     """Dialog for editing movement sublane block parameters."""
 
-    def __init__(self, block: MovementBlock, parent=None):
+    def __init__(self, block: MovementBlock, parent=None, config=None):
         """Create the movement block dialog.
 
         Args:
             block: MovementBlock to edit
             parent: Parent widget
+            config: Configuration object (needed for spot list)
         """
         super().__init__(parent)
         self.block = block
+        self.config = config
 
         self.setWindowTitle("Edit Movement Block")
         self.setMinimumWidth(650)
@@ -445,7 +447,7 @@ class MovementBlockDialog(QDialog):
 
         # Effect speed selector
         self.effect_speed_combo = QComboBox()
-        self.effect_speed_combo.addItems(["1/4", "1/2", "1", "2", "4"])
+        self.effect_speed_combo.addItems(["1/16", "1/8", "1/4", "1/2", "1", "2", "4", "8", "16"])
         self.effect_speed_combo.setCurrentText("1")
         effect_layout.addRow("Speed:", self.effect_speed_combo)
 
@@ -457,6 +459,39 @@ class MovementBlockDialog(QDialog):
 
         effect_group.setLayout(effect_layout)
         layout.addWidget(effect_group)
+
+        # Target Spot group
+        target_group = QGroupBox("Target Spot (Auto-Point)")
+        target_layout = QFormLayout()
+
+        self.target_spot_combo = QComboBox()
+        self.target_spot_combo.addItem("(None - use manual position)", None)
+
+        # Populate with spots from config
+        if self.config and hasattr(self.config, 'spots'):
+            for spot_name in sorted(self.config.spots.keys()):
+                spot = self.config.spots[spot_name]
+                # Show spot name with coordinates for clarity
+                label = f"{spot_name} (x={spot.x:.1f}, y={spot.y:.1f}, z={spot.z:.1f})"
+                self.target_spot_combo.addItem(label, spot_name)
+
+        self.target_spot_combo.setToolTip(
+            "Select a stage spot to automatically point at.\n"
+            "Pan/tilt will be calculated based on fixture position and orientation.\n"
+            "Leave as '(None)' to use manual pan/tilt values."
+        )
+        target_layout.addRow("Target Spot:", self.target_spot_combo)
+
+        # Info label
+        self.target_info_label = QLabel(
+            "When a target spot is selected, pan/tilt values are calculated\n"
+            "automatically for each fixture based on its position and orientation."
+        )
+        self.target_info_label.setStyleSheet("color: #666; font-style: italic;")
+        target_layout.addRow(self.target_info_label)
+
+        target_group.setLayout(target_layout)
+        layout.addWidget(target_group)
 
         # Position/Preview group with 2D widget
         position_group = QGroupBox("Position & Preview")
@@ -695,6 +730,28 @@ class MovementBlockDialog(QDialog):
         # 2D widget position change
         self.pan_tilt_widget.position_changed.connect(self._on_position_widget_changed)
 
+        # Target spot change
+        self.target_spot_combo.currentIndexChanged.connect(self._on_target_spot_changed)
+
+    def _on_target_spot_changed(self, index):
+        """Handle target spot selection change."""
+        spot_name = self.target_spot_combo.currentData()
+        has_target = spot_name is not None
+
+        # When a target spot is selected, manual pan/tilt becomes less relevant
+        # but we still allow it as an offset or fallback
+        # Update the info label
+        if has_target:
+            self.target_info_label.setText(
+                f"Fixtures will automatically point at '{spot_name}'.\n"
+                "Manual pan/tilt values serve as offsets for effects."
+            )
+        else:
+            self.target_info_label.setText(
+                "When a target spot is selected, pan/tilt values are calculated\n"
+                "automatically for each fixture based on its position and orientation."
+            )
+
     def _on_effect_type_changed(self, effect_type):
         """Handle effect type change."""
         self._update_ui_visibility()
@@ -818,8 +875,20 @@ class MovementBlockDialog(QDialog):
         # Interpolation
         self.interpolate_checkbox.setChecked(self.block.interpolate_from_previous)
 
+        # Target spot selection
+        target_spot = self.block.target_spot_name
+        if target_spot:
+            # Find the index for this spot
+            for i in range(self.target_spot_combo.count()):
+                if self.target_spot_combo.itemData(i) == target_spot:
+                    self.target_spot_combo.setCurrentIndex(i)
+                    break
+        else:
+            self.target_spot_combo.setCurrentIndex(0)  # "(None)"
+
         # Update preview
         self._on_effect_params_changed()
+        self._on_target_spot_changed(self.target_spot_combo.currentIndex())
 
     def accept(self):
         """Save parameters to block and close."""
@@ -853,5 +922,8 @@ class MovementBlockDialog(QDialog):
 
         # Interpolation
         self.block.interpolate_from_previous = self.interpolate_checkbox.isChecked()
+
+        # Target spot
+        self.block.target_spot_name = self.target_spot_combo.currentData()
 
         super().accept()
