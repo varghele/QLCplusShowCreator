@@ -20,6 +20,7 @@ class LightBlockWidget(QWidget):
     block_edited = pyqtSignal()  # Emitted when block content is edited (for auto-save)
 
     RESIZE_HANDLE_WIDTH = 8  # Pixels for resize handle area
+    HEADER_HEIGHT = 24  # Pixels reserved for header/handle area (drag entire effect)
 
     def __init__(self, block: LightBlock, timeline_widget, lane_widget, parent=None):
         """Create a light block widget.
@@ -66,6 +67,9 @@ class LightBlockWidget(QWidget):
         self.dragging_intensity_handle = None  # Which dimmer block's intensity handle is being dragged
         self.drag_start_intensity = None  # Initial intensity value when drag started
 
+        # Multi-selection state
+        self._is_multi_selected = False
+
         self.setMinimumHeight(30)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setMouseTracking(True)  # Enable mouse tracking for cursor updates on hover
@@ -105,6 +109,29 @@ class LightBlockWidget(QWidget):
     def update_display(self):
         """Update the display after block data changes."""
         self.update()  # Trigger repaint
+
+    @property
+    def is_multi_selected(self) -> bool:
+        """Check if this block is part of a multi-selection."""
+        return self._is_multi_selected
+
+    def set_multi_selected(self, selected: bool) -> None:
+        """Set multi-selection state.
+
+        Args:
+            selected: True to mark as multi-selected
+        """
+        if self._is_multi_selected != selected:
+            self._is_multi_selected = selected
+            self.update()  # Trigger repaint for visual update
+
+    def get_block_time_bounds(self) -> tuple:
+        """Get the time bounds of this block.
+
+        Returns:
+            Tuple of (start_time, end_time)
+        """
+        return (self.block.start_time, self.block.end_time)
 
     def update_position(self):
         """Update widget position and size based on block envelope data."""
@@ -161,10 +188,16 @@ class LightBlockWidget(QWidget):
         envelope_color = QColor(60, 60, 60, 100)
         painter.setBrush(QBrush(envelope_color))
 
-        # Border color - thicker dashed line
-        border_color = QColor(150, 150, 150, 200)
-        pen = QPen(border_color, 2, Qt.PenStyle.DashLine)
-        pen.setDashPattern([4, 3])  # Custom dash pattern: 4px dash, 3px gap
+        if self._is_multi_selected:
+            # Multi-selection highlight - solid blue border
+            border_color = QColor(0, 120, 215, 255)
+            pen = QPen(border_color, 3, Qt.PenStyle.SolidLine)
+        else:
+            # Border color - thicker dashed line
+            border_color = QColor(150, 150, 150, 200)
+            pen = QPen(border_color, 2, Qt.PenStyle.DashLine)
+            pen.setDashPattern([4, 3])  # Custom dash pattern: 4px dash, 3px gap
+
         painter.setPen(pen)
 
         # Draw envelope rectangle
@@ -253,56 +286,63 @@ class LightBlockWidget(QWidget):
         """Draw individual sublane blocks within the envelope."""
         sublane_height = self.lane_widget.sublane_height
 
-        # Check if fixture has dimmer capability
-        has_dimmer = self.lane_widget.capabilities.has_dimmer if hasattr(self.lane_widget, 'capabilities') and self.lane_widget.capabilities else True
-        has_colour = self.lane_widget.capabilities.has_colour if hasattr(self.lane_widget, 'capabilities') and self.lane_widget.capabilities else False
+        # Get capabilities
+        caps = self.lane_widget.capabilities if hasattr(self.lane_widget, 'capabilities') and self.lane_widget.capabilities else None
+        has_dimmer = caps.has_dimmer if caps else True
+        has_colour = caps.has_colour if caps else False
+        has_movement = caps.has_movement if caps else False
+        has_special = caps.has_special if caps else False
 
-        # Draw dimmer blocks (iterate through list)
-        for dimmer_block in self.block.dimmer_blocks:
-            # Use orange/amber color if controlling RGB instead of dimmer
-            if not has_dimmer and has_colour:
-                dimmer_color = QColor(255, 140, 0)  # Orange (RGB control mode)
-            else:
-                dimmer_color = QColor(255, 200, 100)  # Warm yellow (normal dimmer)
+        # Draw dimmer blocks if lane has dimmer or colour capability
+        if has_dimmer or has_colour:
+            for dimmer_block in self.block.dimmer_blocks:
+                # Use orange/amber color if controlling RGB instead of dimmer
+                if not has_dimmer and has_colour:
+                    dimmer_color = QColor(255, 140, 0)  # Orange (RGB control mode)
+                else:
+                    dimmer_color = QColor(255, 200, 100)  # Warm yellow (normal dimmer)
 
-            self._draw_sublane_block(
-                painter,
-                dimmer_block,
-                "dimmer",
-                dimmer_color,
-                sublane_height
-            )
+                self._draw_sublane_block(
+                    painter,
+                    dimmer_block,
+                    "dimmer",
+                    dimmer_color,
+                    sublane_height
+                )
 
-        # Draw colour blocks (iterate through list)
-        for colour_block in self.block.colour_blocks:
-            color = self._get_colour_block_color(colour_block)
-            self._draw_sublane_block(
-                painter,
-                colour_block,
-                "colour",
-                color,
-                sublane_height
-            )
+        # Draw colour blocks if lane has colour capability
+        if has_colour:
+            for colour_block in self.block.colour_blocks:
+                color = self._get_colour_block_color(colour_block)
+                self._draw_sublane_block(
+                    painter,
+                    colour_block,
+                    "colour",
+                    color,
+                    sublane_height
+                )
 
-        # Draw movement blocks (iterate through list)
-        for movement_block in self.block.movement_blocks:
-            self._draw_sublane_block(
-                painter,
-                movement_block,
-                "movement",
-                QColor(100, 150, 255),  # Blue
-                sublane_height
-            )
+        # Draw movement blocks if lane has movement capability
+        if has_movement:
+            for movement_block in self.block.movement_blocks:
+                self._draw_sublane_block(
+                    painter,
+                    movement_block,
+                    "movement",
+                    QColor(100, 150, 255),  # Blue
+                    sublane_height
+                )
 
-        # Draw special blocks (iterate through list)
-        for special_block in self.block.special_blocks:
-            self._draw_sublane_block(
-                painter,
-                special_block,
-                "special",
-                QColor(200, 100, 255),  # Purple
-                sublane_height
-            )
+        # Draw special blocks if lane has special capability
+        if has_special:
+            for special_block in self.block.special_blocks:
+                self._draw_sublane_block(
+                    painter,
+                    special_block,
+                    "special",
+                    QColor(200, 100, 255),  # Purple
+                    sublane_height
+                )
 
     def _draw_sublane_block(self, painter, sublane_block, sublane_type, color, sublane_height):
         """Draw a single sublane block."""
@@ -382,27 +422,44 @@ class LightBlockWidget(QWidget):
         if width < MIN_WIDTH_FOR_LABEL:
             return  # Block too narrow, skip label
 
-        # Sublane type labels
-        sublane_labels = {
-            "dimmer": "Dimmer",
-            "colour": "Colour",
-            "movement": "Movement",
-            "special": "Special"
-        }
+        # For dimmer blocks, use effect type as the primary label
+        if sublane_type == "dimmer":
+            effect_type = getattr(sublane_block, 'effect_type', 'static')
+            # Format effect type nicely (e.g., "ping_pong_smooth" -> "Ping Pong")
+            label_text = effect_type.replace('_', ' ').title()
+            # Shorten some common names
+            label_text = label_text.replace('Ping Pong Smooth', 'Ping Pong')
+            label_text = label_text.replace('Random Strobe', 'Random')
+            label_text = label_text.replace('Waterfall Down', 'Waterfall ↓')
+            label_text = label_text.replace('Waterfall Up', 'Waterfall ↑')
 
-        # Get label text
-        label_text = sublane_labels.get(sublane_type, sublane_type.capitalize())
-
-        # Get additional info if block is wide enough
-        info_text = ""
-        if width >= 100:  # Wide enough for additional info
-            info_text = self._get_sublane_block_info(sublane_block, sublane_type)
-
-        # Combine label and info
-        if info_text:
-            full_text = f"{label_text}: {info_text}"
+            # Add intensity if wide enough
+            if width >= 100:
+                intensity = int(sublane_block.intensity)
+                full_text = f"{label_text} ({intensity})"
+            else:
+                full_text = label_text
         else:
-            full_text = label_text
+            # Sublane type labels for other types
+            sublane_labels = {
+                "colour": "Colour",
+                "movement": "Movement",
+                "special": "Special"
+            }
+
+            # Get label text
+            label_text = sublane_labels.get(sublane_type, sublane_type.capitalize())
+
+            # Get additional info if block is wide enough
+            info_text = ""
+            if width >= 100:  # Wide enough for additional info
+                info_text = self._get_sublane_block_info(sublane_block, sublane_type)
+
+            # Combine label and info
+            if info_text:
+                full_text = f"{label_text}: {info_text}"
+            else:
+                full_text = label_text
 
         # Set font
         font = QFont()
@@ -1034,8 +1091,37 @@ class LightBlockWidget(QWidget):
             # Check if Shift is held for copy operation
             shift_held = event.modifiers() & Qt.KeyboardModifier.ShiftModifier
 
-            # First, check if clicking on a sublane block
+            # FIRST: Check for intensity handle click (takes priority over header zone)
+            # This allows adjusting dimmer intensity even when the handle is in the header area
             sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
+            if sublane_block is not None and self._is_on_intensity_handle(pos, sublane_type, sublane_block):
+                # Clicking on intensity handle - start intensity drag
+                self.selected_sublane_type = sublane_type
+                self.selected_sublane_block = sublane_block
+                self.dragging_intensity_handle = sublane_block
+                self.drag_start_pos = event.globalPosition().toPoint()
+                self.update()
+                return
+
+            # Check if clicking in header zone (top area) - drags entire envelope
+            if pos.y() < self.HEADER_HEIGHT:
+                # Deselect any sublane block
+                self.selected_sublane_type = None
+                self.selected_sublane_block = None
+                self.update()
+
+                # Header zone always moves entire effect (no resize from here)
+                self.dragging = True
+                if shift_held:
+                    self.shift_drag_copying = True
+
+                self.drag_start_pos = event.globalPosition().toPoint()
+                self.drag_start_time = self.block.start_time
+                self.drag_start_duration = self.block.end_time - self.block.start_time
+                return
+
+            # Below header: handle sublane block interactions
+            # (sublane_type and sublane_block already retrieved above)
 
             if sublane_block is not None:
                 # Clicked on a sublane block - select it (CHANGED: store block reference)
@@ -1048,13 +1134,9 @@ class LightBlockWidget(QWidget):
                 self.drag_start_sublane_start = sublane_block.start_time
                 self.drag_start_sublane_end = sublane_block.end_time
 
-                # Check if clicking on intensity handle (for dimmer blocks)
-                if self._is_on_intensity_handle(pos, sublane_type, sublane_block):
-                    # Start dragging intensity handle
-                    self.dragging_intensity_handle = sublane_block
-                    self.drag_start_intensity = sublane_block.intensity
                 # Check if clicking on edge for resizing
-                elif self._is_on_sublane_block_edge(pos, sublane_type, sublane_block):
+                # (intensity handle is already checked at the top of this function)
+                if self._is_on_sublane_block_edge(pos, sublane_type, sublane_block):
                     # Start resizing sublane block (CHANGED: store block reference)
                     self.resizing_sublane = sublane_block
                     edge = self._is_on_sublane_block_edge(pos, sublane_type, sublane_block)
@@ -1105,14 +1187,21 @@ class LightBlockWidget(QWidget):
             # Update cursor based on position
             pos = event.pos()
 
-            # Check if hovering over a sublane block
+            # FIRST: Check for intensity handle (takes priority over header zone)
             sublane_type, sublane_block = self._get_sublane_block_at_pos(pos)
+            if sublane_block and self._is_on_intensity_handle(pos, sublane_type, sublane_block):
+                # On intensity handle - show vertical resize cursor
+                self.setCursor(Qt.CursorShape.SizeVerCursor)
+                return
+
+            # Check if hovering over header zone (drag handle for entire effect)
+            if pos.y() < self.HEADER_HEIGHT:
+                # Show move cursor in header zone (unless on intensity handle, checked above)
+                self.setCursor(Qt.CursorShape.SizeAllCursor)
+                return
+
+            # Check if hovering over a sublane block
             if sublane_block:
-                # Check if hovering over intensity handle
-                if self._is_on_intensity_handle(pos, sublane_type, sublane_block):
-                    # On intensity handle - show vertical resize cursor
-                    self.setCursor(Qt.CursorShape.SizeVerCursor)
-                    return
                 # Check if hovering over edge
                 edge = self._is_on_sublane_block_edge(pos, sublane_type, sublane_block)
                 if edge:
@@ -1138,6 +1227,28 @@ class LightBlockWidget(QWidget):
 
             if self.snap_to_grid:
                 new_time = self.timeline_widget.find_nearest_beat_time(new_time)
+
+            # Calculate actual delta to apply to sublane blocks
+            actual_delta = new_time - self.block.start_time
+
+            # Move entire effect (envelope + all sublane blocks) by the same delta
+            if actual_delta != 0:
+                # Move envelope
+                self.block.end_time += actual_delta
+
+                # Move all sublane blocks
+                for sublane_block in self.block.dimmer_blocks:
+                    sublane_block.start_time += actual_delta
+                    sublane_block.end_time += actual_delta
+                for sublane_block in self.block.colour_blocks:
+                    sublane_block.start_time += actual_delta
+                    sublane_block.end_time += actual_delta
+                for sublane_block in self.block.movement_blocks:
+                    sublane_block.start_time += actual_delta
+                    sublane_block.end_time += actual_delta
+                for sublane_block in self.block.special_blocks:
+                    sublane_block.start_time += actual_delta
+                    sublane_block.end_time += actual_delta
 
             self.block.start_time = new_time
             self.update_position()
@@ -1292,17 +1403,21 @@ class LightBlockWidget(QWidget):
             # Redraw to update handle position and label
             self.update()
 
-    def _get_sublane_block_by_type(self, sublane_type):
-        """Get sublane block object by type."""
+    def _get_sublane_blocks_by_type(self, sublane_type):
+        """Get list of sublane block objects by type.
+
+        Returns:
+            List of blocks for the given sublane type, or empty list if not found.
+        """
         if sublane_type == "dimmer":
-            return self.block.dimmer_block
+            return self.block.dimmer_blocks
         elif sublane_type == "colour":
-            return self.block.colour_block
+            return self.block.colour_blocks
         elif sublane_type == "movement":
-            return self.block.movement_block
+            return self.block.movement_blocks
         elif sublane_type == "special":
-            return self.block.special_block
-        return None
+            return self.block.special_blocks
+        return []
 
     def _check_overlap(self, sublane_type, start_time, end_time, exclude_block=None):
         """Check if a time range would overlap with existing blocks in a sublane.
@@ -1491,7 +1606,16 @@ class LightBlockWidget(QWidget):
 
         menu.addSeparator()
 
-        copy_action = menu.addAction("Copy Effect")
+        # Dynamic copy label based on selection count
+        copy_label = "Copy Effect"
+        if self._is_multi_selected:
+            shows_tab = self._get_shows_tab()
+            if shows_tab and hasattr(shows_tab, 'selection_manager'):
+                count = shows_tab.selection_manager.get_selection_count()
+                if count > 1:
+                    copy_label = f"Copy {count} Effects"
+
+        copy_action = menu.addAction(copy_label)
         copy_action.triggered.connect(self.copy_effect)
 
         menu.addSeparator()
@@ -1501,8 +1625,17 @@ class LightBlockWidget(QWidget):
 
         menu.addSeparator()
 
-        delete_action = menu.addAction("Delete Entire Effect")
-        delete_action.triggered.connect(lambda: self.remove_requested.emit(self))
+        # Dynamic delete label based on selection count
+        delete_label = "Delete Entire Effect"
+        if self._is_multi_selected:
+            shows_tab = self._get_shows_tab()
+            if shows_tab and hasattr(shows_tab, 'selection_manager'):
+                count = shows_tab.selection_manager.get_selection_count()
+                if count > 1:
+                    delete_label = f"Delete {count} Effects"
+
+        delete_action = menu.addAction(delete_label)
+        delete_action.triggered.connect(self._delete_effect_or_selection)
 
         menu.exec(event.globalPos())
 
@@ -1582,7 +1715,9 @@ class LightBlockWidget(QWidget):
             dialog = ColourBlockDialog(sublane_block, color_wheel_options=color_wheel_options, parent=self)
         elif sublane_type == "movement":
             from .movement_block_dialog import MovementBlockDialog
-            dialog = MovementBlockDialog(sublane_block, parent=self)
+            # Pass config for spot selection
+            config = self.lane_widget.config if self.lane_widget else None
+            dialog = MovementBlockDialog(sublane_block, parent=self, config=config)
         elif sublane_type == "special":
             from .special_block_dialog import SpecialBlockDialog
             dialog = SpecialBlockDialog(sublane_block, parent=self)
@@ -1677,9 +1812,44 @@ class LightBlockWidget(QWidget):
             special_block.end_time += time_delta
 
     def copy_effect(self):
-        """Copy this effect to the clipboard."""
-        from .effect_clipboard import copy_effect
+        """Copy this effect (or all selected effects) to the clipboard."""
+        from .effect_clipboard import copy_effect, copy_multiple_effects
+
+        # Check if this block is part of a multi-selection
+        if self._is_multi_selected:
+            # Try to get selection manager from parent chain
+            shows_tab = self._get_shows_tab()
+            if shows_tab and hasattr(shows_tab, 'selection_manager'):
+                selected_blocks = shows_tab.selection_manager.get_selected_blocks()
+                if len(selected_blocks) > 1:
+                    copy_multiple_effects(selected_blocks)
+                    return
+
+        # Fall back to single block copy
         copy_effect(self.block)
+
+    def _get_shows_tab(self):
+        """Get the ShowsTab parent widget if available."""
+        if self.lane_widget:
+            # Walk up the parent chain to find ShowsTab (has selection_manager)
+            widget = self.lane_widget.parent()
+            while widget is not None:
+                if hasattr(widget, 'selection_manager'):
+                    return widget
+                widget = widget.parent()
+        return None
+
+    def _delete_effect_or_selection(self):
+        """Delete this effect or all selected effects."""
+        # Check if this block is part of a multi-selection
+        if self._is_multi_selected:
+            shows_tab = self._get_shows_tab()
+            if shows_tab and hasattr(shows_tab, '_delete_selected_blocks'):
+                shows_tab._delete_selected_blocks()
+                return
+
+        # Fall back to single block delete
+        self.remove_requested.emit(self)
 
     def wheelEvent(self, event):
         """Handle mouse wheel for speed adjustment (Ctrl+wheel) on dimmer and movement blocks."""
@@ -1689,7 +1859,7 @@ class LightBlockWidget(QWidget):
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             if self.selected_sublane_type in ["dimmer", "movement"] and self.selected_sublane_block:
                 # Speed options in order
-                speed_options = ["1/4", "1/2", "1", "2", "4"]
+                speed_options = ["1/16", "1/8", "1/4", "1/2", "1", "2", "4", "8", "16"]
 
                 # Get current speed
                 current_speed = getattr(self.selected_sublane_block, 'effect_speed', '1')

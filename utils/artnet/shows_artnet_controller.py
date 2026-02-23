@@ -1,20 +1,28 @@
 # utils/artnet/shows_artnet_controller.py
 # Simplified ArtNet controller for ShowsTab integration
+# Uses a dedicated thread for DMX updates to avoid Qt event loop blocking
 
-from PyQt6.QtCore import QObject, QTimer
-from typing import Optional, Dict, Tuple, List
+import threading
+import time
+from PyQt6.QtCore import QObject
+from typing import Optional, Dict, Tuple, List, Callable
 from config.models import Configuration, Fixture
 from timeline.light_lane import LightLane
 from .dmx_manager import DMXManager
 from .sender import ArtNetSender
 from utils.target_resolver import resolve_targets_unique
 
+# Debug flag - set to False to disable verbose prints (improves performance significantly)
+DEBUG_PRINTS = False
+
 
 class ShowsArtNetController(QObject):
     """
     Simplified ArtNet controller for ShowsTab.
 
-    Directly interfaces with ShowsTab's playback mechanism without PlaybackEngine.
+    Uses a dedicated thread for DMX updates to ensure consistent timing
+    regardless of Qt event loop performance. This decouples light control
+    from UI responsiveness.
     """
 
     def __init__(self, config: Configuration, fixture_definitions: dict,
@@ -42,13 +50,18 @@ class ShowsArtNetController(QObject):
         # Output enabled flag
         self.output_enabled = False
 
-        # Timer for periodic DMX updates (44Hz)
-        self.update_timer = QTimer()
-        self.update_timer.setInterval(23)  # ~44Hz (22.7ms)
-        self.update_timer.timeout.connect(self._update_and_send_dmx)
+        # Threading for DMX updates (bypasses Qt event loop for consistent timing)
+        self._dmx_thread: Optional[threading.Thread] = None
+        self._stop_thread = threading.Event()
+        self._thread_lock = threading.Lock()
+        self._update_interval = 0.033  # 30Hz (33ms)
 
-        # Current playback time (set from ShowsTab)
+        # Current playback time (set from ShowsTab or callback)
         self.current_time = 0.0
+
+        # Position callback for getting fresh audio position
+        # When set, this is called on each DMX update to get sample-accurate time
+        self._position_callback: Optional[Callable[[], float]] = None
 
         # Track active blocks per lane - used for detecting block endings
         # lane_name -> {sublane_type -> set of block ids}
@@ -57,7 +70,34 @@ class ShowsArtNetController(QObject):
         # Reference to light lanes (set from ShowsTab)
         self.light_lanes = []
 
+        # PERFORMANCE: Cache resolved fixtures per lane to avoid resolving on every frame
+        # lane_id -> (targets_tuple, resolved_fixtures, sorted_fixtures)
+        self._resolved_fixtures_cache: Dict[int, Tuple[tuple, List, List]] = {}
+
+        # Track fixture fingerprint to avoid redundant rebuilds
+        self._last_fixture_fingerprint = self._get_fixture_fingerprint()
+
+        # Debug: Print initialization info for WASH fixtures
         print("ShowsArtNet Controller initialized")
+        print(f"  Fixture definitions loaded: {list(fixture_definitions.keys())}")
+        print(f"  Fixture maps created: {list(self.dmx_manager.fixture_maps.keys())}")
+        print(f"  DMX universes: {list(self.dmx_manager.dmx_state.keys())}")
+        for f in self.config.fixtures:
+            if 'W1' in f.name or 'W2' in f.name or 'WASH' in f.name.upper():
+                in_maps = f.name in self.dmx_manager.fixture_maps
+                print(f"  WASH fixture: {f.name}, universe={f.universe}, address={f.address}, in_maps={in_maps}")
+
+    def set_position_callback(self, callback: Callable[[], float]):
+        """
+        Set callback for getting fresh audio position.
+
+        When set, the DMX update will call this to get sample-accurate
+        position from the audio engine, reducing sync drift.
+
+        Args:
+            callback: Function that returns current position in seconds
+        """
+        self._position_callback = callback
 
     def set_song_structure(self, song_structure):
         """
@@ -76,18 +116,68 @@ class ShowsArtNetController(QObject):
             lanes: List of LightLane instances
         """
         self.light_lanes = lanes
+        # Clear resolved fixtures cache when lanes change
+        self._resolved_fixtures_cache.clear()
 
-    def update_fixtures(self):
+    def _get_resolved_fixtures_cached(self, lane) -> Tuple[List, List]:
+        """
+        Get resolved and sorted fixtures for a lane, using cache.
+
+        Returns:
+            Tuple of (resolved_fixtures, sorted_fixtures)
+        """
+        lane_id = id(lane)
+
+        # Get current targets
+        targets = getattr(lane, 'fixture_targets', [])
+        if not targets and hasattr(lane, 'fixture_group') and lane.fixture_group:
+            targets = [lane.fixture_group]
+
+        targets_tuple = tuple(targets)  # For comparison
+
+        # Check cache
+        if lane_id in self._resolved_fixtures_cache:
+            cached_targets, resolved, sorted_fixtures = self._resolved_fixtures_cache[lane_id]
+            if cached_targets == targets_tuple:
+                return resolved, sorted_fixtures
+
+        # Cache miss - resolve and sort
+        resolved = resolve_targets_unique(targets, self.config)
+        sorted_fixtures = sorted(resolved, key=lambda f: f.x) if resolved else []
+
+        # Store in cache
+        self._resolved_fixtures_cache[lane_id] = (targets_tuple, resolved, sorted_fixtures)
+
+        return resolved, sorted_fixtures
+
+    def _get_fixture_fingerprint(self) -> str:
+        """Generate a fingerprint of current fixtures for change detection."""
+        # Create a string that changes when fixtures are added/removed/modified
+        parts = []
+        for f in self.config.fixtures:
+            parts.append(f"{f.name}:{f.universe}:{f.address}:{f.current_mode}")
+        return "|".join(sorted(parts))
+
+    def update_fixtures(self, force: bool = False):
         """
         Rebuild fixture mappings when fixtures are added, removed, or modified.
 
         Call this when fixtures change (e.g., after duplicating or adding fixtures).
+
+        Args:
+            force: If True, rebuild even if no changes detected
         """
+        # Check if fixtures actually changed to avoid redundant rebuilds
+        current_fingerprint = self._get_fixture_fingerprint()
+        if not force and current_fingerprint == self._last_fixture_fingerprint:
+            return  # No changes, skip rebuild
+
+        self._last_fixture_fingerprint = current_fingerprint
         self.dmx_manager.rebuild_fixture_maps()
         # Also reset fixtures to visible state so new fixtures appear
         self.dmx_manager.set_fixtures_visible()
         self._send_all_universes()
-        print("ShowsArtNet: Fixture mappings updated")
+        print(f"ShowsArtNet: Fixture mappings updated ({len(self.config.fixtures)} fixtures)")
 
     def enable_output(self):
         """Enable ArtNet output."""
@@ -97,20 +187,61 @@ class ShowsArtNetController(QObject):
     def disable_output(self):
         """Disable ArtNet output and clear DMX."""
         self.output_enabled = False
-        self.update_timer.stop()
+        self._stop_dmx_thread()
         self.dmx_manager.clear_all_dmx()
         self._send_all_universes()
         print("ArtNet output disabled")
 
+    def _start_dmx_thread(self):
+        """Start the DMX update thread."""
+        if self._dmx_thread is not None and self._dmx_thread.is_alive():
+            return  # Already running
+
+        self._stop_thread.clear()
+        self._dmx_thread = threading.Thread(target=self._dmx_update_loop, daemon=True)
+        self._dmx_thread.start()
+
+    def _stop_dmx_thread(self):
+        """Stop the DMX update thread."""
+        if self._dmx_thread is None:
+            return
+
+        self._stop_thread.set()
+        if self._dmx_thread.is_alive():
+            self._dmx_thread.join(timeout=0.5)
+        self._dmx_thread = None
+
+    def _dmx_update_loop(self):
+        """
+        DMX update loop running in a separate thread.
+
+        This runs independently of Qt's event loop, ensuring consistent
+        DMX output timing even when the UI is slow.
+        """
+        while not self._stop_thread.is_set():
+            start_time = time.perf_counter()
+
+            try:
+                self._update_and_send_dmx()
+            except Exception as e:
+                if DEBUG_PRINTS:
+                    print(f"DMX update error: {e}")
+
+            # Calculate sleep time to maintain consistent interval
+            elapsed = time.perf_counter() - start_time
+            sleep_time = max(0, self._update_interval - elapsed)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+
     def start_playback(self):
         """Start ArtNet output during playback."""
         if self.output_enabled:
-            self.update_timer.start()
+            self._start_dmx_thread()
             print("ArtNet output started")
 
     def stop_playback(self):
         """Stop ArtNet output and reset fixtures to visible state."""
-        self.update_timer.stop()
+        self._stop_dmx_thread()
         # Reset fixtures to visible (full dimmer, white color) instead of blackout
         self.dmx_manager.set_fixtures_visible()
         # Send multiple packets to ensure visualizer receives the reset state
@@ -123,28 +254,31 @@ class ShowsArtNetController(QObject):
 
     def pause_playback(self):
         """Pause ArtNet output."""
-        self.update_timer.stop()
+        self._stop_dmx_thread()
         print("ArtNet output paused")
 
     def update_position(self, position: float):
         """
         Update current playback position.
 
-        Called from ShowsTab during playback.
+        Called from ShowsTab during playback. When position_callback is set,
+        block processing is handled by _update_and_send_dmx with fresh audio
+        position, so we skip it here to avoid double-processing.
 
         Args:
             position: Current position in seconds
         """
         self.current_time = position
 
-        # Process active blocks for all lanes
-        if self.light_lanes:
+        # Only process blocks here if no position callback is set
+        # (otherwise _update_and_send_dmx handles it with fresh audio position)
+        if self.light_lanes and not self._position_callback:
             self._process_lane_blocks()
 
     def _process_lane_blocks(self):
         """Process blocks for all lanes at current time."""
         # Debug: Print lane info once when time is around 12.5s (Lane 3 starts)
-        if 12.4 < self.current_time < 12.6 and not hasattr(self, '_debug_printed_12_5'):
+        if DEBUG_PRINTS and 12.4 < self.current_time < 12.6 and not hasattr(self, '_debug_printed_12_5'):
             self._debug_printed_12_5 = True
             print(f"\n=== DEBUG at {self.current_time:.3f}s ===")
             print(f"Total lanes: {len(self.light_lanes)}")
@@ -156,20 +290,43 @@ class ShowsArtNetController(QObject):
                     print(f"      LB {lb.start_time:.2f}-{lb.end_time:.2f}: {len(lb.dimmer_blocks)} dimmer, {len(lb.colour_blocks)} colour")
             print("=== END DEBUG ===\n")
 
+        # Debug: Print WASH info around 137s (when WASH:0 block should start)
+        if DEBUG_PRINTS and 137.0 < self.current_time < 137.5 and not hasattr(self, '_debug_printed_137'):
+            self._debug_printed_137 = True
+            print(f"\n=== WASH DEBUG at {self.current_time:.3f}s ===")
+            print(f"Total lanes: {len(self.light_lanes)}")
+            print(f"Available groups: {list(self.config.groups.keys())}")
+            if 'WASH' in self.config.groups:
+                wash_group = self.config.groups['WASH']
+                print(f"WASH group has {len(wash_group.fixtures)} fixtures:")
+                for i, f in enumerate(wash_group.fixtures):
+                    print(f"  [{i}] {f.name}: universe={f.universe}, address={f.address}")
+            print(f"DMX Manager fixture_maps: {list(self.dmx_manager.fixture_maps.keys())}")
+            print(f"DMX universes: {list(self.dmx_manager.dmx_state.keys())}")
+            for i, lane in enumerate(self.light_lanes):
+                targets = getattr(lane, 'fixture_targets', [])
+                if 'WASH' in str(targets):
+                    print(f"  Lane {i}: name={lane.name}, targets={targets}, muted={lane.muted}")
+                    resolved = resolve_targets_unique(targets, self.config)
+                    print(f"    Resolved fixtures: {[f.name for f in resolved]}")
+                    print(f"    light_blocks: {len(lane.light_blocks)}")
+                    for lb in lane.light_blocks:
+                        print(f"      LB {lb.start_time:.2f}-{lb.end_time:.2f}: {len(lb.dimmer_blocks)} dimmer, {len(lb.colour_blocks)} colour")
+            print("=== END WASH DEBUG ===\n")
+
         for lane in self.light_lanes:
             if lane.muted:
                 continue
 
-            # Get fixture targets (with backward compatibility for old fixture_group field)
+            # PERFORMANCE: Use cached fixture resolution instead of resolving every frame
+            resolved_fixtures, _ = self._get_resolved_fixtures_cached(lane)
+            if not resolved_fixtures:
+                continue
+
+            # Get targets for lane key (cached in resolved fixtures call)
             targets = getattr(lane, 'fixture_targets', [])
             if not targets and hasattr(lane, 'fixture_group') and lane.fixture_group:
                 targets = [lane.fixture_group]
-
-            # Resolve targets to fixtures
-            resolved_fixtures = resolve_targets_unique(targets, self.config)
-            if not resolved_fixtures:
-                print(f"  WARNING: No fixtures resolved for targets {targets}")
-                continue
 
             # Use unique lane key - combine id with name to ensure uniqueness
             # (multiple lanes could have the same name)
@@ -202,8 +359,9 @@ class ShowsArtNetController(QObject):
 
                         # Start block if not already active
                         if block_id not in self.active_block_ids[lane_key]['dimmer']:
-                            fixture_names = [f.name for f in resolved_fixtures]
-                            print(f"[{self.current_time:.2f}s] Starting {dimmer_block.effect_type} on {fixture_names} ({dimmer_block.start_time:.2f}s-{dimmer_block.end_time:.2f}s)")
+                            if DEBUG_PRINTS:
+                                fixture_names = [f.name for f in resolved_fixtures]
+                                print(f"[{self.current_time:.2f}s] Starting {dimmer_block.effect_type} on {fixture_names} ({dimmer_block.start_time:.2f}s-{dimmer_block.end_time:.2f}s)")
                             self.dmx_manager.block_started(lane_key, resolved_fixtures, dimmer_block, 'dimmer', self.current_time)
                             self.active_block_ids[lane_key]['dimmer'].add(block_id)
 
@@ -245,8 +403,9 @@ class ShowsArtNetController(QObject):
                     # If there are active blocks, they will maintain the state
                     if not currently_active[sublane_type]:
                         # No active blocks remaining, clear the sublane
-                        fixture_names = [f.name for f in resolved_fixtures]
-                        print(f"[{self.current_time:.2f}s] Ending {sublane_type} blocks on {fixture_names}")
+                        if DEBUG_PRINTS:
+                            fixture_names = [f.name for f in resolved_fixtures]
+                            print(f"[{self.current_time:.2f}s] Ending {sublane_type} blocks on {fixture_names}")
                         self.dmx_manager.block_ended(lane_key, sublane_type)
                     # Always update tracking to reflect current active blocks
                     self.active_block_ids[lane_key][sublane_type] = currently_active[sublane_type]
@@ -260,6 +419,17 @@ class ShowsArtNetController(QObject):
         if not self.output_enabled:
             return
 
+        # Get fresh position from callback if available (sample-accurate sync)
+        if self._position_callback:
+            try:
+                self.current_time = self._position_callback()
+            except Exception:
+                pass  # Keep using last known position
+
+        # Process active blocks with current time
+        if self.light_lanes:
+            self._process_lane_blocks()
+
         # Update DMX state based on current time and active blocks
         self.dmx_manager.update_dmx(self.current_time)
 
@@ -268,9 +438,24 @@ class ShowsArtNetController(QObject):
 
     def _send_all_universes(self):
         """Send DMX data for all configured universes."""
+        # Debug: Check universe 2 data once around 137s
+        if DEBUG_PRINTS and 137.0 < self.current_time < 137.5 and not hasattr(self, '_debug_universe2_sent'):
+            self._debug_universe2_sent = True
+            print(f"\n=== UNIVERSE 2 DEBUG at {self.current_time:.3f}s ===")
+            print(f"Configured universes: {list(self.config.universes.keys())}")
+            for universe_id in self.config.universes.keys():
+                universe_int = int(universe_id)
+                dmx_data = self.dmx_manager.get_dmx_data(universe_int)
+                non_zero = sum(1 for b in dmx_data if b > 0)
+                first_12 = list(dmx_data[:12])
+                print(f"  Universe {universe_int}: {non_zero} non-zero bytes, first 12: {first_12}")
+            print("=== END UNIVERSE 2 DEBUG ===\n")
+
         for universe_id in self.config.universes.keys():
-            dmx_data = self.dmx_manager.get_dmx_data(universe_id)
-            self.artnet_sender.send_dmx(universe_id, dmx_data)
+            # Ensure universe_id is int (YAML may load as string)
+            universe_int = int(universe_id)
+            dmx_data = self.dmx_manager.get_dmx_data(universe_int)
+            self.artnet_sender.send_dmx(universe_int, dmx_data)
 
     def set_target_ip(self, ip: str):
         """
@@ -284,7 +469,7 @@ class ShowsArtNetController(QObject):
 
     def cleanup(self):
         """Cleanup resources."""
-        self.update_timer.stop()
+        self._stop_dmx_thread()
         self.dmx_manager.clear_all_dmx()
         self._send_all_universes()
         self.artnet_sender.close()

@@ -171,6 +171,8 @@ class Ui_MainWindow(object):
         self.menuFile = QtWidgets.QMenu("File", parent=self.menubar)
         self.actionSaveConfig = QAction("Save Configuration", MainWindow)
         self.actionSaveConfig.setShortcut("Ctrl+S")
+        self.actionSaveConfigAs = QAction("Save Configuration As...", MainWindow)
+        self.actionSaveConfigAs.setShortcut("Ctrl+Shift+S")
         self.actionLoadConfig = QAction("Load Configuration", MainWindow)
         self.actionLoadConfig.setShortcut("Ctrl+O")
         self.actionImportWorkspace = QAction("Import QLC+ Workspace...", MainWindow)
@@ -179,6 +181,7 @@ class Ui_MainWindow(object):
         self.actionExit.setShortcut("Ctrl+Q")
 
         self.menuFile.addAction(self.actionSaveConfig)
+        self.menuFile.addAction(self.actionSaveConfigAs)
         self.menuFile.addAction(self.actionLoadConfig)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionImportWorkspace)

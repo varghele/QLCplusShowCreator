@@ -5,6 +5,7 @@ import math
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional, Tuple
 from utils.effects_utils import get_channels_by_property, find_closest_color_dmx
+from utils.orientation import calculate_pan_tilt, pan_tilt_to_dmx
 
 
 def _map_rgb_to_color_wheel(r: int, g: int, b: int) -> int:
@@ -107,14 +108,14 @@ def calculate_unified_step_grid(
             movement_steps_needed = max(movement_steps_needed, 1)
 
     # Calculate steps needed for dimmer effects
-    dimmer_steps_needed = 0
+    # We need to calculate the minimum step interval required across all effects
+    # then apply that to the total duration
+    min_step_interval_ms = total_duration_ms  # Start with max (will be reduced)
     numerator, denominator = map(int, signature.split('/'))
     beats_per_bar = (numerator * 4) / denominator
     ms_per_beat = 60000 / bpm
 
     for block in dimmer_blocks:
-        block_duration_ms = (block.end_time - block.start_time) * 1000
-
         # Parse speed multiplier
         speed = block.effect_speed
         if '/' in speed:
@@ -123,17 +124,48 @@ def calculate_unified_step_grid(
         else:
             speed_mult = float(speed)
 
-        # Calculate steps based on effect type
+        # Calculate the step interval needed for this effect type
         if block.effect_type == "static":
-            steps = 1
+            # Static effects only need steps at block boundaries
+            # We'll handle this with block boundary detection below
+            pass
         elif block.effect_type == "strobe":
-            # Strobe needs fast steps
-            steps = int(block_duration_ms / (ms_per_beat / speed_mult / 2))
+            # Strobe needs fast steps - half beat per toggle
+            step_interval = (ms_per_beat / speed_mult) / 2
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
+        elif block.effect_type == "hit":
+            # Hit effects need fine steps to show exponential decay
+            # At minimum, 8 steps per hit cycle for decent decay curve
+            hit_cycle_ms = ms_per_beat / speed_mult  # one beat per hit
+            step_interval = hit_cycle_ms / 8  # 8 steps per hit for smooth decay
+            step_interval = max(step_interval, MIN_STEP_DURATION_MS)
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
+        elif block.effect_type in ("ping_pong_smooth", "random_strobe", "snake", "zigzag"):
+            # Ping pong smooth, random strobe, snake, and zigzag have smooth animations that need fine steps
+            # Similar to hit, use 8-10 steps per fixture transition for smooth animation
+            beat_ms = ms_per_beat / speed_mult  # one beat per fixture
+            step_interval = beat_ms / 10  # 10 steps per beat for smooth animation
+            step_interval = max(step_interval, MIN_STEP_DURATION_MS)
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
+        elif block.effect_type in ("breathing_sync", "wave_travel", "heartbeat_pulse"):
+            # Smooth animated effects need fine steps for visual quality
+            # Use ~16 steps per bar for smooth sine waves and heartbeat pattern
+            bar_ms = ms_per_beat * 4  # Assuming 4/4 time
+            cycle_ms = bar_ms / speed_mult
+            step_interval = cycle_ms / 16  # 16 steps per cycle
+            step_interval = max(step_interval, MIN_STEP_DURATION_MS)
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
         else:
-            # Other effects (twinkle, ping_pong, etc.)
-            steps = int(block_duration_ms / (ms_per_beat / speed_mult))
+            # Other effects (twinkle, waterfall, etc.)
+            # One step per beat is usually sufficient
+            step_interval = ms_per_beat / speed_mult
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
 
-        dimmer_steps_needed = max(dimmer_steps_needed, steps)
+    # Ensure minimum step interval is reasonable
+    min_step_interval_ms = max(min_step_interval_ms, MIN_STEP_DURATION_MS)
+
+    # Calculate dimmer steps needed based on total duration and minimum interval
+    dimmer_steps_needed = int(total_duration_ms / min_step_interval_ms) if min_step_interval_ms > 0 else 1
 
     # Use the maximum steps needed
     total_steps = max(movement_steps_needed, dimmer_steps_needed, 1)
@@ -341,6 +373,181 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * intensity_multiplier)
 
+    elif effect_type == "random_strobe":
+        # Random strobe: one fixture lights up at a time in shuffled order
+        # When all fixtures have been lit, reshuffle (like a deck of cards)
+        import random
+
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        if total_fixtures <= 1:
+            # Single fixture - just stay on
+            return base_intensity
+
+        # Calculate timing based on BPM: each fixture gets one beat at speed 1
+        seconds_per_beat = 60.0 / bpm
+        time_per_fixture = seconds_per_beat / speed_mult
+
+        # Time for one full cycle (all fixtures once)
+        cycle_time = time_per_fixture * total_fixtures
+
+        # Which cycle are we in?
+        cycle_number = int(time_in_block / cycle_time)
+
+        # Time within current cycle
+        time_in_cycle = time_in_block % cycle_time
+
+        # Which step within the cycle?
+        current_step = time_in_cycle / time_per_fixture
+        step_index = int(current_step)
+        time_within_step = (current_step - step_index) * time_per_fixture
+
+        # Generate shuffled order deterministically based on block start time + cycle
+        seed = int(active_block.start_time * 1000) + cycle_number
+        rng = random.Random(seed)
+        shuffled_indices = list(range(total_fixtures))
+        rng.shuffle(shuffled_indices)
+
+        # Which fixture is active at this step?
+        active_fixture = shuffled_indices[step_index % total_fixtures]
+
+        # Calculate intensity multiplier for this fixture
+        if fixture_idx == active_fixture:
+            # This is the active fixture - instant full brightness with smooth decay
+            decay_progress = time_within_step / time_per_fixture if time_per_fixture > 0 else 0
+            intensity_multiplier = 0.2 + 0.8 * math.exp(-decay_progress * 3)
+        else:
+            # Not active - off
+            intensity_multiplier = 0.0
+
+        return int(base_intensity * intensity_multiplier)
+
+    elif effect_type == "snake":
+        # Snake effect: a "snake" with fading tail moves through fixtures
+        # Bounces back and forth like classic Snake game
+        # 4 beats = full cycle (forward + backward)
+        # Tail spans approximately half the fixtures
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        if total_fixtures <= 1:
+            # Single fixture - just stay on
+            return base_intensity
+
+        # Tail spans half the fixtures
+        tail_length = max(1, total_fixtures // 2)
+
+        # 4 beats = full cycle (forward + backward)
+        seconds_per_beat = 60.0 / bpm
+        time_per_pass = (seconds_per_beat * 2) / speed_mult  # 2 beats per pass
+        cycle_time = time_per_pass * 2  # Full cycle
+
+        # Current position in cycle
+        time_in_cycle = time_in_block % cycle_time
+
+        # Calculate head position (0 to total_fixtures-1, bouncing)
+        if time_in_cycle < time_per_pass:
+            # Forward pass
+            progress = time_in_cycle / time_per_pass
+            head_position = progress * (total_fixtures - 1)
+            going_forward = True
+        else:
+            # Backward pass
+            progress = (time_in_cycle - time_per_pass) / time_per_pass
+            head_position = (total_fixtures - 1) * (1.0 - progress)
+            going_forward = False
+
+        # Calculate distance from head for this fixture (considering direction)
+        if going_forward:
+            distance = head_position - fixture_idx
+        else:
+            distance = fixture_idx - head_position
+
+        # Calculate intensity based on distance
+        if distance < -0.5:
+            # Ahead of head - off
+            intensity_multiplier = 0.0
+        elif distance < 0.5:
+            # At head - full intensity
+            intensity_multiplier = 1.0
+        elif distance <= tail_length:
+            # In tail - fade based on distance
+            fade_factor = 1.0 - (distance / (tail_length + 1))
+            intensity_multiplier = fade_factor * 0.8  # Max 80% for tail
+        else:
+            # Beyond tail - off
+            intensity_multiplier = 0.0
+
+        return int(base_intensity * intensity_multiplier)
+
+    elif effect_type == "zigzag":
+        # Zigzag effect: snake moves across ALL fixtures as one continuous chain
+        # Unlike 'snake' which runs independently per fixture, 'zigzag' treats all
+        # fixtures as one long strip
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        if total_fixtures <= 1:
+            return base_intensity
+
+        # Tail spans half the fixtures
+        tail_length = max(1, total_fixtures // 2)
+
+        # 4 beats = full cycle (forward + backward)
+        seconds_per_beat = 60.0 / bpm
+        time_per_pass = (seconds_per_beat * 2) / speed_mult
+        cycle_time = time_per_pass * 2
+
+        time_in_cycle = time_in_block % cycle_time
+
+        # Calculate head position (0 to total_fixtures-1, bouncing)
+        if time_in_cycle < time_per_pass:
+            progress = time_in_cycle / time_per_pass
+            head_position = progress * (total_fixtures - 1)
+            going_forward = True
+        else:
+            progress = (time_in_cycle - time_per_pass) / time_per_pass
+            head_position = (total_fixtures - 1) * (1.0 - progress)
+            going_forward = False
+
+        # Calculate distance from head for this fixture
+        if going_forward:
+            distance = head_position - fixture_idx
+        else:
+            distance = fixture_idx - head_position
+
+        # Calculate intensity based on distance
+        if distance < -0.5:
+            intensity_multiplier = 0.0
+        elif distance < 0.5:
+            intensity_multiplier = 1.0
+        elif distance <= tail_length:
+            fade_factor = 1.0 - (distance / (tail_length + 1))
+            intensity_multiplier = fade_factor * 0.8
+        else:
+            intensity_multiplier = 0.0
+
+        return int(base_intensity * intensity_multiplier)
+
     elif effect_type in ("waterfall_down", "waterfall_up"):
         # Waterfall effect: light cascades through fixtures with smooth tail
         # Matches ArtNet implementation in dmx_manager.py
@@ -435,6 +642,117 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * intensity_multiplier)
 
+    elif effect_type == "breathing_sync":
+        # Breathing effect: all fixtures fade in/out together smoothly in a sine curve
+        # One full breath cycle per bar at speed 1
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        # Calculate timing: one breath cycle per bar at speed 1
+        seconds_per_beat = 60.0 / bpm
+        seconds_per_bar = seconds_per_beat * 4  # Assuming 4/4 time
+        cycle_time = seconds_per_bar / speed_mult
+
+        # Calculate phase in the breathing cycle (0 to 2*pi)
+        phase = (time_in_block / cycle_time) * 2 * math.pi
+
+        # Minimum intensity floor (30% of base)
+        floor = 0.3
+
+        # Sine wave for smooth breathing: floor + (1-floor) * (sin(phase) + 1) / 2
+        # This gives a smooth oscillation between floor and 1.0
+        brightness = floor + (1 - floor) * (math.sin(phase) + 1) / 2
+
+        return int(base_intensity * brightness)
+
+    elif effect_type == "wave_travel":
+        # Wave effect: intensity wave travels across fixtures like a stadium wave
+        # One wave cycle per bar at speed 1
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        if total_fixtures <= 1:
+            # Single fixture - just use breathing pattern
+            seconds_per_beat = 60.0 / bpm
+            seconds_per_bar = seconds_per_beat * 4
+            cycle_time = seconds_per_bar / speed_mult
+            phase = (time_in_block / cycle_time) * 2 * math.pi
+            brightness = (math.sin(phase) + 1) / 2
+            return int(base_intensity * brightness)
+
+        # Calculate timing: one wave cycle per bar at speed 1
+        seconds_per_beat = 60.0 / bpm
+        seconds_per_bar = seconds_per_beat * 4
+        cycle_time = seconds_per_bar / speed_mult
+
+        # Wavelength: how many fixtures the wave spans (half the fixtures)
+        wavelength = max(2, total_fixtures / 2)
+
+        # Calculate wave position for this fixture at this time
+        # Wave moves from left to right (direction = "right")
+        time_progress = time_in_block / cycle_time
+        wave_pos = 2 * math.pi * (fixture_idx / wavelength - time_progress)
+
+        # Sine wave intensity (0 to 1)
+        brightness = (math.sin(wave_pos) + 1) / 2
+
+        return int(base_intensity * brightness)
+
+    elif effect_type == "heartbeat_pulse":
+        # Heartbeat effect: double-pulse pattern (bump-bump... pause... bump-bump)
+        # One heartbeat cycle per bar at speed 1
+        # Timing: Beat1 up (10%), Beat1 down (10%), Beat2 up (10%), Beat2 down (20%), Rest (50%)
+        speed = active_block.effect_speed
+        if '/' in speed:
+            num, denom = map(int, speed.split('/'))
+            speed_mult = num / denom
+        else:
+            speed_mult = float(speed)
+
+        time_in_block = time_s - active_block.start_time
+
+        # Calculate timing: one heartbeat cycle per bar at speed 1
+        seconds_per_beat = 60.0 / bpm
+        seconds_per_bar = seconds_per_beat * 4
+        cycle_time = seconds_per_bar / speed_mult
+
+        # Position within current cycle (0 to 1)
+        cycle_pos = (time_in_block % cycle_time) / cycle_time
+
+        # Minimum intensity floor (20% of base)
+        floor = 0.2
+
+        # Calculate beat level based on position in cycle
+        if cycle_pos < 0.10:
+            # Beat 1 up: quick fade up to 100%
+            beat_level = floor + (1.0 - floor) * (cycle_pos / 0.10)
+        elif cycle_pos < 0.20:
+            # Beat 1 down: quick fade to 60%
+            beat_level = 1.0 - (1.0 - 0.6) * ((cycle_pos - 0.10) / 0.10)
+        elif cycle_pos < 0.30:
+            # Beat 2 up: quick fade up to 80%
+            beat_level = 0.6 + (0.8 - 0.6) * ((cycle_pos - 0.20) / 0.10)
+        elif cycle_pos < 0.50:
+            # Beat 2 down: fade down to floor
+            beat_level = 0.8 - (0.8 - floor) * ((cycle_pos - 0.30) / 0.20)
+        else:
+            # Rest: stay at floor
+            beat_level = floor
+
+        return int(base_intensity * beat_level)
+
     # Default: static
     return base_intensity
 
@@ -447,7 +765,9 @@ def sample_movement_at_time(
     step_idx: int,
     total_steps: int,
     bpm: float = 120.0,
-    signature: str = "4/4"
+    signature: str = "4/4",
+    config: Any = None,
+    fixture: Any = None
 ) -> Optional[Tuple[int, int]]:
     """
     Sample the pan/tilt position at a given time.
@@ -461,6 +781,8 @@ def sample_movement_at_time(
         total_steps: Total number of steps
         bpm: Beats per minute for timing calculations
         signature: Time signature (e.g., "4/4")
+        config: Configuration object (for spot lookup)
+        fixture: Fixture object (for position and orientation)
 
     Returns:
         Tuple of (pan, tilt) values (0-255) or None if no movement block at this time
@@ -476,8 +798,44 @@ def sample_movement_at_time(
         return None
 
     effect_type = active_block.effect_type
-    center_pan = active_block.pan
-    center_tilt = active_block.tilt
+
+    # Check if we have a target spot - if so, calculate pan/tilt to point at it
+    if active_block.target_spot_name and config and fixture and hasattr(config, 'spots'):
+        spot = config.spots.get(active_block.target_spot_name)
+        if spot:
+            # Get effective orientation (considering group defaults)
+            group = config.groups.get(fixture.group) if fixture.group else None
+            mounting, yaw, pitch, roll = fixture.get_effective_orientation(group)
+            fixture_z = fixture.get_effective_z(group)
+
+            # Calculate pan/tilt angles to point at the spot
+            pan_degrees, tilt_degrees = calculate_pan_tilt(
+                fixture_x=fixture.x,
+                fixture_y=fixture.y,
+                fixture_z=fixture_z,
+                target_x=spot.x,
+                target_y=spot.y,
+                target_z=spot.z,
+                mounting=mounting,
+                yaw=yaw,
+                pitch=pitch,
+                roll=roll
+            )
+
+            # Convert to DMX values (0-255 where 127 = center)
+            pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
+
+            # Use calculated values as center position
+            center_pan = float(pan_dmx)
+            center_tilt = float(tilt_dmx)
+        else:
+            # Spot not found, fall back to manual values
+            center_pan = active_block.pan
+            center_tilt = active_block.tilt
+    else:
+        # No target spot, use manual values
+        center_pan = active_block.pan
+        center_tilt = active_block.tilt
     pan_amplitude = active_block.pan_amplitude
     tilt_amplitude = active_block.tilt_amplitude
     pan_min = active_block.pan_min
@@ -697,7 +1055,8 @@ def build_unified_step(
     total_steps: int,
     all_lane_fixtures: List = None,  # Full fixture list for cross-group effects
     bpm: float = 120.0,  # BPM for timing calculations
-    signature: str = "4/4"  # Time signature for movement calculations
+    signature: str = "4/4",  # Time signature for movement calculations
+    config: Any = None  # Configuration object for spot targeting
 ) -> ET.Element:
     """
     Build a single unified step with all channel values for all fixtures.
@@ -717,6 +1076,7 @@ def build_unified_step(
         all_lane_fixtures: Full fixture list for cross-group effects (ping-pong, waterfall)
         bpm: BPM for timing calculations
         signature: Time signature for movement calculations
+        config: Configuration object for spot targeting
 
     Returns:
         ET.Element for the Step
@@ -779,7 +1139,7 @@ def build_unified_step(
         # Sample all effect types at this time
         # Use global_fixture_idx and total_fixtures_for_effects for cross-group effects
         dimmer_value = sample_dimmer_at_time(time_s, dimmer_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm)
-        movement_values = sample_movement_at_time(time_s, movement_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm, signature)
+        movement_values = sample_movement_at_time(time_s, movement_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm, signature, config, fixture)
         colour_values = sample_colour_at_time(time_s, colour_blocks)
         special_values = sample_special_at_time(time_s, special_blocks)
 
@@ -874,11 +1234,28 @@ def build_unified_step(
 
             # Apply RGB channels if fixture has them
             if has_rgb_channels:
+                # Check if fixture has a white channel
+                has_white_channel = "IntensityWhite" in channels_dict
+
+                # Get base color values
+                red_val = colour_values.get('red', 0)
+                green_val = colour_values.get('green', 0)
+                blue_val = colour_values.get('blue', 0)
+                white_val = colour_values.get('white', 0)
+
+                # RGBW to RGB conversion: if fixture has no white channel,
+                # add the white value to R, G, B to approximate the color
+                if not has_white_channel and white_val > 0:
+                    red_val = min(255, red_val + white_val)
+                    green_val = min(255, green_val + white_val)
+                    blue_val = min(255, blue_val + white_val)
+                    white_val = 0  # Clear white since we've converted it
+
                 color_mappings = [
-                    ("IntensityRed", colour_values.get('red', 0)),
-                    ("IntensityGreen", colour_values.get('green', 0)),
-                    ("IntensityBlue", colour_values.get('blue', 0)),
-                    ("IntensityWhite", colour_values.get('white', 0)),
+                    ("IntensityRed", red_val),
+                    ("IntensityGreen", green_val),
+                    ("IntensityBlue", blue_val),
+                    ("IntensityWhite", white_val),
                     ("IntensityAmber", colour_values.get('amber', 0)),
                     ("IntensityCyan", colour_values.get('cyan', 0)),
                     ("IntensityMagenta", colour_values.get('magenta', 0)),
@@ -1111,7 +1488,8 @@ def generate_unified_sequence_steps(
     light_block,  # LightBlock object
     bpm: float,
     signature: str = "4/4",
-    all_lane_fixtures: List = None  # All fixtures in the lane for cross-group effects
+    all_lane_fixtures: List = None,  # All fixtures in the lane for cross-group effects
+    config: Any = None  # Configuration object for spot targeting
 ) -> List[ET.Element]:
     """
     Generate unified sequence steps for a light block.
@@ -1128,6 +1506,7 @@ def generate_unified_sequence_steps(
         signature: Time signature
         all_lane_fixtures: All fixtures in the lane (for cross-group effects like ping-pong)
                           If None, uses fixtures (single-group behavior)
+        config: Configuration object for spot targeting
 
     Returns:
         List of Step ET.Elements
@@ -1140,12 +1519,18 @@ def generate_unified_sequence_steps(
     movement_blocks = light_block.movement_blocks if hasattr(light_block, 'movement_blocks') else []
     special_blocks = light_block.special_blocks if hasattr(light_block, 'special_blocks') else []
 
+    # Debug: Log block counts
+    print(f"        [unified_sequence] dimmer={len(dimmer_blocks)}, colour={len(colour_blocks)}, movement={len(movement_blocks)}, special={len(special_blocks)}")
+
     # Calculate the unified step grid
     step_times_ms, step_duration_ms = calculate_unified_step_grid(
         dimmer_blocks, colour_blocks, movement_blocks, special_blocks, bpm, signature
     )
 
+    print(f"        [unified_sequence] step_times_ms count={len(step_times_ms)}, step_duration_ms={step_duration_ms}")
+
     if not step_times_ms:
+        print(f"        [unified_sequence] Returning empty - no step times calculated")
         return []
 
     total_steps = len(step_times_ms)
@@ -1168,7 +1553,8 @@ def generate_unified_sequence_steps(
             total_steps=total_steps,
             all_lane_fixtures=all_lane_fixtures,  # Pass full fixture list for cross-group effects
             bpm=bpm,  # Pass BPM for timing-based effects like ping-pong
-            signature=signature  # Pass signature for movement timing
+            signature=signature,  # Pass signature for movement timing
+            config=config  # Pass config for spot targeting
         )
 
         steps.append(step)

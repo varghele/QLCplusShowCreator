@@ -41,7 +41,29 @@ class FixturesTab(BaseTab):
         self.existing_groups = set()
         self.fixture_paths = []
 
+        # Track fixture state to avoid unnecessary rebuilds
+        self._last_fixture_fingerprint = None
+        # Lazy loading flag - update when tab becomes visible
+        self._pending_update = False
+
         super().__init__(config, parent)
+
+    def showEvent(self, event):
+        """Handle tab becoming visible - trigger pending update if needed."""
+        super().showEvent(event)
+        if self._pending_update:
+            self._pending_update = False
+            # Use QTimer to defer update slightly, avoiding Qt stack issues
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(50, lambda: self.update_from_config(force=True))
+
+    def schedule_update(self):
+        """Schedule an update for when the tab becomes visible."""
+        self._pending_update = True
+        # If already visible, update now
+        if self.isVisible():
+            self._pending_update = False
+            self.update_from_config(force=True)
 
     def setup_ui(self):
         """Set up fixture management UI"""
@@ -131,20 +153,45 @@ class FixturesTab(BaseTab):
         self.duplicate_btn.clicked.connect(self._duplicate_fixture)
         self.table.itemChanged.connect(self.save_to_config)
 
-    def update_from_config(self):
-        """Refresh fixture table from configuration"""
-        # Disable visual updates during population to prevent row-by-row rendering
-        self.table.setUpdatesEnabled(False)
+    def _get_fixture_fingerprint(self) -> str:
+        """Generate fingerprint of fixtures and groups for change detection."""
+        parts = []
+        for f in self.config.fixtures:
+            parts.append(f"{f.name}:{f.universe}:{f.address}:{f.manufacturer}:{f.model}:{f.current_mode}:{f.group}")
+        # Also include groups in fingerprint
+        parts.append(f"groups:{','.join(sorted(self.config.groups.keys()))}")
+        return "|".join(parts)
+
+    def update_from_config(self, force: bool = False):
+        """Refresh fixture table from configuration.
+
+        Args:
+            force: If True, rebuild even if no changes detected
+        """
+        # Check if rebuild is needed
+        current_fingerprint = self._get_fixture_fingerprint()
+        if not force and current_fingerprint == self._last_fixture_fingerprint:
+            return  # No changes, skip expensive rebuild
+
+        self._last_fixture_fingerprint = current_fingerprint
+
         # Block signals during population
         self.table.blockSignals(True)
         self.table.setRowCount(0)
 
+        # Process events periodically to avoid Qt stack overflow with large configs
+        from PyQt6.QtWidgets import QApplication
+
         # Update existing groups set
         self.existing_groups = set(self.config.groups.keys())
 
-        for fixture in self.config.fixtures:
+        for idx, fixture in enumerate(self.config.fixtures):
             row = self.table.rowCount()
             self.table.insertRow(row)
+
+            # Process events every 3 rows to prevent Qt stack overflow
+            if idx > 0 and idx % 3 == 0:
+                QApplication.processEvents()
 
             # Universe spinbox
             universe_spin = QtWidgets.QSpinBox()
@@ -257,8 +304,6 @@ class FixturesTab(BaseTab):
         # Re-enable signals and update colors
         self.table.blockSignals(False)
         self._update_row_colors()
-        # Re-enable visual updates now that all changes are complete
-        self.table.setUpdatesEnabled(True)
 
     def save_to_config(self, item=None):
         """Update configuration from table values"""
@@ -312,18 +357,30 @@ class FixturesTab(BaseTab):
 
         self._update_groups()
 
+        # Ensure universes exist for all fixtures (auto-create if fixture uses new universe)
+        self.config.ensure_universes_for_fixtures()
+
+        # Update fingerprint to reflect saved changes
+        self._last_fixture_fingerprint = self._get_fixture_fingerprint()
+
         # Notify main window of group changes if needed
         main_window = self.window()
         if main_window and hasattr(main_window, 'on_groups_changed'):
             main_window.on_groups_changed()
 
     def _update_groups(self):
-        """Rebuild groups from fixtures, preserving colors"""
-        # Store existing colors
-        existing_colors = {
-            name: group.color
+        """Rebuild groups from fixtures, preserving colors and orientation defaults"""
+        # Store existing group properties (colors and orientation defaults)
+        existing_props = {
+            name: {
+                'color': getattr(group, 'color', '#808080'),
+                'default_mounting': getattr(group, 'default_mounting', 'hanging'),
+                'default_yaw': getattr(group, 'default_yaw', 0.0),
+                'default_pitch': getattr(group, 'default_pitch', 0.0),
+                'default_roll': getattr(group, 'default_roll', 0.0),
+                'default_z_height': getattr(group, 'default_z_height', 3.0),
+            }
             for name, group in self.config.groups.items()
-            if hasattr(group, 'color')
         }
 
         # Clear and rebuild groups
@@ -332,11 +389,16 @@ class FixturesTab(BaseTab):
         for fixture in self.config.fixtures:
             if fixture.group:
                 if fixture.group not in self.config.groups:
-                    color = existing_colors.get(fixture.group, '#808080')
+                    props = existing_props.get(fixture.group, {})
                     self.config.groups[fixture.group] = FixtureGroup(
                         fixture.group,
                         [],
-                        color=color
+                        color=props.get('color', '#808080'),
+                        default_mounting=props.get('default_mounting', 'hanging'),
+                        default_yaw=props.get('default_yaw', 0.0),
+                        default_pitch=props.get('default_pitch', 0.0),
+                        default_roll=props.get('default_roll', 0.0),
+                        default_z_height=props.get('default_z_height', 3.0),
                     )
                 self.config.groups[fixture.group].fixtures.append(fixture)
 
@@ -393,8 +455,7 @@ class FixturesTab(BaseTab):
 
     def _update_row_colors(self):
         """Apply group colors to table rows"""
-        # Disable updates during batch color changes to prevent row-by-row rendering
-        self.table.setUpdatesEnabled(False)
+        # Note: setUpdatesEnabled removed to avoid Qt stack overflow with large configs
         try:
             # Track which colors are already in use to avoid duplicates
             used_colors = set()
@@ -462,8 +523,7 @@ class FixturesTab(BaseTab):
                             if cell_widget:
                                 cell_widget.setStyleSheet("background-color: white;")
         finally:
-            # Re-enable updates and trigger single repaint
-            self.table.setUpdatesEnabled(True)
+            pass  # setUpdatesEnabled removed to avoid Qt stack overflow
 
     def _add_fixture(self):
         """Show dialog to add fixture from QLC+ definitions"""
