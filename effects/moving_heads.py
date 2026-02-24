@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from utils.to_xml.shows_to_xml import calculate_step_timing
 import math
 from utils.effects_utils import find_closest_color_dmx, find_gobo_dmx_value, find_gobo_rotation_value, add_reset_step
-from utils.orientation import get_direction_for_tilt_calculation
+from utils.orientation import calculate_pan_tilt, pan_tilt_to_dmx
 import random
 
 
@@ -83,89 +83,22 @@ def focus_on_spot(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
         if fixture:
             # Configuration for fixture movement ranges
             pan_range = 540  # Total pan range in degrees (typical moving head)
-            tilt_range = 190  # Total tilt range in degrees (as specified in your code)
+            tilt_range = 270  # Total tilt range in degrees (typical moving head)
 
-            # Derive half-ranges for calculations
-            half_pan_range = pan_range / 2
+            # Calculate pan/tilt using proper 3D orientation math
+            # This uses the same rotation matrices as the visualizer
+            pan_degrees, tilt_degrees = calculate_pan_tilt(
+                fixture.x, fixture.y, fixture.z,
+                spot.x, spot.y, 0,
+                fixture.mounting, fixture.yaw, fixture.pitch, fixture.roll,
+                pan_range=pan_range, tilt_range=tilt_range
+            )
+            pan_dmx, tilt_dmx = pan_tilt_to_dmx(
+                pan_degrees, tilt_degrees, pan_range, tilt_range
+            )
 
-            # Get fixture position and orientation from fixture object attributes
-            fx = fixture.x
-            fy = fixture.y
-            fz = fixture.z
-            rotation = fixture.yaw + 90  # Fix, since code seemingly has rotated the fixtures by 90 deg
-            direction = get_direction_for_tilt_calculation(fixture.mounting)
-
-            # Calculate vector from fixture to spot
-            dx = spot.x - fx
-            dy = spot.y - fy
-            dz = 0 - fz  # Stage level is typically at z=0
-
-            # Calculate the horizontal angle in the XY plane (pan)
-            pan_angle_rad = math.atan2(dy, dx)
-            pan_angle_deg = math.degrees(pan_angle_rad)
-
-            # Convert mathematical angle to stage orientation where 0° is forward (facing positive y)
-            pan_angle_deg = (pan_angle_deg - 90) % 360
-
-            # Adjust for fixture rotation (orientation on stage)
-            pan_angle_deg = (pan_angle_deg - rotation) % 360
-
-            # Adjust pan direction based on fixture mounting
-            if direction == 'DOWN':
-                # Invert pan direction for DOWN fixtures
-                pan_angle_deg = (360 - pan_angle_deg) % 360
-
-            # Calculate distance in XY plane
-            distance_xy = math.sqrt(dx * dx + dy * dy)
-
-            # Calculate tilt angle (vertical angle)
-            tilt_angle_rad = math.atan2(dz, distance_xy)
-            tilt_angle_deg = math.degrees(tilt_angle_rad)
-
-            # Print raw calculated angles for debugging
-            print(f"Raw calculated tilt angle: {tilt_angle_deg}°")
-
-            # CORRECTED TILT CALCULATION
-            # For moving heads:
-            # 0 DMX = beam points horizontal
-            # 50% DMX (127/128) = beam points up (for UP fixtures) or down (for DOWN fixtures)
-            # 100% DMX (255) = beam at maximum tilt position
-            if direction == 'UP':
-                # For UP fixtures:
-                # Map the tilt angle where 0° = horizontal, positive = up
-                # to DMX where 0 = horizontal, 127/128 = 90° up
-                if tilt_angle_deg >= 0:
-                    # Positive angles (pointing up)
-                    tilt_dmx = int(tilt_angle_deg * 127 / 90)  # Map 0-90° to 0-127
-                else:
-                    # Negative angles (pointing down)
-                    tilt_dmx = 0  # Keep at horizontal for negative angles
-            else:  # DOWN fixtures
-                # For DOWN fixtures:
-                # Map the tilt angle where 0° = horizontal, positive = up
-                # to DMX where 0 = horizontal, 127/128 = 90° down
-                if tilt_angle_deg <= 0:
-                    # Negative angles (pointing down from horizontal)
-                    tilt_dmx = int(abs(tilt_angle_deg) * 127 / 90)  # Map 0-90° to 0-127
-                else:
-                    # Positive angles (pointing up)
-                    tilt_dmx = 0  # Keep at horizontal for positive angles
-
-            # Pan angle optimization - center the range around middle DMX value
-            if pan_angle_deg > half_pan_range:
-                pan_angle_deg -= 360
-
-            # Map the range from -half_pan_range to +half_pan_range to DMX 0-255
-            pan_dmx = int((pan_angle_deg + half_pan_range) * 255 / pan_range)
-
-            # Ensure values are within DMX range
-            pan_dmx = max(0, min(255, pan_dmx))
-            tilt_dmx = max(0, min(255, tilt_dmx))
-
-            # Add diagnostic info
-            print(f"Fixture at ({fx},{fy},{fz}), spot at ({spot.x},{spot.y},0)")
-            print(f"Direction: {direction}, Rotation: {rotation}°")
-            print(f"Pan angle: {pan_angle_deg}°, Raw tilt angle: {tilt_angle_deg}°")
+            print(f"Fixture at ({fixture.x},{fixture.y},{fixture.z}), spot at ({spot.x},{spot.y},0)")
+            print(f"Pan: {pan_degrees:.1f}°, Tilt: {tilt_degrees:.1f}°")
             print(f"DMX values: Pan={pan_dmx}, Tilt={tilt_dmx}")
 
             # Add pan/tilt values to channels
@@ -295,43 +228,8 @@ def whirl(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, signature
         fixture = fixture_conf[i] if i < len(fixture_conf) else None
 
         if fixture:
-            # Get fixture position and orientation from fixture object attributes
-            fx = fixture.x
-            fy = fixture.y
-            fz = fixture.z
-            rotation = fixture.yaw + 90  # Fix, since code seemingly has rotated the fixtures by 90 deg
-            direction = get_direction_for_tilt_calculation(fixture.mounting)
-
-            # For whirl effect, we'll set pan to aim at the audience
-            # This means pointing fixtures toward the front of the stage
-
-            # Calculate pan angle to point toward audience (front of stage)
-            pan_dmx = 128  # Center position (assuming 0-255 DMX range)
-
-            # Set a slight downward tilt so audience can see the gobo effect
-            tilt_raw = tilt_angle  # This is a slight downward angle
-
-            # Apply the tilt angle based on fixture direction
-            if direction == 'UP':
-                # For UP fixtures, negative angles point down
-                if tilt_raw < 0:
-                    # Map negative angles (pointing down) to DMX values
-                    tilt_dmx = int(abs(tilt_raw) * 127 / 90)  # Map angle to DMX
-                else:
-                    # We don't want to point up for whirl effect
-                    tilt_dmx = 0
-            else:  # DOWN fixtures
-                # For DOWN fixtures, positive angles point up
-                if tilt_raw < 0:
-                    # Convert to positive angle for DOWN fixtures
-                    tilt_dmx = int(abs(tilt_raw) * 127 / 90)  # Map angle to DMX
-                else:
-                    # We don't want to point up for whirl effect
-                    tilt_dmx = 0
-
-            # Ensure values are within DMX range
-            pan_dmx = max(0, min(255, pan_dmx))
-            tilt_dmx = max(0, min(255, tilt_dmx))
+            # Pan centered, tilt at specified angle (center-based DMX: 127 = 0°)
+            pan_dmx, tilt_dmx = pan_tilt_to_dmx(0, tilt_angle)
 
             # Add pan/tilt values to channels
             if 'PositionPan' in channels_dict:
@@ -483,23 +381,12 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, signatu
 
                 # Only create star positions for active fixtures
                 if twinkle_active:
-                    # Generate random pan/tilt values for a star-like position
-                    pan_dmx = random.randint(0, 255)
+                    # Generate random pan/tilt angles for a star-like position
+                    pan_angle = random.uniform(-270, 270)  # Full pan range in degrees
+                    tilt_angle = random.uniform(min_tilt, max_tilt)  # Upward angle for stars
 
-                    # Tilt should be pointing upward for stars
-                    tilt_angle = random.uniform(min_tilt, max_tilt)  # Random angle between min and max
-
-                    # Convert tilt angle to DMX based on fixture mounting
-                    direction = get_direction_for_tilt_calculation(fixture.mounting)
-                    if direction == 'UP':
-                        # For UP fixtures, map the angle to DMX
-                        tilt_dmx = int(tilt_angle * 255 / 90)  # Scale to DMX range
-                    else:  # DOWN fixtures
-                        # For DOWN fixtures, invert the angle
-                        tilt_dmx = 255 - int(tilt_angle * 255 / 90)
-
-                    # Ensure values are within DMX range
-                    tilt_dmx = max(0, min(255, tilt_dmx))
+                    # Convert to center-based DMX (127 = 0°)
+                    pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_angle, tilt_angle)
 
                     # Random intensity for twinkling effect
                     fixture_intensity = random.randint(min_intensity, max_intensity) if twinkle_active else 0
@@ -658,37 +545,19 @@ def wave_sweep(start_step, fixture_def, mode_name, start_bpm, end_bpm=None, sign
                 # The phase combines the fixture's position and the current step
                 phase = 2 * math.pi * (position_ratio + (step_idx / wave_steps) * cycles)
 
-                # Base pan value - centered
+                # Calculate pan/tilt angles in degrees (0° = center)
                 if wave_direction == "horizontal":
-                    # Keep pan centered for vertical waves
-                    pan_dmx = 128
-                else:
-                    # For horizontal waves, pan moves in a wave pattern
-                    pan_offset = wave_height * math.sin(phase)
-                    pan_dmx = 128 + int(pan_offset * 255 / 180)  # Scale to DMX range
-
-                # Base tilt value
-                if wave_direction == "horizontal":
-                    # For horizontal waves, tilt moves in a wave pattern
+                    # Horizontal waves: pan centered, tilt sweeps
+                    pan_degrees = 0
                     tilt_offset = wave_height * math.sin(phase)
-                    tilt_base = 40  # Base angle (40° up)
-                    tilt_angle = tilt_base + tilt_offset
+                    tilt_degrees = 40 + tilt_offset  # Base 40° + wave offset
                 else:
-                    # Keep tilt at a fixed angle for vertical waves
-                    tilt_angle = 40  # 40° up from horizontal
+                    # Vertical waves: pan sweeps, tilt fixed
+                    pan_degrees = wave_height * math.sin(phase)
+                    tilt_degrees = 40  # Fixed 40° tilt
 
-                # Convert tilt angle to DMX based on fixture mounting
-                direction = get_direction_for_tilt_calculation(fixture.mounting)
-                if direction == 'UP':
-                    # For UP fixtures
-                    tilt_dmx = int(tilt_angle * 255 / 90)  # Scale to DMX range
-                else:  # DOWN fixtures
-                    # For DOWN fixtures, invert the angle
-                    tilt_dmx = 255 - int(tilt_angle * 255 / 90)
-
-                # Ensure values are within DMX range
-                pan_dmx = max(0, min(255, pan_dmx))
-                tilt_dmx = max(0, min(255, tilt_dmx))
+                # Convert to center-based DMX (127 = 0°)
+                pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
 
                 # Add pan/tilt values to channels
                 if 'PositionPan' in channels_dict:
@@ -830,13 +699,6 @@ def wave_sweep_fig8(start_step, fixture_def, mode_name, start_bpm, end_bpm=None,
             fixture = fixture_conf[i] if i < len(fixture_conf) else None
 
             if fixture:
-                # Get fixture position and orientation from fixture object attributes
-                fx = fixture.x
-                fy = fixture.y
-                fz = fixture.z
-                rotation = fixture.yaw + 90  # Rotation adjustment
-                direction = get_direction_for_tilt_calculation(fixture.mounting)
-
                 # Create unique phase offset for each fixture to make them asynchronous
                 fixture_offset = (i * wave_offset) % 1.0
 
@@ -848,28 +710,10 @@ def wave_sweep_fig8(start_step, fixture_def, mode_name, start_bpm, end_bpm=None,
                 pan_offset = math.sin(phase) * wave_size
                 tilt_offset = math.sin(2 * phase) * (wave_size * 0.5)  # Half amplitude for tilt
 
-                # Base pan angle (center position with offset)
-                base_pan = 128 + base_pan_angle  # 128 is center, adjust as needed
-
-                # Apply the offsets to create the wave pattern
-                pan_dmx = int(base_pan + pan_offset)
-
-                # Base tilt value (slight downward angle)
-                base_tilt = tilt_angle  # Negative = downward
-
-                # Apply the tilt angle based on fixture direction
-                if direction == 'UP':
-                    # For UP fixtures, negative angles point down
-                    tilt_base_dmx = int(abs(base_tilt) * 127 / 90)  # Map angle to DMX
-                    tilt_dmx = tilt_base_dmx + int(tilt_offset)
-                else:  # DOWN fixtures
-                    # For DOWN fixtures, positive angles point up
-                    tilt_base_dmx = int(abs(base_tilt) * 127 / 90)
-                    tilt_dmx = tilt_base_dmx + int(tilt_offset)
-
-                # Ensure values are within DMX range
-                pan_dmx = max(0, min(255, pan_dmx))
-                tilt_dmx = max(0, min(255, tilt_dmx))
+                # Calculate angles in degrees (0° = center) and convert to DMX
+                pan_degrees = base_pan_angle + pan_offset
+                tilt_degrees = tilt_angle + tilt_offset
+                pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
 
                 # Add pan/tilt values to channels
                 if 'PositionPan' in channels_dict:
