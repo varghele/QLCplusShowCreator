@@ -1,6 +1,8 @@
 from utils.effects_utils import get_channels_by_property
 import xml.etree.ElementTree as ET
 import math
+import hashlib
+import random
 from utils.to_xml.shows_to_xml import calculate_step_timing
 from effects.fixture_helpers import (
     get_fixture_dimmer_channels,
@@ -8,6 +10,43 @@ from effects.fixture_helpers import (
     build_dimmer_values_for_fixtures,
     count_total_dimmer_channels
 )
+
+
+def _parse_speed(speed):
+    """Parse speed string to float multiplier."""
+    if isinstance(speed, str) and '/' in speed:
+        num, denom = map(int, speed.split('/'))
+        return num / denom
+    return float(speed)
+
+
+def _calc_bpm_timing(start_bpm, end_bpm, signature):
+    """Calculate basic BPM timing parameters."""
+    avg_bpm = (float(start_bpm or end_bpm) + float(end_bpm)) / 2.0
+    try:
+        sig_parts = signature.split('/')
+        beats_per_bar = (int(sig_parts[0]) * 4) / int(sig_parts[1])
+    except (ValueError, IndexError):
+        beats_per_bar = 4
+    ms_per_beat = 60000.0 / avg_bpm
+    return avg_bpm, beats_per_bar, ms_per_beat
+
+
+def _generate_sub_steps(total_duration_ms, steps_per_beat, ms_per_beat, speed_mult):
+    """Generate sub-step time grid for effects that need finer resolution than 1-per-beat.
+
+    Returns list of (step_start_ms, step_duration_ms) tuples.
+    """
+    beat_duration = ms_per_beat / speed_mult
+    sub_step_duration = max(40, int(beat_duration / steps_per_beat))
+    total_sub_steps = max(1, int(total_duration_ms / sub_step_duration))
+    # Adjust duration to fit evenly
+    sub_step_duration = max(40, int(total_duration_ms / total_sub_steps))
+    result = []
+    for i in range(total_sub_steps):
+        start = i * sub_step_duration
+        result.append((start, sub_step_duration))
+    return result
 
 
 def static(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4", transition="gradual",
@@ -103,7 +142,8 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
            num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200, spot=None,
            fixture_definitions=None, fixture_id_map=None):
     """
-    Creates a strobe effect for fixtures with intensity channels.
+    Creates a strobe effect: hard 50% duty cycle at 2*speed_mult Hz.
+    Matches the real-time ArtNet engine (dmx_manager.py).
 
     Parameters:
         start_step: Starting step number
@@ -131,16 +171,16 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
 
     fixture_num = len(fixture_conf)
     use_per_fixture = fixture_definitions is not None and fixture_id_map is not None
+    speed_mult = _parse_speed(speed)
+    avg_bpm, beats_per_bar, ms_per_beat = _calc_bpm_timing(start_bpm, end_bpm, signature)
 
-    # Get step timings
-    step_timings, total_steps = calculate_step_timing(
-        signature=signature,
-        start_bpm=start_bpm,
-        end_bpm=end_bpm,
-        num_bars=num_bars,
-        speed=speed,
-        transition=transition
-    )
+    # Total duration
+    total_duration_ms = int(ms_per_beat * beats_per_bar * int(num_bars))
+
+    # Strobe at 2*speed_mult Hz → period = 1/(2*speed_mult) seconds
+    strobe_hz = 2.0 * speed_mult
+    period_ms = max(40, int(1000.0 / strobe_hz))
+    half_period_ms = max(20, period_ms // 2)
 
     # Count total channels
     if use_per_fixture:
@@ -153,20 +193,17 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
 
     steps = []
     current_step = start_step
+    elapsed = 0
 
-    for step_duration in step_timings:
-        # Base timing calculations for ON step
-        fade_in = min(50, int(step_duration * 0.1))
-        hold = min(50, int(step_duration * 0.4))
-        fade_out = 0
-        remaining_time = step_duration - fade_in - hold
-
+    while elapsed < total_duration_ms:
+        remaining = total_duration_ms - elapsed
         # ON step
+        on_duration = min(half_period_ms, remaining)
         step = ET.Element("Step")
         step.set("Number", str(current_step))
-        step.set("FadeIn", str(fade_in))
-        step.set("Hold", str(hold))
-        step.set("FadeOut", str(fade_out))
+        step.set("FadeIn", "0")
+        step.set("Hold", str(int(on_duration)))
+        step.set("FadeOut", "0")
         step.set("Values", str(total_channels))
 
         if use_per_fixture:
@@ -189,12 +226,18 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
 
         steps.append(step)
         current_step += 1
+        elapsed += on_duration
+
+        if elapsed >= total_duration_ms:
+            break
 
         # OFF step
+        remaining = total_duration_ms - elapsed
+        off_duration = min(half_period_ms, remaining)
         step = ET.Element("Step")
         step.set("Number", str(current_step))
-        step.set("FadeIn", str(int(remaining_time)))
-        step.set("Hold", "0")
+        step.set("FadeIn", "0")
+        step.set("Hold", str(int(off_duration)))
         step.set("FadeOut", "0")
         step.set("Values", str(total_channels))
 
@@ -215,6 +258,7 @@ def strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
 
         steps.append(step)
         current_step += 1
+        elapsed += off_duration
 
     return steps
 
@@ -223,7 +267,9 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
             num_bars=1, speed="1", color=None, fixture_conf=None, fixture_start_id=0, intensity=200, spot=None,
             fixture_definitions=None, fixture_id_map=None):
     """
-    Creates a twinkling effect with curved BPM transition.
+    Creates a twinkling effect with MD5-seeded random targets per fixture,
+    smoothstep interpolation, 200ms twinkle steps.
+    Matches the real-time ArtNet engine (dmx_manager.py).
 
     Parameters:
         start_step: Starting step number
@@ -251,16 +297,18 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
 
     fixture_num = len(fixture_conf)
     use_per_fixture = fixture_definitions is not None and fixture_id_map is not None
+    speed_mult = _parse_speed(speed)
+    avg_bpm, beats_per_bar, ms_per_beat = _calc_bpm_timing(start_bpm, end_bpm, signature)
 
-    # Get step timings
-    step_timings, total_steps = calculate_step_timing(
-        signature=signature,
-        start_bpm=start_bpm,
-        end_bpm=end_bpm,
-        num_bars=num_bars,
-        speed=speed,
-        transition=transition
-    )
+    # Total duration
+    total_duration_ms = int(ms_per_beat * beats_per_bar * int(num_bars))
+
+    # Twinkle step duration: 200ms base, adjusted by speed
+    twinkle_step_ms = max(40, int(200.0 / speed_mult))
+    # Generate ~2 XML steps per twinkle step for smooth interpolation (half-step sampling)
+    xml_step_ms = max(40, twinkle_step_ms // 2)
+    total_sub_steps = max(1, int(total_duration_ms / xml_step_ms))
+    xml_step_ms = max(40, int(total_duration_ms / total_sub_steps))
 
     # Count total channels
     if use_per_fixture:
@@ -274,21 +322,46 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
     steps = []
     current_step = start_step
 
-    for step_idx, step_duration in enumerate(step_timings):
-        # Create step
+    for sub_idx in range(total_sub_steps):
+        time_ms = sub_idx * xml_step_ms
+        time_s = time_ms / 1000.0
+
+        # Calculate twinkle interpolation parameters
+        twinkle_step_s = twinkle_step_ms / 1000.0
+        step_float = time_s / twinkle_step_s
+        current_twinkle_step = int(step_float)
+        next_twinkle_step = current_twinkle_step + 1
+        transition_progress = step_float - current_twinkle_step
+
+        # Smoothstep
+        t = transition_progress
+        smooth_t = t * t * (3 - 2 * t)
+
         step = ET.Element("Step")
         step.set("Number", str(current_step))
-        step.set("FadeIn", str(int(step_duration)))
-        step.set("Hold", "0")
+        step.set("FadeIn", "0")
+        step.set("Hold", str(xml_step_ms))
         step.set("FadeOut", "0")
         step.set("Values", str(total_channels))
 
         if use_per_fixture:
-            # Alternate intensity based on step index
             intensity_per_fixture = []
             for i in range(fixture_num):
-                value = int(intensity) if (i + step_idx) % 2 == 0 else int(intensity * 0.6)
-                intensity_per_fixture.append(value)
+                # Current target
+                seed_str = f"fixture_{i}_{current_twinkle_step}"
+                seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+                random.seed(seed_hash)
+                current_var = random.random() * 0.7 + 0.3
+
+                # Next target
+                seed_str = f"fixture_{i}_{next_twinkle_step}"
+                seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+                random.seed(seed_hash)
+                next_var = random.random() * 0.7 + 0.3
+
+                variation = current_var + (next_var - current_var) * smooth_t
+                intensity_per_fixture.append(int(intensity * variation))
+
             step.text = build_dimmer_values_for_fixtures(
                 fixture_conf, fixture_id_map, fixture_definitions, intensity_per_fixture
             )
@@ -300,9 +373,23 @@ def twinkle(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4
             for i in range(fixture_num):
                 channel_values = []
                 for idx, channel_info in enumerate(channels_dict['IntensityDimmer']):
-                    channel = channel_info['channel']
-                    value = str(int(intensity)) if (idx + step_idx) % 2 == 0 else str(int(intensity * 0.6))
-                    channel_values.extend([str(channel), value])
+                    ch = channel_info['channel']
+                    # Use fixture index * channel count + idx for unique seed
+                    fixture_idx = i * len(channels_dict['IntensityDimmer']) + idx
+
+                    seed_str = f"fixture_{fixture_idx}_{current_twinkle_step}"
+                    seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+                    random.seed(seed_hash)
+                    current_var = random.random() * 0.7 + 0.3
+
+                    seed_str = f"fixture_{fixture_idx}_{next_twinkle_step}"
+                    seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+                    random.seed(seed_hash)
+                    next_var = random.random() * 0.7 + 0.3
+
+                    variation = current_var + (next_var - current_var) * smooth_t
+                    value = int(intensity * variation)
+                    channel_values.extend([str(ch), str(value)])
                 values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
             step.text = ":".join(values)
 
@@ -317,8 +404,9 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
                      fixture_start_id=0, intensity=200, spot=None,
                      fixture_definitions=None, fixture_id_map=None):
     """
-    Creates a smooth ping-pong effect that moves light from left to right and back,
-    based on fixture x-position for proper spatial traversal.
+    Creates a smooth ping-pong effect with exponential decay on active fixture
+    and 30% tail window on previous fixture.
+    Matches the real-time ArtNet engine (dmx_manager.py).
 
     Parameters:
         start_step: Starting step number
@@ -343,19 +431,32 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
 
     fixture_num = len(fixture_conf)
     use_per_fixture = fixture_definitions is not None and fixture_id_map is not None
+    speed_mult = _parse_speed(speed)
+    avg_bpm, beats_per_bar, ms_per_beat = _calc_bpm_timing(start_bpm, end_bpm, signature)
 
     # Sort fixtures by x-position for proper left-to-right traversal
     sorted_indexed_fixtures = sort_fixtures_by_position(fixture_conf, axis='x', reverse=False)
+    # Build sorted_idx → orig_idx mapping
+    orig_idx_for_sorted = [orig_idx for orig_idx, _ in sorted_indexed_fixtures]
+    # Build orig_idx → sorted_idx mapping
+    sorted_idx_for_orig = {}
+    for sorted_idx, (orig_idx, _) in enumerate(sorted_indexed_fixtures):
+        sorted_idx_for_orig[orig_idx] = sorted_idx
 
-    # Get step timings
-    step_timings, total_steps = calculate_step_timing(
-        signature=signature,
-        start_bpm=start_bpm,
-        end_bpm=end_bpm,
-        num_bars=num_bars,
-        speed=speed,
-        transition=transition
-    )
+    # Total duration and sub-step grid
+    total_duration_ms = int(ms_per_beat * beats_per_bar * int(num_bars))
+    beat_ms = ms_per_beat / speed_mult
+    sub_step_ms = max(40, int(beat_ms / 10))
+    total_sub_steps = max(1, int(total_duration_ms / sub_step_ms))
+    sub_step_ms = max(40, int(total_duration_ms / total_sub_steps))
+
+    # Ping-pong cycle timing
+    time_per_fixture_ms = beat_ms  # each fixture gets one beat
+    if fixture_num <= 1:
+        steps_in_cycle = 1
+    else:
+        steps_in_cycle = (fixture_num - 1) * 2
+    cycle_time_ms = time_per_fixture_ms * steps_in_cycle
 
     # Count total channels
     if use_per_fixture:
@@ -368,77 +469,83 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
 
     steps = []
     current_step = start_step
-    current_position = 0  # Position in sorted fixture list
-    direction = 1  # 1 for forward (left to right), -1 for backward
 
-    for step_duration in step_timings:
-        # Create step with full duration fade
+    for sub_idx in range(total_sub_steps):
+        time_ms = sub_idx * sub_step_ms
+
         step = ET.Element("Step")
         step.set("Number", str(current_step))
-        step.set("FadeIn", str(step_duration))
-        step.set("Hold", "0")
+        step.set("FadeIn", "0")
+        step.set("Hold", str(sub_step_ms))
         step.set("FadeOut", "0")
         step.set("Values", str(total_channels))
 
-        # Calculate next position
-        next_position = current_position + direction
-        if next_position >= fixture_num:
-            next_position = fixture_num - 2 if fixture_num > 1 else 0
-            direction = -1
-        elif next_position < 0:
-            next_position = 1 if fixture_num > 1 else 0
-            direction = 1
+        # Calculate active fixture and decay for this time
+        if fixture_num <= 1:
+            # Single fixture - always on
+            intensities = [int(intensity)]
+        else:
+            time_in_cycle = time_ms % cycle_time_ms
+            current_beat = time_in_cycle / time_per_fixture_ms
+            step_index = int(current_beat)
+            time_within_step = (current_beat - step_index) * time_per_fixture_ms
 
-        # Build intensity per fixture - lit fixture at next_position, others off
-        if use_per_fixture:
-            intensity_per_fixture = []
-            for sorted_idx, (orig_idx, fixture) in enumerate(sorted_indexed_fixtures):
-                if sorted_idx == next_position:
-                    intensity_per_fixture.append(int(intensity))
+            # Convert step to active fixture (ping-pong)
+            if step_index < (fixture_num - 1):
+                active_sorted = step_index
+            else:
+                active_sorted = steps_in_cycle - step_index
+
+            # Determine previous fixture for tail
+            if step_index < (fixture_num - 1):
+                prev_sorted = active_sorted - 1
+            else:
+                prev_sorted = active_sorted + 1
+
+            intensities = []
+            for sorted_idx in range(fixture_num):
+                if sorted_idx == active_sorted:
+                    decay_progress = time_within_step / time_per_fixture_ms if time_per_fixture_ms > 0 else 0
+                    mult = 0.2 + 0.8 * math.exp(-decay_progress * 3)
+                elif sorted_idx == prev_sorted and 0 <= prev_sorted < fixture_num:
+                    if time_within_step < time_per_fixture_ms * 0.3:
+                        tail_progress = time_within_step / (time_per_fixture_ms * 0.3) if time_per_fixture_ms > 0 else 1
+                        mult = 0.3 * (1.0 - tail_progress)
+                    else:
+                        mult = 0.0
                 else:
-                    intensity_per_fixture.append(0)
+                    mult = 0.0
+                intensities.append(int(intensity * mult))
 
-            # Build values in original fixture order for proper fixture_id mapping
+        if use_per_fixture:
+            # Map sorted intensities back to original fixture order
             values = []
             for orig_idx, fixture in enumerate(fixture_conf):
                 fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
-                # Find this fixture's intensity in the sorted order
-                for sorted_idx, (oidx, f) in enumerate(sorted_indexed_fixtures):
-                    if oidx == orig_idx:
-                        fix_intensity = intensity_per_fixture[sorted_idx]
-                        break
-                else:
-                    fix_intensity = 0
+                sorted_idx = sorted_idx_for_orig[orig_idx]
+                fix_intensity = intensities[sorted_idx] if fixture_num > 1 else intensities[0]
 
                 channels = get_fixture_dimmer_channels(fixture, fixture_definitions)
                 channel_values = []
                 for ch_info in channels:
                     channel_values.extend([str(ch_info['channel']), str(fix_intensity)])
                 values.append(f"{fixture_id}:{','.join(channel_values)}")
-
             step.text = ":".join(values)
         else:
-            # Legacy mode - use index order (not position-based)
             channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
             if not channels_dict:
                 channels_dict = {'IntensityDimmer': [{'channel': 0}]}
-
             values = []
             for i in range(fixture_num):
+                fix_intensity = intensities[i] if fixture_num > 1 else intensities[0]
                 channel_values = []
-                if i == next_position:
-                    for channel in channels_dict['IntensityDimmer']:
-                        channel_values.extend([str(channel['channel']), str(int(intensity))])
-                else:
-                    for channel in channels_dict['IntensityDimmer']:
-                        channel_values.extend([str(channel['channel']), "0"])
+                for channel in channels_dict['IntensityDimmer']:
+                    channel_values.extend([str(channel['channel']), str(fix_intensity)])
                 values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
-
             step.text = ":".join(values)
 
         steps.append(step)
         current_step += 1
-        current_position = next_position
 
     return steps
 
@@ -446,10 +553,12 @@ def ping_pong_smooth(start_step, fixture_def, mode_name, start_bpm, end_bpm, sig
 def random_strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4",
                   transition="gradual", num_bars=1, speed="1", color=None, fixture_conf=None,
                   fixture_start_id=0, intensity=200, spot=None,
-                  fixture_definitions=None, fixture_id_map=None):
+                  fixture_definitions=None, fixture_id_map=None,
+                  start_time=0.0):
     """
-    Creates a random strobe effect where fixtures light up one at a time in shuffled order.
-    Once all fixtures have been lit, the order is reshuffled (like shuffling a deck of cards).
+    Creates a random strobe effect with block-start-time-based seed and
+    exponential decay on active fixture.
+    Matches the real-time ArtNet engine (dmx_manager.py).
 
     Parameters:
         start_step: Starting step number
@@ -468,24 +577,26 @@ def random_strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
         spot: Spot object (unused in this effect)
         fixture_definitions: Dict of fixture definitions (new)
         fixture_id_map: Dict mapping id(fixture) to QLC+ fixture ID (new)
+        start_time: Block start time in seconds (for deterministic seed)
     """
-    import random
-
     if not fixture_conf:
         return []
 
     fixture_num = len(fixture_conf)
     use_per_fixture = fixture_definitions is not None and fixture_id_map is not None
+    speed_mult = _parse_speed(speed)
+    avg_bpm, beats_per_bar, ms_per_beat = _calc_bpm_timing(start_bpm, end_bpm, signature)
 
-    # Get step timings
-    step_timings, total_steps = calculate_step_timing(
-        signature=signature,
-        start_bpm=start_bpm,
-        end_bpm=end_bpm,
-        num_bars=num_bars,
-        speed=speed,
-        transition=transition
-    )
+    # Total duration and sub-step grid
+    total_duration_ms = int(ms_per_beat * beats_per_bar * int(num_bars))
+    beat_ms = ms_per_beat / speed_mult
+    sub_step_ms = max(40, int(beat_ms / 10))
+    total_sub_steps = max(1, int(total_duration_ms / sub_step_ms))
+    sub_step_ms = max(40, int(total_duration_ms / total_sub_steps))
+
+    # Cycle timing
+    time_per_fixture_ms = beat_ms  # each fixture gets one beat
+    cycle_time_ms = time_per_fixture_ms * fixture_num if fixture_num > 0 else 1
 
     # Count total channels
     if use_per_fixture:
@@ -499,58 +610,66 @@ def random_strobe(start_step, fixture_def, mode_name, start_bpm, end_bpm, signat
     steps = []
     current_step = start_step
 
-    # Create shuffled fixture indices - reshuffle when we've used all fixtures
-    shuffled_indices = list(range(fixture_num))
-    random.seed(42)  # Use fixed seed for reproducible export
-    random.shuffle(shuffled_indices)
-    shuffle_position = 0
+    for sub_idx in range(total_sub_steps):
+        time_ms = sub_idx * sub_step_ms
 
-    for step_duration in step_timings:
-        # Get next fixture from shuffled order
-        active_fixture_idx = shuffled_indices[shuffle_position]
-
-        # Move to next position, reshuffle if we've cycled through all
-        shuffle_position += 1
-        if shuffle_position >= fixture_num:
-            shuffle_position = 0
-            random.shuffle(shuffled_indices)
-
-        # Create step with full duration fade
         step = ET.Element("Step")
         step.set("Number", str(current_step))
-        step.set("FadeIn", str(step_duration))
-        step.set("Hold", "0")
+        step.set("FadeIn", "0")
+        step.set("Hold", str(sub_step_ms))
         step.set("FadeOut", "0")
         step.set("Values", str(total_channels))
 
-        # Build intensity per fixture - lit fixture at active_fixture_idx, others off
+        if fixture_num <= 1:
+            intensities = [int(intensity)]
+        else:
+            # Which cycle and step within cycle?
+            cycle_number = int(time_ms / cycle_time_ms)
+            time_in_cycle = time_ms % cycle_time_ms
+            current_beat = time_in_cycle / time_per_fixture_ms
+            step_index = int(current_beat)
+            time_within_step = (current_beat - step_index) * time_per_fixture_ms
+
+            # Generate shuffled order deterministically based on block start time + cycle
+            seed = int(start_time * 1000) + cycle_number
+            rng = random.Random(seed)
+            shuffled_indices = list(range(fixture_num))
+            rng.shuffle(shuffled_indices)
+
+            active_fixture = shuffled_indices[step_index % fixture_num]
+
+            intensities = []
+            for i in range(fixture_num):
+                if i == active_fixture:
+                    decay_progress = time_within_step / time_per_fixture_ms if time_per_fixture_ms > 0 else 0
+                    mult = 0.2 + 0.8 * math.exp(-decay_progress * 3)
+                else:
+                    mult = 0.0
+                intensities.append(int(intensity * mult))
+
         if use_per_fixture:
             values = []
             for orig_idx, fixture in enumerate(fixture_conf):
                 fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
-                fix_intensity = int(intensity) if orig_idx == active_fixture_idx else 0
+                fix_intensity = intensities[orig_idx] if orig_idx < len(intensities) else 0
 
                 channels = get_fixture_dimmer_channels(fixture, fixture_definitions)
                 channel_values = []
                 for ch_info in channels:
                     channel_values.extend([str(ch_info['channel']), str(fix_intensity)])
                 values.append(f"{fixture_id}:{','.join(channel_values)}")
-
             step.text = ":".join(values)
         else:
-            # Legacy mode
             channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
             if not channels_dict:
                 channels_dict = {'IntensityDimmer': [{'channel': 0}]}
-
             values = []
             for i in range(fixture_num):
+                fix_intensity = intensities[i] if i < len(intensities) else 0
                 channel_values = []
-                fix_intensity = int(intensity) if i == active_fixture_idx else 0
                 for channel in channels_dict['IntensityDimmer']:
                     channel_values.extend([str(channel['channel']), str(fix_intensity)])
                 values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
-
             step.text = ":".join(values)
 
         steps.append(step)
@@ -639,11 +758,11 @@ def snake(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/4
             # Going backward (fixture_num-1 to 0)
             head_position = steps_in_cycle - cycle_position - 1
 
-        # Create step
+        # Create step — FadeIn=0, Hold=step_duration for instant snap (matching RT engine)
         step = ET.Element("Step")
         step.set("Number", str(current_step))
-        step.set("FadeIn", str(step_duration))
-        step.set("Hold", "0")
+        step.set("FadeIn", "0")
+        step.set("Hold", str(int(step_duration)))
         step.set("FadeOut", "0")
         step.set("Values", str(total_channels))
 
@@ -812,11 +931,11 @@ def zigzag(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature="4/
             # Going backward (total_positions-1 to 0)
             head_position = steps_in_cycle - cycle_position - 1
 
-        # Create step
+        # Create step — FadeIn=0, Hold=step_duration for instant snap (matching RT engine)
         step = ET.Element("Step")
         step.set("Number", str(current_step))
-        step.set("FadeIn", str(step_duration))
-        step.set("Hold", "0")
+        step.set("FadeIn", "0")
+        step.set("Hold", str(int(step_duration)))
         step.set("FadeOut", "0")
         step.set("Values", str(total_channels))
 
@@ -901,7 +1020,9 @@ def waterfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
               direction="down", wave_size=3,
               fixture_definitions=None, fixture_id_map=None):
     """
-    Creates a waterfall effect with light "packets" flowing across dimmer fixtures.
+    Creates a waterfall effect with MD5-hashed base offset, slow sinusoidal drift,
+    and exponential decay with circular wrapping.
+    Matches the real-time ArtNet engine (dmx_manager.py).
 
     Parameters:
         start_step: Starting step number
@@ -919,7 +1040,7 @@ def waterfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
         intensity: Maximum intensity value for channels (0-255)
         spot: Spot object (unused in this effect)
         direction: Flow direction ("down", "up", "left", "right")
-        wave_size: Number of fixtures lit at once in the wave packet
+        wave_size: Number of fixtures lit at once in the wave packet (legacy, unused in new algorithm)
         fixture_definitions: Dict of fixture definitions (new)
         fixture_id_map: Dict mapping id(fixture) to QLC+ fixture ID (new)
 
@@ -931,8 +1052,10 @@ def waterfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
 
     fixture_num = len(fixture_conf)
     use_per_fixture = fixture_definitions is not None and fixture_id_map is not None
+    speed_mult = _parse_speed(speed)
+    avg_bpm, beats_per_bar, ms_per_beat = _calc_bpm_timing(start_bpm, end_bpm, signature)
 
-    # Determine sort axis and direction based on flow direction
+    # Determine sort axis based on flow direction
     if direction == "down":
         axis, reverse = 'y', False
     elif direction == "up":
@@ -944,16 +1067,21 @@ def waterfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
 
     # Sort fixtures by position
     sorted_indexed_fixtures = sort_fixtures_by_position(fixture_conf, axis=axis, reverse=reverse)
+    # Build orig_idx → sorted_idx mapping
+    sorted_idx_for_orig = {}
+    for sorted_idx, (orig_idx, _) in enumerate(sorted_indexed_fixtures):
+        sorted_idx_for_orig[orig_idx] = sorted_idx
 
-    # Get step timings
-    step_timings, total_steps = calculate_step_timing(
-        signature=signature,
-        start_bpm=start_bpm,
-        end_bpm=end_bpm,
-        num_bars=num_bars,
-        speed=speed,
-        transition=transition
-    )
+    # Total duration and sub-step grid
+    total_duration_ms = int(ms_per_beat * beats_per_bar * int(num_bars))
+    beat_ms = ms_per_beat / speed_mult
+    sub_step_ms = max(40, int(beat_ms / 10))
+    total_sub_steps = max(1, int(total_duration_ms / sub_step_ms))
+    sub_step_ms = max(40, int(total_duration_ms / total_sub_steps))
+
+    # Waterfall timing: each fixture transition = one beat
+    time_per_step_s = (ms_per_beat / speed_mult) / 1000.0
+    cycle_time_s = time_per_step_s * fixture_num if fixture_num > 0 else 1
 
     # Count total channels
     if use_per_fixture:
@@ -964,85 +1092,82 @@ def waterfall(start_step, fixture_def, mode_name, start_bpm, end_bpm, signature=
             channels_dict = {'IntensityDimmer': [{'channel': 0}]}
         total_channels = len(channels_dict.get('IntensityDimmer', [])) * fixture_num
 
+    # Map "down"/"left" to waterfall_down behavior, "up"/"right" to waterfall_up
+    is_down = direction in ("down", "left")
+
     steps = []
     current_step = start_step
 
-    for step_idx, step_duration in enumerate(step_timings):
+    for sub_idx in range(total_sub_steps):
+        time_ms = sub_idx * sub_step_ms
+        time_s = time_ms / 1000.0
+
         step = ET.Element("Step")
         step.set("Number", str(current_step))
-        step.set("FadeIn", str(step_duration))
-        step.set("Hold", "0")
+        step.set("FadeIn", "0")
+        step.set("Hold", str(sub_step_ms))
         step.set("FadeOut", "0")
         step.set("Values", str(total_channels))
 
-        # Calculate wave position for this step
-        wave_position = step_idx % (fixture_num + wave_size)
+        # Calculate per-fixture intensity using MD5 offset + sinusoidal drift + exp decay
+        sorted_intensities = []
+        for sorted_idx in range(fixture_num):
+            # MD5-hashed base offset for this fixture
+            seed_str = f"waterfall_fixture_{sorted_idx}"
+            name_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+            base_offset = (name_hash % 1000) / 1000.0
+
+            # Slowly drifting component
+            drift_period = 30.0
+            drift_phase = (time_s / drift_period) * 2 * math.pi
+            drift_seed = (name_hash % 997) / 997.0 * 2 * math.pi
+            drift_amount = 0.3 * math.sin(drift_phase + drift_seed)
+
+            total_offset = base_offset + drift_amount
+
+            # Current head position with offset
+            cycle_progress = (time_s / cycle_time_s + total_offset) % 1.0
+            head_position = cycle_progress * fixture_num
+
+            if is_down:
+                head_position = (fixture_num - 1) - head_position
+
+            # Circular distance and exponential decay
+            if is_down:
+                raw_distance = sorted_idx - head_position
+            else:
+                raw_distance = head_position - sorted_idx
+
+            circular_distance = raw_distance % fixture_num
+            normalized_dist = circular_distance / fixture_num
+            intensity_factor = math.exp(-1.5 * normalized_dist)
+
+            sorted_intensities.append(int(intensity * intensity_factor))
 
         if use_per_fixture:
-            # Build per-fixture intensity based on wave position
             values = []
             for orig_idx, fixture in enumerate(fixture_conf):
                 fixture_id = fixture_id_map[(fixture.universe, fixture.address)]
-
-                # Find this fixture's position in sorted order
-                for sorted_idx, (oidx, f) in enumerate(sorted_indexed_fixtures):
-                    if oidx == orig_idx:
-                        fixture_position = sorted_idx
-                        break
-                else:
-                    fixture_position = 0
-
-                # Calculate distance from wave
-                distance_from_wave = fixture_position - wave_position
-
-                if 0 <= distance_from_wave < wave_size:
-                    center_position = wave_size / 2
-                    distance_from_center = abs(distance_from_wave - center_position)
-                    intensity_factor = 1.0 - (distance_from_center / center_position) if center_position > 0 else 1.0
-                    fixture_intensity = int(intensity * intensity_factor)
-                else:
-                    fixture_intensity = 0
+                s_idx = sorted_idx_for_orig[orig_idx]
+                fix_intensity = sorted_intensities[s_idx]
 
                 channels = get_fixture_dimmer_channels(fixture, fixture_definitions)
                 channel_values = []
                 for ch_info in channels:
-                    channel_values.extend([str(ch_info['channel']), str(fixture_intensity)])
+                    channel_values.extend([str(ch_info['channel']), str(fix_intensity)])
                 values.append(f"{fixture_id}:{','.join(channel_values)}")
-
             step.text = ":".join(values)
         else:
-            # Legacy mode
             channels_dict = get_channels_by_property(fixture_def, mode_name, ["IntensityDimmer"])
             if not channels_dict:
                 channels_dict = {'IntensityDimmer': [{'channel': 0}]}
-
-            # Sort fixtures for position-based effect (legacy uses fixture_conf directly)
-            if fixture_conf:
-                if direction in ("down", "up"):
-                    sorted_fixtures = sorted(fixture_conf, key=lambda f: f.y, reverse=(direction == "up"))
-                else:
-                    sorted_fixtures = sorted(fixture_conf, key=lambda f: f.x, reverse=(direction == "right"))
-            else:
-                sorted_fixtures = fixture_conf
-
             values = []
-            for i, fixture in enumerate(sorted_fixtures):
+            for i in range(fixture_num):
+                fix_intensity = sorted_intensities[i]
                 channel_values = []
-                fixture_position = i
-                distance_from_wave = fixture_position - wave_position
-
-                if 0 <= distance_from_wave < wave_size:
-                    center_position = wave_size / 2
-                    distance_from_center = abs(distance_from_wave - center_position)
-                    intensity_factor = 1.0 - (distance_from_center / center_position) if center_position > 0 else 1.0
-                    fixture_intensity = int(intensity * intensity_factor)
-                else:
-                    fixture_intensity = 0
-
                 for channel in channels_dict['IntensityDimmer']:
-                    channel_values.extend([str(channel['channel']), str(fixture_intensity)])
+                    channel_values.extend([str(channel['channel']), str(fix_intensity)])
                 values.append(f"{fixture_start_id + i}:{','.join(channel_values)}")
-
             step.text = ":".join(values)
 
         steps.append(step)
