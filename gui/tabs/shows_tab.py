@@ -5,7 +5,8 @@ import os
 import csv
 from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QComboBox, QPushButton,
                              QLabel, QSlider, QScrollArea, QWidget, QFrame,
-                             QSplitter, QSizePolicy, QInputDialog, QMessageBox, QCheckBox)
+                             QSplitter, QSizePolicy, QInputDialog, QMessageBox, QCheckBox,
+                             QApplication)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint, QRect
 from PyQt6.QtGui import QShortcut, QKeySequence
 from config.models import Configuration, Show, ShowPart, TimelineData, LightBlock, ShowEffect
@@ -74,6 +75,8 @@ class ShowsTab(BaseTab):
         self.current_show_name = ""
         self.is_playing = False
         self.playhead_position = 0.0
+        self._is_activating = False
+        self._config_dirty = True
 
         # Audio components (lazy init)
         # Simple audio player (pygame-based) - preferred for performance
@@ -343,6 +346,23 @@ class ShowsTab(BaseTab):
 
         # Load current show
         self._load_show(self.show_combo.currentText())
+        self._config_dirty = False
+
+    def on_tab_activated(self):
+        """Called when tab becomes visible. Only reload if config changed."""
+        if self._is_activating:
+            return
+        try:
+            self._is_activating = True
+            if self._config_dirty:
+                self._config_dirty = False
+                self.update_from_config()
+        finally:
+            self._is_activating = False
+
+    def mark_config_dirty(self):
+        """Mark that config has changed externally and needs reload on next activation."""
+        self._config_dirty = True
 
     def update_fixture_groups_only(self):
         """Lightweight update when only fixture groups changed.
@@ -512,11 +532,13 @@ class ShowsTab(BaseTab):
                 if self.audio_mixer:
                     self.audio_mixer.remove_lane("audio")
 
-            # Create lane widgets
+            # Create lane widgets, yielding to event loop periodically
             lane_count = len(show.timeline_data.lanes)
             for i, lane_data in enumerate(show.timeline_data.lanes):
                 runtime_lane = LightLane.from_data_model(lane_data)
                 self._add_lane_widget(runtime_lane)
+                if (i + 1) % 3 == 0:
+                    QApplication.processEvents()
 
             # Update ArtNet controller with loaded lanes
             if self.artnet_controller:
@@ -540,11 +562,14 @@ class ShowsTab(BaseTab):
     def _clear_light_lanes(self):
         """Remove all light lane widgets."""
         for lane_widget in self.lane_widgets:
-            lane_widget.remove_requested.disconnect()
-            lane_widget.scroll_position_changed.disconnect()
-            lane_widget.zoom_changed.disconnect()
-            lane_widget.playhead_moved.disconnect()
-            lane_widget.block_edited.disconnect()
+            try:
+                lane_widget.remove_requested.disconnect()
+                lane_widget.scroll_position_changed.disconnect()
+                lane_widget.zoom_changed.disconnect()
+                lane_widget.playhead_moved.disconnect()
+                lane_widget.block_edited.disconnect()
+            except (TypeError, RuntimeError):
+                pass  # Signal already disconnected or widget deleted
             self.lanes_layout.removeWidget(lane_widget)
             lane_widget.deleteLater()
         self.lane_widgets.clear()
