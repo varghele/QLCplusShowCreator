@@ -45,6 +45,9 @@ class FixturesTab(BaseTab):
         self._last_fixture_fingerprint = None
         # Lazy loading flag - update when tab becomes visible
         self._pending_update = False
+        # Reentrancy and rebuild guards
+        self._is_activating = False
+        self._is_rebuilding = False
 
         super().__init__(config, parent)
 
@@ -55,7 +58,12 @@ class FixturesTab(BaseTab):
             self._pending_update = False
             # Use QTimer to defer update slightly, avoiding Qt stack issues
             from PyQt6.QtCore import QTimer
-            QTimer.singleShot(50, lambda: self.update_from_config(force=True))
+            QTimer.singleShot(50, self._deferred_update)
+
+    def _deferred_update(self):
+        """Deferred update callback - only run if tab is still visible."""
+        if self.isVisible() and not self._is_rebuilding:
+            self.update_from_config(force=True)
 
     def schedule_update(self):
         """Schedule an update for when the tab becomes visible."""
@@ -64,6 +72,20 @@ class FixturesTab(BaseTab):
         if self.isVisible():
             self._pending_update = False
             self.update_from_config(force=True)
+
+    def on_tab_activated(self):
+        """Called when tab becomes visible. Only reload if pending update."""
+        if self._is_activating:
+            return
+        try:
+            self._is_activating = True
+            if self._pending_update:
+                self._pending_update = False
+                self.update_from_config(force=True)
+            else:
+                self.update_from_config()
+        finally:
+            self._is_activating = False
 
     def setup_ui(self):
         """Set up fixture management UI"""
@@ -168,11 +190,22 @@ class FixturesTab(BaseTab):
         Args:
             force: If True, rebuild even if no changes detected
         """
+        if self._is_rebuilding:
+            return
+
         # Check if rebuild is needed
         current_fingerprint = self._get_fixture_fingerprint()
         if not force and current_fingerprint == self._last_fixture_fingerprint:
             return  # No changes, skip expensive rebuild
 
+        self._is_rebuilding = True
+        try:
+            self._update_from_config_inner(current_fingerprint)
+        finally:
+            self._is_rebuilding = False
+
+    def _update_from_config_inner(self, current_fingerprint):
+        """Inner implementation of update_from_config."""
         self._last_fixture_fingerprint = current_fingerprint
 
         # Block signals during population
@@ -307,6 +340,8 @@ class FixturesTab(BaseTab):
 
     def save_to_config(self, item=None):
         """Update configuration from table values"""
+        if self._is_rebuilding:
+            return
         # Update all fixtures from table
         for row in range(self.table.rowCount()):
             if row >= len(self.config.fixtures):
