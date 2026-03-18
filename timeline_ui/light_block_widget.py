@@ -1567,8 +1567,8 @@ class LightBlockWidget(QWidget):
                 # Double-clicked on a sublane block - open sublane-specific dialog
                 self.open_sublane_dialog(sublane_type, sublane_block)
             else:
-                # Double-clicked on envelope - open effect dialog
-                self.open_effect_dialog()
+                # Double-clicked on envelope - open rename dialog
+                self.set_block_name()
 
     def contextMenuEvent(self, event):
         """Handle right-click context menu."""
@@ -1685,14 +1685,6 @@ class LightBlockWidget(QWidget):
         if ok:
             # Set name (or None if empty)
             self.block.name = name if name.strip() else None
-            self.update_display()
-            self.block_edited.emit()  # Trigger auto-save
-
-    def open_effect_dialog(self):
-        """Open the effect editor dialog for the envelope."""
-        from .effect_block_dialog import EffectBlockDialog
-        dialog = EffectBlockDialog(self.block, parent=self)
-        if dialog.exec():
             self.update_display()
             self.block_edited.emit()  # Trigger auto-save
 
