@@ -1,21 +1,25 @@
 # QLC+ Show Creator
 
-A visual tool for creating light shows for [QLC+](https://www.qlcplus.org/), featuring timeline-based editing with audio synchronization and real-time 3D preview.
+A visual tool for creating light shows for [QLC+](https://www.qlcplus.org/), featuring timeline-based editing with audio synchronization, real-time ArtNet preview, and a 3D Visualizer.
 
 ## Features
 
 ### Show Creator
 - **Universe Configuration**: E1.31, ArtNet, and DMX USB support
-- **Fixture Management**: Import from QLC+ fixture definitions
-- **Stage Planning**: Visual fixture placement with drag-and-drop
+- **Fixture Management**: Import from QLC+ fixture definitions (.qxf)
+- **Stage Planning**: Visual fixture placement with 3D orientation system
+- **Show Structure**: In-app creation of song parts with BPM, time signature, transitions
 - **Timeline Editing**: Sublane-based effects (Dimmer, Colour, Movement, Special)
+- **Riff System**: Reusable beat-based effect patterns with drag-and-drop
+- **Multi-Target Lanes**: Lanes can target multiple fixture groups or individual fixtures
+- **ArtNet Output**: Real-time DMX preview at 44Hz during playback
 - **QLC+ Export**: Generate workspace files (.qxw)
-- **ArtNet Output**: Real-time DMX preview (planned)
 
-### Visualizer (In Development)
-- **3D Stage View**: Real-time visualization of lighting effects
-- **Volumetric Beams**: Ray-traced light beams with haze effect
-- **Fixture Rendering**: LED bars, moving heads, washes, sunstrips
+### 3D Visualizer
+- **Real-time Rendering**: ModernGL-based 3D stage visualization
+- **Fixture Types**: LED bars, moving heads, PARs, sunstrips
+- **Volumetric Beams**: Cone beams with floor projection spotlights
+- **Effects**: Prism (3-facet beam split), gobo patterns, focus simulation
 - **Dual Input**: TCP for config sync, ArtNet for live DMX
 
 ## Installation
@@ -23,26 +27,15 @@ A visual tool for creating light shows for [QLC+](https://www.qlcplus.org/), fea
 ### Using Conda (Recommended)
 
 ```bash
-# Create environment
 conda env create -f environment.yml
-
-# Activate environment
 conda activate QLCAutoShow
-
-# Run Show Creator
 python main.py
-
-# Run Visualizer (when available)
-python visualizer/main.py
 ```
 
 ### Using pip
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Run
 python main.py
 ```
 
@@ -56,33 +49,41 @@ python main.py
 
 ## Quick Start
 
-1. **Configure Universes**: Set up DMX output (Configuration tab)
-2. **Add Fixtures**: Import from QLC+ definitions (Fixtures tab)
-3. **Plan Stage**: Position fixtures visually (Stage tab)
-4. **Create Show**: Load structure, add effects (Shows tab)
-5. **Preview**: View in 3D Visualizer (when available)
-6. **Export**: Generate QLC+ workspace file
+1. **Configure Universes** - Set up DMX output (Configuration tab)
+2. **Add Fixtures** - Import from QLC+ definitions (Fixtures tab)
+3. **Plan Stage** - Position and orient fixtures (Stage tab)
+4. **Create Structure** - Define song parts with BPM and timing (Structure tab)
+5. **Build Show** - Add effects on the timeline, use riffs for quick patterns (Shows tab)
+6. **Preview** - Enable ArtNet output and/or launch the 3D Visualizer from Stage tab
+7. **Export** - Generate QLC+ workspace file (.qxw)
 
 ## Project Structure
 
 ```
 QLCplusShowCreator/
-├── main.py              # Show Creator entry point
-├── config/              # Data models (shared)
-├── gui/                 # Show Creator UI
-├── timeline/            # Timeline logic
-├── timeline_ui/         # Timeline widgets
-├── effects/             # Effect functions
-├── utils/               # Utilities and export
-├── shows/               # Show structure files
-├── custom_fixtures/     # User fixture definitions
-└── visualizer/          # 3D Visualizer (in development)
+├── main.py              # Application entry point
+├── config/              # Data models and serialization
+├── gui/                 # UI (tabs, dialogs, stage view)
+├── timeline/            # Playback engine and song structure
+├── timeline_ui/         # Timeline widgets and effect editors
+├── riffs/               # Reusable effect library
+├── utils/               # ArtNet, TCP, export, orientation
+├── audio/               # Audio playback and waveform analysis
+├── shows/               # Show data (CSV + audio files)
+├── custom_fixtures/     # User fixture definitions (.qxf)
+├── visualizer/          # 3D Visualizer application
+└── docs/                # Documentation
 ```
+
+## Documentation
+
+- [Architecture](docs/architecture.md) - Project structure, data models, communication
+- [ArtNet DMX Output](docs/artnet.md) - Real-time DMX preview system
+- [TCP Protocol](docs/tcp-protocol.md) - Visualizer configuration sync
+- [3D Visualizer](docs/visualizer.md) - Rendering, effects, camera controls
+- [Fixture Orientation](docs/orientation.md) - 3D orientation and mounting system
+- [Riff System](docs/riffs.md) - Reusable beat-based effect patterns
 
 ## License
 
 GPL-3.0 - See [LICENSE](LICENSE) for details.
-
-## Contributing
-
-This project is under active development. See `.claude/` folder for development documentation.
