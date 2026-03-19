@@ -852,7 +852,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: light_track_cycle_of_a_psycho.wav
+      audio_file_path: ''
       lanes:
       - fixture_targets:
         - MH
@@ -33302,7 +33302,7 @@ shows:
         muted: false
         name: Lane 7
         solo: false
-shows_directory: C:/LICHT/SBD
+shows_directory: C:/Users/varghele/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT/light_rehearsal
 spots:
   Spot1:
     name: Spot1
