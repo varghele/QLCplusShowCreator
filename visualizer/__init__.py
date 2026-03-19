@@ -6,4 +6,4 @@
 # - Receives DMX data via ArtNet from Show Creator or QLC+
 # - Renders 3D stage with fixtures and volumetric beams
 
-__version__ = "0.1.0"
+from _version import __version__

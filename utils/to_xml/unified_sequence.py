@@ -155,8 +155,21 @@ def calculate_unified_step_grid(
             step_interval = cycle_ms / 16  # 16 steps per cycle
             step_interval = max(step_interval, MIN_STEP_DURATION_MS)
             min_step_interval_ms = min(min_step_interval_ms, step_interval)
+        elif block.effect_type == "twinkle":
+            # Twinkle needs ~2 samples per twinkle transition for smooth interpolation
+            # Twinkle step duration = 200ms / speed_mult; sample at half that
+            step_interval = (0.1 / speed_mult) * 1000  # 100ms / speed_mult
+            step_interval = max(step_interval, MIN_STEP_DURATION_MS)
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
+        elif block.effect_type in ("waterfall", "waterfall_down", "waterfall_up"):
+            # Waterfall needs fine steps to capture smooth drift animation
+            # Same resolution as ping_pong_smooth: 10 steps per beat
+            beat_ms_wf = ms_per_beat / speed_mult
+            step_interval = beat_ms_wf / 10
+            step_interval = max(step_interval, MIN_STEP_DURATION_MS)
+            min_step_interval_ms = min(min_step_interval_ms, step_interval)
         else:
-            # Other effects (twinkle, waterfall, etc.)
+            # Other effects
             # One step per beat is usually sufficient
             step_interval = ms_per_beat / speed_mult
             min_step_interval_ms = min(min_step_interval_ms, step_interval)

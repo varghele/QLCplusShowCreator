@@ -119,7 +119,7 @@ class LightLane:
             LightBlock at that time, or None
         """
         for block in self.light_blocks:
-            if block.start_time <= time < block.start_time + block.duration:
+            if block.start_time <= time < block.end_time:
                 return block
         return None
 
@@ -135,9 +135,8 @@ class LightLane:
         """
         blocks = []
         for block in self.light_blocks:
-            block_end = block.start_time + block.duration
             # Check if block overlaps with range
-            if block.start_time < end_time and block_end > start_time:
+            if block.start_time < end_time and block.end_time > start_time:
                 blocks.append(block)
         return blocks
 
