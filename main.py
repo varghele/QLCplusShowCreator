@@ -9,6 +9,13 @@ import os
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QIcon
 from gui import MainWindow
+from _version import __version__
+from utils.paths import get_project_root
+
+# Handle --version flag early
+if '--version' in sys.argv:
+    print(f"QLCShowCreator {__version__}")
+    sys.exit(0)
 
 # Performance profiling - enable with --profile flag
 PROFILING_ENABLED = '--profile' in sys.argv
@@ -21,7 +28,7 @@ if PROFILING_ENABLED:
 def main():
     try:
         # Get the project root directory
-        project_root = os.path.dirname(os.path.abspath(__file__))
+        project_root = get_project_root()
 
         # Start the application
         app = QtWidgets.QApplication(sys.argv)
