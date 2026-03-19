@@ -1,6 +1,6 @@
 # QLC+ Show Creator - Development Phase Plan
 
-**Last Updated:** January 2026
+**Last Updated:** March 2026
 
 ---
 
@@ -363,11 +363,7 @@ Changed light lanes from targeting a single fixture group to supporting multiple
 - `utils/artnet/output_controller.py` - DMX output with multiple targets
 - `utils/artnet/shows_artnet_controller.py` - Live preview with multiple targets
 
----
-
-## Current Phase
-
-### Phase 15: Effects/Riffs System Enhancement (IN PROGRESS - Jan 2026)
+### Phase 15: Effects System Rework (COMPLETE - Mar 2026)
 
 Rework of the effects system with improved dimmer effects:
 
@@ -377,24 +373,100 @@ Rework of the effects system with improved dimmer effects:
   - BPM-aware timing with speed multipliers
 - [x] Effect parameter passing from sublane blocks
 - [x] Integration with ArtNet DMX manager
-- [ ] **Validation needed** - verify all effects produce correct output
-- [ ] Riff library/presets (FUTURE)
-- [ ] Quick apply riffs to timeline (FUTURE)
-- [ ] Riff templates per fixture type (FUTURE)
-- [ ] User-defined riffs (FUTURE)
+- [x] Configuration downsized — identical light blocks now get position info rather than being duplicated
+- [x] Removed old effect code
+- [x] Fixed loading delay and crashes
+- [x] Merged mounting and geometry of fixtures
+- [x] Fixed moving head reverse beam issue
+- [x] Improved real-time XML conversion for static effects
+- [x] Unit tests integrated
 
 ---
 
-## Upcoming Phases (Show Creator)
+## Current / Upcoming Phases (Show Creator)
 
-### Phase 16: Audio Analysis Integration (FUTURE)
+### Phase 16: Light Rudiments System (PLANNED - Near Term)
 
-AI-assisted show generation:
+Foundational rework of the lighting effect architecture. Inspired by drum rudiments — define the smallest atomic light patterns that compose into effects and riffs.
+
+**Architecture:** Rudiments → Effects → Riffs
+
+- [ ] Define rudiment vocabulary (atomic light patterns):
+  - Dimmer rudiments: static, strobe, ping_pong, fade_in, fade_out, pulse, etc.
+  - Colour rudiments: static_color, color_sweep, rainbow, etc.
+  - Movement rudiments: static_position, circle, sweep, bounce, etc.
+- [ ] Rudiment data model and parameter system
+- [ ] Effects as compositions of rudiments (with timing, layering)
+- [ ] Riff as a named, reusable sequence of effects
+- [ ] Migration path from current block-based system to rudiment-based system
+- [ ] UI for building effects from rudiments
+- [ ] UI for composing riffs from effects
+
+### Phase 17: Effect Blending & Transitions (PLANNED - Near Term)
+
+Smooth transitions between effect blocks and blending functions:
+
+- [ ] Blending/transition functions between adjacent blocks (crossfade, snap, etc.)
+- [ ] Per-sublane transition configuration
+- [ ] Visual preview of transitions in timeline
+- [ ] Integration with ArtNet output and QLC+ export
+
+### Phase 18: Riff Library & Reuse (PLANNED - Near Term)
+
+Analyze existing effects in a song and offer them for quick reuse:
+
+- [ ] Analyze placed effects/riffs in the current song
+- [ ] "Existing Effects" panel (per-song and global)
+- [ ] Drag-and-drop from existing effects panel to timeline
+- [ ] Effect/riff deduplication and matching logic
+
+### Phase 19: Virtual Console Export Fix (PLANNED - Near Term)
+
+Improve the QLC+ Virtual Console layout export:
+
+- [ ] Fix element overlapping issues in exported console layout
+- [ ] Cleaner layout generation with proper spacing
+- [ ] Validate exported console opens correctly in QLC+
+
+### Phase 20: MIDI & Device Mapping Export (PLANNED - Near Term)
+
+Export MIDI controller assignments to QLC+ workspace:
+
+- [ ] MIDI controller/channel assignment UI in Show Creator (per show/song)
+- [ ] Text-based MIDI mapping configuration
+- [ ] Export MIDI input mappings into .qxw Virtual Console buttons
+- [ ] Support for bulk assignment across 20+ shows
+
+### Phase 21: Undo/Redo System (PLANNED - Near Term)
+
+- [ ] Command pattern for undoable operations
+- [ ] Undo/redo stack with keyboard shortcuts (Ctrl+Z / Ctrl+Y)
+- [ ] Cover key operations: block create/move/resize/delete, lane changes, fixture edits
+
+### Phase 22: UI Polish & Overhaul (PLANNED - Near Term)
+
+Comprehensive UI/UX improvement pass:
+
+- [ ] Timeline UI refinements
+- [ ] Consistent styling across all tabs
+- [ ] Better feedback and error messages
+- [ ] Workflow optimizations based on usage patterns
+- [ ] Keyboard shortcuts for common operations
+
+---
+
+## Long-Term Phases (Show Creator)
+
+### Phase 23: Automatic Show Generation (LONG TERM)
+
+AI-assisted show generation (requires rudiment-based lighting system):
 
 - [ ] Audio file analysis (beat detection, spectral analysis)
 - [ ] Song structure auto-detection
-- [ ] Effect suggestion based on audio
+- [ ] Effect suggestion based on audio and rudiments
 - [ ] Automatic show generation algorithm
+
+*Note: Detailed plan exists separately. Prerequisite: Phase 16 (Light Rudiments) must be complete.*
 
 ---
 
@@ -670,7 +742,7 @@ Distance-based focus simulation for realistic beam/gobo sharpness:
 **Files modified:**
 - `visualizer/renderer/fixtures.py` - Focus shaders and calculation methods
 
-### Phase V8: UI Polish (PLANNED)
+### Phase V8: UI Polish (PLANNED - Near Term)
 
 Final UI touches:
 
@@ -682,6 +754,23 @@ Final UI touches:
 - [ ] Command-line arguments (--config, --port)
 - [ ] Error handling and user messages
 
+### Phase V9: 3D Model-Based Fixture Rendering (PLANNED - Medium Term)
+
+Replace procedural fixture geometry with .obj 3D models for more realistic looks:
+
+- [ ] .obj file loader for fixture bodies
+- [ ] Model library for common fixture types (PAR, wash, moving head, LED bar, sunstrip)
+- [ ] Texture/material support
+- [ ] Integration with existing DMX-driven rendering (color, beam, pan/tilt)
+
+### Phase V10: Advanced Volumetric Fog Shader (LONG TERM)
+
+More realistic beam rendering with volumetric scattering:
+
+- [ ] Ray-marched volumetric fog
+- [ ] Haze density parameter
+- [ ] Light scattering and absorption
+
 ---
 
 ## Phase Dependencies
@@ -689,43 +778,26 @@ Final UI touches:
 ```
 Show Creator                          Visualizer
 ─────────────                         ──────────
-Phase 10 (Bug Fixes)
+Phase 15 (Effects Rework) ✓
     ↓
-Phase 11 (Show Structure)
+Phase 16 (Rudiments)             Phase V8 (UI Polish)
+    ↓                                  ↓
+Phase 17 (Blending)              Phase V9 (3D Models)
+    ↓                                  ↓
+Phase 18 (Riff Library)          Phase V10 (Volumetric) [long term]
     ↓
-Phase 12 (ArtNet Output) ──────────────────────────┐
-    ↓                                              │
-Phase 13 (TCP Server) ────────┐                    │
-    ↓                         │                    │
-Phase 14 (Orientation) ◄──────┼────────────────────┤
-    ↓                         │                    │
-Phase 15 (Riffs)              │                    │
-    ↓                         ▼                    ▼
-Phase 16 (Audio)        Phase V1 (Foundation)
-                              ↓
-                        Phase V2 (TCP Client) ◄────┤
-                              ↓                    │
-                        Phase V3 (ArtNet) ◄────────┘
-                              ↓
-                        Phase V4 (3D Rendering)
-                              ↓
-                        Phase V5 (Fixtures)
-                              ↓
-                        Phase V6 (Beams)
-                              ↓
-                        Phase V7 (UI Polish)
+Phase 19 (Virtual Console Fix)
+    ↓
+Phase 20 (MIDI Mapping)
+    ↓
+Phase 21 (Undo/Redo)
+    ↓
+Phase 22 (UI Polish)
+    ↓
+Phase 23 (Auto Show Gen) [long term, requires Phase 16]
 ```
 
-**Phase 14 (Orientation) dependencies:**
-- Requires Phase 13 (TCP Server) for sending orientation data to Visualizer
-- Requires Visualizer Phase V5 (Fixtures) for 3D preview in orientation popup
-- Updates both Show Creator and Visualizer simultaneously
-
-**Critical path for Visualizer:**
-1. Phase 12 (ArtNet Output) - Show Creator must send DMX
-2. Phase 13 (TCP Server) - Show Creator must send config
-3. Phase V2 + V3 - Visualizer receives data
-4. Phase V4-V7 - Visualizer renders
+**Key dependency:** Phase 23 (Automatic Show Generation) requires Phase 16 (Light Rudiments) — the AI needs a structured rudiment vocabulary to generate shows from.
 
 ---
 
@@ -733,10 +805,8 @@ Phase 16 (Audio)        Phase V1 (Foundation)
 
 Items to address when time permits:
 
-- [ ] Add comprehensive unit tests
-- [ ] Add integration tests
+- [ ] Expand unit and integration test coverage
 - [ ] Performance optimization for large shows
-- [ ] Undo/redo system
 - [ ] Better error handling and user messages
 - [ ] Type hints throughout codebase
 - [ ] Docstrings for public methods
@@ -769,7 +839,7 @@ Items to address when time permits:
 | ArtNet | `visualizer/artnet/listener.py` |
 | Rendering | `visualizer/renderer/engine.py`, `visualizer/renderer/stage.py`, `visualizer/renderer/camera.py` |
 | Gizmo | `visualizer/renderer/gizmo.py` |
-| Beams | `visualizer/renderer/beams.py` (planned) |
+| Fixtures/Beams | `visualizer/renderer/fixtures.py` |
 
 ---
 
@@ -797,34 +867,50 @@ Items to address when time permits:
 - Audio file integration
 
 ### v0.6 - ArtNet Preview (ACHIEVED - Dec 2025)
-- [x] ArtNet output for preview (Phase 12)
-- [x] TCP server for visualizer (Phase 13)
+- ArtNet output for preview (Phase 12)
+- TCP server for visualizer (Phase 13)
 
 ### v0.7 - Visualizer Alpha (ACHIEVED - Dec 2025)
-- [x] TCP + ArtNet communication working (Phase V2, V3)
-- [x] Basic 3D rendering (Phase V4)
+- TCP + ArtNet communication working (Phase V2, V3)
+- Basic 3D rendering (Phase V4)
 
 ### v0.8 - Visualizer Beta (ACHIEVED - Dec 2025)
-- [x] Volumetric beams for moving heads
-- [x] All fixture types rendered (PAR, LED Bar, Moving Head, Sunstrip)
-- [x] Color wheel support with correct DMX mapping
-- [x] Toolbar status indicators for TCP/ArtNet
-- [x] Auto-save effects and preset-to-wheel mapping
+- Volumetric beams for moving heads
+- All fixture types rendered (PAR, LED Bar, Moving Head, Sunstrip)
+- Color wheel support with correct DMX mapping
+- Toolbar status indicators for TCP/ArtNet
 
-### v0.9 - Floor Projection (ACHIEVED - Jan 2026)
-- [x] Floor projection for moving head beams
-- [x] Soft gradient ellipse spotlight effect
-- [x] Distance-based intensity falloff
+### v0.9.0 - Stabilization & Effects Rework (CURRENT - Mar 2026)
+- Effects system reworked (Phase 15)
+- Configuration downsized (position-based deduplication)
+- Loading performance and crash fixes
+- Fixture mounting/geometry merged
+- Unit tests integrated
+- Complete Visualizer with prism, gobo, focus effects (V6, V7, V7b)
+- Multi-target lanes (Phase 14.10)
+- Fixture orientation system (Phase 14)
 
-### v0.95 - Focus Effect (ACHIEVED - Jan 2026)
-- [x] Distance-based focus simulation
-- [x] Focus affects beam edge sharpness
-- [x] Focus affects gobo pattern clarity
-- [x] Focus affects floor projection spread
-- [x] Complete moving head visualization (pan/tilt/gobo/prism/focus)
+### v1.0.0 - Rudiments & Polish (TARGET)
+- Light rudiments system (Phase 16)
+- Effect blending/transitions (Phase 17)
+- Riff library & reuse (Phase 18)
+- Virtual console export fix (Phase 19)
+- MIDI/device mapping export (Phase 20)
+- Undo/redo (Phase 21)
+- UI polish & overhaul (Phase 22)
 
-### v1.0 - Feature Complete (FUTURE)
-- All planned features
-- Stable and tested
-- Riffs system
-- Advanced volumetric fog shader
+### v2.0.0 - Intelligent Shows (LONG TERM)
+- Automatic show generation from audio (Phase 23)
+- Advanced volumetric fog shader (Phase V10)
+- 3D model-based fixture rendering (Phase V9)
+
+---
+
+## Ideas Backlog
+
+Ideas for future consideration (not currently planned):
+
+- MIDI controller integration for live effect triggering within Show Creator
+- Multi-show management / setlists with transitions between songs
+- Effect library sharing — import/export riff packs between projects
+- DMX recording — capture live DMX input as timeline blocks

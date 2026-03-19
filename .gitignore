@@ -30,6 +30,7 @@ MANIFEST
 # PyInstaller
 *.manifest
 *.spec
+!qlcshowcreator.spec
 
 # Installer logs
 pip-log.txt
@@ -66,6 +67,8 @@ env/
 # Project specific
 binary/
 effects/effects.json
+release/
+nul
 
 # Old configurations (if not needed)
 # configuration4.yaml

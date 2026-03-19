@@ -1243,6 +1243,9 @@ class Configuration:
             'shows_directory': self.shows_directory
         }
 
+        from config.compact_serializer import compact_serialize
+        data = compact_serialize(data)
+
         with open(filename, 'w') as f:
             yaml.dump(data, f, default_flow_style=False)
 
@@ -1251,6 +1254,9 @@ class Configuration:
         """Load configuration from YAML file"""
         with open(filename, 'r') as f:
             data = yaml.safe_load(f)
+
+        from config.compact_serializer import expand_compact
+        data = expand_compact(data)
 
         # Convert dictionary back to Configuration object
         fixtures = []

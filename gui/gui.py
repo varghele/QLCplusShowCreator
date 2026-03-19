@@ -632,32 +632,39 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         try:
             file_path = self._pending_config_path
 
-            # Close the progress dialog immediately to avoid Qt crashes
-            self.progress_manager.finish_modal()
-
-            # Load configuration
+            # Step 1: Parse YAML
+            self.progress_manager.update_modal(1, "Parsing configuration...")
             self.config = Configuration.load(file_path)
             self.config_path = file_path
 
-            # Pre-load fixture definitions into cache
+            # Step 2: Pre-cache fixture definitions
+            self.progress_manager.update_modal(2, "Loading fixture definitions...")
             self._preload_fixture_definitions()
 
-            # Update all tabs with new configuration
+            # Step 3-7: Update tabs with progress
+            self.progress_manager.update_modal(3, "Updating configuration tab...")
             self.config_tab.config = self.config
-            self.fixtures_tab.config = self.config
-            self.stage_tab.config = self.config
-            self.structure_tab.config = self.config
-            self.shows_tab.config = self.config
-
-            # Refresh tabs
             self.config_tab.update_from_config()
 
-            # Schedule fixtures_tab for lazy update (avoids Qt stack overflow with large configs)
+            self.progress_manager.update_modal(4, "Updating fixtures tab...")
+            self.fixtures_tab.config = self.config
             self.fixtures_tab.schedule_update()
 
+            self.progress_manager.update_modal(5, "Updating stage tab...")
+            self.stage_tab.config = self.config
             self.stage_tab.update_from_config()
+
+            self.progress_manager.update_modal(6, "Updating structure tab...")
+            self.structure_tab.config = self.config
             self.structure_tab.update_from_config()
+
+            self.progress_manager.update_modal(7, "Loading shows...")
+            self.shows_tab.config = self.config
+            self.shows_tab.mark_config_dirty()
             self.shows_tab.update_from_config()
+
+            self.progress_manager.update_modal(8, "Done")
+            self.progress_manager.finish_modal()
 
             print(f"Configuration loaded from {file_path}")
 

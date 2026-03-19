@@ -160,7 +160,7 @@ class PlaybackEngine(QObject):
         """
         for block in lane.light_blocks:
             block_id = id(block)
-            block_end_time = block.start_time + block.duration
+            block_end_time = block.end_time
 
             # Check if block should start
             if block.start_time <= self.current_position < block_end_time:

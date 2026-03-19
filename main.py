@@ -5,12 +5,17 @@ import sys
 # for deeply nested structures like timeline data with many light blocks
 sys.setrecursionlimit(10000)
 
-from utils.effects_utils import list_effects_in_directory
 import os
-import json
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QIcon
 from gui import MainWindow
+from _version import __version__
+from utils.paths import get_project_root
+
+# Handle --version flag early
+if '--version' in sys.argv:
+    print(f"QLCShowCreator {__version__}")
+    sys.exit(0)
 
 # Performance profiling - enable with --profile flag
 PROFILING_ENABLED = '--profile' in sys.argv
@@ -23,20 +28,7 @@ if PROFILING_ENABLED:
 def main():
     try:
         # Get the project root directory
-        project_root = os.path.dirname(os.path.abspath(__file__))
-        effects_dir = os.path.join(project_root, "effects")
-
-        # Create effects directory if it doesn't exist
-        os.makedirs(effects_dir, exist_ok=True)
-
-        # Create or update effects dictionary
-        print("Checking for new effects")
-        effects_dict = list_effects_in_directory(effects_dir)
-
-        # Save effects dictionary
-        effects_json_path = os.path.join(effects_dir, "effects.json")
-        with open(effects_json_path, 'w') as f:
-            json.dump(effects_dict, f, indent=2)
+        project_root = get_project_root()
 
         # Start the application
         app = QtWidgets.QApplication(sys.argv)
