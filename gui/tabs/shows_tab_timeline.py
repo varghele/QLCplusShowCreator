@@ -487,6 +487,10 @@ class ShowsTabTimeline(BaseTab):
         for lane_widget in self.lane_widgets:
             lane_widget.snap_checkbox.setChecked(checked)
 
+    def on_tab_activated(self):
+        """Called when tab becomes visible. Refresh show list from config."""
+        self.update_from_config()
+
     # Scroll/zoom synchronization
     def sync_lane_scrolls(self, position: int):
         """Sync scroll position across all lane timelines."""
