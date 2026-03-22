@@ -798,219 +798,337 @@ def create_master_presets(
     fixture_id_map: Dict[int, int],
     fixture_definitions: Dict[str, Any]
 ) -> Tuple[Dict[str, int], int]:
-    """Create master preset scenes and chasers that control all fixture groups.
+    """Create master preset scenes, effects, and movement EFX for the whole stage.
 
     Returns:
         Tuple of (master_presets_map, next_function_id)
+        master_presets_map: flat dict {preset_key: function_id}
+        Keys are prefixed: Scene_, Color_, Effect_, Movement_
     """
+    import hashlib
+    import math
+
     master_presets = {}
 
-    # Get all fixtures across all groups
-    all_fixtures = []
-    rgb_fixtures = []  # Fixtures with RGB capability
-    color_wheel_fixtures = []  # Fixtures with color wheel
-    moving_head_fixtures = []  # Fixtures with pan/tilt
+    # Collect all fixtures across all groups, categorized
+    all_fixtures = []  # [(fixture_id, fixture), ...]
+    all_rgb_fixtures = []  # [(fixture_id, fixture, channels_dict), ...]
+    all_color_wheel_fixtures = []  # [(fixture_id, fixture), ...]
+    all_moving_head_fixtures = []  # [(fixture_id, fixture, channels_dict), ...]
+
+    # Per-group fixture lists (ordered, for cascade effects)
+    groups_ordered = []  # [(group_name, [(fixture_id, fixture), ...]), ...]
 
     for group_name, group in config.groups.items():
+        group_fixtures_list = []
         for fixture in group.fixtures:
             fixture_id = fixture_id_map.get((fixture.universe, fixture.address))
-            if fixture_id is not None:
-                all_fixtures.append((fixture_id, fixture))
+            if fixture_id is None:
+                continue
 
-                # Categorize by capability
+            channels_dict, _ = get_fixture_channels_for_preset(
+                fixture, fixture_definitions,
+                list(COLOUR_PRESETS) + list(DIMMER_PRESETS) + list(MOVEMENT_PRESETS)
+            )
+
+            all_fixtures.append((fixture_id, fixture))
+            group_fixtures_list.append((fixture_id, fixture))
+
+            if channels_dict.get("IntensityRed") or channels_dict.get("IntensityGreen") or channels_dict.get("IntensityBlue"):
+                all_rgb_fixtures.append((fixture_id, fixture, channels_dict))
+            elif get_color_wheel_channel(fixture, fixture_definitions) is not None:
+                all_color_wheel_fixtures.append((fixture_id, fixture))
+
+            if channels_dict.get("PositionPan") and channels_dict.get("PositionTilt"):
+                all_moving_head_fixtures.append((fixture_id, fixture, channels_dict))
+
+        groups_ordered.append((group_name, group_fixtures_list))
+
+    num_groups = len(groups_ordered)
+
+    # ========== COLOR SCENES (curated looks, complementary colors per group) ==========
+    # Each scene assigns a color per group from a palette
+    scene_palettes = {
+        "Warm_White": [(255, 200, 150)] * max(num_groups, 1),  # All warm white
+        "Cool_Blue": _cycle_palette([(0, 100, 255), (0, 200, 255), (80, 120, 255)], num_groups),
+        "Sunset": _cycle_palette([(255, 80, 0), (255, 0, 100), (255, 160, 0), (200, 0, 200)], num_groups),
+        "Deep_Night": _cycle_palette([(0, 0, 200), (100, 0, 255), (0, 50, 180), (60, 0, 200)], num_groups),
+        "Fire": _cycle_palette([(255, 0, 0), (255, 100, 0), (255, 200, 0), (255, 60, 0)], num_groups),
+        "Blue_Amber": _cycle_palette([(0, 50, 255), (255, 176, 0), (0, 80, 200), (255, 140, 0)], num_groups),
+        "Forest": _cycle_palette([(0, 200, 50), (0, 255, 200), (50, 255, 0), (0, 180, 120)], num_groups),
+    }
+
+    # White channel values for warm white scene
+    warm_white_white = 255
+
+    for scene_key, palette in scene_palettes.items():
+        fixture_values = []
+
+        for group_idx, (group_name, group_fixture_list) in enumerate(groups_ordered):
+            rgb_val = palette[group_idx % len(palette)]
+
+            for fixture_id, fixture in group_fixture_list:
                 channels_dict, _ = get_fixture_channels_for_preset(
                     fixture, fixture_definitions,
-                    list(COLOUR_PRESETS) + list(MOVEMENT_PRESETS)
+                    list(DIMMER_PRESETS) + list(COLOUR_PRESETS)
                 )
 
-                # Check if RGB or color wheel
-                if channels_dict.get("ColourRed") or channels_dict.get("ColourGreen") or channels_dict.get("ColourBlue"):
-                    rgb_fixtures.append((fixture_id, fixture, channels_dict))
-                elif get_color_wheel_channel(fixture, fixture_definitions) is not None:
-                    color_wheel_fixtures.append((fixture_id, fixture))
+                channel_vals = {}
 
-                # Check if moving head
-                if channels_dict.get("PositionPan") and channels_dict.get("PositionTilt"):
-                    moving_head_fixtures.append((fixture_id, fixture, channels_dict))
+                for ch in channels_dict.get("IntensityDimmer", []):
+                    channel_vals[ch] = 255
+                for ch in channels_dict.get("IntensityRed", []):
+                    channel_vals[ch] = rgb_val[0]
+                for ch in channels_dict.get("IntensityGreen", []):
+                    channel_vals[ch] = rgb_val[1]
+                for ch in channels_dict.get("IntensityBlue", []):
+                    channel_vals[ch] = rgb_val[2]
 
-    # Master Scene 1: All Warm White
-    function_id = create_master_warm_white_scene(
-        engine, function_id, all_fixtures, rgb_fixtures,
-        color_wheel_fixtures, fixture_definitions, master_presets
-    )
+                if scene_key == "Warm_White":
+                    for ch in channels_dict.get("IntensityWhite", []):
+                        channel_vals[ch] = warm_white_white
 
-    # Master Scene 2: Red Wash
-    function_id = create_master_color_wash_scene(
-        engine, function_id, "Red", all_fixtures, rgb_fixtures,
-        color_wheel_fixtures, fixture_definitions, master_presets
-    )
+                # Color wheel fallback
+                color_ch = get_color_wheel_channel(fixture, fixture_definitions)
+                if color_ch is not None and not (channels_dict.get("IntensityRed") or channels_dict.get("IntensityGreen") or channels_dict.get("IntensityBlue")):
+                    channel_vals[color_ch] = 12  # Default white
 
-    # Master Scene 3: Blue Wash
-    function_id = create_master_color_wash_scene(
-        engine, function_id, "Blue", all_fixtures, rgb_fixtures,
-        color_wheel_fixtures, fixture_definitions, master_presets
-    )
+                if channel_vals:
+                    channel_str = ",".join(f"{ch},{val}" for ch, val in sorted(channel_vals.items()))
+                    fixture_values.append((fixture_id, channel_str))
 
-    # Master Scene 4: Purple Wash
-    function_id = create_master_color_wash_scene(
-        engine, function_id, "Purple", all_fixtures, rgb_fixtures,
-        color_wheel_fixtures, fixture_definitions, master_presets
-    )
+        if fixture_values:
+            display_name = scene_key.replace("_", " ")
+            create_scene_function(engine, function_id, f"Scene - {display_name}", fixture_values)
+            master_presets[f"Scene_{scene_key}"] = function_id
+            function_id += 1
 
-    # Master Scene 5: Rainbow (static - different colors per group)
-    function_id = create_master_rainbow_scene(
-        engine, function_id, config, fixture_id_map,
-        fixture_definitions, master_presets
-    )
+    # ========== SIMPLE COLORS (all fixtures same color, combinable) ==========
+    simple_colors = {
+        "Red": (255, 0, 0),
+        "Blue": (0, 0, 255),
+        "Green": (0, 255, 0),
+        "White": (255, 255, 255),
+        "Amber": (255, 176, 0),
+    }
 
-    # Chaser 1: Party (cycles through colors)
+    for color_name, rgb_val in simple_colors.items():
+        fixture_values = []
+
+        for fixture_id, fixture in all_fixtures:
+            channels_dict, _ = get_fixture_channels_for_preset(
+                fixture, fixture_definitions,
+                list(DIMMER_PRESETS) + list(COLOUR_PRESETS)
+            )
+
+            channel_vals = {}
+            for ch in channels_dict.get("IntensityDimmer", []):
+                channel_vals[ch] = 255
+            for ch in channels_dict.get("IntensityRed", []):
+                channel_vals[ch] = rgb_val[0]
+            for ch in channels_dict.get("IntensityGreen", []):
+                channel_vals[ch] = rgb_val[1]
+            for ch in channels_dict.get("IntensityBlue", []):
+                channel_vals[ch] = rgb_val[2]
+
+            if color_name == "White":
+                for ch in channels_dict.get("IntensityWhite", []):
+                    channel_vals[ch] = 255
+
+            # Color wheel fallback
+            color_ch = get_color_wheel_channel(fixture, fixture_definitions)
+            if color_ch is not None and not (channels_dict.get("IntensityRed") or channels_dict.get("IntensityGreen") or channels_dict.get("IntensityBlue")):
+                wheel_map = {"Red": 37, "Blue": 188, "Green": 113, "White": 12, "Amber": 63}
+                channel_vals[color_ch] = wheel_map.get(color_name, 12)
+
+            if channel_vals:
+                channel_str = ",".join(f"{ch},{val}" for ch, val in sorted(channel_vals.items()))
+                fixture_values.append((fixture_id, channel_str))
+
+        if fixture_values:
+            create_scene_function(engine, function_id, f"Color - {color_name}", fixture_values)
+            master_presets[f"Color_{color_name}"] = function_id
+            function_id += 1
+
+    # ========== EFFECTS (chasers) ==========
+
+    # Helper: get dimmer channels for a fixture
+    def _get_dimmer_channels(fixture_id, fixture):
+        channels_dict, _ = get_fixture_channels_for_preset(
+            fixture, fixture_definitions, list(DIMMER_PRESETS)
+        )
+        chs = []
+        for ch in channels_dict.get("IntensityMasterDimmer", []):
+            chs.append(ch)
+        for ch in channels_dict.get("IntensityDimmer", []):
+            chs.append(ch)
+        return chs
+
+    # Helper: create chaser from step scenes
+    def _make_chaser(name, step_scene_ids, duration_ms, key, run_order="Loop"):
+        nonlocal function_id
+        if not step_scene_ids:
+            return
+        chaser = ET.SubElement(engine, "Function")
+        chaser.set("ID", str(function_id))
+        chaser.set("Type", "Chaser")
+        chaser.set("Name", name)
+
+        speed = ET.SubElement(chaser, "Speed")
+        speed.set("FadeIn", "0")
+        speed.set("FadeOut", "0")
+        speed.set("Duration", str(duration_ms))
+
+        ET.SubElement(chaser, "Direction").text = "Forward"
+        ET.SubElement(chaser, "RunOrder").text = run_order
+        speed_modes = ET.SubElement(chaser, "SpeedModes")
+        speed_modes.set("FadeIn", "Default")
+        speed_modes.set("FadeOut", "Default")
+        speed_modes.set("Duration", "Common")
+
+        for i, step_id in enumerate(step_scene_ids):
+            step = ET.SubElement(chaser, "Step")
+            step.set("Number", str(i))
+            step.set("FadeIn", "0")
+            step.set("Hold", "0")
+            step.set("FadeOut", "0")
+            step.set("Duration", "0")
+            step.text = str(step_id)
+
+        master_presets[key] = function_id
+        function_id += 1
+
+    # --- Strobe: all fixtures alternate on/off ---
+    strobe_steps = []
+    for on_off in [255, 0, 255, 0, 255, 0, 255, 0]:
+        fixture_values = []
+        for fixture_id, fixture in all_fixtures:
+            dimmer_chs = _get_dimmer_channels(fixture_id, fixture)
+            if dimmer_chs:
+                channel_str = ",".join(f"{ch},{on_off}" for ch in dimmer_chs)
+                fixture_values.append((fixture_id, channel_str))
+        if fixture_values:
+            create_scene_function(engine, function_id, f"Strobe Step", fixture_values, hidden=True)
+            strobe_steps.append(function_id)
+            function_id += 1
+    _make_chaser("Effect - Strobe", strobe_steps, 125, "Effect_Strobe")
+
+    # --- Random Strobe: one random fixture at a time, exponential decay ---
+    import random as rng_module
+    num_rstrobe_steps = max(8, len(all_fixtures) * 2)
+    rstrobe_steps = []
+    rstrobe_rng = rng_module.Random(42)  # Deterministic
+    for i in range(num_rstrobe_steps):
+        active_idx = rstrobe_rng.randint(0, max(0, len(all_fixtures) - 1))
+        fixture_values = []
+        for j, (fixture_id, fixture) in enumerate(all_fixtures):
+            dimmer_chs = _get_dimmer_channels(fixture_id, fixture)
+            intensity = 255 if j == active_idx else 0
+            if dimmer_chs:
+                channel_str = ",".join(f"{ch},{intensity}" for ch in dimmer_chs)
+                fixture_values.append((fixture_id, channel_str))
+        if fixture_values:
+            create_scene_function(engine, function_id, f"RndStrobe Step {i+1}", fixture_values, hidden=True)
+            rstrobe_steps.append(function_id)
+            function_id += 1
+    _make_chaser("Effect - Random Strobe", rstrobe_steps, 125, "Effect_Random_Strobe")
+
+    # --- Twinkle: each fixture gets random intensity 30%-100% per step ---
+    twinkle_steps = []
+    for i in range(16):
+        fixture_values = []
+        for j, (fixture_id, fixture) in enumerate(all_fixtures):
+            dimmer_chs = _get_dimmer_channels(fixture_id, fixture)
+            # Deterministic per-fixture random intensity
+            seed_str = f"twinkle_{j}_{i}"
+            seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+            variation = (seed_hash % 700 + 300) / 1000.0  # 0.3 to 1.0
+            intensity = int(255 * variation)
+            if dimmer_chs:
+                channel_str = ",".join(f"{ch},{intensity}" for ch in dimmer_chs)
+                fixture_values.append((fixture_id, channel_str))
+        if fixture_values:
+            create_scene_function(engine, function_id, f"Twinkle Step {i+1}", fixture_values, hidden=True)
+            twinkle_steps.append(function_id)
+            function_id += 1
+    _make_chaser("Effect - Twinkle", twinkle_steps, 200, "Effect_Twinkle")
+
+    # --- Starfall: sequential cascade across all fixtures with exponential tail ---
+    total_fixtures = len(all_fixtures)
+    if total_fixtures > 0:
+        starfall_steps = []
+        num_starfall_steps = total_fixtures * 2
+        for step_i in range(num_starfall_steps):
+            head_pos = step_i / max(1, num_starfall_steps - 1) * total_fixtures
+            fixture_values = []
+            for j, (fixture_id, fixture) in enumerate(all_fixtures):
+                dimmer_chs = _get_dimmer_channels(fixture_id, fixture)
+                # Distance from head, wrapping
+                raw_dist = (head_pos - j) % total_fixtures
+                normalized_dist = raw_dist / max(1, total_fixtures)
+                intensity = int(255 * math.exp(-1.5 * normalized_dist))
+                if dimmer_chs:
+                    channel_str = ",".join(f"{ch},{intensity}" for ch in dimmer_chs)
+                    fixture_values.append((fixture_id, channel_str))
+            if fixture_values:
+                create_scene_function(engine, function_id, f"Starfall Step {step_i+1}", fixture_values, hidden=True)
+                starfall_steps.append(function_id)
+                function_id += 1
+        # Duration per step: 1 beat / num_steps * fixture_count (at 120 BPM default)
+        step_duration = max(50, 500 // max(1, total_fixtures))
+        _make_chaser("Effect - Starfall", starfall_steps, step_duration, "Effect_Starfall")
+
+    # --- Ping Pong: bounce across all fixtures ---
+    if total_fixtures > 1:
+        pingpong_steps = []
+        for step_i in range(total_fixtures):
+            fixture_values = []
+            for j, (fixture_id, fixture) in enumerate(all_fixtures):
+                dimmer_chs = _get_dimmer_channels(fixture_id, fixture)
+                # Active fixture gets full, neighbors get tail
+                dist = abs(j - step_i)
+                if dist == 0:
+                    intensity = 255
+                elif dist == 1:
+                    intensity = 76  # 30% tail
+                else:
+                    intensity = 0
+                if dimmer_chs:
+                    channel_str = ",".join(f"{ch},{intensity}" for ch in dimmer_chs)
+                    fixture_values.append((fixture_id, channel_str))
+            if fixture_values:
+                create_scene_function(engine, function_id, f"PingPong Step {step_i+1}", fixture_values, hidden=True)
+                pingpong_steps.append(function_id)
+                function_id += 1
+        step_duration = max(50, 500 // max(1, total_fixtures))
+        _make_chaser("Effect - Ping Pong", pingpong_steps, step_duration, "Effect_Ping_Pong", run_order="PingPong")
+
+    # --- Party (color cycle chaser) ---
     function_id = create_party_chaser(
-        engine, function_id, rgb_fixtures, color_wheel_fixtures,
+        engine, function_id, all_rgb_fixtures, all_color_wheel_fixtures,
         fixture_definitions, master_presets
     )
 
-    # Chaser 2: Pulse (wave breathing effect)
+    # --- Pulse (breathing) ---
     function_id = create_pulse_chaser(
         engine, function_id, all_fixtures, fixture_definitions, master_presets
     )
 
-    # Chaser 3: Sparkle (random flashes)
+    # --- Sparkle (random flashes) ---
     function_id = create_sparkle_chaser(
         engine, function_id, all_fixtures, fixture_definitions, master_presets
     )
 
-    # Movement Pattern 1: Sweep All
-    if moving_head_fixtures:
-        function_id = create_sweep_all_efx(
-            engine, function_id, moving_head_fixtures, master_presets
-        )
-
-    # Movement Pattern 2: Circle All
-    if moving_head_fixtures:
-        function_id = create_circle_all_efx(
-            engine, function_id, moving_head_fixtures, master_presets
-        )
-
     return master_presets, function_id
 
 
-def create_master_warm_white_scene(
-    engine: ET.Element,
-    function_id: int,
-    all_fixtures: List[Tuple[int, Any]],
-    rgb_fixtures: List[Tuple[int, Any, Dict]],
-    color_wheel_fixtures: List[Tuple[int, Any]],
-    fixture_definitions: Dict[str, Any],
-    master_presets: Dict[str, int]
-) -> int:
-    """Create All Warm White master scene."""
-    fixture_values = []
-
-    for fixture_id, fixture in all_fixtures:
-        channels_dict, _ = get_fixture_channels_for_preset(
-            fixture, fixture_definitions,
-            list(DIMMER_PRESETS) + list(COLOUR_PRESETS)
-        )
-
-        channel_vals = {}
-
-        # Set dimmer to full
-        for ch in channels_dict.get("IntensityDimmer", []):
-            channel_vals[ch] = 255
-
-        # Set RGB to warm white (high red, high green, low blue)
-        for ch in channels_dict.get("ColourRed", []):
-            channel_vals[ch] = 255
-        for ch in channels_dict.get("ColourGreen", []):
-            channel_vals[ch] = 200
-        for ch in channels_dict.get("ColourBlue", []):
-            channel_vals[ch] = 150
-        for ch in channels_dict.get("ColourWhite", []):
-            channel_vals[ch] = 255
-
-        # Color wheel: try to find white/warm white
-        color_ch = get_color_wheel_channel(fixture, fixture_definitions)
-        if color_ch is not None and not channel_vals:
-            # Set to white (typically around value 12)
-            channel_vals[color_ch] = 12
-
-        if channel_vals:
-            channel_str = ",".join(f"{ch},{val}" for ch, val in sorted(channel_vals.items()))
-            fixture_values.append((fixture_id, channel_str))
-
-    if fixture_values:
-        create_scene_function(engine, function_id, "Master - All Warm White", fixture_values)
-        master_presets["All_Warm_White"] = function_id
-        return function_id + 1
-
-    return function_id
+def _cycle_palette(colors, num_groups):
+    """Cycle a color palette to fill num_groups entries."""
+    if not colors:
+        return [(255, 255, 255)] * max(num_groups, 1)
+    return [colors[i % len(colors)] for i in range(max(num_groups, 1))]
 
 
-def create_master_color_wash_scene(
-    engine: ET.Element,
-    function_id: int,
-    color_name: str,
-    all_fixtures: List[Tuple[int, Any]],
-    rgb_fixtures: List[Tuple[int, Any, Dict]],
-    color_wheel_fixtures: List[Tuple[int, Any]],
-    fixture_definitions: Dict[str, Any],
-    master_presets: Dict[str, int]
-) -> int:
-    """Create a master color wash scene."""
-    # Color values for RGB fixtures
-    color_rgb = {
-        "Red": (255, 0, 0),
-        "Blue": (0, 0, 255),
-        "Purple": (255, 0, 255),
-    }
-
-    # Color wheel values (approximate)
-    color_wheel_values = {
-        "Red": 37,
-        "Blue": 188,
-        "Purple": 163,
-    }
-
-    rgb_val = color_rgb.get(color_name, (255, 255, 255))
-    wheel_val = color_wheel_values.get(color_name, 12)
-
-    fixture_values = []
-
-    for fixture_id, fixture in all_fixtures:
-        channels_dict, _ = get_fixture_channels_for_preset(
-            fixture, fixture_definitions,
-            list(DIMMER_PRESETS) + list(COLOUR_PRESETS)
-        )
-
-        channel_vals = {}
-
-        # Set dimmer to full
-        for ch in channels_dict.get("IntensityDimmer", []):
-            channel_vals[ch] = 255
-
-        # Set RGB
-        for ch in channels_dict.get("ColourRed", []):
-            channel_vals[ch] = rgb_val[0]
-        for ch in channels_dict.get("ColourGreen", []):
-            channel_vals[ch] = rgb_val[1]
-        for ch in channels_dict.get("ColourBlue", []):
-            channel_vals[ch] = rgb_val[2]
-
-        # Color wheel
-        color_ch = get_color_wheel_channel(fixture, fixture_definitions)
-        if color_ch is not None and not (channels_dict.get("ColourRed") or channels_dict.get("ColourGreen") or channels_dict.get("ColourBlue")):
-            channel_vals[color_ch] = wheel_val
-
-        if channel_vals:
-            channel_str = ",".join(f"{ch},{val}" for ch, val in sorted(channel_vals.items()))
-            fixture_values.append((fixture_id, channel_str))
-
-    if fixture_values:
-        create_scene_function(engine, function_id, f"Master - {color_name} Wash", fixture_values)
-        master_presets[f"{color_name}_Wash"] = function_id
-        return function_id + 1
-
-    return function_id
 
 
 def create_master_rainbow_scene(
@@ -1059,16 +1177,16 @@ def create_master_rainbow_scene(
                 channel_vals[ch] = 255
 
             # Set RGB
-            for ch in channels_dict.get("ColourRed", []):
+            for ch in channels_dict.get("IntensityRed", []):
                 channel_vals[ch] = rgb_val[0]
-            for ch in channels_dict.get("ColourGreen", []):
+            for ch in channels_dict.get("IntensityGreen", []):
                 channel_vals[ch] = rgb_val[1]
-            for ch in channels_dict.get("ColourBlue", []):
+            for ch in channels_dict.get("IntensityBlue", []):
                 channel_vals[ch] = rgb_val[2]
 
             # Color wheel
             color_ch = get_color_wheel_channel(fixture, fixture_definitions)
-            if color_ch is not None and not (channels_dict.get("ColourRed") or channels_dict.get("ColourGreen") or channels_dict.get("ColourBlue")):
+            if color_ch is not None and not (channels_dict.get("IntensityRed") or channels_dict.get("IntensityGreen") or channels_dict.get("IntensityBlue")):
                 channel_vals[color_ch] = wheel_val
 
             if channel_vals:
@@ -1078,8 +1196,8 @@ def create_master_rainbow_scene(
         group_idx += 1
 
     if fixture_values:
-        create_scene_function(engine, function_id, "Master - Rainbow", fixture_values)
-        master_presets["Rainbow"] = function_id
+        create_scene_function(engine, function_id, "Scene - Rainbow", fixture_values)
+        master_presets["Scene_Rainbow"] = function_id
         return function_id + 1
 
     return function_id
@@ -1118,11 +1236,11 @@ def create_party_chaser(
             channel_vals = {}
             for ch in channels_dict.get("IntensityDimmer", []):
                 channel_vals[ch] = 255
-            for ch in channels_dict.get("ColourRed", []):
+            for ch in channels_dict.get("IntensityRed", []):
                 channel_vals[ch] = rgb_val[0]
-            for ch in channels_dict.get("ColourGreen", []):
+            for ch in channels_dict.get("IntensityGreen", []):
                 channel_vals[ch] = rgb_val[1]
-            for ch in channels_dict.get("ColourBlue", []):
+            for ch in channels_dict.get("IntensityBlue", []):
                 channel_vals[ch] = rgb_val[2]
 
             if channel_vals:
@@ -1181,7 +1299,7 @@ def create_party_chaser(
             step.set("Duration", "0")
             step.text = str(step_id)
 
-        master_presets["Party"] = function_id
+        master_presets["Effect_Party"] = function_id
         return function_id + 1
 
     return function_id
@@ -1250,7 +1368,7 @@ def create_pulse_chaser(
             step.set("Duration", "0")
             step.text = str(step_id)
 
-        master_presets["Pulse"] = function_id
+        master_presets["Effect_Pulse"] = function_id
         return function_id + 1
 
     return function_id
@@ -1327,125 +1445,9 @@ def create_sparkle_chaser(
             step.set("Duration", "0")
             step.text = str(step_id)
 
-        master_presets["Sparkle"] = function_id
+        master_presets["Effect_Sparkle"] = function_id
         return function_id + 1
 
     return function_id
 
 
-def create_sweep_all_efx(
-    engine: ET.Element,
-    function_id: int,
-    moving_head_fixtures: List[Tuple[int, Any, Dict]],
-    master_presets: Dict[str, int]
-) -> int:
-    """Create Sweep All EFX (8 beats per cycle)."""
-    if not moving_head_fixtures:
-        return function_id
-
-    efx = ET.SubElement(engine, "Function")
-    efx.set("ID", str(function_id))
-    efx.set("Type", "EFX")
-    efx.set("Name", "Master - Sweep All")
-
-    # Add all moving heads to EFX
-    for fixture_id, fixture, channels_dict in moving_head_fixtures:
-        fixture_elem = ET.SubElement(efx, "Fixture")
-        ET.SubElement(fixture_elem, "ID").text = str(fixture_id)
-        ET.SubElement(fixture_elem, "Head").text = "0"
-        ET.SubElement(fixture_elem, "Mode").text = "0"
-        ET.SubElement(fixture_elem, "Direction").text = "Forward"
-        ET.SubElement(fixture_elem, "StartOffset").text = "0"
-
-    ET.SubElement(efx, "PropagationMode").text = "Parallel"
-
-    # Speed: 8 beats at 120 BPM = 4000ms
-    speed = ET.SubElement(efx, "Speed")
-    speed.set("FadeIn", "0")
-    speed.set("FadeOut", "0")
-    speed.set("Duration", "4000")
-
-    ET.SubElement(efx, "Direction").text = "Forward"
-    ET.SubElement(efx, "RunOrder").text = "Loop"
-    ET.SubElement(efx, "Algorithm").text = "Line"
-    ET.SubElement(efx, "Width").text = "100"
-    ET.SubElement(efx, "Height").text = "0"
-    ET.SubElement(efx, "Rotation").text = "0"
-    ET.SubElement(efx, "StartOffset").text = "0"
-    ET.SubElement(efx, "IsRelative").text = "1"
-
-    # X axis (pan - left to right sweep)
-    x_axis = ET.SubElement(efx, "Axis")
-    x_axis.set("Name", "X")
-    ET.SubElement(x_axis, "Offset").text = "127"
-    ET.SubElement(x_axis, "Frequency").text = "2"
-    ET.SubElement(x_axis, "Phase").text = "0"
-
-    # Y axis (tilt - stationary)
-    y_axis = ET.SubElement(efx, "Axis")
-    y_axis.set("Name", "Y")
-    ET.SubElement(y_axis, "Offset").text = "127"
-    ET.SubElement(y_axis, "Frequency").text = "0"
-    ET.SubElement(y_axis, "Phase").text = "0"
-
-    master_presets["Sweep_All"] = function_id
-    return function_id + 1
-
-
-def create_circle_all_efx(
-    engine: ET.Element,
-    function_id: int,
-    moving_head_fixtures: List[Tuple[int, Any, Dict]],
-    master_presets: Dict[str, int]
-) -> int:
-    """Create Circle All EFX (8 beats per cycle)."""
-    if not moving_head_fixtures:
-        return function_id
-
-    efx = ET.SubElement(engine, "Function")
-    efx.set("ID", str(function_id))
-    efx.set("Type", "EFX")
-    efx.set("Name", "Master - Circle All")
-
-    # Add all moving heads to EFX
-    for fixture_id, fixture, channels_dict in moving_head_fixtures:
-        fixture_elem = ET.SubElement(efx, "Fixture")
-        ET.SubElement(fixture_elem, "ID").text = str(fixture_id)
-        ET.SubElement(fixture_elem, "Head").text = "0"
-        ET.SubElement(fixture_elem, "Mode").text = "0"
-        ET.SubElement(fixture_elem, "Direction").text = "Forward"
-        ET.SubElement(fixture_elem, "StartOffset").text = "0"
-
-    ET.SubElement(efx, "PropagationMode").text = "Parallel"
-
-    # Speed: 8 beats at 120 BPM = 4000ms
-    speed = ET.SubElement(efx, "Speed")
-    speed.set("FadeIn", "0")
-    speed.set("FadeOut", "0")
-    speed.set("Duration", "4000")
-
-    ET.SubElement(efx, "Direction").text = "Forward"
-    ET.SubElement(efx, "RunOrder").text = "Loop"
-    ET.SubElement(efx, "Algorithm").text = "Circle"
-    ET.SubElement(efx, "Width").text = "100"
-    ET.SubElement(efx, "Height").text = "100"
-    ET.SubElement(efx, "Rotation").text = "0"
-    ET.SubElement(efx, "StartOffset").text = "0"
-    ET.SubElement(efx, "IsRelative").text = "1"
-
-    # X axis (pan)
-    x_axis = ET.SubElement(efx, "Axis")
-    x_axis.set("Name", "X")
-    ET.SubElement(x_axis, "Offset").text = "127"
-    ET.SubElement(x_axis, "Frequency").text = "2"
-    ET.SubElement(x_axis, "Phase").text = "90"
-
-    # Y axis (tilt)
-    y_axis = ET.SubElement(efx, "Axis")
-    y_axis.set("Name", "Y")
-    ET.SubElement(y_axis, "Offset").text = "127"
-    ET.SubElement(y_axis, "Frequency").text = "3"
-    ET.SubElement(y_axis, "Phase").text = "0"
-
-    master_presets["Circle_All"] = function_id
-    return function_id + 1
