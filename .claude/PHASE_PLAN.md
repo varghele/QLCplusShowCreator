@@ -420,22 +420,33 @@ Analyze existing effects in a song and offer them for quick reuse:
 - [ ] Drag-and-drop from existing effects panel to timeline
 - [ ] Effect/riff deduplication and matching logic
 
-### Phase 19: Virtual Console Export Fix (PLANNED - Near Term)
+### Phase 19: Virtual Console Export Fix (COMPLETE - March 2026)
 
-Improve the QLC+ Virtual Console layout export:
+Improved the QLC+ Virtual Console layout export:
 
-- [ ] Fix element overlapping issues in exported console layout
-- [ ] Cleaner layout generation with proper spacing
-- [ ] Validate exported console opens correctly in QLC+
+- [x] Fix element overlapping issues in exported console layout
+- [x] Cleaner layout generation with proper spacing
+- [x] Validate exported console opens correctly in QLC+
+- [x] Reduced button size (40px), show buttons at 75px
+- [x] Side-by-side color buttons (5 per row) next to sliders
+- [x] Slider height matched to color frame for compact groups
+- [x] Master frame with group master sliders + scene/color/effect presets
+- [x] Bin-packing grid layout with vertical overflow prevention
+- [x] Color scenes (Warm White, Cool Blue, Sunset, Deep Night, Fire, Blue/Amber, Forest)
+- [x] Simple combinable colors (Red, Blue, Green, White, Amber)
+- [x] Effect chasers (Strobe, Random Strobe, Twinkle, Starfall, Ping Pong, Party, Pulse, Sparkle)
+- [x] Export progress dialog with scrolling log output
 
-### Phase 20: MIDI & Device Mapping Export (PLANNED - Near Term)
+### Phase 20: MIDI & Device Mapping Export (COMPLETE - March 2026)
 
 Export MIDI controller assignments to QLC+ workspace:
 
-- [ ] MIDI controller/channel assignment UI in Show Creator (per show/song)
-- [ ] Text-based MIDI mapping configuration
-- [ ] Export MIDI input mappings into .qxw Virtual Console buttons
-- [ ] Support for bulk assignment across 20+ shows
+- [x] MIDI controller/channel assignment UI in Show Creator (per show/song)
+- [x] MIDI input profile discovery from QLC+ installation (cross-platform)
+- [x] Export MIDI input mappings into .qxw Virtual Console buttons
+- [x] Auto-create MIDI input universe in InputOutputMap
+- [x] Per-show trigger device and channel configuration
+- [x] Trigger data saved/loaded in YAML config
 
 ### Phase 21: Undo/Redo System (PLANNED - Near Term)
 
@@ -914,9 +925,9 @@ Items to address when time permits:
 - Multi-target lanes (Phase 14.10)
 - Fixture orientation system (Phase 14)
 
-### v0.9.5 - Export Fixes, MIDI & Render-to-Video (PLANNED)
-- Virtual console export fix (Phase 19)
-- MIDI & device mapping export (Phase 20)
+### v0.9.5 - Export Fixes, MIDI & Render-to-Video (IN PROGRESS)
+- Virtual console export fix (Phase 19) ✓
+- MIDI & device mapping export (Phase 20) ✓
 - Offline headless rendering of Visualizer to video file (Phase 23)
 - Non-real-time playback with frame-accurate DMX
 - Audio muxing into output MP4
