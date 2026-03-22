@@ -912,11 +912,27 @@ def build_virtual_console(
         btn_count = 0
 
         for show_name, func_id in show_function_ids.items():
-            create_vc_button(
+            button = create_vc_button(
                 solo_frame, widget_id, show_name, func_id,
                 btn_x, btn_y, SHOW_BUTTON_SIZE, SHOW_BUTTON_SIZE, "Toggle", "Default",
                 VC_BLACK_FOREGROUND, "Arial,14,-1,5,75,0,0,0,0,0,Bold"
             )
+
+            # Add MIDI trigger input if configured for this show
+            show = config.shows.get(show_name)
+            if show and show.trigger_device and show.trigger_channel >= 0:
+                # Find the universe ID for this trigger device
+                for midi_dev in getattr(config, 'midi_input_devices', []):
+                    if midi_dev.name == show.trigger_device:
+                        trigger_input = ET.SubElement(button, "Input")
+                        trigger_input.set("Universe", str(midi_dev.universe_id))
+                        trigger_input.set("Channel", str(show.trigger_channel))
+                        # TODO: make LowerValue/UpperValue/UpperParams configurable
+                        trigger_input.set("LowerValue", "1")
+                        trigger_input.set("UpperValue", "26")
+                        trigger_input.set("UpperParams", "6")
+                        break
+
             widget_id += 1
             btn_count += 1
             btn_x += SHOW_BUTTON_SIZE + BUTTON_SPACING
