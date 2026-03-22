@@ -447,17 +447,41 @@ Export MIDI controller assignments to QLC+ workspace:
 
 Comprehensive UI/UX improvement pass:
 
+- [ ] **Configurable grid/raster resolution** — Currently fixed to 1/4 note snap. Add selector (e.g., dropdown or button group) with options: 1/1, 1/2, 1/4, 1/8, 1/16. Affects snap-to-grid in timeline and beat grid drawing.
 - [ ] Timeline UI refinements
 - [ ] Consistent styling across all tabs
 - [ ] Better feedback and error messages
 - [ ] Workflow optimizations based on usage patterns
 - [ ] Keyboard shortcuts for common operations
 
+### Phase 23: Show Visualization Render-to-Video (PLANNED - v0.9.5)
+
+Automated offline rendering of shows to video, eliminating the need for manual screen recording during playback.
+
+**Motivation:** Currently, sharing how a light show looks requires playing through it in real-time and capturing via screen recording software. This is time-consuming and produces inconsistent quality. An offline render pipeline would run the show playback and visualizer headlessly, capturing each frame and encoding to video.
+
+- [ ] Headless/offscreen rendering mode for the Visualizer (render to framebuffer, not window)
+- [ ] Frame capture pipeline: render each frame at a fixed timestep (e.g., 30/60 FPS)
+- [ ] Drive playback engine in non-real-time mode (step through show time, not wall-clock time)
+- [ ] Feed DMX state per frame to Visualizer renderer (ArtNet bypass — direct in-memory)
+- [ ] Encode captured frames to video file (MP4/H.264 via ffmpeg or similar)
+- [ ] Audio muxing: embed the show's audio track into the output video
+- [ ] Progress UI: dialog with progress bar, cancel, and estimated time remaining
+- [ ] Resolution and quality settings (720p/1080p/4K, framerate, bitrate)
+- [ ] Camera angle selection (use current Visualizer camera or preset angles)
+- [ ] Trigger from Shows tab toolbar ("Render Video" button) or menu
+
+**Technical considerations:**
+- ModernGL supports offscreen rendering via standalone contexts or FBOs
+- ffmpeg (subprocess or `imageio-ffmpeg`) for video encoding
+- Non-real-time playback: advance `PlaybackEngine` by fixed dt per frame instead of using wall-clock timers
+- Memory: stream frames to encoder rather than storing all in RAM
+
 ---
 
 ## Long-Term Phases (Show Creator)
 
-### Phase 23: Automatic Show Generation (LONG TERM)
+### Phase 24: Automatic Show Generation (LONG TERM)
 
 AI-assisted show generation (requires rudiment-based lighting system):
 
@@ -466,7 +490,7 @@ AI-assisted show generation (requires rudiment-based lighting system):
 - [ ] Effect suggestion based on audio and rudiments
 - [ ] Automatic show generation algorithm
 
-*Note: Detailed plan exists separately. Prerequisite: Phase 16 (Light Rudiments) must be complete.*
+*Note: Detailed plan exists separately. Prerequisite: Phase 16 (Light Rudiments) must be complete. Was Phase 23, renumbered after Phase 23 (Render-to-Video) was inserted.*
 
 ---
 
@@ -890,6 +914,14 @@ Items to address when time permits:
 - Multi-target lanes (Phase 14.10)
 - Fixture orientation system (Phase 14)
 
+### v0.9.5 - Export Fixes, MIDI & Render-to-Video (PLANNED)
+- Virtual console export fix (Phase 19)
+- MIDI & device mapping export (Phase 20)
+- Offline headless rendering of Visualizer to video file (Phase 23)
+- Non-real-time playback with frame-accurate DMX
+- Audio muxing into output MP4
+- Resolution/quality settings and progress UI
+
 ### v1.0.0 - Rudiments & Polish (TARGET)
 - Light rudiments system (Phase 16)
 - Effect blending/transitions (Phase 17)
@@ -900,7 +932,7 @@ Items to address when time permits:
 - UI polish & overhaul (Phase 22)
 
 ### v2.0.0 - Intelligent Shows (LONG TERM)
-- Automatic show generation from audio (Phase 23)
+- Automatic show generation from audio (Phase 24)
 - Advanced volumetric fog shader (Phase V10)
 - 3D model-based fixture rendering (Phase V9)
 
