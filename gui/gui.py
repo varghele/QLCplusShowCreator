@@ -497,12 +497,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.structure_tab.show_combo.blockSignals(False)
                 self.structure_tab._load_show(show_name)
         elif source_tab == 'structure':
-            # Update shows tab to match
-            if self.shows_tab.show_combo.currentText() != show_name:
-                self.shows_tab.show_combo.blockSignals(True)
-                self.shows_tab.show_combo.setCurrentText(show_name)
-                self.shows_tab.show_combo.blockSignals(False)
-                self.shows_tab._load_show(show_name)
+            # Update shows tab to match - refresh combo first so new shows appear
+            self.shows_tab.show_combo.blockSignals(True)
+            current = self.shows_tab.show_combo.currentText()
+            self.shows_tab.show_combo.clear()
+            self.shows_tab.show_combo.addItems(sorted(self.config.shows.keys()))
+            self.shows_tab.show_combo.setCurrentText(show_name)
+            self.shows_tab.show_combo.blockSignals(False)
+            self.shows_tab.on_show_changed(show_name)
 
     def save_configuration(self):
         """Save configuration to YAML file"""
