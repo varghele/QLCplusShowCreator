@@ -1,8 +1,12 @@
 # gui/progress_manager.py
 # Progress indicator management for long-running operations
 
-from PyQt6.QtWidgets import QProgressDialog, QApplication, QStatusBar, QProgressBar, QLabel, QWidget, QHBoxLayout
+import sys
+import io
+from PyQt6.QtWidgets import (QProgressDialog, QApplication, QStatusBar, QProgressBar,
+                              QLabel, QWidget, QHBoxLayout, QVBoxLayout, QDialog, QTextEdit)
 from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QFont
 
 
 class StatusBarProgress(QWidget):
@@ -199,6 +203,45 @@ class ProgressManager:
             self.modal_dialog.close()
             self.modal_dialog = None
 
+    def start_modal_with_log(self, title: str, message: str, maximum: int = 0,
+                             parent=None) -> 'ProgressDialogWithLog':
+        """Start a modal progress dialog with a scrolling log area.
+
+        Use log_modal() to append lines, or use start_log_capture()/stop_log_capture()
+        to redirect stdout into the log automatically.
+
+        Returns:
+            ProgressDialogWithLog instance
+        """
+        parent = parent or self.main_window
+
+        self.modal_dialog = ProgressDialogWithLog(title, message, maximum, parent)
+        self.modal_dialog.show()
+        self.modal_dialog.raise_()
+        self.modal_dialog.activateWindow()
+
+        QApplication.processEvents()
+        QApplication.processEvents()
+
+        return self.modal_dialog
+
+    def log_modal(self, text: str):
+        """Append a line to the modal log area."""
+        if self.modal_dialog and hasattr(self.modal_dialog, 'append_log'):
+            self.modal_dialog.append_log(text)
+
+    def start_log_capture(self):
+        """Redirect stdout to the modal log area. Call stop_log_capture() to restore."""
+        if self.modal_dialog and hasattr(self.modal_dialog, 'append_log'):
+            self._original_stdout = sys.stdout
+            sys.stdout = _LogWriter(self.modal_dialog)
+
+    def stop_log_capture(self):
+        """Restore stdout after log capture."""
+        if hasattr(self, '_original_stdout') and self._original_stdout is not None:
+            sys.stdout = self._original_stdout
+            self._original_stdout = None
+
     def is_modal_canceled(self) -> bool:
         """Check if user canceled the modal dialog."""
         if self.modal_dialog:
@@ -219,3 +262,94 @@ def set_progress_manager(manager: ProgressManager):
     """Set the global progress manager instance."""
     global _progress_manager
     _progress_manager = manager
+
+
+class ProgressDialogWithLog(QDialog):
+    """Modal progress dialog with a scrolling log area beneath the progress bar."""
+
+    def __init__(self, title: str, message: str, maximum: int = 0, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(300)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(8)
+
+        # Status label
+        self._label = QLabel(message)
+        self._label.setWordWrap(True)
+        layout.addWidget(self._label)
+
+        # Progress bar
+        self._progress = QProgressBar()
+        self._progress.setMaximum(maximum)
+        self._progress.setValue(0)
+        self._progress.setFixedHeight(22)
+        layout.addWidget(self._progress)
+
+        # Log area
+        self._log = QTextEdit()
+        self._log.setReadOnly(True)
+        self._log.setFont(QFont("Consolas", 9))
+        self._log.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        layout.addWidget(self._log, stretch=1)
+
+        # Styling
+        self.setStyleSheet("""
+            QDialog { background-color: #3d3d3d; }
+            QLabel { color: white; font-size: 12px; }
+            QProgressBar {
+                border: 1px solid #555; border-radius: 3px;
+                background-color: #2d2d2d; text-align: center; color: white;
+            }
+            QProgressBar::chunk { background-color: #4CAF50; border-radius: 2px; }
+            QTextEdit {
+                background-color: #1e1e1e; color: #cccccc;
+                border: 1px solid #555; border-radius: 3px;
+            }
+        """)
+
+        self._line_count = 0
+
+    # --- API matching QProgressDialog so ProgressManager methods work ---
+    def setLabelText(self, text: str):
+        self._label.setText(text)
+
+    def setValue(self, value: int):
+        self._progress.setValue(value)
+
+    def wasCanceled(self) -> bool:
+        return False
+
+    def append_log(self, text: str):
+        """Append text to the log area and auto-scroll."""
+        self._log.append(text.rstrip())
+        # Auto-scroll to bottom
+        scrollbar = self._log.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+        self._line_count += 1
+        # Process events periodically so the UI stays responsive
+        if self._line_count % 5 == 0:
+            QApplication.processEvents()
+
+
+class _LogWriter:
+    """File-like object that redirects writes to a ProgressDialogWithLog."""
+
+    def __init__(self, dialog: ProgressDialogWithLog):
+        self._dialog = dialog
+        self._buffer = ""
+
+    def write(self, text: str):
+        self._buffer += text
+        while '\n' in self._buffer:
+            line, self._buffer = self._buffer.split('\n', 1)
+            if line.strip():  # Skip blank lines
+                self._dialog.append_log(line)
+
+    def flush(self):
+        if self._buffer.strip():
+            self._dialog.append_log(self._buffer)
+            self._buffer = ""

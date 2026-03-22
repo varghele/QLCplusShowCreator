@@ -796,8 +796,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             vc_options = options_dialog.get_options()
 
-            # Show progress dialog
-            self.progress_manager.start_modal(
+            # Show progress dialog with log area
+            self.progress_manager.start_modal_with_log(
                 "Creating Workspace",
                 "Saving configuration...",
                 maximum=4 if vc_options.get('generate_vc') else 3
@@ -811,18 +811,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.structure_tab.save_to_config()
             self.shows_tab.save_to_config()
 
-            # Create workspace
+            # Create workspace with log capture
             if vc_options.get('generate_vc'):
                 self.progress_manager.update_modal(2, "Generating Virtual Console...")
                 self.progress_manager.update_modal(3, "Generating QLC+ workspace XML...")
             else:
                 self.progress_manager.update_modal(2, "Generating QLC+ workspace XML...")
 
-            create_qlc_workspace(self.config, vc_options)
+            self.progress_manager.start_log_capture()
+            try:
+                create_qlc_workspace(self.config, vc_options)
+            finally:
+                self.progress_manager.stop_log_capture()
 
             self.progress_manager.update_modal(
                 4 if vc_options.get('generate_vc') else 3,
-                "Finalizing..."
+                "Done!"
             )
             self.progress_manager.finish_modal()
 
@@ -835,6 +839,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             print(f"Workspace created at {workspace_path}")
 
         except Exception as e:
+            self.progress_manager.stop_log_capture()
             self.progress_manager.finish_modal()
             QMessageBox.critical(
                 self,
