@@ -181,7 +181,8 @@ class RenderDialog(QDialog):
             QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; }
             QCheckBox { color: white; }
             QComboBox, QLineEdit { background-color: #2d2d2d; color: white; border: 1px solid #555; border-radius: 3px; padding: 4px; }
-            QScrollArea { border: none; }
+            QScrollArea { border: none; background-color: #2d2d2d; }
+            QScrollArea > QWidget > QWidget { background-color: #2d2d2d; }
             QProgressBar { border: 1px solid #555; border-radius: 3px; background-color: #2d2d2d; text-align: center; color: white; }
             QProgressBar::chunk { background-color: #4CAF50; border-radius: 2px; }
             QTextEdit { background-color: #1e1e1e; color: #cccccc; border: 1px solid #555; border-radius: 3px; }
