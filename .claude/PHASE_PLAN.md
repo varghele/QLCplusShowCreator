@@ -465,28 +465,24 @@ Comprehensive UI/UX improvement pass:
 - [ ] Workflow optimizations based on usage patterns
 - [ ] Keyboard shortcuts for common operations
 
-### Phase 23: Show Visualization Render-to-Video (PLANNED - v0.9.5)
+### Phase 23: Show Visualization Render-to-Video (COMPLETE - March 2026)
 
-Automated offline rendering of shows to video, eliminating the need for manual screen recording during playback.
+Automated offline rendering of shows to video, bypassing ArtNet for frame-accurate DMX computation.
 
-**Motivation:** Currently, sharing how a light show looks requires playing through it in real-time and capturing via screen recording software. This is time-consuming and produces inconsistent quality. An offline render pipeline would run the show playback and visualizer headlessly, capturing each frame and encoding to video.
-
-- [ ] Headless/offscreen rendering mode for the Visualizer (render to framebuffer, not window)
-- [ ] Frame capture pipeline: render each frame at a fixed timestep (e.g., 30/60 FPS)
-- [ ] Drive playback engine in non-real-time mode (step through show time, not wall-clock time)
-- [ ] Feed DMX state per frame to Visualizer renderer (ArtNet bypass — direct in-memory)
-- [ ] Encode captured frames to video file (MP4/H.264 via ffmpeg or similar)
-- [ ] Audio muxing: embed the show's audio track into the output video
-- [ ] Progress UI: dialog with progress bar, cancel, and estimated time remaining
-- [ ] Resolution and quality settings (720p/1080p/4K, framerate, bitrate)
-- [ ] Camera angle selection (use current Visualizer camera or preset angles)
-- [ ] Trigger from Shows tab toolbar ("Render Video" button) or menu
-
-**Technical considerations:**
-- ModernGL supports offscreen rendering via standalone contexts or FBOs
-- ffmpeg (subprocess or `imageio-ffmpeg`) for video encoding
-- Non-real-time playback: advance `PlaybackEngine` by fixed dt per frame instead of using wall-clock timers
-- Memory: stream frames to encoder rather than storing all in RAM
+- [x] Headless/offscreen rendering via ModernGL standalone context (no window needed)
+- [x] Frame capture pipeline: render each frame at fixed 30 FPS timestep
+- [x] Non-real-time DMX computation: DMXManager driven by frame time, not wall-clock
+- [x] Direct in-memory DMX → fixture rendering (ArtNet bypass)
+- [x] H.264/MP4 encoding via FFmpeg (bundled via `imageio-ffmpeg`)
+- [x] Audio muxing: show's audio track embedded into output video
+- [x] 5 camera presets (Front, Front-Left 45, Front-Right 45, Top-Down, Wide) auto-scaled to stage
+- [x] Render dialog with show checkboxes, camera picker, output directory picker
+- [x] Batch rendering: multiple shows → separate MP4 files
+- [x] Progress bar + log in render dialog, cancel support
+- [x] Background thread rendering (QThread) — GUI stays responsive
+- [x] Reuses visualizer renderer code (StageRenderer, FixtureManager, all fixture types)
+- [x] Menu integration: Render → "Render Show to Video..."
+- [x] Unit tests for camera presets, GL context, FFmpeg availability, imports
 
 ---
 
@@ -925,13 +921,11 @@ Items to address when time permits:
 - Multi-target lanes (Phase 14.10)
 - Fixture orientation system (Phase 14)
 
-### v0.9.5 - Export Fixes, MIDI & Render-to-Video (IN PROGRESS)
+### v0.9.5 - Export Fixes, MIDI & Render-to-Video (COMPLETE - March 2026)
 - Virtual console export fix (Phase 19) ✓
 - MIDI & device mapping export (Phase 20) ✓
-- Offline headless rendering of Visualizer to video file (Phase 23)
-- Non-real-time playback with frame-accurate DMX
-- Audio muxing into output MP4
-- Resolution/quality settings and progress UI
+- Show render-to-video with headless OpenGL + FFmpeg (Phase 23) ✓
+- Export progress dialog with scrolling log output ✓
 
 ### v1.0.0 - Rudiments & Polish (TARGET)
 - Light rudiments system (Phase 16)

@@ -401,6 +401,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Settings menu actions
         self.actionAudioSettings.triggered.connect(self.open_audio_settings)
 
+        # Render menu (insert before Help)
+        self.menuRender = QtWidgets.QMenu("Render", parent=self.menubar)
+        self.menubar.insertMenu(self.menuHelp.menuAction(), self.menuRender)
+        self.actionRenderToVideo = QAction("Render Show to Video...", self)
+        self.menuRender.addAction(self.actionRenderToVideo)
+        self.actionRenderToVideo.triggered.connect(self.render_to_video)
+
         # Help menu actions
         self.actionAbout.triggered.connect(self.show_about)
 
@@ -847,6 +854,29 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 f"Failed to create workspace: {str(e)}"
             )
             print(f"Error creating workspace: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def render_to_video(self):
+        """Open the render-to-video dialog."""
+        try:
+            if not self.config.shows:
+                QMessageBox.warning(self, "No Shows", "No shows available to render.")
+                return
+
+            # Load fixture definitions
+            models_in_config = {(f.manufacturer, f.model)
+                                for g in self.config.groups.values()
+                                for f in g.fixtures}
+            from utils.fixture_utils import load_fixture_definitions_from_qlc
+            fixture_definitions = load_fixture_definitions_from_qlc(models_in_config)
+
+            from gui.dialogs.render_dialog import RenderDialog
+            dialog = RenderDialog(self.config, fixture_definitions, parent=self)
+            dialog.exec()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open render dialog: {str(e)}")
             import traceback
             traceback.print_exc()
 
