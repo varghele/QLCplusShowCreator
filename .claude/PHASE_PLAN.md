@@ -922,10 +922,10 @@ Items to address when time permits:
 - Fixture orientation system (Phase 14)
 
 ### v0.9.5 - Export Fixes, MIDI & Render-to-Video (COMPLETE - March 2026)
-- Virtual console export fix (Phase 19) ✓
-- MIDI & device mapping export (Phase 20) ✓
-- Show render-to-video with headless OpenGL + FFmpeg (Phase 23) ✓
-- Export progress dialog with scrolling log output ✓
+- Virtual console export fix (Phase 19)
+- MIDI & device mapping export (Phase 20)
+- Show render-to-video with headless OpenGL + FFmpeg (Phase 23)
+- Export progress dialog with scrolling log output
 
 ### v1.0.0 - Rudiments & Polish (TARGET)
 - Light rudiments system (Phase 16)
