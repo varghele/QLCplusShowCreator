@@ -12,7 +12,7 @@ def _compute_distance(stage_width, stage_depth, fov_deg=45.0):
     """Compute camera distance to fit the full stage in frame."""
     diagonal = math.sqrt(stage_width ** 2 + stage_depth ** 2)
     # Distance = half-diagonal / tan(fov/2), with padding
-    distance = (diagonal / 2) / math.tan(math.radians(fov_deg / 2)) * 1.3
+    distance = (diagonal / 2) / math.tan(math.radians(fov_deg / 2)) * 1.05
     return max(distance, 5.0)
 
 
