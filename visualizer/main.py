@@ -93,9 +93,11 @@ class VisualizerWindow(QMainWindow):
 
     def _on_dmx_received(self, universe: int, dmx_data: bytes):
         """Handle DMX data received from ArtNet."""
+        # Convert 0-based ArtNet universe to 1-based internal universe
+        internal_universe = universe + 1
         # Update render engine with DMX data
         if hasattr(self, 'render_engine') and self.render_engine:
-            self.render_engine.update_dmx(universe, dmx_data)
+            self.render_engine.update_dmx(internal_universe, dmx_data)
 
     def _on_artnet_started(self):
         """Handle ArtNet receiving started."""

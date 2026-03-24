@@ -216,7 +216,7 @@ class ArtNetOutputController(QObject):
             # Ensure universe_id is int (YAML may load as string)
             universe_int = int(universe_id)
             dmx_data = self.dmx_manager.get_dmx_data(universe_int)
-            self.artnet_sender.send_dmx(universe_int, dmx_data)
+            self.artnet_sender.send_dmx(universe_int - 1, dmx_data)  # Convert 1-based internal to 0-based ArtNet
 
     def set_target_ip(self, ip: str):
         """
