@@ -15,7 +15,7 @@ if parent_dir not in sys.path:
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QStatusBar, QToolBar, QPushButton, QFrame
+    QLabel, QStatusBar, QToolBar, QPushButton, QFrame, QMessageBox
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction
@@ -213,6 +213,14 @@ class VisualizerWindow(QMainWindow):
         self.reset_view_action.triggered.connect(self._on_reset_view)
         toolbar.addAction(self.reset_view_action)
 
+        toolbar.addSeparator()
+
+        # Help button
+        self.help_action = QAction("Help", self)
+        self.help_action.setToolTip("How to connect QLC+ to the Visualizer")
+        self.help_action.triggered.connect(self._on_help_clicked)
+        toolbar.addAction(self.help_action)
+
     def _update_tcp_indicator(self, connected: bool):
         """Update TCP connection indicator."""
         self.tcp_connected = connected
@@ -264,6 +272,22 @@ class VisualizerWindow(QMainWindow):
         if hasattr(self, 'render_engine') and self.render_engine:
             self.render_engine.reset_camera()
             print("Camera reset to default position")
+
+    def _on_help_clicked(self):
+        """Show help dialog for connecting QLC+ to the Visualizer."""
+        QMessageBox.information(
+            self,
+            "Connecting QLC+ to the Visualizer",
+            "To send DMX data from QLC+ to this Visualizer:\n\n"
+            "1. Open QLC+ and go to the Input/Output settings\n"
+            "2. Select an available universe\n"
+            "3. Enable ArtNet output for that universe\n"
+            "4. Set the output address to 255.255.255.255\n"
+            "5. The Visualizer will automatically receive DMX data\n"
+            "   on port 6454 (standard ArtNet port)\n\n"
+            "The ArtNet status in the bottom bar will show\n"
+            "\"Receiving\" once data is coming through."
+        )
 
     # --- Configuration Handling (will be called by TCP client in Phase V2) ---
 
