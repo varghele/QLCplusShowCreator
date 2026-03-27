@@ -1036,6 +1036,19 @@ class Show:
     parts: List[ShowPart] = field(default_factory=list)
     effects: List[ShowEffect] = field(default_factory=list)  # Keep for backwards compatibility
     timeline_data: Optional[TimelineData] = None  # NEW: Timeline representation
+    trigger_device: str = ""    # MIDI input profile name (e.g. "Akai APC Mini mk2"), empty = no trigger
+    trigger_channel: int = -1   # MIDI channel number (-1 = no trigger)
+
+
+@dataclass
+class MidiInputDevice:
+    """A MIDI input device configured for triggering shows."""
+    name: str              # Profile name (e.g. "Akai APC Mini mk2")
+    uid: str               # Device UID for QLC+ (e.g. "APC mini mk2")
+    profile: str           # Profile reference for QLC+ (same as name)
+    universe_id: int       # QLC+ universe ID (0-based) this device is assigned to
+    line: int = 1          # MIDI line number
+
 
 @dataclass
 class Universe:
@@ -1064,6 +1077,7 @@ class Configuration:
     spots: Dict[str, Spot] = field(default_factory=dict)
     workspace_path: Optional[str] = None
     shows_directory: Optional[str] = None  # Directory where show CSV files and audio are stored
+    midi_input_devices: List[MidiInputDevice] = field(default_factory=list)
     stage_width: float = 10.0  # Stage width in meters
     stage_height: float = 6.0  # Stage depth in meters (called height for compatibility)
     grid_size: float = 0.5  # Grid spacing in meters
@@ -1231,10 +1245,13 @@ class Configuration:
                 show.name: {
                     'parts': [{k: v for k, v in asdict(part).items() if k not in ('start_time', 'duration')} for part in show.parts],
                     'effects': [asdict(effect) for effect in show.effects],
-                    'timeline_data': show.timeline_data.to_dict() if show.timeline_data else None
+                    'timeline_data': show.timeline_data.to_dict() if show.timeline_data else None,
+                    'trigger_device': show.trigger_device if show.trigger_device else None,
+                    'trigger_channel': show.trigger_channel if show.trigger_channel >= 0 else None,
                 }
                 for show in self.shows.values()
             },
+            'midi_input_devices': [asdict(d) for d in self.midi_input_devices] if self.midi_input_devices else None,
             'spots': {
                 name: asdict(spot)
                 for name, spot in self.spots.items()
@@ -1335,7 +1352,9 @@ class Configuration:
                     name=show_name,
                     parts=parts,
                     effects=effects,
-                    timeline_data=timeline_data
+                    timeline_data=timeline_data,
+                    trigger_device=show_data.get('trigger_device', '') or '',
+                    trigger_channel=show_data.get('trigger_channel', -1) if show_data.get('trigger_channel') is not None else -1,
                 )
 
         # Handle universes
@@ -1364,12 +1383,19 @@ class Configuration:
             for spot_name, spot_data in data['spots'].items():
                 spots[spot_name] = Spot(**spot_data)
 
+        # Handle MIDI input devices
+        midi_input_devices = []
+        if 'midi_input_devices' in data and data['midi_input_devices']:
+            for dev_data in data['midi_input_devices']:
+                midi_input_devices.append(MidiInputDevice(**dev_data))
+
         config = cls(
             fixtures=fixtures,
             groups=groups,
             universes=universes,
             shows=shows,
             spots=spots,
+            midi_input_devices=midi_input_devices,
             workspace_path=data.get('workspace_path'),
             shows_directory=data.get('shows_directory')
         )

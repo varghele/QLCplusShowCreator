@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QWidget, QLabel,
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont, QAction
 import shutil
-from config.models import Configuration, Show, ShowPart, TimelineData
+from config.models import Configuration, Show, ShowPart, TimelineData, MidiInputDevice
 from timeline.song_structure import SongStructure
 from timeline_ui import AudioLaneWidget, MasterTimelineContainer
 from .base_tab import BaseTab
@@ -371,6 +371,37 @@ class StructureTab(BaseTab):
 
         toolbar.addSpacing(20)
 
+        # Trigger assignment
+        trigger_label = QLabel("Trigger:")
+        trigger_label.setStyleSheet("font-weight: bold;")
+        toolbar.addWidget(trigger_label)
+
+        self.trigger_device_combo = QComboBox()
+        self.trigger_device_combo.setMinimumWidth(160)
+        self.trigger_device_combo.addItem("None")
+        # Populate with discovered MIDI profiles
+        self._midi_profiles = []
+        try:
+            from utils.midi_utils import discover_midi_profiles
+            self._midi_profiles = discover_midi_profiles()
+            for profile in self._midi_profiles:
+                self.trigger_device_combo.addItem(profile['name'])
+        except Exception:
+            pass
+        toolbar.addWidget(self.trigger_device_combo)
+
+        ch_label = QLabel("Ch:")
+        toolbar.addWidget(ch_label)
+
+        self.trigger_channel_spin = QSpinBox()
+        self.trigger_channel_spin.setRange(0, 511)
+        self.trigger_channel_spin.setValue(0)
+        self.trigger_channel_spin.setEnabled(False)
+        self.trigger_channel_spin.setFixedWidth(70)
+        toolbar.addWidget(self.trigger_channel_spin)
+
+        toolbar.addSpacing(20)
+
         # Set directory button
         self.set_directory_btn = QPushButton("Set Show Directory")
         self.set_directory_btn.setStyleSheet("""
@@ -473,6 +504,8 @@ class StructureTab(BaseTab):
         self.rename_show_btn.clicked.connect(self._rename_show)
         self.delete_show_btn.clicked.connect(self._delete_show)
         self.set_directory_btn.clicked.connect(self._set_show_directory)
+        self.trigger_device_combo.currentTextChanged.connect(self._on_trigger_device_changed)
+        self.trigger_channel_spin.valueChanged.connect(self._on_trigger_channel_changed)
 
         # Structure header buttons
         self.add_part_btn.clicked.connect(self._add_new_part)
@@ -807,9 +840,97 @@ class StructureTab(BaseTab):
         """Handle show selection change."""
         self._load_show(show_name)
 
+        # Update trigger widgets for the new show
+        self._update_trigger_widgets()
+
         # Notify parent to sync with other tabs
         if self.parent() and hasattr(self.parent(), 'on_show_selected'):
             self.parent().on_show_selected(show_name, 'structure')
+
+    def _update_trigger_widgets(self):
+        """Update trigger device combo and channel spinbox for the current show."""
+        self.trigger_device_combo.blockSignals(True)
+        self.trigger_channel_spin.blockSignals(True)
+
+        if self.current_show and self.current_show.trigger_device:
+            # Find the device in the combo
+            idx = self.trigger_device_combo.findText(self.current_show.trigger_device)
+            if idx >= 0:
+                self.trigger_device_combo.setCurrentIndex(idx)
+            else:
+                # Device not in list — add it
+                self.trigger_device_combo.addItem(self.current_show.trigger_device)
+                self.trigger_device_combo.setCurrentText(self.current_show.trigger_device)
+            self.trigger_channel_spin.setEnabled(True)
+            self.trigger_channel_spin.setValue(max(0, self.current_show.trigger_channel))
+        else:
+            self.trigger_device_combo.setCurrentIndex(0)  # "None"
+            self.trigger_channel_spin.setEnabled(False)
+            self.trigger_channel_spin.setValue(0)
+
+        self.trigger_device_combo.blockSignals(False)
+        self.trigger_channel_spin.blockSignals(False)
+
+    def _on_trigger_device_changed(self, device_name):
+        """Handle trigger device selection change."""
+        if not self.current_show:
+            return
+
+        if device_name == "None" or not device_name:
+            self.current_show.trigger_device = ""
+            self.current_show.trigger_channel = -1
+            self.trigger_channel_spin.setEnabled(False)
+            self.trigger_channel_spin.setValue(0)
+        else:
+            self.current_show.trigger_device = device_name
+            self.trigger_channel_spin.setEnabled(True)
+            if self.current_show.trigger_channel < 0:
+                self.current_show.trigger_channel = 0
+
+            # Auto-create MIDI input device in config if not already present
+            self._ensure_midi_device(device_name)
+
+        self._auto_save()
+
+    def _on_trigger_channel_changed(self, channel):
+        """Handle trigger channel change."""
+        if not self.current_show:
+            return
+        self.current_show.trigger_channel = channel
+        self._auto_save()
+
+    def _ensure_midi_device(self, profile_name):
+        """Ensure a MidiInputDevice exists in config for the given profile name."""
+        # Check if already exists
+        for dev in self.config.midi_input_devices:
+            if dev.name == profile_name:
+                return
+
+        # Find the profile info
+        model_name = profile_name
+        for p in self._midi_profiles:
+            if p['name'] == profile_name:
+                model_name = p['model']
+                break
+
+        # Assign next available universe ID (after existing output universes)
+        used_ids = set()
+        for u in self.config.universes.values():
+            used_ids.add(u.id - 1)  # Convert to 0-based
+        for d in self.config.midi_input_devices:
+            used_ids.add(d.universe_id)
+        next_id = 0
+        while next_id in used_ids:
+            next_id += 1
+
+        device = MidiInputDevice(
+            name=profile_name,
+            uid=model_name.lower(),
+            profile=profile_name,
+            universe_id=next_id,
+            line=1
+        )
+        self.config.midi_input_devices.append(device)
 
     def _create_new_show(self):
         """Create a new show with a dialog."""

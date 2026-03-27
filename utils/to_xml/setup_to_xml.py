@@ -77,6 +77,18 @@ def create_universe_elements(input_output_map, config: Configuration):
         if line_number in LINE_TO_UID:
             output.set("UID", LINE_TO_UID[line_number])
 
+    # Add MIDI input universes for trigger devices
+    for midi_device in getattr(config, 'midi_input_devices', []):
+        universe_elem = ET.SubElement(input_output_map, "Universe")
+        universe_elem.set("Name", f"MIDI - {midi_device.name}")
+        universe_elem.set("ID", str(midi_device.universe_id))
+
+        midi_input = ET.SubElement(universe_elem, "Input")
+        midi_input.set("Plugin", "MIDI")
+        midi_input.set("UID", midi_device.uid)
+        midi_input.set("Line", str(midi_device.line))
+        midi_input.set("Profile", midi_device.profile)
+
     return input_output_map
 
 
