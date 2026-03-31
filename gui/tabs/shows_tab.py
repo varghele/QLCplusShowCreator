@@ -709,6 +709,7 @@ class ShowsTab(BaseTab):
 
         autogen_config = dialog.result_config
         key_signature = dialog.result_key_signature
+        song_palette = dialog.result_palette
 
         # Build song structure
         song_structure = SongStructure()
@@ -720,7 +721,8 @@ class ShowsTab(BaseTab):
 
         # Run in background thread
         self._autogen_worker = AutogenWorker(
-            audio_path, song_structure, self.config, autogen_config, key_signature
+            audio_path, song_structure, self.config, autogen_config, key_signature,
+            song_palette,
         )
         self._autogen_worker.finished.connect(self._on_autogen_finished)
         self._autogen_worker.error.connect(self._on_autogen_error)

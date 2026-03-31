@@ -7,7 +7,7 @@ stage position, vocal focus rules, density scaling, and gobo/prism activation.
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
-from config.models import Configuration, FixtureGroup
+from config.models import Configuration, FixtureGroup, Spot
 
 
 @dataclass
@@ -116,24 +116,26 @@ def apply_vocal_rule(
     return weights
 
 
-def select_active_groups(
+def compute_richness_weights(
     group_classifications: Dict[str, GroupClassification],
     spectral_richness: float,
-) -> List[str]:
-    """Select which fixture groups are active based on spectral richness.
+) -> Dict[str, float]:
+    """Compute intensity weight per group based on spectral richness.
 
-    Low richness → fewer groups. High richness → all groups.
+    All groups are always active. Richness scales secondary group intensity.
+    Low richness → primary groups full, secondary groups dimmed.
+    High richness → all groups full.
 
     Returns:
-        List of active group names
+        {group_name: weight} where weight is 0.3-1.0
     """
-    all_groups = sorted(group_classifications.keys())
-    if not all_groups:
-        return []
+    if not group_classifications:
+        return {}
 
-    # Scale: richness 0.0 → 1 group, richness 1.0 → all groups
-    num_active = max(1, int(len(all_groups) * (0.3 + 0.7 * spectral_richness)))
-    return all_groups[:num_active]
+    # Base weight: all groups get at least 0.3
+    base = 0.3 + 0.7 * spectral_richness
+    weights = {name: base for name in group_classifications}
+    return weights
 
 
 def get_gobo_prism_groups(
@@ -154,3 +156,30 @@ def get_gobo_prism_groups(
             "prism": gc.has_prism and spectral_richness >= prism_threshold,
         }
     return result
+
+
+def ensure_default_spots(config: Configuration) -> List[str]:
+    """Create default spots if none exist. Returns list of spot names.
+
+    Auto-creates spots based on stage dimensions:
+    - Crowd positions (front of stage, audience side)
+    - Stage positions (center, back)
+    """
+    if config.spots:
+        return list(config.spots.keys())
+
+    stage_w = config.stage_width if hasattr(config, 'stage_width') and config.stage_width else 8.0
+    stage_d = config.stage_height if hasattr(config, 'stage_height') and config.stage_height else 6.0
+
+    default_spots = {
+        "Crowd Left": Spot(name="Crowd Left", x=-stage_w * 0.3, y=0.0, z=0.0),
+        "Crowd Center": Spot(name="Crowd Center", x=0.0, y=0.0, z=0.0),
+        "Crowd Right": Spot(name="Crowd Right", x=stage_w * 0.3, y=0.0, z=0.0),
+        "Stage Center": Spot(name="Stage Center", x=0.0, y=stage_d * 0.5, z=0.0),
+        "Stage Back": Spot(name="Stage Back", x=0.0, y=stage_d * 0.8, z=0.0),
+    }
+
+    for name, spot in default_spots.items():
+        config.spots[name] = spot
+
+    return list(default_spots.keys())
