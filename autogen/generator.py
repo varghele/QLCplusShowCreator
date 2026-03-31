@@ -33,6 +33,7 @@ from autogen.matcher import (
 from autogen.spatial import (
     classify_fixture_groups, apply_vocal_rule, compute_richness_weights,
     get_gobo_prism_groups, GroupClassification, ensure_default_spots,
+    ActivationRole, GroupActivation,
 )
 from rudiments.registry import get_intensity_rudiments, get_movement_rudiments
 from rudiments.block_converter import rudiment_to_dimmer_block, rudiment_to_movement_block
@@ -130,8 +131,9 @@ def generate_show(
         relative_energy = 0.6 * relative_energy + 0.4 * section.spectral_richness
         relative_energy = max(0.0, min(1.0, relative_energy))
 
-        # Tiered group activation — quiet sections have fewer groups
-        richness_weights = compute_richness_weights(
+        # Tiered group activation — quiet sections have fewer groups,
+        # medium sections have fill-only groups that punch in during fills
+        group_activations = compute_richness_weights(
             group_classifications, section.spectral_richness,
             section.spectral_flux_avg, relative_energy,
         )
@@ -175,7 +177,7 @@ def generate_show(
         previous_rudiments = current_rudiments
         previous_section_type = section_type
 
-        # Generate blocks for ALL fixture groups (each with its own rudiment)
+        # Generate blocks for ALL fixture groups (each with its own rudiment + role)
         for group_idx, (group_name, gc) in enumerate(group_classifications.items()):
             if group_name not in lanes:
                 continue
@@ -184,29 +186,49 @@ def generate_show(
                 group_name, (primary_groove, primary_groove)
             )
 
-            # Combine vocal and richness weights — skip inactive groups
-            vocal_w = vocal_weights.get(group_name, 1.0)
-            richness_w = richness_weights.get(group_name, 0.0)
-            if richness_w <= 0.0:
+            # Get activation (weight + role) — skip inactive groups
+            activation = group_activations.get(
+                group_name, GroupActivation(0.0)
+            )
+            if activation.weight <= 0.0:
                 continue  # Group inactive for this section
-            combined_weight = vocal_w * richness_w
+
+            vocal_w = vocal_weights.get(group_name, 1.0)
+            combined_weight = vocal_w * activation.weight
+
+            # Fill-only groups get intensity boost (brief appearance should pop)
+            if activation.role == ActivationRole.FILL_ONLY:
+                combined_weight = min(1.0, combined_weight * 1.3)
 
             # Compute speed: BPM + energy, with per-group offset for variation
             speed_offset = (group_idx % 3) - 1  # -1, 0, +1
             effect_speed = _compute_effect_speed(part.bpm, section, offset=speed_offset)
+
+            # Fill-only MH get amplitude boost for impact
+            group_movement = None
+            if gc.has_moving_heads and movement:
+                amp = movement.amplitude
+                if activation.role == ActivationRole.FILL_ONLY:
+                    amp = min(80.0, amp * 1.2)
+                group_movement = MovementStrategy(
+                    shape=movement.shape,
+                    target_spot=movement.target_spot,
+                    amplitude=amp,
+                )
 
             _generate_section_blocks(
                 lane=lanes[group_name],
                 part=part,
                 groove_name=groove_name,
                 fill_name=fill_name,
-                movement_strategy=movement if gc.has_moving_heads else None,
+                movement_strategy=group_movement,
                 color_assignment=color_assignment,
                 gobo_prism=gobo_prism.get(group_name, {}),
                 weight=combined_weight,
                 config=autogen_config,
                 color_index=group_idx % 3,
                 effect_speed=effect_speed,
+                role=activation.role,
             )
 
     return list(lanes.values())
@@ -337,11 +359,15 @@ def _generate_section_blocks(
     config: AutogenConfig,
     color_index: int,
     effect_speed: str = "1",
+    role: ActivationRole = ActivationRole.FULL,
 ):
     """Generate LightBlocks for one fixture group in one section.
 
     Splits section into phrases (groove + fill) per the theory.
-    Respects the part's time signature and bar count.
+    Respects the part's time signature, bar count, and activation role:
+    - FULL: generates both groove and fill blocks
+    - GROOVE_ONLY: generates only groove blocks
+    - FILL_ONLY: generates only fill blocks (punches in during fills)
     """
     section_start = part.start_time
     section_end = part.start_time + part.duration
@@ -385,32 +411,38 @@ def _generate_section_blocks(
         full_phrases = 0
         remainder_bars = total_section_bars
 
-    # Generate full phrases
+    # Generate full phrases, respecting activation role
+    emit_groove = role in (ActivationRole.FULL, ActivationRole.GROOVE_ONLY)
+    emit_fill = role in (ActivationRole.FULL, ActivationRole.FILL_ONLY)
+
     current_time = section_start
     for _ in range(full_phrases):
         # Groove portion
         groove_end = current_time + groove_duration
-        _add_light_block(
-            lane, current_time, groove_end,
-            groove_name, movement_strategy, color_assignment,
-            gobo_prism, weight, part.bpm, color_index, effect_speed,
-        )
+        if emit_groove:
+            _add_light_block(
+                lane, current_time, groove_end,
+                groove_name, movement_strategy, color_assignment,
+                gobo_prism, weight, part.bpm, color_index, effect_speed,
+            )
 
         # Fill portion (if any)
         if fill_duration > 0:
             fill_start = groove_end
             fill_end = fill_start + fill_duration
-            _add_light_block(
-                lane, fill_start, fill_end,
-                fill_name, movement_strategy, color_assignment,
-                gobo_prism, weight, part.bpm, color_index, effect_speed,
-            )
+            if emit_fill:
+                _add_light_block(
+                    lane, fill_start, fill_end,
+                    fill_name, movement_strategy, color_assignment,
+                    gobo_prism, weight, part.bpm, color_index, effect_speed,
+                )
             current_time = fill_end
         else:
             current_time = groove_end
 
-    # Remainder bars — all groove (too short for groove + fill)
-    if remainder_bars > 0:
+    # Remainder bars — groove by definition (too short for groove + fill)
+    # FILL_ONLY groups produce nothing here, which is correct
+    if remainder_bars > 0 and emit_groove:
         remainder_duration = remainder_bars * seconds_per_bar
         remainder_end = min(current_time + remainder_duration, section_end)
         _add_light_block(

@@ -4,10 +4,25 @@ Implements Section 6 of the theory: fixture group classification by
 stage position, vocal focus rules, density scaling, and gobo/prism activation.
 """
 
+from enum import Enum
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
 from config.models import Configuration, FixtureGroup, Spot
+
+
+class ActivationRole(Enum):
+    """Role a fixture group plays within a section's phrase structure."""
+    FULL = "full"            # Plays both groove and fill blocks
+    GROOVE_ONLY = "groove"   # Plays only groove blocks
+    FILL_ONLY = "fill"       # Plays only fill blocks (punches in for fills)
+
+
+@dataclass
+class GroupActivation:
+    """Activation state for a fixture group in a section."""
+    weight: float            # 0.0 = inactive, 0.1-1.0 = intensity weight
+    role: ActivationRole = ActivationRole.FULL
 
 
 @dataclass
@@ -124,18 +139,23 @@ def compute_richness_weights(
     spectral_richness: float,
     spectral_flux: float = 0.5,
     relative_energy: float = 0.5,
-) -> Dict[str, float]:
-    """Compute intensity weight per group based on relative energy level.
+) -> Dict[str, GroupActivation]:
+    """Compute activation per group based on relative energy level.
 
-    Uses tiered activation: quiet sections have fewer groups active.
-    Returns 0.0 for groups that should be inactive (no blocks generated).
+    Uses tiered activation with roles:
+    - High energy: all groups FULL
+    - Medium energy: core groups FULL, moving heads / back groups FILL_ONLY
+    - Low energy: 1-2 core groups GROOVE_ONLY, MH FILL_ONLY if energy > 0.25
+    - Very quiet: 1 group GROOVE_ONLY, rest inactive
+
+    FILL_ONLY groups only generate blocks during fill portions of phrases,
+    creating dynamic punch-in/out behavior (like toms in drumming).
 
     Args:
         relative_energy: 0.0-1.0, this section's energy relative to the song's range.
-            Computed by the generator from spectral flux normalization.
 
     Returns:
-        {group_name: weight} where 0.0 = inactive, 0.1-1.0 = active
+        {group_name: GroupActivation} where weight 0.0 = inactive
     """
     if not group_classifications:
         return {}
@@ -148,34 +168,47 @@ def compute_richness_weights(
     )
 
     total = len(sorted_groups)
-    weights = {}
+    activations: Dict[str, GroupActivation] = {}
 
     if relative_energy < 0.15:
-        # Very quiet: only 1 primary group, dimmed
+        # Very quiet: only 1 primary group (groove only), rest inactive
         for i, (name, gc) in enumerate(sorted_groups):
-            weights[name] = 0.3 if i == 0 else 0.0
+            if i == 0:
+                activations[name] = GroupActivation(0.3, ActivationRole.GROOVE_ONLY)
+            else:
+                activations[name] = GroupActivation(0.0)
     elif relative_energy < 0.35:
-        # Low: 1-2 groups, primary full, secondary dimmed
-        num_active = max(1, min(2, total))
+        # Low: 1-2 core groups as groove, MH as fill-only if energy > 0.25
+        num_core = max(1, min(2, total))
         for i, (name, gc) in enumerate(sorted_groups):
-            if i < num_active:
-                weights[name] = 0.7 if i == 0 else 0.4
+            if i < num_core:
+                activations[name] = GroupActivation(
+                    0.7 if i == 0 else 0.4, ActivationRole.GROOVE_ONLY
+                )
+            elif gc.has_moving_heads and relative_energy > 0.25:
+                # MH punch in for fills at the upper end of low energy
+                activations[name] = GroupActivation(0.5, ActivationRole.FILL_ONLY)
             else:
-                weights[name] = 0.0
+                activations[name] = GroupActivation(0.0)
     elif relative_energy < 0.65:
-        # Medium: most groups active, back dimmed
-        num_active = max(2, int(total * 0.75))
+        # Medium: core groups full, MH/back groups fill-only
+        num_full = max(2, int(total * 0.5))
         for i, (name, gc) in enumerate(sorted_groups):
-            if i < num_active:
-                weights[name] = 1.0 - i * 0.1
+            if i < num_full and not gc.has_moving_heads:
+                activations[name] = GroupActivation(1.0 - i * 0.1, ActivationRole.FULL)
+            elif gc.has_moving_heads or gc.zone in ("back", "overhead"):
+                # Moving heads and back/overhead groups punch in for fills
+                activations[name] = GroupActivation(0.7, ActivationRole.FILL_ONLY)
+            elif i < int(total * 0.75):
+                activations[name] = GroupActivation(0.6, ActivationRole.FULL)
             else:
-                weights[name] = 0.0
+                activations[name] = GroupActivation(0.0)
     else:
-        # High: all groups active
+        # High: all groups active and full
         for name in group_classifications:
-            weights[name] = 1.0
+            activations[name] = GroupActivation(1.0, ActivationRole.FULL)
 
-    return weights
+    return activations
 
 
 def get_gobo_prism_groups(
