@@ -87,6 +87,43 @@ class DimmerBlockDialog(QDialog):
         self.effect_speed_combo.setCurrentText("1")
         effect_layout.addRow("Speed:", self.effect_speed_combo)
 
+        # Direction selector (waterfall, fade)
+        self.direction_combo = QComboBox()
+        self.direction_combo.addItems(["down", "up", "in", "out"])
+        self.direction_label = QLabel("Direction:")
+        effect_layout.addRow(self.direction_label, self.direction_combo)
+
+        # Chase scope selector (chase)
+        self.chase_scope_combo = QComboBox()
+        self.chase_scope_combo.addItems(["fixture", "global"])
+        self.chase_scope_label = QLabel("Scope:")
+        self.chase_scope_combo.setToolTip(
+            "fixture: each fixture animates independently\n"
+            "global: all fixtures treated as one continuous chain"
+        )
+        effect_layout.addRow(self.chase_scope_label, self.chase_scope_combo)
+
+        # Phase offset per fixture (pulse)
+        self.phase_offset_check = QCheckBox("Spread phase across fixtures")
+        self.phase_offset_check.setToolTip(
+            "When enabled, each fixture gets a phase offset\n"
+            "creating a wave-like breathing effect across the group"
+        )
+        self.phase_offset_label = QLabel("Phase Offset:")
+        effect_layout.addRow(self.phase_offset_label, self.phase_offset_check)
+
+        # Build fraction (cascade)
+        self.build_fraction_spin = QDoubleSpinBox()
+        self.build_fraction_spin.setRange(0.1, 0.95)
+        self.build_fraction_spin.setSingleStep(0.05)
+        self.build_fraction_spin.setValue(0.7)
+        self.build_fraction_spin.setToolTip("Portion of block spent building (rest is release)")
+        self.build_fraction_label = QLabel("Build Fraction:")
+        effect_layout.addRow(self.build_fraction_label, self.build_fraction_spin)
+
+        # Connect effect type change to show/hide rudiment-specific controls
+        self.effect_type_combo.currentTextChanged.connect(self._on_effect_type_changed)
+
         effect_group.setLayout(effect_layout)
         layout.addWidget(effect_group)
 
@@ -186,6 +223,37 @@ class DimmerBlockDialog(QDialog):
         buttons.rejected.connect(self.reject)
         main_layout.addWidget(buttons)
 
+    def _on_effect_type_changed(self, effect_type):
+        """Show/hide rudiment-specific controls based on selected effect type."""
+        # Direction: visible for waterfall and fade
+        show_direction = effect_type in ("waterfall", "fade")
+        self.direction_label.setVisible(show_direction)
+        self.direction_combo.setVisible(show_direction)
+        if show_direction:
+            if effect_type == "waterfall":
+                # Show only down/up for waterfall
+                self.direction_combo.clear()
+                self.direction_combo.addItems(["down", "up"])
+            elif effect_type == "fade":
+                # Show only in/out for fade
+                self.direction_combo.clear()
+                self.direction_combo.addItems(["in", "out"])
+
+        # Chase scope: visible for chase
+        show_scope = effect_type == "chase"
+        self.chase_scope_label.setVisible(show_scope)
+        self.chase_scope_combo.setVisible(show_scope)
+
+        # Phase offset: visible for pulse
+        show_phase = effect_type == "pulse"
+        self.phase_offset_label.setVisible(show_phase)
+        self.phase_offset_check.setVisible(show_phase)
+
+        # Build fraction: visible for cascade
+        show_build = effect_type == "cascade"
+        self.build_fraction_label.setVisible(show_build)
+        self.build_fraction_spin.setVisible(show_build)
+
     def _on_strobe_toggled(self, enabled):
         """Handle strobe enable/disable."""
         self.strobe_slider.setEnabled(enabled)
@@ -204,6 +272,19 @@ class DimmerBlockDialog(QDialog):
         # Effect
         self.effect_type_combo.setCurrentText(self.block.effect_type)
         self.effect_speed_combo.setCurrentText(self.block.effect_speed)
+
+        # Rudiment-specific parameters
+        direction = getattr(self.block, 'direction', 'down')
+        self.direction_combo.setCurrentText(direction)
+        chase_scope = getattr(self.block, 'chase_scope', 'fixture')
+        self.chase_scope_combo.setCurrentText(chase_scope)
+        phase_offset = getattr(self.block, 'phase_offset_per_fixture', False)
+        self.phase_offset_check.setChecked(phase_offset)
+        build_fraction = getattr(self.block, 'build_fraction', 0.7)
+        self.build_fraction_spin.setValue(build_fraction)
+
+        # Trigger visibility update
+        self._on_effect_type_changed(self.block.effect_type)
 
         # Intensity
         self.intensity_slider.setValue(int(self.block.intensity))
@@ -224,6 +305,12 @@ class DimmerBlockDialog(QDialog):
         # Effect parameters
         self.block.effect_type = self.effect_type_combo.currentText()
         self.block.effect_speed = self.effect_speed_combo.currentText()
+
+        # Rudiment-specific parameters
+        self.block.direction = self.direction_combo.currentText()
+        self.block.chase_scope = self.chase_scope_combo.currentText()
+        self.block.phase_offset_per_fixture = self.phase_offset_check.isChecked()
+        self.block.build_fraction = self.build_fraction_spin.value()
 
         # Intensity
         self.block.intensity = float(self.intensity_spinbox.value())
