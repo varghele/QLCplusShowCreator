@@ -118,8 +118,23 @@ def generate_show(
         color_assignment = section_color_assignments.get(part.name)
         section_type = section_types.get(part.name, "generic")
 
-        # All groups are always active — richness scales intensity
-        richness_weights = compute_richness_weights(group_classifications, section.spectral_richness)
+        # Compute relative energy (0-1) for this section within the song
+        # Use percentile ranking among all sections (not raw flux range, which has outlier spikes)
+        all_fluxes = sorted(s.spectral_flux_avg for s in analysis.sections)
+        if len(all_fluxes) > 1:
+            rank = all_fluxes.index(section.spectral_flux_avg) if section.spectral_flux_avg in all_fluxes else 0
+            relative_energy = rank / (len(all_fluxes) - 1)
+        else:
+            relative_energy = 0.5
+        # Combine with richness for a fuller energy picture
+        relative_energy = 0.6 * relative_energy + 0.4 * section.spectral_richness
+        relative_energy = max(0.0, min(1.0, relative_energy))
+
+        # Tiered group activation — quiet sections have fewer groups
+        richness_weights = compute_richness_weights(
+            group_classifications, section.spectral_richness,
+            section.spectral_flux_avg, relative_energy,
+        )
         vocal_weights = apply_vocal_rule(group_classifications, section.vocal_presence)
         gobo_prism = get_gobo_prism_groups(
             group_classifications, section.spectral_richness,
@@ -127,18 +142,31 @@ def generate_show(
             autogen_config.spectral_richness_prism_threshold,
         )
 
+        # Quiet section override: very low relative energy → static/fade only
+        is_quiet = relative_energy < 0.1
+        is_last_section = (song_structure.parts.index(part) == len(song_structure.parts) - 1)
+
         # Select different groove+fill rudiments per fixture group (visual diversity)
         group_names = list(group_classifications.keys())
-        per_group_rudiments = select_rudiments_per_group(
-            section, part.bpm, group_names, autogen_config,
-            previous_section_rudiments=previous_rudiments,
-            section_type=section_type,
-            previous_section_type=previous_section_type,
-        )
+        if is_quiet:
+            # Override: all groups get static for quiet sections
+            per_group_rudiments = {g: ("static", "static") for g in group_names}
+        elif is_last_section and section_type in ("outro", "ending", "end"):
+            # Last section with outro-like name: use fade out
+            per_group_rudiments = {g: ("fade", "fade") for g in group_names}
+        else:
+            per_group_rudiments = select_rudiments_per_group(
+                section, part.bpm, group_names, autogen_config,
+                previous_section_rudiments=previous_rudiments,
+                section_type=section_type,
+                previous_section_type=previous_section_type,
+            )
 
-        # Select movement strategy for moving heads
+        # Select movement strategy for moving heads (using relative energy)
         section_idx = song_structure.parts.index(part)
-        movement = _select_movement_strategy(section, part.bpm, spot_names, section_idx)
+        movement = _select_movement_strategy(
+            section, part.bpm, spot_names, section_idx, relative_energy
+        )
 
         # Store primary group's rudiment for cross-section contrast
         primary_groove = per_group_rudiments[group_names[0]][0] if group_names else "static"
@@ -156,9 +184,11 @@ def generate_show(
                 group_name, (primary_groove, primary_groove)
             )
 
-            # Combine vocal and richness weights
+            # Combine vocal and richness weights — skip inactive groups
             vocal_w = vocal_weights.get(group_name, 1.0)
-            richness_w = richness_weights.get(group_name, 1.0)
+            richness_w = richness_weights.get(group_name, 0.0)
+            if richness_w <= 0.0:
+                continue  # Group inactive for this section
             combined_weight = vocal_w * richness_w
 
             # Compute speed: BPM + energy, with per-group offset for variation
@@ -198,53 +228,67 @@ class MovementStrategy:
     amplitude: float = 50.0  # Pan/tilt amplitude, scaled by energy
 
 
+# Shape pools for different energy levels — rotated by section_index
+_HIGH_ENERGY_SHAPES = ["circle", "figure_8", "lissajous", "diamond"]
+_MEDIUM_ENERGY_SHAPES = ["bounce", "linear_sweep", "square", "triangle"]
+_LOW_ENERGY_SHAPES = ["linear_sweep", "fan", "circle"]
+_VERY_LOW_SHAPES = ["linear_sweep"]  # Minimal, slow
+
+
 def _select_movement_strategy(
     section: SectionAnalysis,
     bpm: float,
     spot_names: List[str],
     section_index: int = 0,
+    relative_energy: float = 0.5,
 ) -> MovementStrategy:
     """Select movement shape, spot targeting, and amplitude based on section character.
 
     Uses plane-style targeting: center spot + wide amplitude = sweep across area.
-    Vocal focus only when vocals are prominent AND instrumentation is sparse (solo moment).
+    Rotates shapes per section to avoid repetition.
+    Vocal focus only during sparse solo moments.
+    Uses relative_energy (0-1) for threshold comparisons.
     """
-    energy = section.spectral_flux_avg + section.transient_sharpness
+    # Amplitude scales with relative energy: 25 (calm) to 80 (intense)
+    amplitude = 25.0 + relative_energy * 55.0
+    amplitude = max(25.0, min(80.0, amplitude))
 
-    # Amplitude scales with energy: 15 (calm) to 80 (intense)
-    amplitude = 15.0 + energy * 40.0
-    amplitude = max(15.0, min(80.0, amplitude))
-
-    # Plane spots: "Crowd" and "Stage" center spots for sweeping
+    # Plane spots for sweeping
     crowd_spots = [s for s in spot_names if "crowd" in s.lower()]
     stage_spots = [s for s in spot_names if "stage" in s.lower()]
 
-    # Vocal focus: only when vocals are prominent AND instrumentation is sparse
-    # This targets solo/intimate moments, not full-band choruses
+    # Vocal focus: only when vocals prominent AND sparse instrumentation
     vocal_solo = section.vocal_presence > 0.4 and section.spectral_richness < 0.5
 
-    if energy > 1.0:
-        # High energy: wide dynamic shapes, sweep across crowd plane
-        spot = crowd_spots[0] if crowd_spots else None
-        wide_amplitude = min(80.0, amplitude * 1.3)  # Extra wide for high energy
-        if energy > 1.4:
-            return MovementStrategy(shape="circle", target_spot=spot, amplitude=wide_amplitude)
-        else:
-            return MovementStrategy(shape="figure_8", target_spot=spot, amplitude=wide_amplitude)
-    elif energy > 0.6:
-        # Medium energy: dynamic shape sweeping crowd or stage
-        spot = crowd_spots[0] if crowd_spots else (stage_spots[0] if stage_spots else None)
-        return MovementStrategy(shape="bounce", target_spot=spot, amplitude=amplitude)
-    else:
-        # Low energy
+    if relative_energy < 0.15:
+        # Very quiet: minimal or no movement
+        spot = stage_spots[0] if stage_spots else None
+        shape = _VERY_LOW_SHAPES[section_index % len(_VERY_LOW_SHAPES)]
+        return MovementStrategy(shape=shape, target_spot=spot, amplitude=max(35.0, amplitude))
+
+    elif relative_energy < 0.4:
+        # Low energy: gentle shapes
         if vocal_solo and crowd_spots:
-            # Sparse vocal solo: gentle sweep across crowd (not a fixed stare)
-            return MovementStrategy(shape="circle", target_spot=crowd_spots[0], amplitude=amplitude)
+            spot = crowd_spots[0]
         elif stage_spots:
-            # Calm/atmospheric: sweep stage area
-            return MovementStrategy(shape="linear_sweep", target_spot=stage_spots[0], amplitude=amplitude)
+            spot = stage_spots[0]
         else:
-            return MovementStrategy(shape="circle", amplitude=amplitude)
+            spot = None
+        shape = _LOW_ENERGY_SHAPES[section_index % len(_LOW_ENERGY_SHAPES)]
+        return MovementStrategy(shape=shape, target_spot=spot, amplitude=max(35.0, amplitude))
+
+    elif relative_energy < 0.7:
+        # Medium energy: moderate shapes
+        spot = crowd_spots[0] if crowd_spots else (stage_spots[0] if stage_spots else None)
+        shape = _MEDIUM_ENERGY_SHAPES[section_index % len(_MEDIUM_ENERGY_SHAPES)]
+        return MovementStrategy(shape=shape, target_spot=spot, amplitude=max(35.0, amplitude))
+
+    else:
+        # High energy: dynamic wide shapes
+        spot = crowd_spots[0] if crowd_spots else None
+        wide_amplitude = min(80.0, amplitude * 1.2)
+        shape = _HIGH_ENERGY_SHAPES[section_index % len(_HIGH_ENERGY_SHAPES)]
+        return MovementStrategy(shape=shape, target_spot=spot, amplitude=wide_amplitude)
 
 
 VALID_SPEEDS = ["1/4", "1/2", "1", "2", "4"]

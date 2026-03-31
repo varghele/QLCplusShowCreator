@@ -122,22 +122,59 @@ def apply_vocal_rule(
 def compute_richness_weights(
     group_classifications: Dict[str, GroupClassification],
     spectral_richness: float,
+    spectral_flux: float = 0.5,
+    relative_energy: float = 0.5,
 ) -> Dict[str, float]:
-    """Compute intensity weight per group based on spectral richness.
+    """Compute intensity weight per group based on relative energy level.
 
-    All groups are always active. Richness scales secondary group intensity.
-    Low richness → primary groups full, secondary groups dimmed.
-    High richness → all groups full.
+    Uses tiered activation: quiet sections have fewer groups active.
+    Returns 0.0 for groups that should be inactive (no blocks generated).
+
+    Args:
+        relative_energy: 0.0-1.0, this section's energy relative to the song's range.
+            Computed by the generator from spectral flux normalization.
 
     Returns:
-        {group_name: weight} where weight is 0.3-1.0
+        {group_name: weight} where 0.0 = inactive, 0.1-1.0 = active
     """
     if not group_classifications:
         return {}
 
-    # Base weight: all groups get at least 0.3
-    base = 0.3 + 0.7 * spectral_richness
-    weights = {name: base for name in group_classifications}
+    # Sort groups by activation priority: front first, back last
+    zone_priority = {"front": 0, "mid": 1, "overhead": 2, "back": 3}
+    sorted_groups = sorted(
+        group_classifications.items(),
+        key=lambda x: zone_priority.get(x[1].zone, 2)
+    )
+
+    total = len(sorted_groups)
+    weights = {}
+
+    if relative_energy < 0.15:
+        # Very quiet: only 1 primary group, dimmed
+        for i, (name, gc) in enumerate(sorted_groups):
+            weights[name] = 0.3 if i == 0 else 0.0
+    elif relative_energy < 0.35:
+        # Low: 1-2 groups, primary full, secondary dimmed
+        num_active = max(1, min(2, total))
+        for i, (name, gc) in enumerate(sorted_groups):
+            if i < num_active:
+                weights[name] = 0.7 if i == 0 else 0.4
+            else:
+                weights[name] = 0.0
+    elif relative_energy < 0.65:
+        # Medium: most groups active, back dimmed
+        num_active = max(2, int(total * 0.75))
+        for i, (name, gc) in enumerate(sorted_groups):
+            if i < num_active:
+                weights[name] = 1.0 - i * 0.1
+            else:
+                weights[name] = 0.0
+    else:
+        # High: all groups active
+        for name in group_classifications:
+            weights[name] = 1.0
+
     return weights
 
 
