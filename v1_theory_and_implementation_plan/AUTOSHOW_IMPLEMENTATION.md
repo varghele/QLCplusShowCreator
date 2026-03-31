@@ -4,6 +4,8 @@
 **Target location:** `.claude/AUTOSHOW_IMPLEMENTATION.md`
 **Last Updated:** March 2026
 
+> **STATUS (2026-03-31):** Phase 16 (Rudiments) and Phase 24 (Auto-Generation) are both **COMPLETE**. All sub-phases implemented. The code below served as the implementation guide — actual implementation may differ in details (e.g., effect names were renamed, merged effects use parameters instead of separate functions). See `continuation.md` in project root for current state.
+
 ---
 
 ## Purpose
@@ -243,7 +245,7 @@ def rudiment_to_movement_block(
 | fade_in / fade_out | New effect type needed | Linear ramp |
 | cascade | New effect type needed | Build + release |
 
-For rudiments that don't have an existing effect type, new effect functions need to be added to `effects/dimmers.py`. This is the main body of work in this phase.
+For rudiments that don't have an existing effect type, new effect functions need to be added to `effects/dimmer_effects.py`. This is the main body of work in this phase.
 
 | Movement Rudiment | Existing Shape | Notes |
 |------------------|---------------|-------|
@@ -272,7 +274,7 @@ Movement rudiments map much more cleanly since most shapes already exist.
 
 **Goal:** Implement the dimmer effect functions for rudiments that don't have existing mappings.
 
-**Modified file:** `effects/dimmers.py`
+**Modified file:** `effects/dimmer_effects.py`
 
 New functions to add (following the existing pattern in this file):
 
@@ -724,7 +726,7 @@ Files to modify:
 
 ```
 config/models.py              # Add rudiment_name field to DimmerBlock, MovementBlock
-effects/dimmers.py            # New effect functions for missing rudiments
+effects/dimmer_effects.py            # New effect functions for missing rudiments
 utils/artnet/dmx_manager.py   # Register new effect types
 utils/to_xml/shows_to_xml.py  # Export support for new effects
 timeline_ui/dimmer_block_dialog.py   # Rudiment selector
@@ -763,7 +765,7 @@ The rudiment system is additive. Existing blocks without a `rudiment_name` field
 
 ### Rudiment ≠ Effect Type
 
-A rudiment is a theoretical concept with an envelope, parameters, and classification. An effect type is a concrete implementation in `effects/dimmers.py` that computes DMX values. Multiple rudiments could map to the same effect type with different default parameters (though in practice they're mostly 1:1).
+A rudiment is a theoretical concept with an envelope, parameters, and classification. An effect type is a concrete implementation in `effects/dimmer_effects.py` that computes DMX values. Multiple rudiments could map to the same effect type with different default parameters (though in practice they're mostly 1:1).
 
 ### Registry Is Static
 
@@ -802,7 +804,7 @@ librosa>=0.10.0
 | Theory Section | Implementation Phase | Key Files |
 |---------------|---------------------|-----------|
 | 2.1 Classification Rule | 16.1 | `rudiments/rudiment.py` |
-| 2.2 Intensity Rudiments | 16.2, 16.4 | `rudiments/registry.py`, `effects/dimmers.py` |
+| 2.2 Intensity Rudiments | 16.2, 16.4 | `rudiments/registry.py`, `effects/dimmer_effects.py` |
 | 2.3 Movement Rudiments | 16.2 | `rudiments/registry.py` |
 | 2.5 Flux Envelope | 16.1 | `rudiments/rudiment.py` (FluxEnvelope) |
 | 3.1–3.4 Audio Analysis | 24.1 | `audio/spectral_analysis.py` |

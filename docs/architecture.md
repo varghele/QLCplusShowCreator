@@ -53,6 +53,20 @@ QLCplusShowCreator/
 │   ├── simple_audio_player.py # pygame-based playback
 │   ├── waveform_analyzer.py   # Waveform peak detection
 │   └── audio_waveform_widget.py  # Visual waveform display
+├── effects/                   # Effect computation module (extracted from dmx_manager)
+│   ├── types.py               # DimmerContext/Result, MovementContext/Result
+│   ├── timing.py              # parse_speed(), get_bpm()
+│   ├── dimmer_effects.py      # 15 dimmer effects + DIMMER_REGISTRY
+│   └── movement_effects.py    # 11 movement shapes + MOVEMENT_REGISTRY
+├── rudiments/                 # Rudiment system (Phase 16)
+│   ├── rudiment.py            # Rudiment, FluxEnvelope, enums
+│   ├── registry.py            # 15 intensity + 11 movement rudiments
+│   └── block_converter.py     # rudiment → DimmerBlock/MovementBlock
+├── autogen/                   # Automatic show generation (Phase 24)
+│   ├── generator.py           # Main orchestrator
+│   ├── matcher.py             # Rudiment matching engine
+│   ├── spatial.py             # Fixture group classification, activation rules
+│   └── color_generator.py     # Song-level color palette system
 ├── riffs/                     # Reusable effect library (see riffs.md)
 │   ├── riff_library.py
 │   ├── builds/, drops/, fills/, loops/, movement/, custom/

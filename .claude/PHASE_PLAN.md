@@ -385,22 +385,20 @@ Rework of the effects system with improved dimmer effects:
 
 ## Current / Upcoming Phases (Show Creator)
 
-### Phase 16: Light Rudiments System (PLANNED - Near Term)
+### Phase 16: Light Rudiments System (COMPLETE - March 2026)
 
-Foundational rework of the lighting effect architecture. Inspired by drum rudiments — define the smallest atomic light patterns that compose into effects and riffs.
+Foundational rework of the lighting effect architecture. Inspired by drum rudiments — atomic light patterns composable into effects and riffs.
 
-**Architecture:** Rudiments → Effects → Riffs
+**Prerequisite completed:** All effect logic extracted from `utils/artnet/dmx_manager.py` into `effects/` module (dimmer_effects.py, movement_effects.py) with registry-based dispatch. All effect names renamed to rudiment vocabulary.
 
-- [ ] Define rudiment vocabulary (atomic light patterns):
-  - Dimmer rudiments: static, strobe, ping_pong, fade_in, fade_out, pulse, etc.
-  - Colour rudiments: static_color, color_sweep, rainbow, etc.
-  - Movement rudiments: static_position, circle, sweep, bounce, etc.
-- [ ] Rudiment data model and parameter system
-- [ ] Effects as compositions of rudiments (with timing, layering)
-- [ ] Riff as a named, reusable sequence of effects
-- [ ] Migration path from current block-based system to rudiment-based system
-- [ ] UI for building effects from rudiments
-- [ ] UI for composing riffs from effects
+- [x] 16.1 Rudiment data model (`rudiments/rudiment.py`) — Rudiment, FluxEnvelope, RudimentParameter, enums
+- [x] 16.2 Rudiment registry (`rudiments/registry.py`) — 15 intensity + 11 movement rudiments with envelopes
+- [x] 16.3 Block converter (`rudiments/block_converter.py`) — rudiment + params → DimmerBlock/MovementBlock
+- [x] 16.4 New effect functions — fade, cascade added; effects renamed (hit→stroke, twinkle→sparkle, etc.)
+- [x] 16.5 Rudiment selection UI — dimmer dialog updated with direction, chase_scope, phase_offset, build_fraction controls
+- [x] 16.6 Integration verification — full pipeline tested, 429 tests passing
+
+**New DimmerBlock fields:** direction, chase_scope, phase_offset_per_fixture, build_fraction
 
 ### Phase 17: Effect Blending & Transitions (PLANNED - Near Term)
 
@@ -488,16 +486,18 @@ Automated offline rendering of shows to video, bypassing ArtNet for frame-accura
 
 ## Long-Term Phases (Show Creator)
 
-### Phase 24: Automatic Show Generation (LONG TERM)
+### Phase 24: Automatic Show Generation (COMPLETE - March 2026)
 
-AI-assisted show generation (requires rudiment-based lighting system):
+Algorithmic show generation based on audio analysis and rudiment matching:
 
-- [ ] Audio file analysis (beat detection, spectral analysis)
-- [ ] Song structure auto-detection
-- [ ] Effect suggestion based on audio and rudiments
-- [ ] Automatic show generation algorithm
+- [x] 24.1 Audio analysis (`audio/spectral_analysis.py`) — spectral flux, transients, richness, vocal presence, centroid via librosa
+- [x] 24.2 Color palette generator (`autogen/color_generator.py`) — song-level palette (max 3 colors + white), 10 presets, section assignment
+- [x] 24.3 Rudiment matching engine (`autogen/matcher.py`) — three-dimensional matching, iterative per-group selection with diversity/complement scoring
+- [x] 24.4 Show generator (`autogen/generator.py`) — full pipeline: analyze → match → phrase structure → block generation
+- [x] 24.5 Spatial rules (`autogen/spatial.py`) — tiered group activation, vocal rules, plane targeting, gobo/prism activation
+- [x] 24.6 Generator UI (`gui/dialogs/autogen_dialog.py`) — Auto-Generate button in Shows tab, config dialog, background thread
 
-*Note: Detailed plan exists separately. Prerequisite: Phase 16 (Light Rudiments) must be complete. Was Phase 23, renumbered after Phase 23 (Render-to-Video) was inserted.*
+**Known gaps:** No decision logging/investigation system, no section transition handling, no live mode. See `v1_theory_and_implementation_plan/autofuture.md`.
 
 ---
 
