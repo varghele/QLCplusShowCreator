@@ -441,7 +441,7 @@ class MovementBlockDialog(QDialog):
         self.effect_type_combo = QComboBox()
         self.effect_type_combo.addItems([
             "static", "circle", "diamond", "lissajous", "figure_8",
-            "square", "triangle", "random", "bounce"
+            "square", "triangle", "random", "bounce", "linear_sweep", "fan"
         ])
         effect_layout.addRow("Effect Type:", self.effect_type_combo)
 

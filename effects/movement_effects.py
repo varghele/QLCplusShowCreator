@@ -122,6 +122,40 @@ def bounce(ctx: MovementContext) -> MovementResult:
     return MovementResult(pan=pan, tilt=tilt)
 
 
+def linear_sweep(ctx: MovementContext) -> MovementResult:
+    """Back-and-forth along one axis using triangle wave."""
+    sweep_t = ctx.progress * 2 * ctx.total_cycles
+    if ctx.phase_offset_enabled and ctx.total_fixtures > 1:
+        phase_offset_cycles = (ctx.fixture_index * ctx.phase_offset_degrees / 360.0) * 2
+        sweep_t = sweep_t + phase_offset_cycles
+    # Triangle wave: 0→1→0→1...
+    sweep_pos = abs((sweep_t % 2) - 1)
+    pan = ctx.center_pan - ctx.pan_amplitude + 2 * ctx.pan_amplitude * sweep_pos
+    tilt = ctx.center_tilt
+    return MovementResult(pan=pan, tilt=tilt)
+
+
+def fan(ctx: MovementContext) -> MovementResult:
+    """Synchronized spread/converge across fixture group.
+
+    Fixtures fan out from center position, with spread proportional
+    to their index. The spread oscillates over time.
+    """
+    # Oscillating spread factor: 0 (converged) to 1 (full spread)
+    spread = (math.sin(ctx.t) + 1) / 2
+
+    # Each fixture gets an offset proportional to its position in the group
+    if ctx.total_fixtures > 1:
+        # Normalize fixture position to -1..+1 range centered on the group
+        normalized_pos = (2 * ctx.fixture_index / (ctx.total_fixtures - 1)) - 1
+    else:
+        normalized_pos = 0.0
+
+    pan = ctx.center_pan + ctx.pan_amplitude * normalized_pos * spread
+    tilt = ctx.center_tilt + ctx.tilt_amplitude * normalized_pos * spread * 0.3
+    return MovementResult(pan=pan, tilt=tilt)
+
+
 MOVEMENT_REGISTRY: Dict[str, Callable[[MovementContext], MovementResult]] = {
     "static": static,
     "circle": circle,
@@ -132,4 +166,6 @@ MOVEMENT_REGISTRY: Dict[str, Callable[[MovementContext], MovementResult]] = {
     "lissajous": lissajous,
     "random": random_movement,
     "bounce": bounce,
+    "linear_sweep": linear_sweep,
+    "fan": fan,
 }

@@ -104,10 +104,11 @@ class TestRegistries:
         }
         assert set(DIMMER_REGISTRY.keys()) == expected
 
-    def test_movement_registry_has_all_9(self):
+    def test_movement_registry_has_all_11(self):
         expected = {
             "static", "circle", "diamond", "square", "triangle",
             "figure_8", "lissajous", "random", "bounce",
+            "linear_sweep", "fan",
         }
         assert set(MOVEMENT_REGISTRY.keys()) == expected
 

@@ -6,7 +6,7 @@ import csv
 from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QComboBox, QPushButton,
                              QLabel, QSlider, QScrollArea, QWidget, QFrame,
                              QSplitter, QSizePolicy, QInputDialog, QMessageBox, QCheckBox,
-                             QApplication)
+                             QApplication, QDialog)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint, QRect
 from PyQt6.QtGui import QShortcut, QKeySequence
 from config.models import Configuration, Show, ShowPart, TimelineData, LightBlock, ShowEffect
@@ -194,6 +194,29 @@ class ShowsTab(BaseTab):
         """)
         toolbar.addWidget(self.add_lane_btn)
 
+        toolbar.addSpacing(10)
+
+        # Auto-generate button
+        self.autogen_btn = QPushButton("Auto-Generate")
+        self.autogen_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9C27B0;
+                color: white;
+                font-weight: bold;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #AB47BC;
+            }
+            QPushButton:disabled {
+                background-color: #666;
+            }
+        """)
+        self.autogen_btn.setToolTip("Automatically generate light show from audio analysis")
+        toolbar.addWidget(self.autogen_btn)
+
         toolbar.addSpacing(20)
 
         # Zoom control
@@ -307,6 +330,7 @@ class ShowsTab(BaseTab):
         # Toolbar
         self.show_combo.currentTextChanged.connect(self._on_show_changed)
         self.add_lane_btn.clicked.connect(self._add_new_lane)
+        self.autogen_btn.clicked.connect(self._on_autogenerate)
         self.zoom_slider.valueChanged.connect(self._on_zoom_changed)
         self.save_btn.clicked.connect(self.save_to_config)
 
@@ -635,6 +659,127 @@ class ShowsTab(BaseTab):
 
         if progress:
             progress.finish_status()
+
+    def _on_autogenerate(self):
+        """Open auto-generation dialog and generate show."""
+        if not self.current_show_name:
+            QMessageBox.warning(self, "No Show Selected",
+                "Please select a show first.", QMessageBox.StandardButton.Ok)
+            return
+
+        show = self.config.shows.get(self.current_show_name)
+        if not show or not show.parts:
+            QMessageBox.warning(self, "No Song Structure",
+                "The show has no song parts defined. Add parts in the Structure tab first.",
+                QMessageBox.StandardButton.Ok)
+            return
+
+        # Get audio file path
+        audio_path = self.audio_lane.get_audio_file_path() if hasattr(self, 'audio_lane') else None
+        if not audio_path:
+            QMessageBox.warning(self, "No Audio File",
+                "Load an audio file first for analysis.",
+                QMessageBox.StandardButton.Ok)
+            return
+
+        # Resolve audio path
+        import os
+        if not os.path.isabs(audio_path):
+            shows_dir = self.config.shows_directory or "shows"
+            audio_path = os.path.join(shows_dir, "audiofiles", audio_path)
+
+        if not os.path.exists(audio_path):
+            QMessageBox.warning(self, "Audio File Not Found",
+                f"Cannot find audio file:\n{audio_path}",
+                QMessageBox.StandardButton.Ok)
+            return
+
+        # Check for fixture groups
+        if not self.config.groups:
+            QMessageBox.warning(self, "No Fixture Groups",
+                "Define fixture groups in the Fixtures tab first.",
+                QMessageBox.StandardButton.Ok)
+            return
+
+        # Open config dialog
+        from gui.dialogs.autogen_dialog import AutogenDialog, AutogenWorker
+        dialog = AutogenDialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        autogen_config = dialog.result_config
+        key_signature = dialog.result_key_signature
+
+        # Build song structure
+        song_structure = SongStructure()
+        song_structure.load_from_show_parts(show.parts)
+
+        # Disable button during generation
+        self.autogen_btn.setEnabled(False)
+        self.autogen_btn.setText("Generating...")
+
+        # Run in background thread
+        self._autogen_worker = AutogenWorker(
+            audio_path, song_structure, self.config, autogen_config, key_signature
+        )
+        self._autogen_worker.finished.connect(self._on_autogen_finished)
+        self._autogen_worker.error.connect(self._on_autogen_error)
+        self._autogen_worker.start()
+
+    def _on_autogen_finished(self, lanes):
+        """Handle generated lanes from background worker."""
+        self.autogen_btn.setEnabled(True)
+        self.autogen_btn.setText("Auto-Generate")
+
+        if not lanes:
+            QMessageBox.information(self, "Auto-Generate",
+                "No lanes were generated. Check fixture groups and song structure.",
+                QMessageBox.StandardButton.Ok)
+            return
+
+        # Ask user whether to replace or append
+        result = QMessageBox.question(
+            self, "Auto-Generate Complete",
+            f"Generated {len(lanes)} lanes with light blocks.\n\n"
+            "Replace existing lanes or append to them?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+        )
+
+        if result == QMessageBox.StandardButton.Cancel:
+            return
+
+        if result == QMessageBox.StandardButton.Yes:
+            # Replace: remove all existing lanes
+            for widget in list(self.lane_widgets):
+                self._remove_lane_widget(widget)
+
+        # Add generated lanes
+        for lane_data in lanes:
+            lane = LightLane(lane_data.name)
+            lane.fixture_targets = lane_data.fixture_targets
+            lane.light_blocks = lane_data.light_blocks
+            self._add_lane_widget(lane)
+
+        # Update ArtNet controller
+        if self.artnet_controller:
+            self.artnet_controller.set_light_lanes(
+                [widget.lane for widget in self.lane_widgets]
+            )
+
+        # Save to config
+        self.save_to_config()
+
+        QMessageBox.information(self, "Auto-Generate",
+            f"Successfully generated {len(lanes)} lanes.",
+            QMessageBox.StandardButton.Ok)
+
+    def _on_autogen_error(self, error_msg):
+        """Handle auto-generation error."""
+        self.autogen_btn.setEnabled(True)
+        self.autogen_btn.setText("Auto-Generate")
+        QMessageBox.critical(self, "Auto-Generate Error",
+            f"Generation failed:\n{error_msg}",
+            QMessageBox.StandardButton.Ok)
 
     def _remove_lane_widget(self, lane_widget: LightLaneWidget):
         """Remove a lane widget."""
