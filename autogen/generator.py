@@ -27,7 +27,8 @@ from autogen.color_generator import (
     get_preset_palette,
 )
 from autogen.matcher import (
-    match_rudiments_to_section, select_groove_and_fill, AutogenConfig,
+    match_rudiments_to_section, select_groove_and_fill,
+    select_rudiments_per_group, AutogenConfig,
 )
 from autogen.spatial import (
     classify_fixture_groups, apply_vocal_rule, compute_richness_weights,
@@ -126,9 +127,10 @@ def generate_show(
             autogen_config.spectral_richness_prism_threshold,
         )
 
-        # Select groove and fill rudiments
-        groove_name, fill_name = select_groove_and_fill(
-            section, part.bpm, autogen_config,
+        # Select different groove+fill rudiments per fixture group (visual diversity)
+        group_names = list(group_classifications.keys())
+        per_group_rudiments = select_rudiments_per_group(
+            section, part.bpm, group_names, autogen_config,
             previous_section_rudiments=previous_rudiments,
             section_type=section_type,
             previous_section_type=previous_section_type,
@@ -138,21 +140,30 @@ def generate_show(
         section_idx = song_structure.parts.index(part)
         movement = _select_movement_strategy(section, part.bpm, spot_names, section_idx)
 
-        # Store for cross-section contrast
-        current_rudiments = {"intensity": groove_name, "movement": movement.shape}
+        # Store primary group's rudiment for cross-section contrast
+        primary_groove = per_group_rudiments[group_names[0]][0] if group_names else "static"
+        current_rudiments = {"intensity": primary_groove, "movement": movement.shape}
         section_rudiments[part.name] = current_rudiments
         previous_rudiments = current_rudiments
         previous_section_type = section_type
 
-        # Generate blocks for ALL fixture groups
-        for group_name, gc in group_classifications.items():
+        # Generate blocks for ALL fixture groups (each with its own rudiment)
+        for group_idx, (group_name, gc) in enumerate(group_classifications.items()):
             if group_name not in lanes:
                 continue
+
+            groove_name, fill_name = per_group_rudiments.get(
+                group_name, (primary_groove, primary_groove)
+            )
 
             # Combine vocal and richness weights
             vocal_w = vocal_weights.get(group_name, 1.0)
             richness_w = richness_weights.get(group_name, 1.0)
             combined_weight = vocal_w * richness_w
+
+            # Compute speed: BPM + energy, with per-group offset for variation
+            speed_offset = (group_idx % 3) - 1  # -1, 0, +1
+            effect_speed = _compute_effect_speed(part.bpm, section, offset=speed_offset)
 
             _generate_section_blocks(
                 lane=lanes[group_name],
@@ -164,7 +175,8 @@ def generate_show(
                 gobo_prism=gobo_prism.get(group_name, {}),
                 weight=combined_weight,
                 config=autogen_config,
-                color_index=list(group_classifications.keys()).index(group_name) % 3,
+                color_index=group_idx % 3,
+                effect_speed=effect_speed,
             )
 
     return list(lanes.values())
@@ -181,8 +193,9 @@ def _find_section(analysis: SongAnalysis, part: ShowPart) -> Optional[SectionAna
 @dataclass
 class MovementStrategy:
     """Movement decision for a section."""
-    shape: str = "static"
+    shape: str = "circle"
     target_spot: Optional[str] = None
+    amplitude: float = 50.0  # Pan/tilt amplitude, scaled by energy
 
 
 def _select_movement_strategy(
@@ -191,12 +204,16 @@ def _select_movement_strategy(
     spot_names: List[str],
     section_index: int = 0,
 ) -> MovementStrategy:
-    """Select movement shape and spot targeting based on section character.
+    """Select movement shape, spot targeting, and amplitude based on section character.
 
-    Vocal/calm sections → spot targeting (crowd/stage).
-    High-energy sections → dynamic shapes.
+    Spots serve as CENTER POSITIONS for dynamic shapes — the shape orbits the spot.
+    Amplitude scales with energy: calm → small orbits, intense → wide sweeps.
     """
     energy = section.spectral_flux_avg + section.transient_sharpness
+
+    # Amplitude scales with energy: 15 (calm) to 80 (intense)
+    amplitude = 15.0 + energy * 40.0
+    amplitude = max(15.0, min(80.0, amplitude))
 
     # Crowd spots for vocal targeting, stage spots for non-vocal
     crowd_spots = [s for s in spot_names if "crowd" in s.lower()]
@@ -204,29 +221,59 @@ def _select_movement_strategy(
     all_spots = crowd_spots + stage_spots
 
     if energy > 1.0:
-        # High energy: dynamic shapes, no spot targeting
+        # High energy: wide dynamic shapes, no spot (free roam)
         if energy > 1.4:
-            return MovementStrategy(shape="circle")
+            return MovementStrategy(shape="circle", amplitude=amplitude)
         else:
-            return MovementStrategy(shape="figure_8")
+            return MovementStrategy(shape="figure_8", amplitude=amplitude)
     elif energy > 0.6:
-        # Medium energy: dynamic shape with spot as center
-        spot = None
-        if all_spots:
-            spot = all_spots[section_index % len(all_spots)]
-        return MovementStrategy(shape="bounce", target_spot=spot)
+        # Medium energy: dynamic shape centered on a spot
+        spot = all_spots[section_index % len(all_spots)] if all_spots else None
+        return MovementStrategy(shape="bounce", target_spot=spot, amplitude=amplitude)
     else:
-        # Low energy / vocal: spot targeting (static or gentle movement)
+        # Low energy: gentle shapes centered on spots
         if section.vocal_presence > 0.4 and crowd_spots:
-            # Vocal: point at crowd
             spot = crowd_spots[section_index % len(crowd_spots)]
-            return MovementStrategy(shape="static", target_spot=spot)
+            return MovementStrategy(shape="circle", target_spot=spot, amplitude=amplitude)
         elif stage_spots:
-            # Non-vocal calm: point at stage
             spot = stage_spots[section_index % len(stage_spots)]
-            return MovementStrategy(shape="static", target_spot=spot)
+            return MovementStrategy(shape="linear_sweep", target_spot=spot, amplitude=amplitude)
         else:
-            return MovementStrategy(shape="linear_sweep")
+            return MovementStrategy(shape="circle", amplitude=amplitude)
+
+
+VALID_SPEEDS = ["1/4", "1/2", "1", "2", "4"]
+SPEED_VALUES = [0.25, 0.5, 1.0, 2.0, 4.0]
+
+
+def _compute_effect_speed(bpm: float, section: SectionAnalysis, offset: int = 0) -> str:
+    """Compute effect speed from BPM + section energy.
+
+    Args:
+        bpm: Section BPM
+        section: Audio analysis for energy scaling
+        offset: Speed step offset for per-group variation (-1, 0, +1)
+
+    Returns:
+        Speed string like "1/2", "1", "2"
+    """
+    base_speed = bpm / 120.0
+    energy = section.spectral_flux_avg + section.transient_sharpness
+    energy_multiplier = 1.0 + energy * 0.3
+    raw_speed = base_speed * energy_multiplier
+
+    # Find closest valid speed
+    best_idx = 0
+    best_dist = abs(SPEED_VALUES[0] - raw_speed)
+    for i, sv in enumerate(SPEED_VALUES):
+        dist = abs(sv - raw_speed)
+        if dist < best_dist:
+            best_dist = dist
+            best_idx = i
+
+    # Apply group offset (shift up/down one step)
+    best_idx = max(0, min(len(VALID_SPEEDS) - 1, best_idx + offset))
+    return VALID_SPEEDS[best_idx]
 
 
 def _generate_section_blocks(
@@ -240,6 +287,7 @@ def _generate_section_blocks(
     weight: float,
     config: AutogenConfig,
     color_index: int,
+    effect_speed: str = "1",
 ):
     """Generate LightBlocks for one fixture group in one section.
 
@@ -296,7 +344,7 @@ def _generate_section_blocks(
         _add_light_block(
             lane, current_time, groove_end,
             groove_name, movement_strategy, color_assignment,
-            gobo_prism, weight, part.bpm, color_index,
+            gobo_prism, weight, part.bpm, color_index, effect_speed,
         )
 
         # Fill portion (if any)
@@ -306,7 +354,7 @@ def _generate_section_blocks(
             _add_light_block(
                 lane, fill_start, fill_end,
                 fill_name, movement_strategy, color_assignment,
-                gobo_prism, weight, part.bpm, color_index,
+                gobo_prism, weight, part.bpm, color_index, effect_speed,
             )
             current_time = fill_end
         else:
@@ -319,7 +367,7 @@ def _generate_section_blocks(
         _add_light_block(
             lane, current_time, remainder_end,
             groove_name, movement_strategy, color_assignment,
-            gobo_prism, weight, part.bpm, color_index,
+            gobo_prism, weight, part.bpm, color_index, effect_speed,
         )
 
 
@@ -334,14 +382,16 @@ def _add_light_block(
     weight: float,
     bpm: float,
     color_index: int,
+    effect_speed: str = "1",
 ):
     """Create and add a single LightBlock to a lane."""
     # Dimmer block
     dimmer = rudiment_to_dimmer_block(
         intensity_rudiment,
-        {"intensity": weight, "speed": 1.0},
+        {"intensity": weight},
         start_time, end_time,
     )
+    dimmer.effect_speed = effect_speed
     dimmer_blocks = [dimmer]
 
     # Colour block from section color assignment
@@ -361,9 +411,11 @@ def _add_light_block(
     movement_blocks = []
     if movement_strategy:
         mb = rudiment_to_movement_block(
-            movement_strategy.shape, {"speed": 1.0},
+            movement_strategy.shape,
+            {"amplitude": movement_strategy.amplitude},
             start_time, end_time,
         )
+        mb.effect_speed = effect_speed
         if movement_strategy.target_spot:
             mb.target_spot_name = movement_strategy.target_spot
         movement_blocks.append(mb)

@@ -375,3 +375,69 @@ def select_groove_and_fill(
             break
 
     return groove_name, fill_name
+
+
+def select_rudiments_per_group(
+    section: SectionAnalysis,
+    bpm: float,
+    group_names: List[str],
+    config: Optional[AutogenConfig] = None,
+    previous_section_rudiments: Optional[Dict[str, str]] = None,
+    section_type: str = "generic",
+    previous_section_type: Optional[str] = None,
+) -> Dict[str, Tuple[str, str]]:
+    """Select different groove+fill rudiments per fixture group.
+
+    Assigns different rudiments to different groups for visual depth.
+    The primary group gets the best match; subsequent groups cycle
+    through the next-best candidates.
+
+    Returns:
+        {group_name: (groove_name, fill_name)}
+    """
+    if config is None:
+        config = AutogenConfig()
+
+    if not group_names:
+        return {}
+
+    scores = match_rudiments_to_section(
+        section, bpm,
+        previous_section_rudiments=previous_section_rudiments,
+        section_type=section_type,
+        previous_section_type=previous_section_type,
+        config=config,
+    )
+
+    intensity_rudiments = get_intensity_rudiments()
+    ranked = list(scores.keys())  # Already sorted by score descending
+
+    result = {}
+    used_grooves = set()
+
+    for i, group_name in enumerate(group_names):
+        # Pick the next unused groove from ranked candidates
+        groove_name = None
+        for candidate in ranked:
+            if candidate not in used_grooves:
+                groove_name = candidate
+                break
+        if groove_name is None:
+            # All candidates used — reuse from top (wrap around)
+            groove_name = ranked[i % len(ranked)]
+        used_grooves.add(groove_name)
+
+        groove_flux = intensity_rudiments[groove_name].average_flux
+
+        # Fill = highest-scoring candidate with higher flux than this group's groove
+        fill_name = groove_name  # Fallback
+        for candidate in ranked:
+            if candidate == groove_name:
+                continue
+            if intensity_rudiments[candidate].average_flux > groove_flux:
+                fill_name = candidate
+                break
+
+        result[group_name] = (groove_name, fill_name)
+
+    return result

@@ -61,11 +61,14 @@ def classify_fixture_groups(config: Configuration) -> Dict[str, GroupClassificat
         )
 
         capabilities = group.capabilities
-        has_gobos = False
-        has_prism = False
+        has_special = False
         if capabilities:
-            has_gobos = getattr(capabilities, 'has_gobo', False)
-            has_prism = getattr(capabilities, 'has_prism', False)
+            has_special = getattr(capabilities, 'has_special', False)
+        # If no capabilities detected, infer from fixture type (MH/WASH often have gobos)
+        if not has_special and has_mh:
+            has_special = True
+        has_gobos = has_special
+        has_prism = has_special
 
         classifications[group_name] = GroupClassification(
             name=group_name,
