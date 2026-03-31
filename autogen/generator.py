@@ -206,8 +206,8 @@ def _select_movement_strategy(
 ) -> MovementStrategy:
     """Select movement shape, spot targeting, and amplitude based on section character.
 
-    Spots serve as CENTER POSITIONS for dynamic shapes — the shape orbits the spot.
-    Amplitude scales with energy: calm → small orbits, intense → wide sweeps.
+    Uses plane-style targeting: center spot + wide amplitude = sweep across area.
+    Vocal focus only when vocals are prominent AND instrumentation is sparse (solo moment).
     """
     energy = section.spectral_flux_avg + section.transient_sharpness
 
@@ -215,29 +215,34 @@ def _select_movement_strategy(
     amplitude = 15.0 + energy * 40.0
     amplitude = max(15.0, min(80.0, amplitude))
 
-    # Crowd spots for vocal targeting, stage spots for non-vocal
+    # Plane spots: "Crowd" and "Stage" center spots for sweeping
     crowd_spots = [s for s in spot_names if "crowd" in s.lower()]
     stage_spots = [s for s in spot_names if "stage" in s.lower()]
-    all_spots = crowd_spots + stage_spots
+
+    # Vocal focus: only when vocals are prominent AND instrumentation is sparse
+    # This targets solo/intimate moments, not full-band choruses
+    vocal_solo = section.vocal_presence > 0.4 and section.spectral_richness < 0.5
 
     if energy > 1.0:
-        # High energy: wide dynamic shapes, no spot (free roam)
+        # High energy: wide dynamic shapes, sweep across crowd plane
+        spot = crowd_spots[0] if crowd_spots else None
+        wide_amplitude = min(80.0, amplitude * 1.3)  # Extra wide for high energy
         if energy > 1.4:
-            return MovementStrategy(shape="circle", amplitude=amplitude)
+            return MovementStrategy(shape="circle", target_spot=spot, amplitude=wide_amplitude)
         else:
-            return MovementStrategy(shape="figure_8", amplitude=amplitude)
+            return MovementStrategy(shape="figure_8", target_spot=spot, amplitude=wide_amplitude)
     elif energy > 0.6:
-        # Medium energy: dynamic shape centered on a spot
-        spot = all_spots[section_index % len(all_spots)] if all_spots else None
+        # Medium energy: dynamic shape sweeping crowd or stage
+        spot = crowd_spots[0] if crowd_spots else (stage_spots[0] if stage_spots else None)
         return MovementStrategy(shape="bounce", target_spot=spot, amplitude=amplitude)
     else:
-        # Low energy: gentle shapes centered on spots
-        if section.vocal_presence > 0.4 and crowd_spots:
-            spot = crowd_spots[section_index % len(crowd_spots)]
-            return MovementStrategy(shape="circle", target_spot=spot, amplitude=amplitude)
+        # Low energy
+        if vocal_solo and crowd_spots:
+            # Sparse vocal solo: gentle sweep across crowd (not a fixed stare)
+            return MovementStrategy(shape="circle", target_spot=crowd_spots[0], amplitude=amplitude)
         elif stage_spots:
-            spot = stage_spots[section_index % len(stage_spots)]
-            return MovementStrategy(shape="linear_sweep", target_spot=spot, amplitude=amplitude)
+            # Calm/atmospheric: sweep stage area
+            return MovementStrategy(shape="linear_sweep", target_spot=stage_spots[0], amplitude=amplitude)
         else:
             return MovementStrategy(shape="circle", amplitude=amplitude)
 
@@ -407,15 +412,23 @@ def _add_light_block(
             white=255.0 if color == (255, 255, 255) else 0.0,
         ))
 
-    # Movement block (if applicable)
+    # Movement block (if applicable) — movement is 1 speed step slower than dimmer
     movement_blocks = []
     if movement_strategy:
+        # Compute movement speed: one step slower than dimmer
+        try:
+            dimmer_idx = VALID_SPEEDS.index(effect_speed)
+        except ValueError:
+            dimmer_idx = 2  # Default to "1"
+        movement_speed_idx = max(0, dimmer_idx - 1)
+        movement_speed = VALID_SPEEDS[movement_speed_idx]
+
         mb = rudiment_to_movement_block(
             movement_strategy.shape,
             {"amplitude": movement_strategy.amplitude},
             start_time, end_time,
         )
-        mb.effect_speed = effect_speed
+        mb.effect_speed = movement_speed
         if movement_strategy.target_spot:
             mb.target_spot_name = movement_strategy.target_spot
         movement_blocks.append(mb)

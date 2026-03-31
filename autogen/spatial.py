@@ -162,11 +162,12 @@ def get_gobo_prism_groups(
 
 
 def ensure_default_spots(config: Configuration) -> List[str]:
-    """Create default spots if none exist. Returns list of spot names.
+    """Create default plane-center spots if none exist. Returns list of spot names.
 
-    Auto-creates spots based on stage dimensions:
-    - Crowd positions (front of stage, audience side)
-    - Stage positions (center, back)
+    Creates center spots for sweep planes:
+    - "Crowd" — center of audience area (y=0), moving heads sweep across with amplitude
+    - "Stage" — center of stage area, for atmospheric sweeps
+    User-defined spots are preserved and take priority.
     """
     if config.spots:
         return list(config.spots.keys())
@@ -174,12 +175,10 @@ def ensure_default_spots(config: Configuration) -> List[str]:
     stage_w = config.stage_width if hasattr(config, 'stage_width') and config.stage_width else 8.0
     stage_d = config.stage_height if hasattr(config, 'stage_height') and config.stage_height else 6.0
 
+    # Plane center spots — shapes sweep around these with amplitude controlling width
     default_spots = {
-        "Crowd Left": Spot(name="Crowd Left", x=-stage_w * 0.3, y=0.0, z=0.0),
-        "Crowd Center": Spot(name="Crowd Center", x=0.0, y=0.0, z=0.0),
-        "Crowd Right": Spot(name="Crowd Right", x=stage_w * 0.3, y=0.0, z=0.0),
-        "Stage Center": Spot(name="Stage Center", x=0.0, y=stage_d * 0.5, z=0.0),
-        "Stage Back": Spot(name="Stage Back", x=0.0, y=stage_d * 0.8, z=0.0),
+        "Crowd": Spot(name="Crowd", x=0.0, y=0.0, z=0.0),
+        "Stage": Spot(name="Stage", x=0.0, y=stage_d * 0.5, z=0.0),
     }
 
     for name, spot in default_spots.items():

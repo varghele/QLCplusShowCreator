@@ -377,6 +377,64 @@ def select_groove_and_fill(
     return groove_name, fill_name
 
 
+
+# Complementary envelope category pairs (these look good together)
+COMPLEMENTARY_PAIRS = {
+    EnvelopeCategory.SPIKE: {EnvelopeCategory.ROLLING, EnvelopeCategory.OSCILLATING},
+    EnvelopeCategory.ROLLING: {EnvelopeCategory.SPIKE, EnvelopeCategory.FLAT},
+    EnvelopeCategory.OSCILLATING: {EnvelopeCategory.FLAT, EnvelopeCategory.SPIKE},
+    EnvelopeCategory.FLAT: {EnvelopeCategory.OSCILLATING, EnvelopeCategory.ROLLING},
+    EnvelopeCategory.RAMP: {EnvelopeCategory.STOCHASTIC, EnvelopeCategory.OSCILLATING},
+    EnvelopeCategory.STOCHASTIC: {EnvelopeCategory.RAMP, EnvelopeCategory.FLAT},
+}
+
+
+def _compute_diversity_adjustment(
+    candidate_name: str,
+    current_assignments: Dict[str, str],
+    intensity_rudiments: Dict[str, Rudiment],
+) -> float:
+    """Compute scoring adjustment for diversity in a multi-group context.
+
+    Penalizes same rudiment or same category as other groups.
+    Rewards complementary categories.
+    """
+    if not current_assignments:
+        return 0.0
+
+    candidate = intensity_rudiments.get(candidate_name)
+    if not candidate:
+        return 0.0
+
+    adjustment = 0.0
+    other_names = set(current_assignments.values())
+    other_categories = []
+    for name in other_names:
+        r = intensity_rudiments.get(name)
+        if r:
+            other_categories.append(r.envelope.category)
+
+    # Penalty: same rudiment as another group
+    if candidate_name in other_names:
+        adjustment -= 0.15
+
+    # Penalty: same envelope category as >50% of other groups
+    if other_categories:
+        same_cat_count = sum(1 for c in other_categories if c == candidate.envelope.category)
+        if same_cat_count > len(other_categories) * 0.5:
+            adjustment -= 0.1
+
+    # Bonus: complementary to the most common category in other groups
+    if other_categories:
+        from collections import Counter
+        most_common = Counter(other_categories).most_common(1)[0][0]
+        complements = COMPLEMENTARY_PAIRS.get(candidate.envelope.category, set())
+        if most_common in complements:
+            adjustment += 0.1
+
+    return adjustment
+
+
 def select_rudiments_per_group(
     section: SectionAnalysis,
     bpm: float,
@@ -388,9 +446,9 @@ def select_rudiments_per_group(
 ) -> Dict[str, Tuple[str, str]]:
     """Select different groove+fill rudiments per fixture group.
 
-    Assigns different rudiments to different groups for visual depth.
-    The primary group gets the best match; subsequent groups cycle
-    through the next-best candidates.
+    Uses iterative refinement: each round re-scores candidates with
+    diversity penalties/bonuses based on what other groups are using.
+    Iterates until stable or max 10 rounds.
 
     Returns:
         {group_name: (groove_name, fill_name)}
@@ -401,7 +459,8 @@ def select_rudiments_per_group(
     if not group_names:
         return {}
 
-    scores = match_rudiments_to_section(
+    # Base scores (audio matching, independent of group assignment)
+    base_scores = match_rudiments_to_section(
         section, bpm,
         previous_section_rudiments=previous_section_rudiments,
         section_type=section_type,
@@ -410,26 +469,49 @@ def select_rudiments_per_group(
     )
 
     intensity_rudiments = get_intensity_rudiments()
-    ranked = list(scores.keys())  # Already sorted by score descending
+    ranked = list(base_scores.keys())
 
-    result = {}
-    used_grooves = set()
-
+    # Initial greedy assignment (round 0)
+    current_assignments: Dict[str, str] = {}
     for i, group_name in enumerate(group_names):
-        # Pick the next unused groove from ranked candidates
-        groove_name = None
-        for candidate in ranked:
-            if candidate not in used_grooves:
-                groove_name = candidate
-                break
-        if groove_name is None:
-            # All candidates used — reuse from top (wrap around)
-            groove_name = ranked[i % len(ranked)]
-        used_grooves.add(groove_name)
+        current_assignments[group_name] = ranked[i % len(ranked)]
 
+    # Iterative refinement
+    max_rounds = 10
+    for round_num in range(max_rounds):
+        changed = False
+
+        for group_name in group_names:
+            # Score each candidate with diversity adjustment
+            other_assignments = {k: v for k, v in current_assignments.items() if k != group_name}
+
+            best_candidate = current_assignments[group_name]
+            best_score = -1.0
+
+            for candidate_name in ranked:
+                base = base_scores[candidate_name].total_score
+                diversity = _compute_diversity_adjustment(
+                    candidate_name, other_assignments, intensity_rudiments
+                )
+                adjusted_score = base + diversity
+
+                if adjusted_score > best_score:
+                    best_score = adjusted_score
+                    best_candidate = candidate_name
+
+            if best_candidate != current_assignments[group_name]:
+                current_assignments[group_name] = best_candidate
+                changed = True
+
+        if not changed:
+            break
+
+    # Assign fills: highest-scoring candidate with higher flux than groove
+    result = {}
+    for group_name in group_names:
+        groove_name = current_assignments[group_name]
         groove_flux = intensity_rudiments[groove_name].average_flux
 
-        # Fill = highest-scoring candidate with higher flux than this group's groove
         fill_name = groove_name  # Fallback
         for candidate in ranked:
             if candidate == groove_name:
