@@ -15,7 +15,7 @@ from autogen.color_generator import SongPalette, get_preset_names, get_preset_pa
 
 class AutogenWorker(QThread):
     """Background worker for show generation."""
-    finished = pyqtSignal(list)
+    finished = pyqtSignal(list, object)  # (lanes, GenerationReport)
     error = pyqtSignal(str)
     progress = pyqtSignal(str)
 
@@ -33,7 +33,7 @@ class AutogenWorker(QThread):
         try:
             from autogen.generator import generate_show
             self.progress.emit("Analyzing audio...")
-            lanes = generate_show(
+            lanes, report = generate_show(
                 self.audio_path,
                 self.song_structure,
                 self.config,
@@ -42,7 +42,7 @@ class AutogenWorker(QThread):
                 self.song_palette,
             )
             self.progress.emit("Done!")
-            self.finished.emit(lanes)
+            self.finished.emit(lanes, report)
         except Exception as e:
             self.error.emit(str(e))
 

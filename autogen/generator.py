@@ -33,10 +33,13 @@ from autogen.matcher import (
 from autogen.spatial import (
     classify_fixture_groups, apply_vocal_rule, compute_richness_weights,
     get_gobo_prism_groups, GroupClassification, ensure_default_spots,
-    ActivationRole, GroupActivation,
+    ActivationRole, assign_group_roles,
 )
 from rudiments.registry import get_intensity_rudiments, get_movement_rudiments
 from rudiments.block_converter import rudiment_to_dimmer_block, rudiment_to_movement_block
+from autogen.report import (
+    GenerationReport, SectionReport, GroupSectionReport, MatchScoreEntry,
+)
 
 
 def generate_show(
@@ -46,11 +49,11 @@ def generate_show(
     autogen_config: Optional[AutogenConfig] = None,
     key_signature: Optional[str] = None,
     song_palette: Optional[SongPalette] = None,
-) -> List[LightLane]:
+) -> Tuple[List[LightLane], GenerationReport]:
     """Generate a complete light show for a song.
 
-    Returns a list of LightLanes populated with blocks,
-    ready to be placed on the timeline.
+    Returns a list of LightLanes populated with blocks and a
+    GenerationReport capturing all decisions for the inspector.
 
     Args:
         audio_path: Path to audio file
@@ -60,7 +63,7 @@ def generate_show(
         key_signature: Optional key signature for color mood
 
     Returns:
-        List of LightLanes with generated blocks
+        (lanes, report) tuple
     """
     if autogen_config is None:
         autogen_config = AutogenConfig()
@@ -98,6 +101,12 @@ def generate_show(
     section_types = {p.name: p.name.lower().split()[0] for p in song_structure.parts}
     section_color_assignments = assign_section_colors(song_palette, section_types)
 
+    # Initialize generation report
+    report = GenerationReport(
+        group_names=list(group_classifications.keys()),
+        song_palette_rgb=list(song_palette.get_colors()) if song_palette else [],
+    )
+
     # Build lanes — one per fixture group
     lanes: Dict[str, LightLane] = {}
     for group_name in group_classifications:
@@ -131,9 +140,8 @@ def generate_show(
         relative_energy = 0.6 * relative_energy + 0.4 * section.spectral_richness
         relative_energy = max(0.0, min(1.0, relative_energy))
 
-        # Tiered group activation — quiet sections have fewer groups,
-        # medium sections have fill-only groups that punch in during fills
-        group_activations = compute_richness_weights(
+        # Tiered group activation — quiet sections have fewer groups
+        richness_weights = compute_richness_weights(
             group_classifications, section.spectral_richness,
             section.spectral_flux_avg, relative_energy,
         )
@@ -164,6 +172,15 @@ def generate_show(
                 previous_section_type=previous_section_type,
             )
 
+        # Get match scores for the report (before group selection filters them)
+        base_match_scores = match_rudiments_to_section(
+            section, part.bpm,
+            previous_section_rudiments=previous_rudiments,
+            section_type=section_type,
+            previous_section_type=previous_section_type,
+            config=autogen_config,
+        )
+
         # Select movement strategy for moving heads (using relative energy)
         section_idx = song_structure.parts.index(part)
         movement = _select_movement_strategy(
@@ -177,6 +194,44 @@ def generate_show(
         previous_rudiments = current_rudiments
         previous_section_type = section_type
 
+        # Derive roles from rudiment assignments (not fixture type)
+        group_roles = assign_group_roles(per_group_rudiments, relative_energy)
+
+        # Build section report
+        section_colors = []
+        if color_assignment and color_assignment.colors:
+            section_colors = list(color_assignment.colors)
+        intensity_rudiments = get_intensity_rudiments()
+
+        section_report = SectionReport(
+            name=part.name,
+            start_time=part.start_time,
+            end_time=part.start_time + part.duration,
+            spectral_flux=section.spectral_flux_avg,
+            transient_sharpness=section.transient_sharpness,
+            spectral_richness=section.spectral_richness,
+            vocal_presence=section.vocal_presence,
+            spectral_centroid=section.spectral_centroid_avg,
+            relative_energy=relative_energy,
+            movement_shape=movement.shape,
+            movement_amplitude=movement.amplitude,
+            movement_target=movement.target_spot or "",
+            color_rgb=section_colors,
+        )
+
+        # Top 5 match scores for the report
+        top_scores = [
+            MatchScoreEntry(
+                rudiment_name=name,
+                total_score=ms.total_score,
+                envelope_similarity=ms.envelope_similarity,
+                repetition_rate_fit=ms.repetition_rate_fit,
+                flux_level_fit=ms.flux_level_fit,
+                coherence_score=ms.coherence_score,
+            )
+            for name, ms in list(base_match_scores.items())[:5]
+        ]
+
         # Generate blocks for ALL fixture groups (each with its own rudiment + role)
         for group_idx, (group_name, gc) in enumerate(group_classifications.items()):
             if group_name not in lanes:
@@ -186,29 +241,41 @@ def generate_show(
                 group_name, (primary_groove, primary_groove)
             )
 
-            # Get activation (weight + role) — skip inactive groups
-            activation = group_activations.get(
-                group_name, GroupActivation(0.0)
-            )
-            if activation.weight <= 0.0:
-                continue  # Group inactive for this section
-
+            # Record group report (even for inactive groups)
             vocal_w = vocal_weights.get(group_name, 1.0)
-            combined_weight = vocal_w * activation.weight
-
-            # Fill-only groups get intensity boost (brief appearance should pop)
-            if activation.role == ActivationRole.FILL_ONLY:
-                combined_weight = min(1.0, combined_weight * 1.3)
-
-            # Compute speed: BPM + energy, with per-group offset for variation
-            speed_offset = (group_idx % 3) - 1  # -1, 0, +1
+            richness_w = richness_weights.get(group_name, 0.0)
+            role = group_roles.get(group_name, ActivationRole.FULL)
+            speed_offset = (group_idx % 3) - 1
             effect_speed = _compute_effect_speed(part.bpm, section, offset=speed_offset)
 
-            # Fill-only MH get amplitude boost for impact
+            groove_rud = intensity_rudiments.get(groove_name)
+            groove_cat = groove_rud.envelope.category.value if groove_rud else "unknown"
+
+            section_report.group_reports[group_name] = GroupSectionReport(
+                weight=richness_w,
+                vocal_weight=vocal_w,
+                role=role.value,
+                groove_rudiment=groove_name,
+                fill_rudiment=fill_name,
+                groove_category=groove_cat,
+                effect_speed=effect_speed,
+                match_scores=top_scores,
+            )
+
+            # Skip inactive groups for block generation
+            if richness_w <= 0.0:
+                continue
+            combined_weight = vocal_w * richness_w
+
+            # Fill-only groups get intensity boost (brief appearance should pop)
+            if role == ActivationRole.FILL_ONLY:
+                combined_weight = min(1.0, combined_weight * 1.3)
+
+            # Fill-only groups with movement get amplitude boost for impact
             group_movement = None
             if gc.has_moving_heads and movement:
                 amp = movement.amplitude
-                if activation.role == ActivationRole.FILL_ONLY:
+                if role == ActivationRole.FILL_ONLY:
                     amp = min(80.0, amp * 1.2)
                 group_movement = MovementStrategy(
                     shape=movement.shape,
@@ -228,10 +295,12 @@ def generate_show(
                 config=autogen_config,
                 color_index=group_idx % 3,
                 effect_speed=effect_speed,
-                role=activation.role,
+                role=role,
             )
 
-    return list(lanes.values())
+        report.sections.append(section_report)
+
+    return list(lanes.values()), report
 
 
 def _find_section(analysis: SongAnalysis, part: ShowPart) -> Optional[SectionAnalysis]:

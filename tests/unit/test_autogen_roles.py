@@ -2,8 +2,8 @@
 import pytest
 
 from autogen.spatial import (
-    ActivationRole, GroupActivation, GroupClassification,
-    compute_richness_weights,
+    ActivationRole, GroupClassification,
+    compute_richness_weights, assign_group_roles,
 )
 from autogen.generator import _generate_section_blocks, MovementStrategy
 from autogen.matcher import AutogenConfig
@@ -39,64 +39,119 @@ def _make_part(num_bars=8, bpm=120.0):
     )
 
 
-# ── Role Assignment Tests ────────────────────────────────
+# ── Weight Tests (compute_richness_weights) ──────────────
+
+
+class TestWeights:
+
+    def test_high_energy_all_active(self):
+        groups = _make_classifications()
+        result = compute_richness_weights(groups, 0.8, 0.8, relative_energy=0.8)
+        for name, weight in result.items():
+            assert weight > 0.0
+
+    def test_very_quiet_single_active(self):
+        groups = _make_classifications()
+        result = compute_richness_weights(groups, 0.1, 0.1, relative_energy=0.1)
+        active = [n for n, w in result.items() if w > 0.0]
+        assert len(active) == 1
+
+    def test_low_energy_limited_active(self):
+        groups = _make_classifications()
+        result = compute_richness_weights(groups, 0.3, 0.3, relative_energy=0.25)
+        active = [n for n, w in result.items() if w > 0.0]
+        assert 1 <= len(active) <= 2
+
+    def test_empty_groups(self):
+        result = compute_richness_weights({}, 0.5, 0.5, 0.5)
+        assert result == {}
+
+
+# ── Role Assignment Tests (assign_group_roles) ───────────
 
 
 class TestRoleAssignment:
 
     def test_high_energy_all_full(self):
-        groups = _make_classifications()
-        result = compute_richness_weights(groups, 0.8, 0.8, relative_energy=0.8)
-        for name, activation in result.items():
-            assert activation.role == ActivationRole.FULL
-            assert activation.weight > 0.0
+        """At high energy, all groups should be FULL regardless of rudiment."""
+        rudiments = {
+            "A": ("stroke", "cascade"),     # spike category
+            "B": ("static", "pulse"),       # flat category
+            "C": ("sparkle", "stroke"),     # stochastic category
+        }
+        roles = assign_group_roles(rudiments, relative_energy=0.8)
+        for role in roles.values():
+            assert role == ActivationRole.FULL
 
-    def test_medium_energy_mh_fill_only(self):
-        groups = _make_classifications()
-        result = compute_richness_weights(groups, 0.5, 0.5, relative_energy=0.5)
-        mh = result["Moving Heads"]
-        assert mh.role == ActivationRole.FILL_ONLY
-        assert mh.weight > 0.0
-        # Core groups should be FULL
-        assert result["Front Wash"].role == ActivationRole.FULL
+    def test_medium_energy_spike_becomes_fill(self):
+        """At medium energy, spike-category groove → FILL_ONLY."""
+        rudiments = {
+            "Wash": ("pulse", "stroke"),      # oscillating → FULL
+            "MH": ("stroke", "cascade"),      # spike → FILL_ONLY
+        }
+        roles = assign_group_roles(rudiments, relative_energy=0.5)
+        assert roles["Wash"] == ActivationRole.FULL
+        assert roles["MH"] == ActivationRole.FILL_ONLY
 
-    def test_low_energy_core_groove_only(self):
-        groups = _make_classifications()
-        result = compute_richness_weights(groups, 0.3, 0.3, relative_energy=0.25)
-        front = result["Front Wash"]
-        assert front.role == ActivationRole.GROOVE_ONLY
-        assert front.weight > 0.0
+    def test_medium_energy_stochastic_becomes_fill(self):
+        """At medium energy, stochastic-category groove → FILL_ONLY."""
+        rudiments = {
+            "Bars": ("wave", "sparkle"),       # rolling → FULL
+            "FX": ("random_stroke", "stroke"), # stochastic → FILL_ONLY
+        }
+        roles = assign_group_roles(rudiments, relative_energy=0.5)
+        assert roles["Bars"] == ActivationRole.FULL
+        assert roles["FX"] == ActivationRole.FILL_ONLY
 
-    def test_low_energy_mh_fill_only_above_threshold(self):
-        groups = _make_classifications()
-        result = compute_richness_weights(groups, 0.3, 0.3, relative_energy=0.30)
-        mh = result["Moving Heads"]
-        assert mh.role == ActivationRole.FILL_ONLY
-        assert mh.weight > 0.0
+    def test_medium_energy_oscillating_stays_full(self):
+        """Oscillating-category grooves stay FULL at medium energy."""
+        rudiments = {
+            "A": ("pulse", "stroke"),       # oscillating
+            "B": ("throb", "cascade"),      # oscillating
+        }
+        roles = assign_group_roles(rudiments, relative_energy=0.5)
+        assert roles["A"] == ActivationRole.FULL
+        assert roles["B"] == ActivationRole.FULL
 
-    def test_low_energy_mh_inactive_below_threshold(self):
-        groups = _make_classifications()
-        result = compute_richness_weights(groups, 0.2, 0.2, relative_energy=0.20)
-        mh = result["Moving Heads"]
-        assert mh.weight <= 0.0
+    def test_low_energy_groove_character_becomes_groove_only(self):
+        """At low energy, groove-character rudiments → GROOVE_ONLY."""
+        rudiments = {
+            "Wash": ("static", "stroke"),  # flat → GROOVE_ONLY
+            "MH": ("stroke", "cascade"),   # spike → FILL_ONLY
+        }
+        roles = assign_group_roles(rudiments, relative_energy=0.2)
+        assert roles["Wash"] == ActivationRole.GROOVE_ONLY
+        assert roles["MH"] == ActivationRole.FILL_ONLY
 
-    def test_very_quiet_single_groove(self):
-        groups = _make_classifications()
-        result = compute_richness_weights(groups, 0.1, 0.1, relative_energy=0.1)
-        active = [n for n, a in result.items() if a.weight > 0.0]
-        assert len(active) == 1
-        assert result[active[0]].role == ActivationRole.GROOVE_ONLY
+    def test_safety_at_least_one_groove_carrier(self):
+        """If all groups are fill-character, promote one to carry groove."""
+        rudiments = {
+            "A": ("stroke", "cascade"),      # spike
+            "B": ("random_stroke", "stroke"),  # stochastic
+        }
+        roles = assign_group_roles(rudiments, relative_energy=0.5)
+        has_groove = any(r != ActivationRole.FILL_ONLY for r in roles.values())
+        assert has_groove
 
-    def test_no_moving_heads_no_fill_only(self):
-        groups = _make_classifications(with_mh=False)
-        result = compute_richness_weights(groups, 0.5, 0.5, relative_energy=0.5)
-        for name, activation in result.items():
-            if activation.weight > 0.0:
-                assert activation.role != ActivationRole.FILL_ONLY
+    def test_empty_rudiments(self):
+        roles = assign_group_roles({}, relative_energy=0.5)
+        assert roles == {}
 
-    def test_empty_groups(self):
-        result = compute_richness_weights({}, 0.5, 0.5, 0.5)
-        assert result == {}
+    def test_roles_vary_by_rudiment_not_fixture_type(self):
+        """Same group gets different role depending on its assigned rudiment."""
+        # MH with a sustaining groove → FULL
+        roles_a = assign_group_roles(
+            {"Wash": ("pulse", "stroke"), "MH": ("wave", "stroke")},
+            relative_energy=0.5,
+        )
+        assert roles_a["MH"] == ActivationRole.FULL
+
+        # MH with a punchy groove → FILL_ONLY (Wash carries groove)
+        roles_b = assign_group_roles(
+            {"Wash": ("pulse", "stroke"), "MH": ("stroke", "cascade")},
+            relative_energy=0.5,
+        )
+        assert roles_b["MH"] == ActivationRole.FILL_ONLY
 
 
 # ── Block Generation Role Tests ──────────────────────────
@@ -137,12 +192,10 @@ class TestBlockGenerationRoles:
 
     def test_fill_only_no_remainder_blocks(self):
         # 9 bars / 4-bar phrases = 2 full phrases + 1 remainder bar
-        # Full: 2 groove + 2 fill + 1 remainder = 5
-        # Fill-only: 2 fill + 0 remainder = 2
         full_count = self._count_blocks(ActivationRole.FULL, num_bars=9)
         fill_count = self._count_blocks(ActivationRole.FILL_ONLY, num_bars=9)
-        assert full_count == 5
-        assert fill_count == 2
+        assert full_count == 5  # 2 groove + 2 fill + 1 remainder
+        assert fill_count == 2  # 2 fill only
 
     def test_groove_only_gets_remainder(self):
         # 9 bars: 2 groove + 1 remainder = 3

@@ -139,23 +139,20 @@ def compute_richness_weights(
     spectral_richness: float,
     spectral_flux: float = 0.5,
     relative_energy: float = 0.5,
-) -> Dict[str, GroupActivation]:
-    """Compute activation per group based on relative energy level.
+) -> Dict[str, float]:
+    """Compute intensity weight per group based on relative energy level.
 
-    Uses tiered activation with roles:
-    - High energy: all groups FULL
-    - Medium energy: core groups FULL, moving heads / back groups FILL_ONLY
-    - Low energy: 1-2 core groups GROOVE_ONLY, MH FILL_ONLY if energy > 0.25
-    - Very quiet: 1 group GROOVE_ONLY, rest inactive
+    Uses tiered activation: quiet sections have fewer groups active.
+    Returns 0.0 for groups that should be inactive (no blocks generated).
 
-    FILL_ONLY groups only generate blocks during fill portions of phrases,
-    creating dynamic punch-in/out behavior (like toms in drumming).
+    Note: activation roles (FULL/GROOVE_ONLY/FILL_ONLY) are assigned
+    separately by assign_group_roles() based on rudiment matching results.
 
     Args:
         relative_energy: 0.0-1.0, this section's energy relative to the song's range.
 
     Returns:
-        {group_name: GroupActivation} where weight 0.0 = inactive
+        {group_name: weight} where 0.0 = inactive, 0.1-1.0 = active
     """
     if not group_classifications:
         return {}
@@ -168,47 +165,117 @@ def compute_richness_weights(
     )
 
     total = len(sorted_groups)
-    activations: Dict[str, GroupActivation] = {}
+    weights = {}
 
     if relative_energy < 0.15:
-        # Very quiet: only 1 primary group (groove only), rest inactive
+        # Very quiet: only 1 primary group, dimmed
         for i, (name, gc) in enumerate(sorted_groups):
-            if i == 0:
-                activations[name] = GroupActivation(0.3, ActivationRole.GROOVE_ONLY)
-            else:
-                activations[name] = GroupActivation(0.0)
+            weights[name] = 0.3 if i == 0 else 0.0
     elif relative_energy < 0.35:
-        # Low: 1-2 core groups as groove, MH as fill-only if energy > 0.25
-        num_core = max(1, min(2, total))
+        # Low: 1-2 groups, primary full, secondary dimmed
+        num_active = max(1, min(2, total))
         for i, (name, gc) in enumerate(sorted_groups):
-            if i < num_core:
-                activations[name] = GroupActivation(
-                    0.7 if i == 0 else 0.4, ActivationRole.GROOVE_ONLY
-                )
-            elif gc.has_moving_heads and relative_energy > 0.25:
-                # MH punch in for fills at the upper end of low energy
-                activations[name] = GroupActivation(0.5, ActivationRole.FILL_ONLY)
+            if i < num_active:
+                weights[name] = 0.7 if i == 0 else 0.4
             else:
-                activations[name] = GroupActivation(0.0)
+                weights[name] = 0.0
     elif relative_energy < 0.65:
-        # Medium: core groups full, MH/back groups fill-only
-        num_full = max(2, int(total * 0.5))
+        # Medium: most groups active, back dimmed
+        num_active = max(2, int(total * 0.75))
         for i, (name, gc) in enumerate(sorted_groups):
-            if i < num_full and not gc.has_moving_heads:
-                activations[name] = GroupActivation(1.0 - i * 0.1, ActivationRole.FULL)
-            elif gc.has_moving_heads or gc.zone in ("back", "overhead"):
-                # Moving heads and back/overhead groups punch in for fills
-                activations[name] = GroupActivation(0.7, ActivationRole.FILL_ONLY)
-            elif i < int(total * 0.75):
-                activations[name] = GroupActivation(0.6, ActivationRole.FULL)
+            if i < num_active:
+                weights[name] = 1.0 - i * 0.1
             else:
-                activations[name] = GroupActivation(0.0)
+                weights[name] = 0.0
     else:
-        # High: all groups active and full
+        # High: all groups active
         for name in group_classifications:
-            activations[name] = GroupActivation(1.0, ActivationRole.FULL)
+            weights[name] = 1.0
 
-    return activations
+    return weights
+
+
+def assign_group_roles(
+    per_group_rudiments: Dict[str, tuple],
+    relative_energy: float,
+) -> Dict[str, ActivationRole]:
+    """Derive activation roles from the rudiment assignments.
+
+    Instead of hardcoding which fixture types get which roles, this
+    inspects the envelope category of each group's assigned groove
+    rudiment to determine its natural character:
+
+    - SPIKE / STOCHASTIC envelopes → fill character (punchy, dramatic)
+    - FLAT / RAMP / ROLLING envelopes → groove character (sustaining, flowing)
+    - OSCILLATING envelopes → versatile (full participation)
+
+    Energy modulates how roles are applied:
+    - High energy (≥0.65): everyone FULL regardless of character
+    - Medium (0.35–0.65): fill-character groups become FILL_ONLY, rest FULL
+    - Low (<0.35): fill-character → FILL_ONLY, groove-character → GROOVE_ONLY
+
+    A safety check ensures at least one group always carries the groove.
+
+    Args:
+        per_group_rudiments: {group_name: (groove_name, fill_name)}
+        relative_energy: 0.0-1.0
+
+    Returns:
+        {group_name: ActivationRole}
+    """
+    from rudiments.registry import get_intensity_rudiments
+    from rudiments.rudiment import EnvelopeCategory
+
+    if not per_group_rudiments:
+        return {}
+
+    # High energy: everyone plays everything
+    if relative_energy >= 0.65:
+        return {g: ActivationRole.FULL for g in per_group_rudiments}
+
+    intensity_rudiments = get_intensity_rudiments()
+
+    # Classify each group's groove rudiment character
+    FILL_CATEGORIES = {EnvelopeCategory.SPIKE, EnvelopeCategory.STOCHASTIC}
+    GROOVE_CATEGORIES = {EnvelopeCategory.FLAT, EnvelopeCategory.RAMP, EnvelopeCategory.ROLLING}
+    # OSCILLATING is versatile — gets FULL at medium, GROOVE at low
+
+    roles = {}
+    for group_name, (groove_name, _fill_name) in per_group_rudiments.items():
+        rudiment = intensity_rudiments.get(groove_name)
+        if not rudiment:
+            roles[group_name] = ActivationRole.FULL
+            continue
+
+        category = rudiment.envelope.category
+        is_fill_character = category in FILL_CATEGORIES
+        is_groove_character = category in GROOVE_CATEGORIES
+
+        if relative_energy < 0.35:
+            # Low energy: strict role separation
+            if is_fill_character:
+                roles[group_name] = ActivationRole.FILL_ONLY
+            else:
+                roles[group_name] = ActivationRole.GROOVE_ONLY
+        else:
+            # Medium energy: fill-character groups punch in for fills,
+            # everything else plays fully
+            if is_fill_character:
+                roles[group_name] = ActivationRole.FILL_ONLY
+            else:
+                roles[group_name] = ActivationRole.FULL
+
+    # Safety: ensure at least one group carries the groove
+    has_groove = any(r != ActivationRole.FILL_ONLY for r in roles.values())
+    if not has_groove and roles:
+        # Promote the first group (highest zone priority) to carry groove
+        first = next(iter(per_group_rudiments))
+        roles[first] = (
+            ActivationRole.GROOVE_ONLY if relative_energy < 0.35
+            else ActivationRole.FULL
+        )
+
+    return roles
 
 
 def get_gobo_prism_groups(

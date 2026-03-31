@@ -106,6 +106,10 @@ class ShowsTab(BaseTab):
         self._visual_update_counter = 0
         self._visual_update_interval = 2  # Update visuals every 2 frames (~30 FPS)
 
+        # Generation inspector
+        self._generation_report = None
+        self._inspector_window = None
+
         # Selection manager for multi-select
         self.selection_manager = SelectionManager()
 
@@ -216,6 +220,19 @@ class ShowsTab(BaseTab):
         """)
         self.autogen_btn.setToolTip("Automatically generate light show from audio analysis")
         toolbar.addWidget(self.autogen_btn)
+
+        # Inspector toggle
+        self.inspector_btn = QPushButton("Inspector")
+        self.inspector_btn.setCheckable(True)
+        self.inspector_btn.setEnabled(False)
+        self.inspector_btn.setToolTip("Show generation decision inspector (requires auto-generated show)")
+        self.inspector_btn.setStyleSheet("""
+            QPushButton { background-color: #2a6496; color: white; padding: 4px 10px;
+                          border-radius: 3px; font-weight: bold; }
+            QPushButton:checked { background-color: #1a8cff; }
+            QPushButton:disabled { background-color: #666; }
+        """)
+        toolbar.addWidget(self.inspector_btn)
 
         toolbar.addSpacing(20)
 
@@ -331,6 +348,7 @@ class ShowsTab(BaseTab):
         self.show_combo.currentTextChanged.connect(self._on_show_changed)
         self.add_lane_btn.clicked.connect(self._add_new_lane)
         self.autogen_btn.clicked.connect(self._on_autogenerate)
+        self.inspector_btn.toggled.connect(self._on_inspector_toggled)
         self.zoom_slider.valueChanged.connect(self._on_zoom_changed)
         self.save_btn.clicked.connect(self.save_to_config)
 
@@ -728,10 +746,14 @@ class ShowsTab(BaseTab):
         self._autogen_worker.error.connect(self._on_autogen_error)
         self._autogen_worker.start()
 
-    def _on_autogen_finished(self, lanes):
+    def _on_autogen_finished(self, lanes, report=None):
         """Handle generated lanes from background worker."""
         self.autogen_btn.setEnabled(True)
         self.autogen_btn.setText("Auto-Generate")
+
+        # Store generation report for inspector
+        self._generation_report = report
+        self.inspector_btn.setEnabled(report is not None)
 
         if not lanes:
             QMessageBox.information(self, "Auto-Generate",
@@ -782,6 +804,25 @@ class ShowsTab(BaseTab):
         QMessageBox.critical(self, "Auto-Generate Error",
             f"Generation failed:\n{error_msg}",
             QMessageBox.StandardButton.Ok)
+
+    def _on_inspector_toggled(self, checked):
+        """Toggle the generation inspector window."""
+        if checked and self._generation_report:
+            from gui.dialogs.generation_inspector import GenerationInspector
+            audio_path = self.audio_lane.get_audio_file_path() if hasattr(self, 'audio_lane') else ""
+            if audio_path and not os.path.isabs(audio_path):
+                shows_dir = self.config.shows_directory or "shows"
+                audio_path = os.path.join(shows_dir, "audiofiles", audio_path)
+            self._inspector_window = GenerationInspector(
+                self._generation_report, audio_path=audio_path or "", parent=self
+            )
+            self._inspector_window.destroyed.connect(
+                lambda: self.inspector_btn.setChecked(False)
+            )
+            self._inspector_window.show()
+        elif self._inspector_window:
+            self._inspector_window.close()
+            self._inspector_window = None
 
     def _remove_lane_widget(self, lane_widget: LightLaneWidget):
         """Remove a lane widget."""
@@ -1105,6 +1146,10 @@ class ShowsTab(BaseTab):
             self.audio_lane.set_playhead_position(position)
             for lane in self.lane_widgets:
                 lane.set_playhead_position(position)
+
+            # Update inspector dashboard
+            if self._inspector_window and self._inspector_window.isVisible():
+                self._inspector_window.update_position(position)
 
     def _init_audio_engine(self):
         """Initialize audio engine on first use.

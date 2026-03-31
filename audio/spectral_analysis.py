@@ -235,6 +235,83 @@ def _analyze_section(
     )
 
 
+@dataclass
+class FrameFeatures:
+    """Per-frame audio features at ~43fps (hop=512, sr=22050).
+
+    Used by the Generation Inspector for the 3D flux/transient plot.
+    Designed for pre-computation now, but the interface supports
+    future real-time computation by accepting partial data.
+    """
+    times: List[float] = field(default_factory=list)
+    flux: List[float] = field(default_factory=list)        # normalized onset strength (0-1)
+    transient: List[float] = field(default_factory=list)    # per-frame transient sharpness (0-1)
+    sample_rate: int = 22050
+    hop_length: int = 512
+    duration: float = 0.0
+
+
+def compute_frame_features(audio_path: str, max_display_points: int = 1000) -> FrameFeatures:
+    """Compute per-frame spectral flux and transient sharpness from audio.
+
+    Args:
+        audio_path: Path to audio file
+        max_display_points: Downsample to this many points for display performance
+
+    Returns:
+        FrameFeatures with arrays at ~43fps, downsampled for display
+    """
+    if not LIBROSA_AVAILABLE:
+        raise ImportError("librosa required for audio analysis")
+
+    y, sr = librosa.load(audio_path, sr=22050, mono=True)
+    duration = librosa.get_duration(y=y, sr=sr)
+
+    hop_length = 512
+    n_fft = 2048
+
+    # Onset strength envelope — per-frame spectral flux
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft)
+    frame_times = librosa.frames_to_time(np.arange(len(onset_env)), sr=sr, hop_length=hop_length)
+
+    # Normalize flux to 0-1
+    flux_min, flux_max = float(np.min(onset_env)), float(np.max(onset_env))
+    if flux_max > flux_min:
+        norm_flux = (onset_env - flux_min) / (flux_max - flux_min)
+    else:
+        norm_flux = np.zeros_like(onset_env)
+
+    # Per-frame transient sharpness: local peakiness of onset envelope
+    # Ratio of each frame to its local average (~100ms window = 5 frames at 43fps)
+    from scipy.ndimage import uniform_filter1d
+    window = max(3, int(0.1 * sr / hop_length))  # ~100ms window
+    local_avg = uniform_filter1d(onset_env.astype(float), window)
+    transient_raw = np.where(local_avg > 1e-6, onset_env / local_avg, 0.0)
+    # Normalize to 0-1
+    t_max = float(np.max(transient_raw)) if len(transient_raw) > 0 else 1.0
+    if t_max > 0:
+        norm_transient = np.clip(transient_raw / t_max, 0.0, 1.0)
+    else:
+        norm_transient = np.zeros_like(transient_raw)
+
+    # Downsample for display if needed
+    n_frames = len(frame_times)
+    if n_frames > max_display_points:
+        indices = np.linspace(0, n_frames - 1, max_display_points, dtype=int)
+        frame_times = frame_times[indices]
+        norm_flux = norm_flux[indices]
+        norm_transient = norm_transient[indices]
+
+    return FrameFeatures(
+        times=[float(t) for t in frame_times],
+        flux=[float(f) for f in norm_flux],
+        transient=[float(t) for t in norm_transient],
+        sample_rate=sr,
+        hop_length=hop_length,
+        duration=duration,
+    )
+
+
 def _resample_to_n(data: np.ndarray, n: int) -> List[float]:
     """Resample a 1D array to exactly n points by averaging bins."""
     if len(data) == 0:
