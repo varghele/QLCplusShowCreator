@@ -78,7 +78,7 @@ class DimmerBlockDialog(QDialog):
 
         # Effect type selector
         self.effect_type_combo = QComboBox()
-        self.effect_type_combo.addItems(["static", "hit", "pulse", "pulse_staggered", "twinkle", "strobe", "ping_pong_smooth", "random_strobe", "snake", "zigzag", "fill_unfill", "waterfall_down", "waterfall_up", "breathing_sync", "wave_travel", "heartbeat_pulse"])
+        self.effect_type_combo.addItems(["static", "stroke", "throb", "ping_pong", "chase", "wave", "waterfall", "fill", "random_stroke", "sparkle", "pulse", "strobe", "fade", "cascade", "heartbeat"])
         effect_layout.addRow("Effect Type:", self.effect_type_combo)
 
         # Effect speed selector

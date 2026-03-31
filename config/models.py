@@ -122,12 +122,16 @@ class DimmerBlock:
     intensity: float = 255.0  # 0-255
     strobe_speed: float = 0.0  # 0 = no strobe, >0 = strobe speed
     iris: float = 255.0  # 0-255, if applicable
-    effect_type: str = "static"  # Effect type: "static", "twinkle", "strobe", etc.
+    effect_type: str = "static"  # Rudiment effect type
     effect_speed: str = "1"  # Speed multiplier: "1/4", "1/2", "1", "2", "4", etc.
+    direction: str = "down"  # Direction: "down"/"up" (waterfall), "in"/"out" (fade)
+    chase_scope: str = "fixture"  # Chase scope: "fixture" (per-fixture) or "global" (cross-fixture)
+    phase_offset_per_fixture: bool = False  # Per-fixture phase spread (pulse)
+    build_fraction: float = 0.7  # Build portion of cascade (0.0-1.0)
     modified: bool = False  # True if user edited this block after riff insertion
 
     def to_dict(self) -> Dict:
-        return {
+        d = {
             "start_time": self.start_time,
             "end_time": self.end_time,
             "intensity": self.intensity,
@@ -135,8 +139,18 @@ class DimmerBlock:
             "iris": self.iris,
             "effect_type": self.effect_type,
             "effect_speed": self.effect_speed,
-            "modified": self.modified
+            "modified": self.modified,
         }
+        # Only serialize non-default values to keep files clean
+        if self.direction != "down":
+            d["direction"] = self.direction
+        if self.chase_scope != "fixture":
+            d["chase_scope"] = self.chase_scope
+        if self.phase_offset_per_fixture:
+            d["phase_offset_per_fixture"] = self.phase_offset_per_fixture
+        if self.build_fraction != 0.7:
+            d["build_fraction"] = self.build_fraction
+        return d
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'DimmerBlock':
@@ -148,7 +162,11 @@ class DimmerBlock:
             iris=data.get("iris", 255.0),
             effect_type=data.get("effect_type", "static"),
             effect_speed=data.get("effect_speed", "1"),
-            modified=data.get("modified", False)
+            direction=data.get("direction", "down"),
+            chase_scope=data.get("chase_scope", "fixture"),
+            phase_offset_per_fixture=data.get("phase_offset_per_fixture", False),
+            build_fraction=data.get("build_fraction", 0.7),
+            modified=data.get("modified", False),
         )
 
 

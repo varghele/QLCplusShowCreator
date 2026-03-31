@@ -451,139 +451,139 @@ block_defs:
   dimmer:
     d0:
       effect_speed: 1/8
-      effect_type: hit
+      effect_type: stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d1:
       effect_speed: 1/2
-      effect_type: ping_pong_smooth
+      effect_type: ping_pong
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d10:
       effect_speed: 1/4
-      effect_type: hit
+      effect_type: stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d11:
       effect_speed: '2'
-      effect_type: random_strobe
+      effect_type: random_stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d12:
       effect_speed: '2'
-      effect_type: waterfall_down
+      effect_type: waterfall
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d13:
       effect_speed: 1/4
-      effect_type: twinkle
+      effect_type: sparkle
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d14:
       effect_speed: '8'
-      effect_type: waterfall_up
+      effect_type: waterfall
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d15:
       effect_speed: 1/2
-      effect_type: zigzag
+      effect_type: chase
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d16:
       effect_speed: '1'
-      effect_type: twinkle
+      effect_type: sparkle
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d17:
       effect_speed: '2'
-      effect_type: snake
+      effect_type: chase
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d18:
       effect_speed: '4'
-      effect_type: waterfall_up
+      effect_type: waterfall
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d19:
       effect_speed: '4'
-      effect_type: waterfall_down
+      effect_type: waterfall
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d2:
       effect_speed: 1/2
-      effect_type: hit
+      effect_type: stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d20:
       effect_speed: '2'
-      effect_type: hit
+      effect_type: stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d21:
       effect_speed: '1'
-      effect_type: breathing_sync
+      effect_type: pulse
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d22:
       effect_speed: '1'
-      effect_type: heartbeat_pulse
+      effect_type: heartbeat
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d23:
       effect_speed: '1'
-      effect_type: ping_pong_smooth
+      effect_type: ping_pong
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d24:
       effect_speed: '4'
-      effect_type: hit
+      effect_type: stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d25:
       effect_speed: '1'
-      effect_type: pulse
+      effect_type: throb
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d26:
       effect_speed: '2'
-      effect_type: wave_travel
+      effect_type: wave
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d27:
       effect_speed: '2'
-      effect_type: zigzag
+      effect_type: chase
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d28:
       effect_speed: '2'
-      effect_type: waterfall_up
+      effect_type: waterfall
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d29:
       effect_speed: '1'
-      effect_type: pulse
+      effect_type: throb
       intensity: 110.86956521739131
       iris: 255.0
       strobe_speed: 0.0
@@ -601,7 +601,7 @@ block_defs:
       strobe_speed: 0.0
     d31:
       effect_speed: '1'
-      effect_type: hit
+      effect_type: stroke
       intensity: 138.58695652173913
       iris: 255.0
       strobe_speed: 0.0
@@ -613,13 +613,13 @@ block_defs:
       strobe_speed: 0.0
     d33:
       effect_speed: '1'
-      effect_type: pulse
+      effect_type: throb
       intensity: 149.0
       iris: 255.0
       strobe_speed: 0.0
     d34:
       effect_speed: '1'
-      effect_type: pulse
+      effect_type: throb
       intensity: 121.0
       iris: 255.0
       strobe_speed: 0.0
@@ -631,43 +631,43 @@ block_defs:
       strobe_speed: 0.0
     d36:
       effect_speed: 1/2
-      effect_type: random_strobe
+      effect_type: random_stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d37:
       effect_speed: '1'
-      effect_type: wave_travel
+      effect_type: wave
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d38:
       effect_speed: '1'
-      effect_type: waterfall_up
+      effect_type: waterfall
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d39:
       effect_speed: 1/2
-      effect_type: wave_travel
+      effect_type: wave
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d4:
       effect_speed: '1'
-      effect_type: random_strobe
+      effect_type: random_stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d40:
       effect_speed: 1/2
-      effect_type: pulse
+      effect_type: throb
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d41:
       effect_speed: '1'
-      effect_type: waterfall_down
+      effect_type: waterfall
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
@@ -679,67 +679,67 @@ block_defs:
       strobe_speed: 0.0
     d43:
       effect_speed: 1/2
-      effect_type: pulse
+      effect_type: throb
       intensity: 138.0
       iris: 255.0
       strobe_speed: 0.0
     d44:
       effect_speed: '1'
-      effect_type: hit
+      effect_type: stroke
       intensity: 149.0
       iris: 255.0
       strobe_speed: 0.0
     d45:
       effect_speed: '1'
-      effect_type: pulse
+      effect_type: throb
       intensity: 133.0
       iris: 255.0
       strobe_speed: 0.0
     d46:
       effect_speed: '8'
-      effect_type: random_strobe
+      effect_type: random_stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d47:
       effect_speed: '2'
-      effect_type: twinkle
+      effect_type: sparkle
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d48:
       effect_speed: '2'
-      effect_type: fill_unfill
+      effect_type: fill
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d49:
       effect_speed: '8'
-      effect_type: ping_pong_smooth
+      effect_type: ping_pong
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d5:
       effect_speed: '1'
-      effect_type: hit
+      effect_type: stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d50:
       effect_speed: '1'
-      effect_type: snake
+      effect_type: chase
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d51:
       effect_speed: '1'
-      effect_type: pulse_staggered
+      effect_type: pulse
       intensity: 110.86956521739131
       iris: 255.0
       strobe_speed: 0.0
     d52:
       effect_speed: '1'
-      effect_type: pulse
+      effect_type: throb
       intensity: 166.30434782608697
       iris: 255.0
       strobe_speed: 0.0
@@ -769,25 +769,25 @@ block_defs:
       strobe_speed: 0.0
     d57:
       effect_speed: '1'
-      effect_type: ping_pong_smooth
+      effect_type: ping_pong
       intensity: 99.78260869565216
       iris: 255.0
       strobe_speed: 0.0
     d58:
       effect_speed: '1'
-      effect_type: twinkle
+      effect_type: sparkle
       intensity: 88.69565217391305
       iris: 255.0
       strobe_speed: 0.0
     d59:
       effect_speed: '2'
-      effect_type: ping_pong_smooth
+      effect_type: ping_pong
       intensity: 255.0
       iris: 255.0
       strobe_speed: 20.0
     d6:
       effect_speed: '4'
-      effect_type: random_strobe
+      effect_type: random_stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
@@ -799,25 +799,25 @@ block_defs:
       strobe_speed: 0.0
     d61:
       effect_speed: '2'
-      effect_type: ping_pong_smooth
+      effect_type: ping_pong
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d62:
       effect_speed: '1'
-      effect_type: zigzag
+      effect_type: chase
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d63:
       effect_speed: 1/16
-      effect_type: hit
+      effect_type: stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d64:
       effect_speed: 1/4
-      effect_type: twinkle
+      effect_type: sparkle
       intensity: 121.95652173913044
       iris: 255.0
       strobe_speed: 0.0
@@ -829,31 +829,31 @@ block_defs:
       strobe_speed: 0.0
     d66:
       effect_speed: 1/2
-      effect_type: snake
+      effect_type: chase
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d67:
       effect_speed: '1'
-      effect_type: twinkle
+      effect_type: sparkle
       intensity: 127.5
       iris: 255.0
       strobe_speed: 0.0
     d68:
       effect_speed: 1/2
-      effect_type: twinkle
+      effect_type: sparkle
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d69:
       effect_speed: '1'
-      effect_type: waterfall_up
+      effect_type: waterfall
       intensity: 171.0
       iris: 255.0
       strobe_speed: 0.0
     d7:
       effect_speed: '2'
-      effect_type: heartbeat_pulse
+      effect_type: heartbeat
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
@@ -865,31 +865,31 @@ block_defs:
       strobe_speed: 0.0
     d71:
       effect_speed: '1'
-      effect_type: pulse
+      effect_type: throb
       intensity: 144.13043478260872
       iris: 255.0
       strobe_speed: 0.0
     d72:
       effect_speed: '1'
-      effect_type: ping_pong_smooth
+      effect_type: ping_pong
       intensity: 166.30434782608697
       iris: 255.0
       strobe_speed: 0.0
     d73:
       effect_speed: '1'
-      effect_type: ping_pong_smooth
+      effect_type: ping_pong
       intensity: 127.5
       iris: 255.0
       strobe_speed: 0.0
     d74:
       effect_speed: '1'
-      effect_type: pulse
+      effect_type: throb
       intensity: 182.93478260869568
       iris: 255.0
       strobe_speed: 0.0
     d75:
       effect_speed: '1'
-      effect_type: pulse
+      effect_type: throb
       intensity: 110.0
       iris: 255.0
       strobe_speed: 0.0
@@ -919,7 +919,7 @@ block_defs:
       strobe_speed: 0.0
     d8:
       effect_speed: '4'
-      effect_type: ping_pong_smooth
+      effect_type: ping_pong
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
@@ -931,37 +931,37 @@ block_defs:
       strobe_speed: 0.0
     d81:
       effect_speed: 1/4
-      effect_type: hit
+      effect_type: stroke
       intensity: 127.5
       iris: 255.0
       strobe_speed: 0.0
     d82:
       effect_speed: 1/2
-      effect_type: hit
+      effect_type: stroke
       intensity: 149.67391304347825
       iris: 255.0
       strobe_speed: 0.0
     d83:
       effect_speed: 1/2
-      effect_type: hit
+      effect_type: stroke
       intensity: 144.0
       iris: 255.0
       strobe_speed: 0.0
     d84:
       effect_speed: 1/4
-      effect_type: random_strobe
+      effect_type: random_stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d85:
       effect_speed: 1/2
-      effect_type: waterfall_up
+      effect_type: waterfall
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d86:
       effect_speed: 1/2
-      effect_type: pulse
+      effect_type: throb
       intensity: 144.0
       iris: 255.0
       strobe_speed: 0.0
@@ -973,7 +973,7 @@ block_defs:
       strobe_speed: 0.0
     d88:
       effect_speed: '4'
-      effect_type: fill_unfill
+      effect_type: fill
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
@@ -997,7 +997,7 @@ block_defs:
       strobe_speed: 0.0
     d91:
       effect_speed: '1'
-      effect_type: hit
+      effect_type: stroke
       intensity: 160.0
       iris: 255.0
       strobe_speed: 0.0

@@ -269,14 +269,14 @@ def _convert_dimmer_steps_to_rgb(steps, dimmer_block, colour_blocks, fixture_def
                 # Determine per-segment intensity based on effect type
                 seg_intensity = intensity
 
-                if dimmer_block.effect_type == "twinkle":
-                    # Twinkle: Each segment independently randomized
+                if dimmer_block.effect_type == "sparkle":
+                    # Sparkle: Each segment independently randomized
                     # Use step number and segment index as seed for pseudo-random variation
                     import random
                     random.seed(int(step.get("Number")) * 1000 + seg_idx + fixture_id)
                     seg_intensity = random.randint(0, 255)
 
-                elif dimmer_block.effect_type in ["ping_pong_smooth", "random_strobe", "snake", "zigzag", "waterfall_down", "waterfall_up"]:
+                elif dimmer_block.effect_type in ["ping_pong", "random_stroke", "chase", "waterfall"]:
                     # Wave pattern: offset intensity based on segment index
                     # Create a wave that moves across segments
                     step_num = int(step.get("Number"))
@@ -716,8 +716,8 @@ def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixtu
                     else:
                         current_dimmer_value = 0  # Off
 
-                elif dimmer_effect_type == "twinkle":
-                    # Twinkle: random variation around dimmer_value
+                elif dimmer_effect_type == "sparkle":
+                    # Sparkle: random variation around dimmer_value
                     import random
                     random.seed(step_idx + fixture_idx)  # Consistent but varied per step/fixture
                     variation = int(dimmer_value * 0.3 * random.random())
