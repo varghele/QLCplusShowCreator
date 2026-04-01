@@ -237,78 +237,275 @@ def _analyze_section(
 
 @dataclass
 class FrameFeatures:
-    """Per-frame audio features at ~43fps (hop=512, sr=22050).
+    """Per-frame audio features, lightly smoothed and downsampled for display.
 
-    Used by the Generation Inspector for the 3D flux/transient plot.
-    Designed for pre-computation now, but the interface supports
-    future real-time computation by accepting partial data.
+    All 5 features at continuous resolution (~10-15fps after downsampling),
+    giving a smooth energy contour that shows individual hits and builds.
     """
     times: List[float] = field(default_factory=list)
     flux: List[float] = field(default_factory=list)        # normalized onset strength (0-1)
     transient: List[float] = field(default_factory=list)    # per-frame transient sharpness (0-1)
+    richness: List[float] = field(default_factory=list)     # spectral richness (0-1)
+    vocal: List[float] = field(default_factory=list)        # vocal band energy ratio (0-1)
+    centroid: List[float] = field(default_factory=list)     # spectral centroid (0-1 normalized)
     sample_rate: int = 22050
     hop_length: int = 512
     duration: float = 0.0
 
 
-def compute_frame_features(audio_path: str, max_display_points: int = 1000) -> FrameFeatures:
-    """Compute per-frame spectral flux and transient sharpness from audio.
+def compute_frame_features(audio_path: str, max_display_points: int = 800) -> FrameFeatures:
+    """Compute all 5 audio features at frame level, lightly smoothed.
+
+    Returns a continuous envelope for flux, transient, richness, vocal,
+    and centroid — downsampled to ~10-15fps for display.
 
     Args:
         audio_path: Path to audio file
-        max_display_points: Downsample to this many points for display performance
+        max_display_points: Downsample to this many points for display
 
     Returns:
-        FrameFeatures with arrays at ~43fps, downsampled for display
+        FrameFeatures with all 5 features at continuous resolution
     """
     if not LIBROSA_AVAILABLE:
         raise ImportError("librosa required for audio analysis")
+    from scipy.ndimage import uniform_filter1d
 
     y, sr = librosa.load(audio_path, sr=22050, mono=True)
     duration = librosa.get_duration(y=y, sr=sr)
 
     hop_length = 512
     n_fft = 2048
+    smooth_window = 5  # ~115ms at 43fps — light smoothing, keeps transients
 
-    # Onset strength envelope — per-frame spectral flux
+    # ── Onset strength (flux) ──
     onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft)
     frame_times = librosa.frames_to_time(np.arange(len(onset_env)), sr=sr, hop_length=hop_length)
+    n_frames = len(onset_env)
 
-    # Normalize flux to 0-1
-    flux_min, flux_max = float(np.min(onset_env)), float(np.max(onset_env))
-    if flux_max > flux_min:
-        norm_flux = (onset_env - flux_min) / (flux_max - flux_min)
+    # Smooth first, then normalize — preserves 0-1 range after smoothing
+    smoothed_flux = uniform_filter1d(onset_env.astype(float), smooth_window)
+    sf_min, sf_max = float(np.min(smoothed_flux)), float(np.max(smoothed_flux))
+    if sf_max > sf_min:
+        norm_flux = (smoothed_flux - sf_min) / (sf_max - sf_min)
     else:
-        norm_flux = np.zeros_like(onset_env)
+        norm_flux = np.zeros(n_frames)
 
-    # Per-frame transient sharpness: local peakiness of onset envelope
-    # Ratio of each frame to its local average (~100ms window = 5 frames at 43fps)
-    from scipy.ndimage import uniform_filter1d
-    window = max(3, int(0.1 * sr / hop_length))  # ~100ms window
-    local_avg = uniform_filter1d(onset_env.astype(float), window)
+    # ── Transient sharpness (peakiness) ──
+    local_avg = uniform_filter1d(onset_env.astype(float), smooth_window)
     transient_raw = np.where(local_avg > 1e-6, onset_env / local_avg, 0.0)
-    # Normalize to 0-1
-    t_max = float(np.max(transient_raw)) if len(transient_raw) > 0 else 1.0
-    if t_max > 0:
-        norm_transient = np.clip(transient_raw / t_max, 0.0, 1.0)
-    else:
-        norm_transient = np.zeros_like(transient_raw)
+    t_max = float(np.max(transient_raw)) if n_frames > 0 else 1.0
+    norm_transient = np.clip(transient_raw / max(t_max, 1e-6), 0.0, 1.0)
 
-    # Downsample for display if needed
-    n_frames = len(frame_times)
-    if n_frames > max_display_points:
-        indices = np.linspace(0, n_frames - 1, max_display_points, dtype=int)
-        frame_times = frame_times[indices]
-        norm_flux = norm_flux[indices]
-        norm_transient = norm_transient[indices]
+    # ── Spectral features (centroid, bandwidth, flatness) ──
+    spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft)[0]
+    spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft)[0]
+    spectral_flatness = librosa.feature.spectral_flatness(y=y, hop_length=hop_length, n_fft=n_fft)[0]
+
+    # Ensure same length as onset_env (they should be, but guard)
+    min_len = min(n_frames, len(spectral_centroid), len(spectral_bandwidth), len(spectral_flatness))
+
+    # ── Richness: bandwidth + flatness — smooth then normalize ──
+    bw_max = float(np.max(spectral_bandwidth[:min_len])) if min_len > 0 else 1.0
+    norm_bw = spectral_bandwidth[:min_len] / max(bw_max, 1e-6)
+    raw_richness = 0.6 * norm_bw + 0.4 * spectral_flatness[:min_len]
+    smoothed_richness = uniform_filter1d(raw_richness.astype(float), smooth_window)
+    sr_min, sr_max = float(np.min(smoothed_richness)), float(np.max(smoothed_richness))
+    if sr_max > sr_min:
+        norm_richness = (smoothed_richness - sr_min) / (sr_max - sr_min)
+    else:
+        norm_richness = np.full(min_len, 0.5)
+
+    # ── Vocal presence: energy ratio in 300-3000Hz band ──
+    S = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop_length))
+    freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
+    vocal_low = np.searchsorted(freqs, 300)
+    vocal_high = np.searchsorted(freqs, 3000)
+    total_low = np.searchsorted(freqs, 50)
+
+    vocal_energy = np.sum(S[vocal_low:vocal_high, :] ** 2, axis=0)
+    total_energy = np.sum(S[total_low:, :] ** 2, axis=0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        vocal_ratio = np.where(total_energy > 0, vocal_energy / total_energy, 0.0)
+    # Smooth and threshold: >0.4 ratio = vocal present
+    vocal_ratio_smooth = uniform_filter1d(vocal_ratio[:min_len].astype(float), smooth_window * 3)
+    norm_vocal = np.clip(vocal_ratio_smooth, 0.0, 1.0)
+
+    # ── Centroid: smooth then normalize to 0-1 ──
+    smoothed_cent = uniform_filter1d(spectral_centroid[:min_len].astype(float), smooth_window)
+    sc_min, sc_max = float(np.min(smoothed_cent)), float(np.max(smoothed_cent))
+    if sc_max > sc_min:
+        norm_cent = (smoothed_cent - sc_min) / (sc_max - sc_min)
+    else:
+        norm_cent = np.full(min_len, 0.5)
+
+    # ── Downsample all arrays ──
+    if min_len > max_display_points:
+        indices = np.linspace(0, min_len - 1, max_display_points, dtype=int)
+    else:
+        indices = np.arange(min_len)
 
     return FrameFeatures(
-        times=[float(t) for t in frame_times],
-        flux=[float(f) for f in norm_flux],
-        transient=[float(t) for t in norm_transient],
+        times=[float(frame_times[i]) for i in indices],
+        flux=[float(norm_flux[i]) for i in indices],
+        transient=[float(norm_transient[i]) for i in indices],
+        richness=[float(norm_richness[i]) for i in indices],
+        vocal=[float(norm_vocal[i]) for i in indices],
+        centroid=[float(norm_cent[i]) for i in indices],
         sample_rate=sr,
         hop_length=hop_length,
         duration=duration,
+    )
+
+
+@dataclass
+class BeatFeatures:
+    """Per-beat audio features for the entire song.
+
+    One value per beat — ~400 data points for a 4-minute song at ~100 BPM.
+    Much more granular than per-section averages.
+    """
+    times: List[float] = field(default_factory=list)
+    flux: List[float] = field(default_factory=list)
+    transient: List[float] = field(default_factory=list)
+    richness: List[float] = field(default_factory=list)
+    vocal: List[float] = field(default_factory=list)
+    centroid: List[float] = field(default_factory=list)
+
+
+def compute_beat_features(audio_path: str, song_structure) -> BeatFeatures:
+    """Compute audio features per beat using BPM from song structure.
+
+    Args:
+        audio_path: Path to audio file
+        song_structure: SongStructure with parts (provides BPM + time signatures)
+
+    Returns:
+        BeatFeatures with one value per beat across the entire song
+    """
+    if not LIBROSA_AVAILABLE:
+        raise ImportError("librosa required for audio analysis")
+
+    y, sr = librosa.load(audio_path, sr=22050, mono=True)
+
+    hop_length = 512
+    n_fft = 2048
+
+    # Compute frame-level features (same as analyze_song)
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft)
+    frame_times = librosa.frames_to_time(np.arange(len(onset_env)), sr=sr, hop_length=hop_length)
+    spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft)[0]
+    spectral_bandwidth = librosa.feature.spectral_bandwidth(y=y, sr=sr, hop_length=hop_length, n_fft=n_fft)[0]
+    spectral_flatness = librosa.feature.spectral_flatness(y=y, hop_length=hop_length, n_fft=n_fft)[0]
+    S = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop_length))
+    freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
+
+    # Global normalization
+    flux_min, flux_max = float(np.min(onset_env)), float(np.max(onset_env))
+    flux_range = flux_max - flux_min if flux_max > flux_min else 1.0
+    centroid_max = float(np.max(spectral_centroid)) if len(spectral_centroid) > 0 else 1.0
+    bandwidth_max = float(np.max(spectral_bandwidth)) if len(spectral_bandwidth) > 0 else 1.0
+
+    # Onset detection for transient density
+    onset_frames = librosa.onset.onset_detect(
+        y=y, sr=sr, hop_length=hop_length, onset_envelope=onset_env, backtrack=True
+    )
+    onset_times_arr = librosa.frames_to_time(onset_frames, sr=sr, hop_length=hop_length)
+
+    # Vocal detection indices
+    vocal_low_idx = np.searchsorted(freqs, 300)
+    vocal_high_idx = np.searchsorted(freqs, 3000)
+    total_low_idx = np.searchsorted(freqs, 50)
+
+    # Generate beat timestamps from song structure
+    beat_starts = []
+    for part in song_structure.parts:
+        try:
+            beats_per_bar = int(part.signature.split('/')[0])
+        except (ValueError, IndexError, AttributeError):
+            beats_per_bar = 4
+        seconds_per_beat = 60.0 / part.bpm
+        num_beats = part.num_bars * beats_per_bar
+        for i in range(num_beats):
+            beat_starts.append(part.start_time + i * seconds_per_beat)
+
+    if not beat_starts:
+        return BeatFeatures()
+
+    # Compute features per beat window
+    result_times = []
+    result_flux = []
+    result_transient = []
+    result_richness = []
+    result_vocal = []
+    result_centroid = []
+
+    for b_idx in range(len(beat_starts)):
+        t_start = beat_starts[b_idx]
+        t_end = beat_starts[b_idx + 1] if b_idx + 1 < len(beat_starts) else t_start + 0.5
+
+        # Frame mask for this beat
+        mask = (frame_times >= t_start) & (frame_times < t_end)
+        if not np.any(mask):
+            result_times.append(t_start)
+            result_flux.append(0.0)
+            result_transient.append(0.0)
+            result_richness.append(0.0)
+            result_vocal.append(0.0)
+            result_centroid.append(0.0)
+            continue
+
+        frames = np.where(mask)[0]
+
+        # Flux: normalized average onset strength
+        beat_onset = onset_env[frames] if frames[-1] < len(onset_env) else onset_env[mask[:len(onset_env)]]
+        # Use 90th percentile instead of mean — preserves dynamic contrast
+        # between quiet and loud beats (mean washes out spikes)
+        if len(beat_onset) > 0:
+            avg_flux = float(np.percentile((beat_onset - flux_min) / flux_range, 90))
+        else:
+            avg_flux = 0.0
+
+        # Transient: onset density within beat
+        beat_duration = t_end - t_start
+        beat_onsets = onset_times_arr[(onset_times_arr >= t_start) & (onset_times_arr < t_end)]
+        transient_val = min(1.0, len(beat_onsets) / max(0.01, beat_duration) / 10.0)
+
+        # Richness: bandwidth + flatness
+        beat_bw = spectral_bandwidth[frames] if frames[-1] < len(spectral_bandwidth) else spectral_bandwidth[mask[:len(spectral_bandwidth)]]
+        beat_flat = spectral_flatness[frames] if frames[-1] < len(spectral_flatness) else spectral_flatness[mask[:len(spectral_flatness)]]
+        norm_bw = float(np.mean(beat_bw)) / bandwidth_max if len(beat_bw) > 0 and bandwidth_max > 0 else 0.0
+        avg_flat = float(np.mean(beat_flat)) if len(beat_flat) > 0 else 0.0
+        richness_val = min(1.0, 0.6 * norm_bw + 0.4 * avg_flat)
+
+        # Vocal: energy ratio in vocal band
+        S_beat = S[:, frames] if frames[-1] < S.shape[1] else S[:, mask[:S.shape[1]]]
+        if S_beat.size > 0:
+            vocal_energy = np.sum(S_beat[vocal_low_idx:vocal_high_idx, :] ** 2, axis=0)
+            total_energy = np.sum(S_beat[total_low_idx:, :] ** 2, axis=0)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                vocal_ratio = np.where(total_energy > 0, vocal_energy / total_energy, 0.0)
+            vocal_val = float(np.sum(vocal_ratio > 0.4) / len(vocal_ratio)) if len(vocal_ratio) > 0 else 0.0
+        else:
+            vocal_val = 0.0
+
+        # Centroid
+        beat_cent = spectral_centroid[frames] if frames[-1] < len(spectral_centroid) else spectral_centroid[mask[:len(spectral_centroid)]]
+        centroid_val = float(np.mean(beat_cent)) if len(beat_cent) > 0 else 0.0
+
+        result_times.append(t_start)
+        result_flux.append(max(0.0, min(1.0, avg_flux)))
+        result_transient.append(transient_val)
+        result_richness.append(richness_val)
+        result_vocal.append(vocal_val)
+        result_centroid.append(centroid_val)
+
+    return BeatFeatures(
+        times=result_times,
+        flux=result_flux,
+        transient=result_transient,
+        richness=result_richness,
+        vocal=result_vocal,
+        centroid=result_centroid,
     )
 
 

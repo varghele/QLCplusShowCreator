@@ -1,196 +1,140 @@
 # Continuation Context for Next Claude Code Session
 
-**Date:** 2026-03-31
-**Branch:** v0.9.5
-**Last Session:** Implemented Phase 16 (Rudiments) and Phase 24 (Auto-Show Generation)
+**Date:** 2026-04-01
+**Branch:** v1.0
+**Last Session:** Improved auto-generation with activation roles + Generation Inspector dashboard
 
 ---
 
 ## What Was Built This Session
 
-### 1. Effect Extraction Refactor (Prerequisite)
-All effect computation logic was extracted from `utils/artnet/dmx_manager.py` (~2045 lines) into a standalone `effects/` module:
+### 1. Group Activation Roles (autogen/spatial.py, autogen/generator.py)
 
-- `effects/types.py` — `DimmerContext`, `DimmerResult`, `MovementContext`, `MovementResult` dataclasses
-- `effects/timing.py` — `parse_speed()`, `get_bpm()` helpers
-- `effects/dimmer_effects.py` — 15 pure dimmer effect functions + `DIMMER_REGISTRY` dict
-- `effects/movement_effects.py` — 11 pure movement shape functions + `MOVEMENT_REGISTRY` dict
-- `effects/__init__.py` — public API
+Instead of binary active/inactive per section, fixture groups now get **roles** that determine which parts of the phrase structure they play:
 
-`dmx_manager.py` now uses registry-based dispatch (~860 lines) instead of 1200-line if/elif chains.
+- **FULL** — plays both groove and fill blocks
+- **GROOVE_ONLY** — plays only groove portions
+- **FILL_ONLY** — plays only fill portions (punches in for dramatic fills, silent during grooves)
 
-### 2. Effect Rename to Rudiment Vocabulary
-All effect_type strings across the entire codebase were renamed to match the theory's rudiment naming:
+**Key design decision:** Roles are derived from the **groove rudiment's envelope category**, not from fixture type. A group assigned a SPIKE or STOCHASTIC groove rudiment gets FILL_ONLY at low/medium energy. A group with a FLAT/ROLLING/OSCILLATING groove gets FULL or GROOVE_ONLY. This means the same MH group can be FULL in one section and FILL_ONLY in another, depending on what the matcher assigned.
 
-| Old Name | New Name | Notes |
-|---|---|---|
-| hit | stroke | |
-| pulse (old, 70% floor) | throb | |
-| ping_pong_smooth | ping_pong | |
-| snake + zigzag | chase | Merged, `chase_scope` param: "fixture" or "global" |
-| wave_travel | wave | |
-| waterfall_down + waterfall_up | waterfall | Merged, `direction` param: "down" or "up" |
-| fill_unfill | fill | |
-| random_strobe | random_stroke | |
-| twinkle | sparkle | |
-| breathing_sync + pulse_staggered | pulse | Merged, `phase_offset_per_fixture` param |
-| heartbeat_pulse | heartbeat | |
-| *(new)* | fade | direction="in" or "out" |
-| *(new)* | cascade | build_fraction param |
+- `ActivationRole` enum and `assign_group_roles()` in `autogen/spatial.py`
+- `compute_richness_weights()` reverted to return plain `Dict[str, float]` (weights only, no roles)
+- `_generate_section_blocks()` in `generator.py` respects roles via `emit_groove`/`emit_fill` flags
+- Fill-only groups get 1.3x intensity boost and 1.2x movement amplitude boost
 
-Updated in: effects module, dmx_manager, XML export (unified_sequence.py, shows_to_xml.py, preset_scenes_to_xml.py), dimmer_block_dialog, movement_block_dialog, tests, 6 YAML configs (~3300 replacements), riff JSON files.
+### 2. Generation Inspector Dashboard (gui/dialogs/generation_inspector.py)
 
-### 3. Phase 16: Rudiment System
-- `rudiments/rudiment.py` — `Rudiment`, `FluxEnvelope`, `RudimentParameter` dataclasses, enums (`RudimentType`, `EnvelopeCategory`, `CycleMode`)
-- `rudiments/registry.py` — 15 intensity + 11 movement rudiments with flux envelopes and parameter definitions
-- `rudiments/block_converter.py` — `rudiment_to_dimmer_block()`, `rudiment_to_movement_block()`
-- `rudiments/__init__.py`
+Live visualization window that shows all auto-generation decisions during playback. Toggled via blue "Inspector" button in Shows tab toolbar.
 
-### 4. Phase 24: Automatic Show Generation
-- `audio/spectral_analysis.py` — Extracts spectral flux, transient sharpness, spectral richness, vocal presence, spectral centroid per section using librosa
-- `autogen/color_generator.py` — Song-level palette system (max 3 colors + white), 10 preset palettes, section color assignment
-- `autogen/matcher.py` — Three-dimensional rudiment matching (envelope similarity, repetition rate, flux level), iterative per-group selection with diversity penalties and complement bonuses (max 10 rounds, stops when stable)
-- `autogen/spatial.py` — Fixture group zone classification (front/mid/back/overhead), tiered activation based on relative energy, vocal rules, gobo/prism activation, auto-spot creation for plane targeting
-- `autogen/generator.py` — Main orchestrator implementing full algorithm: audio analysis → color palette → per-group rudiment selection → movement strategy → phrase structure → block generation
-- `gui/dialogs/autogen_dialog.py` — Config dialog with key signature, color scheme (presets + custom), phrase structure, matching weights, effect thresholds
-- Shows tab — Purple "Auto-Generate" button, background thread generation, replace/append UI
+**Architecture:**
+- `autogen/report.py` — `GenerationReport`, `SectionReport`, `GroupSectionReport`, `MatchScoreEntry` dataclasses that capture every decision during generation
+- `autogen/generator.py` — `generate_show()` now returns `Tuple[List[LightLane], GenerationReport]`
+- `gui/dialogs/autogen_dialog.py` — `AutogenWorker.finished` signal emits `(lanes, report)`
+- `gui/tabs/shows_tab.py` — Stores report, Inspector toggle button, feeds playhead position to inspector at ~30Hz
 
-### 5. DimmerBlock Model Extensions
-Added to `config/models.py` `DimmerBlock`:
-- `direction: str = "down"` — for waterfall and fade
-- `chase_scope: str = "fixture"` — for chase effect
-- `phase_offset_per_fixture: bool = False` — for pulse effect
-- `build_fraction: float = 0.7` — for cascade effect
+**Inspector panels (5 QPainter-based widgets):**
+1. `AudioFeaturesWidget` — 5 polyline plots (flux, transient, richness, vocal, centroid) with section backgrounds, energy fill, and red playhead cursor
+2. `GroupActivationWidget` — Groups × sections heatmap colored by role (green=full, blue=groove, orange=fill). Click to select group.
+3. `RudimentScoresWidget` — Top 5 match candidates with stacked sub-score bars (envelope similarity, flux fit, repetition rate, coherence)
+4. `ColorPaletteWidget` — HSL color wheel with song palette dots and current section highlights
+5. Section Info — HTML text panel with all decisions for the current section
 
-Serialization: non-default values only, backward compatible loading.
+**Update mechanism:** Cursor updates at ~30Hz (cheap), full panel redraws only on section change.
 
-### 6. Dimmer Dialog UI Extensions
-`timeline_ui/dimmer_block_dialog.py` — Added rudiment-specific controls that show/hide based on selected effect type:
-- Direction combo (waterfall: down/up, fade: in/out)
-- Chase scope combo (fixture/global)
-- Phase offset checkbox (pulse)
-- Build fraction spinner (cascade)
+### 3. Frame-Level Audio Features (audio/spectral_analysis.py)
+
+Added continuous frame-level feature computation for the inspector plots:
+
+- `FrameFeatures` dataclass — all 5 features (flux, transient, richness, vocal, centroid) at frame resolution
+- `compute_frame_features()` — computes from librosa at ~43fps, lightly smoothed (5-frame window), downsampled to ~800 points
+- **Normalization fix:** smooth first, then normalize to 0-1 (was previously normalizing before smoothing, which compressed the range to ~0-0.3)
+
+Also added (unused but present):
+- `BeatFeatures` dataclass and `compute_beat_features()` — per-beat features using song structure BPM. Tried but abandoned in favor of frame-level (per-beat was still too averaged out)
+- `FluxPlot3DWidget` — 3D trajectory plot (X=time, Y=flux, Z=transient) with QPainter perspective projection and orbit camera. Built but reverted to 2D plots for usability.
+
+### 4. Test Coverage
+
+- `tests/unit/test_autogen_roles.py` — 19 tests covering role assignment (from rudiment categories) and block generation with roles
+- All 449 tests passing
 
 ---
 
-## Current State of Auto-Generation
+## Current State
 
-### What Works:
-- Full pipeline: audio → analysis → palette → rudiment matching → block generation → timeline
-- Per-group rudiment diversity (iterative selection with complement bonuses)
-- Tiered group activation (quiet sections = fewer groups active)
-- Movement shape variety (4 energy-based pools, section rotation)
-- Plane-style sweep targeting (center spot + amplitude)
-- Song-level color coherence (max 3 colors + white, preset palettes)
-- BPM + energy speed matching (per-group variation)
-- Phrase structure from song structure (respects time signature, bar count)
-- Special effects (gobo/prism) for capable fixtures at richness thresholds
-
-### Known Limitations / Future Work:
-- **Investigation system needed** — Algorithm is a black box, need decision logging (see `v1_theory_and_implementation_plan/autofuture.md`)
-- **Color transitions** — No crossfade between sections, just hard cuts
-- **Transition rudiments** — No special handling for section boundaries (e.g., build into chorus)
-- **Live mode** — Not implemented (prepared mode only)
-- **Genre presets** — No pre-tuned parameter sets for different music genres
-- **XML export** for new effects — `unified_sequence.py` needs step generation logic for: chase, wave, stroke, fill, pulse, fade, cascade, heartbeat, throb (currently only the old effect names have QLC+ export)
-- **Movement amplitude to pan/tilt mapping** — The amplitude value (0-80) maps to DMX pan/tilt amplitude but the relationship between amplitude degrees and stage sweep width depends on fixture mounting distance
-
----
-
-## Test Status
-- **429 unit tests passing** (1 pre-existing failure: `imageio_ffmpeg` not installed)
-- Key test files:
-  - `tests/unit/test_effects.py` — 42 tests for all dimmer + movement effects
-  - `tests/unit/test_spectral_analysis.py` — 9 tests for audio analysis
-  - `tests/unit/test_dmx_manager.py` — 17 tests for DMX manager
-
----
-
-## File Map (New/Modified Files)
-
-### New Files Created:
+### Uncommitted Changes (4 files):
 ```
-effects/
-├── __init__.py
-├── types.py
-├── timing.py
-├── dimmer_effects.py
-└── movement_effects.py
+modified:   audio/spectral_analysis.py      — FrameFeatures, compute_frame_features(), BeatFeatures, compute_beat_features(), normalization fix
+modified:   autogen/generator.py            — returns (lanes, report), computes frame features
+modified:   autogen/report.py               — GenerationReport with frame_* arrays
+modified:   gui/dialogs/generation_inspector.py — AudioFeaturesWidget uses frame data, FluxPlot3DWidget (unused)
+```
 
-rudiments/
-├── __init__.py
-├── rudiment.py
-├── registry.py
-└── block_converter.py
+### Already Committed (in "added inspector" and "testing rudiment splitting"):
+```
+modified:   autogen/spatial.py              — ActivationRole, assign_group_roles(), reverted compute_richness_weights
+modified:   autogen/generator.py            — role system integration
+modified:   gui/dialogs/autogen_dialog.py   — AutogenWorker emits (lanes, report)
+modified:   gui/tabs/shows_tab.py           — Inspector button, report storage, playback hook
+new:        autogen/report.py               — Report dataclasses
+new:        gui/dialogs/generation_inspector.py — Inspector dashboard
+new:        tests/unit/test_autogen_roles.py — Role tests
+```
 
-autogen/
-├── __init__.py
-├── generator.py
-├── matcher.py
-├── spatial.py
-└── color_generator.py
+---
 
-audio/spectral_analysis.py
-gui/dialogs/autogen_dialog.py
-tests/unit/test_effects.py
-tests/unit/test_spectral_analysis.py
-v1_theory_and_implementation_plan/autofuture.md
+## Known Issues / TODO
+
+- **Check theory alignment** — The activation role system and rudiment-based role assignment are new concepts not in the original theory document. Need to verify they align with the theory's intent or update the theory.
+- **Inspector not tested end-to-end with playback** — The dashboard was built and compiles, but hasn't been tested with actual show playback (audio file was missing from test_conf.yaml). Need to test with a proper audio file.
+- **FluxPlot3DWidget unused** — Built but reverted. Code remains in generation_inspector.py. Could be removed or revisited later.
+- **BeatFeatures unused** — `compute_beat_features()` in spectral_analysis.py is no longer called. Could be removed.
+- **compute_frame_features loads audio twice** — Once in `analyze_song()` and once in `compute_frame_features()`. Could be refactored to share the librosa load, but not urgent.
+- **RuntimeWarning in transient calculation** — `invalid value encountered in divide` when onset local average is near zero. Harmless (caught by np.where), but should be suppressed.
+
+---
+
+## File Map
+
+### New Files:
+```
+autogen/report.py                          — GenerationReport, SectionReport, GroupSectionReport, MatchScoreEntry
+gui/dialogs/generation_inspector.py        — Inspector dashboard (AudioFeaturesWidget, GroupActivationWidget, RudimentScoresWidget, ColorPaletteWidget, FluxPlot3DWidget)
+tests/unit/test_autogen_roles.py           — 19 tests for activation roles
 ```
 
 ### Key Modified Files:
 ```
-utils/artnet/dmx_manager.py          — Refactored to use effect registries
-config/models.py                      — DimmerBlock extended with new fields
-timeline_ui/dimmer_block_dialog.py    — Added rudiment-specific controls
-timeline_ui/movement_block_dialog.py  — Added linear_sweep, fan to combo
-gui/tabs/shows_tab.py                 — Added Auto-Generate button + handler
-utils/to_xml/unified_sequence.py      — Effect names renamed
-utils/to_xml/shows_to_xml.py          — Effect names renamed
-utils/to_xml/preset_scenes_to_xml.py  — Display names renamed
-tests/unit/test_compact_serializer.py — Updated test data
-```
-
-### Config Files Updated (effect name rename):
-```
-conf_new_test.yaml, conf_v2.yaml, conf_v4.yaml,
-conf_SBD_WASHONLY.yaml, conf_backup_outro.yaml, conf_backup_outro_v2.yaml
-riffs/builds/pulse_build_4bar.json, riffs/loops/pulse_4bar.json, riffs/loops/twinkle_4bar.json
+audio/spectral_analysis.py                 — FrameFeatures, compute_frame_features(), BeatFeatures, compute_beat_features()
+autogen/spatial.py                         — ActivationRole enum, assign_group_roles(), reverted compute_richness_weights
+autogen/generator.py                       — Returns (lanes, report), role system, frame features
+gui/dialogs/autogen_dialog.py              — AutogenWorker emits (lanes, report)
+gui/tabs/shows_tab.py                      — Inspector button + toggle + playback hook
 ```
 
 ---
 
-## Architecture Overview
+## Architecture: Generation Inspector Data Flow
 
 ```
-User clicks "Auto-Generate" in Shows Tab
-  → AutogenDialog (configure: key, palette, phrase, matching, thresholds)
+User clicks "Auto-Generate"
   → AutogenWorker (QThread)
-    → analyze_song()              [audio/spectral_analysis.py]
-       Returns: SectionAnalysis per part (flux, transients, richness, vocal, centroid)
-    → generate_palette_from_audio() OR preset   [autogen/color_generator.py]
-       Returns: SongPalette (1-3 colors + white)
-    → assign_section_colors()     [autogen/color_generator.py]
-       Returns: per-section color assignments from song palette
-    → For each section:
-       → compute_richness_weights() [autogen/spatial.py]
-          Returns: per-group activation weights (0.0 = inactive)
-       → select_rudiments_per_group() [autogen/matcher.py]
-          Iterative: scores → diversity adjustments → until stable (max 10 rounds)
-          Returns: {group: (groove_rudiment, fill_rudiment)}
-       → _select_movement_strategy() [autogen/generator.py]
-          Energy-based shape pool + section rotation + plane targeting
-          Returns: MovementStrategy(shape, target_spot, amplitude)
-       → For each active group:
-          → _generate_section_blocks() → _add_light_block()
-             Creates LightBlock with DimmerBlock + ColourBlock + MovementBlock + SpecialBlock
-  → Lanes added to timeline
+    → generate_show()
+       → analyze_song()                    [section-level analysis]
+       → compute_frame_features()          [frame-level for inspector]
+       → per-section: rudiment selection, role assignment, block generation
+       → builds GenerationReport with all decisions
+    → emits (lanes, report)
+  → ShowsTab stores report, enables Inspector button
+
+User clicks "Inspector"
+  → GenerationInspector window opens with report data
+  → AudioFeaturesWidget reads report.frame_* arrays → builds polylines
+
+During playback (~30Hz):
+  → ShowsTab._update_playback()
+    → inspector.update_position(time)
+      → AudioFeaturesWidget: moves red cursor line (cheap)
+      → On section change: all panels redraw with new section data
 ```
-
----
-
-## Memory Files
-The `.claude/projects/.../memory/` directory has these entries:
-- `user_profile.md` — User role and context
-- `project_roadmap.md` — Release plans
-- `feedback_local_pipeline.md` — Prefers local build scripts
-- `project_rudiment_system.md` — Phase 16 implementation status (created this session)

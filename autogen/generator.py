@@ -102,9 +102,22 @@ def generate_show(
     section_color_assignments = assign_section_colors(song_palette, section_types)
 
     # Initialize generation report
+    # Compute continuous frame-level audio features for the inspector
+    try:
+        from audio.spectral_analysis import compute_frame_features
+        frame_features = compute_frame_features(audio_path)
+    except Exception:
+        frame_features = None
+
     report = GenerationReport(
         group_names=list(group_classifications.keys()),
         song_palette_rgb=list(song_palette.get_colors()) if song_palette else [],
+        frame_times=frame_features.times if frame_features else [],
+        frame_flux=frame_features.flux if frame_features else [],
+        frame_transient=frame_features.transient if frame_features else [],
+        frame_richness=frame_features.richness if frame_features else [],
+        frame_vocal=frame_features.vocal if frame_features else [],
+        frame_centroid=frame_features.centroid if frame_features else [],
     )
 
     # Build lanes — one per fixture group

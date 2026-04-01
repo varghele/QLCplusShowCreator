@@ -66,32 +66,50 @@ class AudioFeaturesWidget(QWidget):
         self._build_paths()
 
     def _build_paths(self):
-        """Pre-compute QPainterPaths from report data (called once)."""
+        """Pre-compute feature point arrays from report data (called once).
+
+        Uses per-beat data if available (smooth curves), falls back to
+        section-level data (flat steps) if not.
+        """
         if not self.report.sections:
             return
         self._total_time = max(s.end_time for s in self.report.sections)
         if self._total_time <= 0:
             return
 
-        features = {
-            "flux": [(s.start_time, s.spectral_flux) for s in self.report.sections],
-            "transient": [(s.start_time, s.transient_sharpness) for s in self.report.sections],
-            "richness": [(s.start_time, s.spectral_richness) for s in self.report.sections],
-            "vocal": [(s.start_time, s.vocal_presence) for s in self.report.sections],
-            "centroid": [(s.start_time, s.spectral_centroid) for s in self.report.sections],
-        }
+        # Prefer continuous frame-level data (smoothed, ~800 points)
+        if self.report.frame_times:
+            times = self.report.frame_times
+            features = {
+                "flux": list(zip(times, self.report.frame_flux)),
+                "transient": list(zip(times, self.report.frame_transient)),
+                "richness": list(zip(times, self.report.frame_richness)),
+                "vocal": list(zip(times, self.report.frame_vocal)),
+                "centroid": list(zip(times, self.report.frame_centroid)),
+            }
+        else:
+            # Fallback: section-level (one point per section)
+            features = {
+                "flux": [(s.start_time, s.spectral_flux) for s in self.report.sections],
+                "transient": [(s.start_time, s.transient_sharpness) for s in self.report.sections],
+                "richness": [(s.start_time, s.spectral_richness) for s in self.report.sections],
+                "vocal": [(s.start_time, s.vocal_presence) for s in self.report.sections],
+                "centroid": [(s.start_time, s.spectral_centroid) for s in self.report.sections],
+            }
 
         # Normalize centroid to 0-1 range
         centroids = [v for _, v in features["centroid"]]
-        c_min, c_max = min(centroids), max(centroids)
-        if c_max > c_min:
-            features["centroid"] = [(t, (v - c_min) / (c_max - c_min)) for t, v in features["centroid"]]
-        else:
-            features["centroid"] = [(t, 0.5) for t, _ in features["centroid"]]
+        if centroids:
+            c_min, c_max = min(centroids), max(centroids)
+            if c_max > c_min:
+                features["centroid"] = [(t, (v - c_min) / (c_max - c_min)) for t, v in features["centroid"]]
+            else:
+                features["centroid"] = [(t, 0.5) for t, _ in features["centroid"]]
 
         self._features = features
 
-        # Energy filled area
+        # Energy filled area (section-level — per-beat energy isn't meaningful
+        # since energy is a relative ranking across sections)
         self._energy_points = [
             (s.start_time, s.relative_energy) for s in self.report.sections
         ]

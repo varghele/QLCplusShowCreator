@@ -61,6 +61,13 @@ class GenerationReport:
     sections: List[SectionReport] = field(default_factory=list)
     song_palette_rgb: List[Tuple[int, int, int]] = field(default_factory=list)
     group_names: List[str] = field(default_factory=list)
+    # Continuous audio features (frame-level, smoothed + downsampled to ~800 points)
+    frame_times: List[float] = field(default_factory=list)
+    frame_flux: List[float] = field(default_factory=list)
+    frame_transient: List[float] = field(default_factory=list)
+    frame_richness: List[float] = field(default_factory=list)
+    frame_vocal: List[float] = field(default_factory=list)
+    frame_centroid: List[float] = field(default_factory=list)
 
     def get_section_at(self, time: float) -> Optional[SectionReport]:
         """Find the section report active at a given time."""
