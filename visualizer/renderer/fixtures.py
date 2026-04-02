@@ -112,7 +112,7 @@ uniform float beam_intensity;
 
 void main() {
     // Fade out toward edges and along length
-    float alpha = v_alpha * beam_intensity * 0.3;
+    float alpha = v_alpha * beam_intensity * 0.8;
     fragColor = vec4(beam_color, alpha);
 }
 """
@@ -667,8 +667,7 @@ class FixtureRenderer(ABC):
 
             self.beam_program['mvp'].write(mvp_bytes)
             self.beam_program['beam_color'].value = color
-            # Lower intensity than MH beams for subtlety
-            self.beam_program['beam_intensity'].value = dimmer * 0.6 * self.brightness_scale
+            self.beam_program['beam_intensity'].value = dimmer * self.brightness_scale
 
             self.beam_vao.render(moderngl.TRIANGLES)
 
@@ -904,7 +903,7 @@ class LEDBarRenderer(FixtureRenderer):
             fragment_shader=BEAM_FRAGMENT_SHADER
         )
 
-        beam_length = 0.3  # Max 0.3m as specified
+        beam_length = 0.3  # Short glow near fixture face
         beam_width = self.segment_width * 0.7
         beam_height = self.segment_height * 0.7
 
@@ -1018,7 +1017,7 @@ class LEDBarRenderer(FixtureRenderer):
 
         self.beam_program['mvp'].write(mvp_bytes)
         self.beam_program['beam_color'].value = color
-        self.beam_program['beam_intensity'].value = dimmer * 0.6 * self.brightness_scale
+        self.beam_program['beam_intensity'].value = dimmer * self.brightness_scale
 
         # Render all segment beams at once (same color for all)
         self.segment_beam_vao.render(moderngl.TRIANGLES)
@@ -1277,7 +1276,7 @@ class PixelBarRenderer(FixtureRenderer):
             fragment_shader=BEAM_FRAGMENT_SHADER
         )
 
-        beam_length = 0.3  # Max 0.3m
+        beam_length = 0.3  # Short glow near fixture face
         beam_width = self.segment_width * 0.7
         beam_height = self.segment_height * 0.7
 
@@ -1443,7 +1442,7 @@ class PixelBarRenderer(FixtureRenderer):
                 continue  # Skip dark segments
 
             self.beam_program['beam_color'].value = color
-            self.beam_program['beam_intensity'].value = intensity * 0.6 * self.brightness_scale
+            self.beam_program['beam_intensity'].value = intensity * self.brightness_scale
             vao.render(moderngl.TRIANGLES)
 
         # Restore state
@@ -1681,7 +1680,7 @@ class SunstripRenderer(FixtureRenderer):
             fragment_shader=BEAM_FRAGMENT_SHADER
         )
 
-        beam_length = 0.3  # Max 0.3m as specified
+        beam_length = 0.3  # Short glow near fixture face
         beam_radius = self.lamp_radius * 0.8  # Slightly smaller than lamp
 
         # Create beam geometry for all segments
@@ -1809,7 +1808,7 @@ class SunstripRenderer(FixtureRenderer):
 
             if dimmer > 0.01:
                 self.beam_program['beam_color'].value = WARM_WHITE_COLOR
-                self.beam_program['beam_intensity'].value = dimmer * 0.7 * self.brightness_scale
+                self.beam_program['beam_intensity'].value = dimmer * self.brightness_scale
 
                 first_vertex = i * self.vertices_per_beam
                 self.segment_beam_vao.render(
@@ -3073,7 +3072,7 @@ class WashRenderer(FixtureRenderer):
             fragment_shader=BEAM_FRAGMENT_SHADER
         )
 
-        beam_length = 0.3  # Max 0.3m as specified
+        beam_length = 0.3  # Short glow near fixture face
         beam_width = self.lens_width * 0.8
         beam_height = self.lens_height * 0.8
 
@@ -3171,7 +3170,7 @@ class WashRenderer(FixtureRenderer):
 
         self.beam_program['mvp'].write(mvp_bytes)
         self.beam_program['beam_color'].value = color
-        self.beam_program['beam_intensity'].value = dimmer * 0.6 * self.brightness_scale
+        self.beam_program['beam_intensity'].value = dimmer * self.brightness_scale
 
         self.wash_beam_vao.render(moderngl.TRIANGLES)
 
@@ -3409,7 +3408,7 @@ class PARRenderer(FixtureRenderer):
             fragment_shader=BEAM_FRAGMENT_SHADER
         )
 
-        beam_length = 0.3  # Max 0.3m as specified
+        beam_length = 0.3  # Short glow near fixture face
         beam_radius = self.lens_radius * 0.8
 
         # Beam already extends along +Z, just translate to lens position
@@ -3510,7 +3509,7 @@ class PARRenderer(FixtureRenderer):
 
         self.beam_program['mvp'].write(mvp_bytes)
         self.beam_program['beam_color'].value = color
-        self.beam_program['beam_intensity'].value = dimmer * 0.6 * self.brightness_scale
+        self.beam_program['beam_intensity'].value = dimmer * self.brightness_scale
 
         self.par_beam_vao.render(moderngl.TRIANGLES)
 
