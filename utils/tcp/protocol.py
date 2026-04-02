@@ -247,7 +247,10 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
         'tilt_max': 0.0,
         'fixture_type': 'PAR',
         'channel_mapping': {},
-        'modes': {}
+        'modes': {},
+        'power_consumption': 100.0,  # Default 100W
+        'is_led': False,
+        'lumens': 0.0,  # Computed after LED classification
     }
 
     qxf_path = _find_qxf_file(manufacturer, model)
@@ -309,6 +312,15 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
                     'width': int(layout.get('Width', 1)),
                     'height': int(layout.get('Height', 1))
                 }
+
+            # Parse Technical section for PowerConsumption
+            technical = _find_element(physical, 'Technical', ns)
+            if technical is not None:
+                power_str = technical.get('PowerConsumption', '100')
+                try:
+                    result['power_consumption'] = float(power_str)
+                except (ValueError, TypeError):
+                    result['power_consumption'] = 100.0
 
         # Build channel name to preset mapping and extract color wheel capabilities
         channel_presets = {}
@@ -510,6 +522,28 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
                 # No RGB = dimmer-only sunstrip
                 result['fixture_type'] = 'SUNSTRIP'
 
+        # Classify LED vs conventional for lumen estimation
+        # Heuristic 1: "LED" in model name
+        model_upper = model.upper()
+        is_led = 'LED' in model_upper
+        # Heuristic 2: Has RGBW channels (typical of LED fixtures)
+        if not is_led:
+            for mode_data in result['modes'].values():
+                funcs = set(mode_data.values())
+                if {'red', 'green', 'blue', 'white'}.issubset(funcs):
+                    is_led = True
+                    break
+        # Heuristic 3: Moving heads are nearly all LED-based
+        if not is_led and result['fixture_type'] == 'MH':
+            is_led = True
+
+        result['is_led'] = is_led
+
+        # Estimate lumens from power consumption
+        # LED: ~100 lumens/watt, Conventional (halogen): ~17.5 lumens/watt
+        efficiency = 100.0 if is_led else 17.5
+        result['lumens'] = result['power_consumption'] * efficiency
+
         _fixture_definition_cache[cache_key] = result
 
         # Return with specific mode's channel mapping
@@ -661,7 +695,9 @@ class VisualizerProtocol:
                 "color_wheel": qxf_data.get('color_wheel', []),
                 "gobo_wheel": qxf_data.get('gobo_wheel', []),
                 # Per-segment channel mapping for PIXELBAR fixtures
-                "pixel_segments": qxf_data.get('pixel_segments', {}).get(fixture.current_mode, [])
+                "pixel_segments": qxf_data.get('pixel_segments', {}).get(fixture.current_mode, []),
+                # Brightness data for realistic intensity scaling
+                "lumens": qxf_data.get('lumens', 10000.0),
             }
             fixtures_data.append(fixture_info)
 

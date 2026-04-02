@@ -500,6 +500,9 @@ class FixtureRenderer(ABC):
         # Beam properties
         self.beam_angle = fixture_data.get('beam_angle', 25.0)
 
+        # Brightness scaling (set by FixtureManager based on lumen normalization)
+        self.brightness_scale = 1.0
+
         # Current DMX state
         self.dmx_values: Dict[str, int] = {}
         self.segment_values: List[int] = []  # Per-segment DMX values
@@ -665,7 +668,7 @@ class FixtureRenderer(ABC):
             self.beam_program['mvp'].write(mvp_bytes)
             self.beam_program['beam_color'].value = color
             # Lower intensity than MH beams for subtlety
-            self.beam_program['beam_intensity'].value = dimmer * 0.6
+            self.beam_program['beam_intensity'].value = dimmer * 0.6 * self.brightness_scale
 
             self.beam_vao.render(moderngl.TRIANGLES)
 
@@ -991,7 +994,7 @@ class LEDBarRenderer(FixtureRenderer):
 
         self.program['base_color'].value = (0.1, 0.1, 0.1)
         self.program['emissive_color'].value = emissive
-        self.program['emissive_strength'].value = 1.0
+        self.program['emissive_strength'].value = 1.0 * self.brightness_scale
 
         self.segment_vao.render(moderngl.TRIANGLES)
 
@@ -1015,7 +1018,7 @@ class LEDBarRenderer(FixtureRenderer):
 
         self.beam_program['mvp'].write(mvp_bytes)
         self.beam_program['beam_color'].value = color
-        self.beam_program['beam_intensity'].value = dimmer * 0.6
+        self.beam_program['beam_intensity'].value = dimmer * 0.6 * self.brightness_scale
 
         # Render all segment beams at once (same color for all)
         self.segment_beam_vao.render(moderngl.TRIANGLES)
@@ -1403,7 +1406,7 @@ class PixelBarRenderer(FixtureRenderer):
 
             self.program['base_color'].value = (0.1, 0.1, 0.1)
             self.program['emissive_color'].value = color
-            self.program['emissive_strength'].value = intensity
+            self.program['emissive_strength'].value = intensity * self.brightness_scale
             vao.render(moderngl.TRIANGLES)
 
         # Render beams for segments that are lit
@@ -1440,7 +1443,7 @@ class PixelBarRenderer(FixtureRenderer):
                 continue  # Skip dark segments
 
             self.beam_program['beam_color'].value = color
-            self.beam_program['beam_intensity'].value = intensity * 0.6
+            self.beam_program['beam_intensity'].value = intensity * 0.6 * self.brightness_scale
             vao.render(moderngl.TRIANGLES)
 
         # Restore state
@@ -1770,7 +1773,7 @@ class SunstripRenderer(FixtureRenderer):
             )
 
             self.program['emissive_color'].value = emissive
-            self.program['emissive_strength'].value = 1.5 if dimmer > 0.1 else 0.0
+            self.program['emissive_strength'].value = (1.5 if dimmer > 0.1 else 0.0) * self.brightness_scale
 
             # Render just this lamp's vertices
             first_vertex = i * self.vertices_per_lamp
@@ -1806,7 +1809,7 @@ class SunstripRenderer(FixtureRenderer):
 
             if dimmer > 0.01:
                 self.beam_program['beam_color'].value = WARM_WHITE_COLOR
-                self.beam_program['beam_intensity'].value = dimmer * 0.7
+                self.beam_program['beam_intensity'].value = dimmer * 0.7 * self.brightness_scale
 
                 first_vertex = i * self.vertices_per_beam
                 self.segment_beam_vao.render(
@@ -2577,7 +2580,7 @@ class MovingHeadRenderer(FixtureRenderer):
 
         self.program['base_color'].value = (0.2, 0.2, 0.2)
         self.program['emissive_color'].value = emissive
-        self.program['emissive_strength'].value = 1.0
+        self.program['emissive_strength'].value = 1.0 * self.brightness_scale
 
         self.lens_vao.render(moderngl.TRIANGLES)
 
@@ -2627,7 +2630,7 @@ class MovingHeadRenderer(FixtureRenderer):
 
         self.beam_program['mvp'].write(mvp_bytes)
         self.beam_program['beam_color'].value = color
-        self.beam_program['beam_intensity'].value = intensity
+        self.beam_program['beam_intensity'].value = intensity * self.brightness_scale
 
         # Pass gobo pattern and rotation
         gobo_pattern = self.get_gobo_pattern()
@@ -2664,7 +2667,7 @@ class MovingHeadRenderer(FixtureRenderer):
             if prism_active:
                 # Render 3 beams for 3-facet prism
                 # Each beam rotated 120° around beam axis, tilted outward ~10°
-                prism_intensity = dimmer * 0.4  # 40% each, combined ~120%
+                prism_intensity = dimmer * 0.4 * self.brightness_scale  # 40% each, combined ~120%
                 prism_tilt = 10.0  # Degrees outward tilt
 
                 for i, offset_angle in enumerate([0.0, 120.0, 240.0]):
@@ -2798,7 +2801,7 @@ class MovingHeadRenderer(FixtureRenderer):
 
         self.floor_proj_program['mvp'].write(mvp_bytes)
         self.floor_proj_program['projection_color'].value = color
-        self.floor_proj_program['projection_intensity'].value = intensity
+        self.floor_proj_program['projection_intensity'].value = intensity * self.brightness_scale
         self.floor_proj_program['distance_falloff'].value = distance_falloff
 
         # Pass gobo pattern and rotation
@@ -2846,7 +2849,7 @@ class MovingHeadRenderer(FixtureRenderer):
 
             if prism_active:
                 # Render 3 floor projections for 3-facet prism
-                prism_intensity = dimmer * 0.4  # 40% each
+                prism_intensity = dimmer * 0.4 * self.brightness_scale  # 40% each
                 prism_tilt = 10.0
 
                 for offset_angle in [0.0, 120.0, 240.0]:
@@ -3144,7 +3147,7 @@ class WashRenderer(FixtureRenderer):
 
         self.program['base_color'].value = (0.15, 0.15, 0.15)
         self.program['emissive_color'].value = emissive
-        self.program['emissive_strength'].value = 1.0
+        self.program['emissive_strength'].value = 1.0 * self.brightness_scale
 
         self.lens_vao.render(moderngl.TRIANGLES)
 
@@ -3168,7 +3171,7 @@ class WashRenderer(FixtureRenderer):
 
         self.beam_program['mvp'].write(mvp_bytes)
         self.beam_program['beam_color'].value = color
-        self.beam_program['beam_intensity'].value = dimmer * 0.6
+        self.beam_program['beam_intensity'].value = dimmer * 0.6 * self.brightness_scale
 
         self.wash_beam_vao.render(moderngl.TRIANGLES)
 
@@ -3483,7 +3486,7 @@ class PARRenderer(FixtureRenderer):
 
         self.program['base_color'].value = (0.15, 0.15, 0.15)
         self.program['emissive_color'].value = emissive
-        self.program['emissive_strength'].value = 1.0
+        self.program['emissive_strength'].value = 1.0 * self.brightness_scale
 
         self.lens_vao.render(moderngl.TRIANGLES)
 
@@ -3507,7 +3510,7 @@ class PARRenderer(FixtureRenderer):
 
         self.beam_program['mvp'].write(mvp_bytes)
         self.beam_program['beam_color'].value = color
-        self.beam_program['beam_intensity'].value = dimmer * 0.6
+        self.beam_program['beam_intensity'].value = dimmer * 0.6 * self.brightness_scale
 
         self.par_beam_vao.render(moderngl.TRIANGLES)
 
@@ -3594,6 +3597,22 @@ class FixtureManager:
             if name not in seen_fixtures:
                 self.fixtures[name].release()
                 del self.fixtures[name]
+
+        # Normalize brightness based on estimated lumens
+        max_lumens = 0.0
+        for fixture_data in fixtures_data:
+            lumens = fixture_data.get('lumens', 10000.0)
+            if lumens > max_lumens:
+                max_lumens = lumens
+
+        if max_lumens > 0:
+            for fixture_data in fixtures_data:
+                name = fixture_data.get('name', '')
+                if name in self.fixtures:
+                    lumens = fixture_data.get('lumens', 10000.0)
+                    # Use sqrt compression to prevent extreme dimming of low-wattage fixtures
+                    self.fixtures[name].brightness_scale = math.sqrt(lumens / max_lumens)
+                    print(f"  Brightness: {name} = {lumens:.0f} lm -> scale {self.fixtures[name].brightness_scale:.2f}")
 
         print(f"FixtureManager: {len(self.fixtures)} fixtures loaded")
         for name, fix in self.fixtures.items():
