@@ -33,6 +33,10 @@ class LiveDMXController:
         self.dmx_manager = DMXManager(config, fixture_definitions)
         self.artnet_sender = ArtNetSender(target_ip=target_ip)
 
+        # Second sender for visualizer (always broadcast)
+        self._visualizer_sender = ArtNetSender(target_ip="255.255.255.255")
+        self._mirror_to_visualizer = True
+
         # Universe mapping: {config_universe_id: artnet_universe_number}
         # Default: identity mapping (config universe 1 → artnet 0, etc.)
         self._universe_mapping: Dict[int, int] = {}
@@ -56,6 +60,10 @@ class LiveDMXController:
     def set_target_ip(self, ip: str):
         """Change ArtNet target IP at runtime."""
         self.artnet_sender.target_ip = ip
+
+    def set_mirror_to_visualizer(self, enabled: bool):
+        """Enable/disable mirroring DMX to broadcast for the visualizer."""
+        self._mirror_to_visualizer = enabled
 
     def set_universe_mapping(self, mapping: Dict[int, int]):
         """Set universe mapping.
@@ -129,6 +137,10 @@ class LiveDMXController:
             try:
                 dmx_data = self.dmx_manager.get_dmx_data(config_uid)
                 self.artnet_sender.send_dmx(artnet_uid, dmx_data)
+
+                # Mirror to broadcast for visualizer
+                if self._mirror_to_visualizer:
+                    self._visualizer_sender.send_dmx(artnet_uid, dmx_data)
             except Exception as e:
                 print(f"Error sending universe {config_uid}→{artnet_uid}: {e}")
 
@@ -138,5 +150,7 @@ class LiveDMXController:
         for artnet_uid in self._universe_mapping.values():
             try:
                 self.artnet_sender.send_dmx(artnet_uid, blackout, force=True)
+                if self._mirror_to_visualizer:
+                    self._visualizer_sender.send_dmx(artnet_uid, blackout, force=True)
             except Exception:
                 pass
