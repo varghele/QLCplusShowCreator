@@ -608,3 +608,19 @@ def _resample_to_n(data: np.ndarray, n: int) -> List[float]:
         else:
             result.append(float(data[start]))
     return result
+
+
+def create_realtime_analyzer(sample_rate: int = 44100):
+    """Factory for real-time spectral analysis.
+
+    Returns a RealtimeSpectralAnalyzer that produces the same 7 metrics
+    as the offline pipeline but from live audio chunks.
+
+    Args:
+        sample_rate: Input sample rate (typically 44100)
+
+    Returns:
+        RealtimeSpectralAnalyzer instance
+    """
+    from .realtime_spectral import RealtimeSpectralAnalyzer
+    return RealtimeSpectralAnalyzer(sample_rate=sample_rate)

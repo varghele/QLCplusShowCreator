@@ -82,7 +82,7 @@ class ShowsTab(BaseTab):
         # Simple audio player (pygame-based) - preferred for performance
         self.simple_audio_player = None
         self.use_simple_audio = SIMPLE_AUDIO_AVAILABLE  # Use pygame if available
-        # Legacy audio components (PyAudio-based) - fallback
+        # Legacy audio components (sounddevice-based) - fallback
         self.audio_engine = None
         self.audio_mixer = None
         self.playback_sync = None
@@ -1024,7 +1024,7 @@ class ShowsTab(BaseTab):
                 except Exception as e:
                     print(f"SimpleAudioPlayer playback failed: {e}")
 
-            # Fallback to PyAudio
+            # Fallback to sounddevice engine
             elif self.playback_sync:
                 # Try to start audio playback - if it fails, fall back to timer-based
                 if not self.playback_sync.on_play_requested(self.playhead_position):
@@ -1055,7 +1055,7 @@ class ShowsTab(BaseTab):
         self.play_btn.setText("Play")
         self.playback_timer.stop()
 
-        # Pause audio (simple player or PyAudio)
+        # Pause audio (simple player or sounddevice engine)
         if self.simple_audio_player:
             self.simple_audio_player.pause()
         elif self.playback_sync:
@@ -1071,7 +1071,7 @@ class ShowsTab(BaseTab):
         self.play_btn.setText("Play")
         self.playback_timer.stop()
 
-        # Stop audio (simple player or PyAudio)
+        # Stop audio (simple player or sounddevice engine)
         if self.simple_audio_player:
             self.simple_audio_player.stop()
         elif self.playback_sync:
@@ -1088,7 +1088,7 @@ class ShowsTab(BaseTab):
         self.playhead_position = position
         self._on_playhead_moved(position)
 
-        # Seek audio (simple player or PyAudio)
+        # Seek audio (simple player or sounddevice engine)
         if self.simple_audio_player:
             self.simple_audio_player.seek(position)
         elif self.playback_sync:
@@ -1155,7 +1155,7 @@ class ShowsTab(BaseTab):
         """Initialize audio engine on first use.
 
         Prefers SimpleAudioPlayer (pygame) for better performance.
-        Falls back to PyAudio-based engine if pygame not available.
+        Falls back to sounddevice-based engine if pygame not available.
         """
         # Try simple audio player first (pygame-based, much faster)
         if self.use_simple_audio and SIMPLE_AUDIO_AVAILABLE:
@@ -1193,11 +1193,11 @@ class ShowsTab(BaseTab):
                     return  # Success with simple player
 
                 except Exception as e:
-                    print(f"SimpleAudioPlayer failed: {e}, falling back to PyAudio")
+                    print(f"SimpleAudioPlayer failed: {e}, falling back to sounddevice engine")
                     self.simple_audio_player = None
                     self.use_simple_audio = False
 
-        # Fallback to PyAudio-based engine
+        # Fallback to sounddevice-based engine
         if not AUDIO_AVAILABLE:
             return
 
@@ -1237,7 +1237,7 @@ class ShowsTab(BaseTab):
                     lambda m: self.audio_mixer.set_mute_state("audio", m) if self.audio_mixer else None
                 )
 
-                print("Using PyAudio for audio playback")
+                print("Using sounddevice for audio playback")
 
             except Exception as e:
                 print(f"Failed to initialize audio engine: {e}")

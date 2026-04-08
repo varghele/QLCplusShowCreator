@@ -408,6 +408,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.menuRender.addAction(self.actionRenderToVideo)
         self.actionRenderToVideo.triggered.connect(self.render_to_video)
 
+        # Live menu (insert before Help)
+        self.menuLive = QtWidgets.QMenu("Live", parent=self.menubar)
+        self.menubar.insertMenu(self.menuHelp.menuAction(), self.menuLive)
+        self.actionOpenLiveMode = QAction("Open Live Mode...", self)
+        self.actionOpenLiveMode.setShortcut("Ctrl+L")
+        self.menuLive.addAction(self.actionOpenLiveMode)
+        self.actionOpenLiveMode.triggered.connect(self._open_live_mode)
+
         # Help menu actions
         self.actionAbout.triggered.connect(self.show_about)
 
@@ -854,6 +862,30 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 f"Failed to create workspace: {str(e)}"
             )
             print(f"Error creating workspace: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _open_live_mode(self):
+        """Open the Live Mode window for real-time audio-reactive lighting."""
+        try:
+            # Load fixture definitions (same pattern as render_to_video)
+            models_in_config = {(f.manufacturer, f.model)
+                                for g in self.config.groups.values()
+                                for f in g.fixtures}
+            from utils.fixture_utils import load_fixture_definitions_from_qlc
+            fixture_definitions = load_fixture_definitions_from_qlc(models_in_config)
+
+            from live.window import LiveModeWindow
+            self._live_mode_window = LiveModeWindow(
+                config=self.config,
+                fixture_definitions=fixture_definitions,
+                parent=self,
+            )
+            self._live_mode_window.show()
+
+        except Exception as e:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(self, "Error", f"Failed to open Live Mode: {str(e)}")
             import traceback
             traceback.print_exc()
 

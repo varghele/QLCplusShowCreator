@@ -1,9 +1,10 @@
 """
-PyAudio-based audio playback engine for QLCAutoShow.
+Audio playback engine for QLCAutoShow using sounddevice.
 Manages audio stream and provides sample-accurate playback.
+Supports ASIO (Windows) and JACK (Linux) for low-latency operation.
 """
 
-import pyaudio
+import sounddevice as sd
 import numpy as np
 import threading
 import queue
@@ -20,14 +21,13 @@ class AudioCommand:
 
 
 class AudioEngine:
-    """Core audio playback engine using PyAudio"""
+    """Core audio playback engine using sounddevice"""
 
     def __init__(self, sample_rate: int = 44100, buffer_size: int = 512):
         self.sample_rate = sample_rate
         self.buffer_size = buffer_size
 
-        self.py_audio: Optional[pyaudio.PyAudio] = None
-        self.stream: Optional[pyaudio.Stream] = None
+        self._sd_stream: Optional[sd.OutputStream] = None
         self.mixer: Optional[AudioMixer] = None
 
         # Playback state
@@ -48,7 +48,7 @@ class AudioEngine:
 
     def initialize(self, device_index: Optional[int] = None) -> bool:
         """
-        Initialize PyAudio and create audio stream
+        Initialize sounddevice and create audio output stream.
 
         Args:
             device_index: Audio device to use (None = default)
@@ -60,18 +60,13 @@ class AudioEngine:
             if self._is_initialized:
                 return True
 
-            self.py_audio = pyaudio.PyAudio()
-
-            # Open stream
-            self.stream = self.py_audio.open(
-                format=pyaudio.paFloat32,
-                channels=2,  # Stereo
-                rate=self.sample_rate,
-                output=True,
-                output_device_index=device_index,
-                frames_per_buffer=self.buffer_size,
-                stream_callback=self._audio_callback,
-                start=False  # Don't auto-start the stream
+            self._sd_stream = sd.OutputStream(
+                samplerate=self.sample_rate,
+                blocksize=self.buffer_size,
+                device=device_index,
+                channels=2,
+                dtype='float32',
+                callback=self._audio_callback,
             )
 
             self._is_initialized = True
@@ -86,21 +81,14 @@ class AudioEngine:
         """Cleanup audio resources"""
         self.stop_playback()
 
-        if self.stream:
+        if self._sd_stream:
             try:
-                if self.stream.is_active():
-                    self.stream.stop_stream()
-                self.stream.close()
-            except:
+                if self._sd_stream.active:
+                    self._sd_stream.abort()
+                self._sd_stream.close()
+            except Exception:
                 pass
-            self.stream = None
-
-        if self.py_audio:
-            try:
-                self.py_audio.terminate()
-            except:
-                pass
-            self.py_audio = None
+            self._sd_stream = None
 
         self._is_initialized = False
 
@@ -115,7 +103,7 @@ class AudioEngine:
 
     def start_playback(self, start_position: float = 0.0) -> bool:
         """
-        Start audio playback
+        Start audio playback.
 
         Args:
             start_position: Starting position in seconds
@@ -140,8 +128,8 @@ class AudioEngine:
             self._is_playing = True
 
         # Start the stream if not already running
-        if not self.stream.is_active():
-            self.stream.start_stream()
+        if not self._sd_stream.active:
+            self._sd_stream.start()
 
         return True
 
@@ -154,20 +142,20 @@ class AudioEngine:
             if self.mixer:
                 self.mixer.reset_all_lanes()
 
-        if self.stream and self.stream.is_active():
-            self.stream.stop_stream()
+        if self._sd_stream and self._sd_stream.active:
+            self._sd_stream.abort()
 
     def pause_playback(self):
         """Pause playback at current position"""
         with self._lock:
             self._is_playing = False
 
-        if self.stream and self.stream.is_active():
-            self.stream.stop_stream()
+        if self._sd_stream and self._sd_stream.active:
+            self._sd_stream.abort()
 
     def seek(self, time_seconds: float):
         """
-        Seek to specific time position
+        Seek to specific time position.
 
         Args:
             time_seconds: Target position in seconds
@@ -186,50 +174,53 @@ class AudioEngine:
         with self._lock:
             return self._is_playing
 
-    def _audio_callback(self, in_data, frame_count, time_info, status):
+    def _audio_callback(self, outdata, frames, time, status):
         """
-        PyAudio callback - called from audio thread
+        sounddevice callback - called from audio thread.
 
-        This runs on a separate thread and must be fast and lock-free as much as possible
+        Args:
+            outdata: Output buffer to fill (numpy array, shape (frames, channels))
+            frames: Number of frames to produce
+            time: Timing info
+            status: Callback status flags
         """
-        # Handle any status flags (suppress to avoid spam)
-        if status and status != 4:  # Suppress output underflow warnings (common during init)
-            print(f"Audio callback status: {status}")
+        if status:
+            if status.output_underflow:
+                pass  # Common during init, suppress
+            else:
+                print(f"Audio callback status: {status}")
 
-        # Check for seek command
+        # Handle seek
         with self._lock:
             if self._seek_pending:
                 self._execute_seek()
                 self._seek_pending = False
 
-            # Check if playing
             if not self._is_playing or not self.mixer:
-                # Return silence
-                output_data = np.zeros((frame_count, 2), dtype=np.float32)
-                return (output_data.tobytes(), pyaudio.paContinue)
+                outdata[:] = 0
+                return
 
         # Mix audio from all lanes
         try:
-            mixed_audio = self.mixer.mix_frames(frame_count)
+            mixed_audio = self.mixer.mix_frames(frames)
 
             with self._lock:
-                self._current_frame += frame_count
+                self._current_frame += frames
+
+            # Write mixed audio to output buffer
+            outdata[:] = mixed_audio
 
             # Periodically report position (every ~100ms)
             if self._position_callback and self._current_frame % 4410 == 0:
                 try:
                     position = self._current_frame / self.sample_rate
                     self._position_callback(position)
-                except:
+                except Exception:
                     pass  # Don't let callback errors crash audio thread
-
-            return (mixed_audio.tobytes(), pyaudio.paContinue)
 
         except Exception as e:
             print(f"Error in audio callback: {e}")
-            # Return silence on error
-            output_data = np.zeros((frame_count, 2), dtype=np.float32)
-            return (output_data.tobytes(), pyaudio.paContinue)
+            outdata[:] = 0
 
     def _execute_seek(self):
         """Execute pending seek operation (called from audio callback)"""
