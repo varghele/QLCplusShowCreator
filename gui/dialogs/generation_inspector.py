@@ -5,12 +5,15 @@ import math
 import colorsys
 from typing import Optional, List
 
+import numpy as np
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSplitter, QSizePolicy,
 )
 from PyQt6.QtCore import Qt, QRectF, QPointF
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QBrush, QPainterPath, QFont, QFontMetrics,
+    QImage, QPixmap,
 )
 
 from autogen.report import GenerationReport, SectionReport
@@ -53,12 +56,19 @@ HIGHLIGHT_COLOR = QColor(255, 255, 255, 50)
 class AudioFeaturesWidget(QWidget):
     """Stacked line plots of audio features over song duration with playhead cursor."""
 
+    FEATURE_KEYS = ["flux", "transient", "richness", "vocal", "centroid"]
+
     def __init__(self, report: GenerationReport, parent=None):
         super().__init__(parent)
         self.report = report
         self.cursor_time = 0.0
         self.setMinimumHeight(140)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        # Visibility toggles (all on by default); energy is always shown
+        self._visible = {k: True for k in self.FEATURE_KEYS}
+        # Legend hit rects: filled in paintEvent, used by mousePressEvent
+        self._legend_rects = {}
 
         # Pre-compute feature paths
         self._paths = {}
@@ -118,6 +128,15 @@ class AudioFeaturesWidget(QWidget):
         self.cursor_time = time
         self.update()
 
+    def mousePressEvent(self, event):
+        """Toggle feature visibility when clicking a legend label."""
+        pos = event.position()
+        for key, rect in self._legend_rects.items():
+            if rect.contains(pos):
+                self._visible[key] = not self._visible[key]
+                self.update()
+                return
+
     def paintEvent(self, event):
         if not self.report.sections:
             return
@@ -174,9 +193,11 @@ class AudioFeaturesWidget(QWidget):
             energy_path.closeSubpath()
             p.fillPath(energy_path, QBrush(COLORS["energy"]))
 
-        # Feature lines
+        # Feature lines (only visible ones)
         if hasattr(self, '_features'):
             for key, points in self._features.items():
+                if not self._visible.get(key, True):
+                    continue
                 color = COLORS.get(key, QColor(200, 200, 200))
                 pen = QPen(color, 1.5)
                 p.setPen(pen)
@@ -202,17 +223,31 @@ class AudioFeaturesWidget(QWidget):
             p.drawLine(QPointF(margin_left, y), QPointF(w - margin_right, y))
             p.setPen(QPen(TEXT_COLOR, 1))
 
-        # Legend
+        # Legend (clickable toggles)
         legend_x = margin_left + 4
         legend_y = margin_top + 4
-        p.setFont(QFont("Arial", 7))
-        for key in ["flux", "transient", "richness", "vocal", "centroid"]:
+        font = QFont("Arial", 7)
+        p.setFont(font)
+        fm = QFontMetrics(font)
+        self._legend_rects = {}
+        for key in self.FEATURE_KEYS:
+            visible = self._visible.get(key, True)
             color = COLORS[key]
-            p.setPen(QPen(color, 2))
-            p.drawLine(QPointF(legend_x, legend_y + 4), QPointF(legend_x + 12, legend_y + 4))
-            p.setPen(QPen(TEXT_COLOR, 1))
+            item_w = fm.horizontalAdvance(key) + 22
+            # Hit rect for this legend item
+            self._legend_rects[key] = QRectF(legend_x - 2, legend_y - 2, item_w + 4, 14)
+            if visible:
+                p.setPen(QPen(color, 2))
+                p.drawLine(QPointF(legend_x, legend_y + 4), QPointF(legend_x + 12, legend_y + 4))
+                p.setPen(QPen(TEXT_COLOR, 1))
+            else:
+                # Dimmed + strikethrough for hidden features
+                dimmed = QColor(color.red(), color.green(), color.blue(), 60)
+                p.setPen(QPen(dimmed, 1))
+                p.drawLine(QPointF(legend_x, legend_y + 4), QPointF(legend_x + 12, legend_y + 4))
+                p.setPen(QPen(QColor(120, 120, 130), 1))
             p.drawText(QPointF(legend_x + 15, legend_y + 8), key)
-            legend_x += QFontMetrics(p.font()).horizontalAdvance(key) + 22
+            legend_x += item_w
 
         # Playhead cursor
         cursor_x = margin_left + (self.cursor_time / total_time) * plot_w
@@ -509,6 +544,143 @@ class FluxPlot3DWidget(QWidget):
             p.setPen(QPen(TEXT_COLOR, 1))
             p.drawText(QPointF(x + 15, y + 8), label)
             y += 12
+
+
+# ── Mel Spectrogram ────────────────────────────────────
+
+# Magma-like colormap (dark → purple → orange → yellow)
+_MAGMA_STOPS = [
+    (0.00, (0, 0, 4)),
+    (0.15, (30, 10, 60)),
+    (0.30, (80, 18, 123)),
+    (0.45, (140, 30, 115)),
+    (0.60, (200, 60, 80)),
+    (0.75, (240, 120, 40)),
+    (0.90, (252, 195, 60)),
+    (1.00, (252, 253, 191)),
+]
+
+
+def _magma_color(t: float) -> tuple:
+    """Interpolate magma colormap at position t (0-1)."""
+    t = max(0.0, min(1.0, t))
+    for i in range(len(_MAGMA_STOPS) - 1):
+        t0, c0 = _MAGMA_STOPS[i]
+        t1, c1 = _MAGMA_STOPS[i + 1]
+        if t0 <= t <= t1:
+            f = (t - t0) / (t1 - t0)
+            return (
+                int(c0[0] + f * (c1[0] - c0[0])),
+                int(c0[1] + f * (c1[1] - c0[1])),
+                int(c0[2] + f * (c1[2] - c0[2])),
+            )
+    return _MAGMA_STOPS[-1][1]
+
+
+class MelSpectrogramWidget(QWidget):
+    """2D mel spectrogram heatmap with playhead cursor and frequency axis."""
+
+    def __init__(self, report: GenerationReport, parent=None):
+        super().__init__(parent)
+        self.report = report
+        self.cursor_time = 0.0
+        self._pixmap = None
+        self._total_time = 0.0
+        self._margin_left = 50
+        self._margin_top = 4
+        self._margin_right = 10
+        self._margin_bottom = 4
+        self.setMinimumHeight(120)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._build_image()
+
+    def _build_image(self):
+        """Convert mel spectrogram dB array to a QPixmap (called once)."""
+        mel_db = self.report.mel_spectrogram_db
+        mel_times = self.report.mel_times
+        mel_freqs = self.report.mel_frequencies
+        if mel_db is None or mel_times is None:
+            return
+
+        self._total_time = float(mel_times[-1]) if len(mel_times) > 0 else 0.0
+        self._mel_freqs = mel_freqs
+        n_mels, n_frames = mel_db.shape
+
+        # Normalize dB to 0-1 (mel_db is negative, ref=max → range ~ -80 to 0)
+        db_min, db_max = float(np.min(mel_db)), float(np.max(mel_db))
+        db_range = db_max - db_min if db_max > db_min else 1.0
+        norm = (mel_db - db_min) / db_range  # 0-1
+
+        # Build RGBA image (n_mels × n_frames) — flip vertically so low freq = bottom
+        img_data = np.zeros((n_mels, n_frames, 4), dtype=np.uint8)
+        for row in range(n_mels):
+            for col in range(n_frames):
+                r, g, b = _magma_color(norm[n_mels - 1 - row, col])
+                img_data[row, col] = [r, g, b, 255]
+
+        qimg = QImage(
+            img_data.data, n_frames, n_mels,
+            n_frames * 4, QImage.Format.Format_RGBA8888,
+        )
+        # Keep a reference to img_data so it's not garbage collected
+        self._img_data = img_data
+        self._pixmap = QPixmap.fromImage(qimg)
+
+    def update_cursor(self, time: float):
+        self.cursor_time = time
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        w, h = self.width(), self.height()
+        ml, mt, mr, mb = self._margin_left, self._margin_top, self._margin_right, self._margin_bottom
+        plot_w = w - ml - mr
+        plot_h = h - mt - mb
+
+        p.fillRect(0, 0, w, h, BG_PANEL)
+
+        if self._pixmap is None or plot_w <= 0 or plot_h <= 0:
+            p.setPen(QPen(TEXT_COLOR, 1))
+            p.setFont(QFont("Arial", 9))
+            p.drawText(QRectF(0, 0, w, h), Qt.AlignmentFlag.AlignCenter,
+                       "No spectrogram data")
+            p.end()
+            return
+
+        # Draw scaled spectrogram
+        target = QRectF(ml, mt, plot_w, plot_h)
+        p.drawPixmap(target.toRect(), self._pixmap)
+
+        # Frequency axis labels
+        if self._mel_freqs is not None and len(self._mel_freqs) > 0:
+            p.setPen(QPen(TEXT_COLOR, 1))
+            p.setFont(QFont("Arial", 7))
+            freq_labels = [100, 500, 1000, 2000, 5000, 10000]
+            max_freq = float(self._mel_freqs[-1])
+            min_freq = float(self._mel_freqs[0])
+            for freq in freq_labels:
+                if freq < min_freq or freq > max_freq:
+                    continue
+                # Mel scale position (approximate log mapping)
+                frac = np.log2(max(1, freq) / max(1, min_freq)) / np.log2(max(1, max_freq) / max(1, min_freq))
+                y = mt + plot_h - frac * plot_h
+                label = f"{freq // 1000}k" if freq >= 1000 else str(freq)
+                p.drawText(QRectF(0, y - 8, ml - 4, 16),
+                           Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                           label)
+                p.setPen(QPen(QColor(255, 255, 255, 30), 0.5))
+                p.drawLine(QPointF(ml, y), QPointF(w - mr, y))
+                p.setPen(QPen(TEXT_COLOR, 1))
+
+        # Playhead cursor
+        if self._total_time > 0:
+            cursor_x = ml + (self.cursor_time / self._total_time) * plot_w
+            p.setPen(QPen(CURSOR_COLOR, 2))
+            p.drawLine(QPointF(cursor_x, mt), QPointF(cursor_x, mt + plot_h))
+
+        p.end()
 
 
 # ── Group Activation Grid ───────────────────────────────
@@ -816,7 +988,7 @@ class GenerationInspector(QWidget):
         self.setWindowTitle("Generation Inspector")
         self.setWindowFlags(Qt.WindowType.Window)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.resize(900, 600)
+        self.resize(900, 750)
 
         self._setup_ui()
 
@@ -828,6 +1000,10 @@ class GenerationInspector(QWidget):
         # Top: Audio features timeline (full width)
         self.audio_widget = AudioFeaturesWidget(self.report)
         layout.addWidget(self.audio_widget, stretch=3)
+
+        # Mel spectrogram (full width, below features)
+        self.spectrogram_widget = MelSpectrogramWidget(self.report)
+        layout.addWidget(self.spectrogram_widget, stretch=2)
 
         # Bottom: 2x2 grid via splitters
         bottom_splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -873,8 +1049,9 @@ class GenerationInspector(QWidget):
 
     def update_position(self, time: float):
         """Called from ShowsTab at ~30Hz during playback."""
-        # Always update cursor (cheap)
+        # Always update cursors (cheap)
         self.audio_widget.update_cursor(time)
+        self.spectrogram_widget.update_cursor(time)
 
         # Find current section
         section = self.report.get_section_at(time)

@@ -26,8 +26,10 @@ class SectionAnalysis:
     spectral_flux_envelope: List[float] = field(default_factory=list)
     transient_sharpness: float = 0.0       # 0.0 (sustained) to 1.0 (percussive)
     spectral_richness: float = 0.0         # 0.0 (sparse) to 1.0 (dense)
-    vocal_presence: float = 0.0            # 0.0 to 1.0 (ratio of section with vocals)
+    vocal_presence: float = 0.0            # 0.0 to 1.0 (HPSS+MFCC delta vocal score)
     spectral_centroid_avg: float = 0.0     # Hz, for color mapping
+    rms_energy: float = 0.0               # 0.0 to 1.0, normalized RMS loudness
+    spectral_contrast_avg: float = 0.0    # 0.0 to 1.0, avg peak-to-valley across bands
 
 
 @dataclass
@@ -82,9 +84,30 @@ def analyze_song(audio_path: str, song_structure) -> SongAnalysis:
     # Spectral flatness (for richness — flat = noise-like = rich)
     spectral_flatness = librosa.feature.spectral_flatness(y=y, hop_length=hop_length, n_fft=n_fft)[0]
 
-    # STFT for vocal detection and spectral richness
+    # STFT for spectral richness
     S = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop_length))
     freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
+
+    # HPSS + MFCC deltas for vocal detection
+    # Harmonic component isolates tonal content (removes drums/transients)
+    S_harmonic, _ = librosa.decompose.hpss(S)
+    # MFCCs on harmonic component — vocals have high delta variance (phoneme changes)
+    mfcc_harmonic = librosa.feature.mfcc(S=librosa.power_to_db(S_harmonic ** 2), sr=sr, n_mfcc=13)
+    mfcc_delta = librosa.feature.delta(mfcc_harmonic)
+    # Per-frame vocal score: RMS of MFCC deltas across coefficients (skip c0=energy)
+    mfcc_delta_rms = np.sqrt(np.mean(mfcc_delta[1:] ** 2, axis=0))
+    # Normalize to 0-1 globally
+    mfcc_delta_max = float(np.max(mfcc_delta_rms)) if len(mfcc_delta_rms) > 0 else 1.0
+    vocal_score_frames = mfcc_delta_rms / max(mfcc_delta_max, 1e-6)
+
+    # RMS energy (loudness) — per frame
+    rms = librosa.feature.rms(y=y, frame_length=n_fft, hop_length=hop_length)[0]
+
+    # Spectral contrast — peak-to-valley per frequency band, per frame
+    # Returns shape (n_bands+1, n_frames), default 7 bands
+    spec_contrast = librosa.feature.spectral_contrast(y=y, sr=sr, n_fft=n_fft, hop_length=hop_length)
+    # Average across bands for a single per-frame contrast score
+    spec_contrast_avg = np.mean(spec_contrast, axis=0)
 
     # Frame times
     frame_times = librosa.frames_to_time(np.arange(len(onset_env)), sr=sr, hop_length=hop_length)
@@ -93,6 +116,8 @@ def analyze_song(audio_path: str, song_structure) -> SongAnalysis:
     flux_min = float(np.min(onset_env))
     flux_max = float(np.max(onset_env))
     centroid_max = float(np.max(spectral_centroid)) if len(spectral_centroid) > 0 else 1.0
+    rms_max = float(np.max(rms)) if len(rms) > 0 else 1.0
+    contrast_max = float(np.max(spec_contrast_avg)) if len(spec_contrast_avg) > 0 else 1.0
     bandwidth_max = float(np.max(spectral_bandwidth)) if len(spectral_bandwidth) > 0 else 1.0
 
     # Analyze each section
@@ -116,6 +141,11 @@ def analyze_song(audio_path: str, song_structure) -> SongAnalysis:
             flux_max=flux_max,
             centroid_max=centroid_max,
             bandwidth_max=bandwidth_max,
+            vocal_score_frames=vocal_score_frames,
+            rms=rms,
+            rms_max=rms_max,
+            spec_contrast_avg=spec_contrast_avg,
+            contrast_max=contrast_max,
         )
         sections.append(section)
 
@@ -145,6 +175,11 @@ def _analyze_section(
     flux_max: float,
     centroid_max: float,
     bandwidth_max: float,
+    vocal_score_frames: np.ndarray = None,
+    rms: np.ndarray = None,
+    rms_max: float = 1.0,
+    spec_contrast_avg: np.ndarray = None,
+    contrast_max: float = 1.0,
 ) -> SectionAnalysis:
     """Analyze a single section of the song."""
 
@@ -193,25 +228,10 @@ def _analyze_section(
     # Richness = weighted combination of bandwidth and flatness
     spectral_richness = min(1.0, 0.6 * norm_bandwidth + 0.4 * avg_flatness)
 
-    # 4. Vocal presence — energy ratio in vocal frequency band (300Hz-3kHz)
-    vocal_low_idx = np.searchsorted(freqs, 300)
-    vocal_high_idx = np.searchsorted(freqs, 3000)
-    total_low_idx = np.searchsorted(freqs, 50)
-
-    S_section = S[:, section_frames] if section_frames[-1] < S.shape[1] else S[:, mask[:S.shape[1]]]
-
-    if S_section.size > 0:
-        vocal_energy = np.sum(S_section[vocal_low_idx:vocal_high_idx, :] ** 2, axis=0)
-        total_energy = np.sum(S_section[total_low_idx:, :] ** 2, axis=0)
-
-        # Frame-level vocal ratio
-        with np.errstate(divide='ignore', invalid='ignore'):
-            vocal_ratio = np.where(total_energy > 0, vocal_energy / total_energy, 0.0)
-
-        # Vocal presence = fraction of frames where vocal band dominates
-        # Threshold: vocal band has >40% of total energy
-        vocal_frames = np.sum(vocal_ratio > 0.4)
-        vocal_presence = float(vocal_frames / len(vocal_ratio)) if len(vocal_ratio) > 0 else 0.0
+    # 4. Vocal presence — HPSS + MFCC delta variance (pre-computed per frame)
+    if vocal_score_frames is not None and len(section_frames) > 0:
+        section_vocal = vocal_score_frames[section_frames] if section_frames[-1] < len(vocal_score_frames) else vocal_score_frames[mask[:len(vocal_score_frames)]]
+        vocal_presence = float(np.mean(section_vocal)) if len(section_vocal) > 0 else 0.0
     else:
         vocal_presence = 0.0
 
@@ -221,6 +241,20 @@ def _analyze_section(
         centroid_avg = float(np.mean(section_centroid))
     else:
         centroid_avg = 0.0
+
+    # 6. RMS energy (loudness) — normalized to 0-1
+    rms_energy = 0.0
+    if rms is not None and len(section_frames) > 0:
+        section_rms = rms[section_frames] if section_frames[-1] < len(rms) else rms[mask[:len(rms)]]
+        if len(section_rms) > 0 and rms_max > 0:
+            rms_energy = float(np.mean(section_rms)) / rms_max
+
+    # 7. Spectral contrast — normalized to 0-1
+    spectral_contrast_val = 0.0
+    if spec_contrast_avg is not None and len(section_frames) > 0:
+        section_contrast = spec_contrast_avg[section_frames] if section_frames[-1] < len(spec_contrast_avg) else spec_contrast_avg[mask[:len(spec_contrast_avg)]]
+        if len(section_contrast) > 0 and contrast_max > 0:
+            spectral_contrast_val = float(np.mean(section_contrast)) / contrast_max
 
     return SectionAnalysis(
         name=part_name,
@@ -232,6 +266,8 @@ def _analyze_section(
         spectral_richness=spectral_richness,
         vocal_presence=vocal_presence,
         spectral_centroid_avg=centroid_avg,
+        rms_energy=rms_energy,
+        spectral_contrast_avg=spectral_contrast_val,
     )
 
 
@@ -246,11 +282,17 @@ class FrameFeatures:
     flux: List[float] = field(default_factory=list)        # normalized onset strength (0-1)
     transient: List[float] = field(default_factory=list)    # per-frame transient sharpness (0-1)
     richness: List[float] = field(default_factory=list)     # spectral richness (0-1)
-    vocal: List[float] = field(default_factory=list)        # vocal band energy ratio (0-1)
+    vocal: List[float] = field(default_factory=list)        # HPSS+MFCC delta vocal score (0-1)
     centroid: List[float] = field(default_factory=list)     # spectral centroid (0-1 normalized)
+    rms: List[float] = field(default_factory=list)          # RMS energy / loudness (0-1)
+    contrast: List[float] = field(default_factory=list)     # spectral contrast (0-1)
     sample_rate: int = 22050
     hop_length: int = 512
     duration: float = 0.0
+    # Mel spectrogram for inspector display (dB scale, shape: n_mels × n_time_frames)
+    mel_spectrogram_db: Optional[np.ndarray] = field(default=None, repr=False)
+    mel_frequencies: Optional[np.ndarray] = field(default=None, repr=False)
+    mel_times: Optional[np.ndarray] = field(default=None, repr=False)
 
 
 def compute_frame_features(audio_path: str, max_display_points: int = 800) -> FrameFeatures:
@@ -315,20 +357,16 @@ def compute_frame_features(audio_path: str, max_display_points: int = 800) -> Fr
     else:
         norm_richness = np.full(min_len, 0.5)
 
-    # ── Vocal presence: energy ratio in 300-3000Hz band ──
+    # ── Vocal presence: HPSS + MFCC delta variance ──
     S = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop_length))
-    freqs = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
-    vocal_low = np.searchsorted(freqs, 300)
-    vocal_high = np.searchsorted(freqs, 3000)
-    total_low = np.searchsorted(freqs, 50)
-
-    vocal_energy = np.sum(S[vocal_low:vocal_high, :] ** 2, axis=0)
-    total_energy = np.sum(S[total_low:, :] ** 2, axis=0)
-    with np.errstate(divide='ignore', invalid='ignore'):
-        vocal_ratio = np.where(total_energy > 0, vocal_energy / total_energy, 0.0)
-    # Smooth and threshold: >0.4 ratio = vocal present
-    vocal_ratio_smooth = uniform_filter1d(vocal_ratio[:min_len].astype(float), smooth_window * 3)
-    norm_vocal = np.clip(vocal_ratio_smooth, 0.0, 1.0)
+    S_harmonic, _ = librosa.decompose.hpss(S)
+    mfcc_h = librosa.feature.mfcc(S=librosa.power_to_db(S_harmonic ** 2), sr=sr, n_mfcc=13)
+    mfcc_d = librosa.feature.delta(mfcc_h)
+    # Per-frame vocal score: RMS of MFCC deltas (skip c0=energy)
+    mfcc_d_rms = np.sqrt(np.mean(mfcc_d[1:] ** 2, axis=0))
+    mfcc_d_max = float(np.max(mfcc_d_rms)) if len(mfcc_d_rms) > 0 else 1.0
+    raw_vocal = mfcc_d_rms[:min_len] / max(mfcc_d_max, 1e-6)
+    norm_vocal = np.clip(uniform_filter1d(raw_vocal.astype(float), smooth_window * 3), 0.0, 1.0)
 
     # ── Centroid: smooth then normalize to 0-1 ──
     smoothed_cent = uniform_filter1d(spectral_centroid[:min_len].astype(float), smooth_window)
@@ -338,11 +376,51 @@ def compute_frame_features(audio_path: str, max_display_points: int = 800) -> Fr
     else:
         norm_cent = np.full(min_len, 0.5)
 
+    # ── RMS energy (loudness): smooth then normalize to 0-1 ──
+    rms_raw = librosa.feature.rms(y=y, frame_length=n_fft, hop_length=hop_length)[0]
+    smoothed_rms = uniform_filter1d(rms_raw[:min_len].astype(float), smooth_window)
+    rms_mn, rms_mx = float(np.min(smoothed_rms)), float(np.max(smoothed_rms))
+    if rms_mx > rms_mn:
+        norm_rms = (smoothed_rms - rms_mn) / (rms_mx - rms_mn)
+    else:
+        norm_rms = np.full(min_len, 0.5)
+
+    # ── Spectral contrast: smooth then normalize to 0-1 ──
+    spec_contrast = librosa.feature.spectral_contrast(y=y, sr=sr, n_fft=n_fft, hop_length=hop_length)
+    raw_contrast = np.mean(spec_contrast, axis=0)[:min_len]
+    smoothed_contrast = uniform_filter1d(raw_contrast.astype(float), smooth_window)
+    ct_mn, ct_mx = float(np.min(smoothed_contrast)), float(np.max(smoothed_contrast))
+    if ct_mx > ct_mn:
+        norm_contrast = (smoothed_contrast - ct_mn) / (ct_mx - ct_mn)
+    else:
+        norm_contrast = np.full(min_len, 0.5)
+
     # ── Downsample all arrays ──
     if min_len > max_display_points:
         indices = np.linspace(0, min_len - 1, max_display_points, dtype=int)
     else:
         indices = np.arange(min_len)
+
+    # ── Mel spectrogram for inspector display ──
+    # Downsample time axis to max_display_points for display performance
+    n_mels = 128
+    mel_spec = librosa.feature.melspectrogram(
+        y=y, sr=sr, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels,
+    )
+    mel_db = librosa.power_to_db(mel_spec, ref=np.max)
+    mel_times_full = librosa.frames_to_time(
+        np.arange(mel_db.shape[1]), sr=sr, hop_length=hop_length,
+    )
+    mel_freqs = librosa.mel_frequencies(n_mels=n_mels, fmin=0, fmax=sr / 2)
+
+    # Downsample time axis by picking evenly spaced columns
+    n_mel_frames = mel_db.shape[1]
+    if n_mel_frames > max_display_points:
+        mel_indices = np.linspace(0, n_mel_frames - 1, max_display_points, dtype=int)
+        mel_db = mel_db[:, mel_indices]
+        mel_times_ds = mel_times_full[mel_indices]
+    else:
+        mel_times_ds = mel_times_full
 
     return FrameFeatures(
         times=[float(frame_times[i]) for i in indices],
@@ -351,9 +429,14 @@ def compute_frame_features(audio_path: str, max_display_points: int = 800) -> Fr
         richness=[float(norm_richness[i]) for i in indices],
         vocal=[float(norm_vocal[i]) for i in indices],
         centroid=[float(norm_cent[i]) for i in indices],
+        rms=[float(norm_rms[i]) for i in indices],
+        contrast=[float(norm_contrast[i]) for i in indices],
         sample_rate=sr,
         hop_length=hop_length,
         duration=duration,
+        mel_spectrogram_db=mel_db,
+        mel_frequencies=mel_freqs,
+        mel_times=mel_times_ds,
     )
 
 
@@ -411,10 +494,13 @@ def compute_beat_features(audio_path: str, song_structure) -> BeatFeatures:
     )
     onset_times_arr = librosa.frames_to_time(onset_frames, sr=sr, hop_length=hop_length)
 
-    # Vocal detection indices
-    vocal_low_idx = np.searchsorted(freqs, 300)
-    vocal_high_idx = np.searchsorted(freqs, 3000)
-    total_low_idx = np.searchsorted(freqs, 50)
+    # HPSS + MFCC deltas for vocal detection (pre-computed per frame)
+    S_harmonic, _ = librosa.decompose.hpss(S)
+    mfcc_h = librosa.feature.mfcc(S=librosa.power_to_db(S_harmonic ** 2), sr=sr, n_mfcc=13)
+    mfcc_d = librosa.feature.delta(mfcc_h)
+    mfcc_d_rms = np.sqrt(np.mean(mfcc_d[1:] ** 2, axis=0))
+    mfcc_d_max = float(np.max(mfcc_d_rms)) if len(mfcc_d_rms) > 0 else 1.0
+    vocal_score_frames = mfcc_d_rms / max(mfcc_d_max, 1e-6)
 
     # Generate beat timestamps from song structure
     beat_starts = []
@@ -477,16 +563,9 @@ def compute_beat_features(audio_path: str, song_structure) -> BeatFeatures:
         avg_flat = float(np.mean(beat_flat)) if len(beat_flat) > 0 else 0.0
         richness_val = min(1.0, 0.6 * norm_bw + 0.4 * avg_flat)
 
-        # Vocal: energy ratio in vocal band
-        S_beat = S[:, frames] if frames[-1] < S.shape[1] else S[:, mask[:S.shape[1]]]
-        if S_beat.size > 0:
-            vocal_energy = np.sum(S_beat[vocal_low_idx:vocal_high_idx, :] ** 2, axis=0)
-            total_energy = np.sum(S_beat[total_low_idx:, :] ** 2, axis=0)
-            with np.errstate(divide='ignore', invalid='ignore'):
-                vocal_ratio = np.where(total_energy > 0, vocal_energy / total_energy, 0.0)
-            vocal_val = float(np.sum(vocal_ratio > 0.4) / len(vocal_ratio)) if len(vocal_ratio) > 0 else 0.0
-        else:
-            vocal_val = 0.0
+        # Vocal: HPSS + MFCC delta RMS (pre-computed per frame)
+        beat_vocal = vocal_score_frames[frames] if frames[-1] < len(vocal_score_frames) else vocal_score_frames[mask[:len(vocal_score_frames)]]
+        vocal_val = float(np.mean(beat_vocal)) if len(beat_vocal) > 0 else 0.0
 
         # Centroid
         beat_cent = spectral_centroid[frames] if frames[-1] < len(spectral_centroid) else spectral_centroid[mask[:len(spectral_centroid)]]

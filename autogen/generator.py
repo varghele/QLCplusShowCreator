@@ -118,6 +118,9 @@ def generate_show(
         frame_richness=frame_features.richness if frame_features else [],
         frame_vocal=frame_features.vocal if frame_features else [],
         frame_centroid=frame_features.centroid if frame_features else [],
+        mel_spectrogram_db=frame_features.mel_spectrogram_db if frame_features else None,
+        mel_frequencies=frame_features.mel_frequencies if frame_features else None,
+        mel_times=frame_features.mel_times if frame_features else None,
     )
 
     # Build lanes — one per fixture group
@@ -142,15 +145,16 @@ def generate_show(
         section_type = section_types.get(part.name, "generic")
 
         # Compute relative energy (0-1) for this section within the song
-        # Use percentile ranking among all sections (not raw flux range, which has outlier spikes)
-        all_fluxes = sorted(s.spectral_flux_avg for s in analysis.sections)
-        if len(all_fluxes) > 1:
-            rank = all_fluxes.index(section.spectral_flux_avg) if section.spectral_flux_avg in all_fluxes else 0
-            relative_energy = rank / (len(all_fluxes) - 1)
+        # Use percentile ranking of RMS loudness (direct intensity measure)
+        all_rms = sorted(s.rms_energy for s in analysis.sections)
+        if len(all_rms) > 1:
+            rank = all_rms.index(section.rms_energy) if section.rms_energy in all_rms else 0
+            rms_rank = rank / (len(all_rms) - 1)
         else:
-            relative_energy = 0.5
-        # Combine with richness for a fuller energy picture
-        relative_energy = 0.6 * relative_energy + 0.4 * section.spectral_richness
+            rms_rank = 0.5
+        # Combine with spectral contrast for a fuller energy picture
+        # (contrast captures how prominent instruments are above the noise floor)
+        relative_energy = 0.6 * rms_rank + 0.4 * section.spectral_contrast_avg
         relative_energy = max(0.0, min(1.0, relative_energy))
 
         # Tiered group activation — quiet sections have fewer groups
@@ -208,7 +212,7 @@ def generate_show(
         previous_section_type = section_type
 
         # Derive roles from rudiment assignments (not fixture type)
-        group_roles = assign_group_roles(per_group_rudiments, relative_energy)
+        group_roles = assign_group_roles(per_group_rudiments, relative_energy, group_classifications)
 
         # Build section report
         section_colors = []
@@ -225,6 +229,8 @@ def generate_show(
             spectral_richness=section.spectral_richness,
             vocal_presence=section.vocal_presence,
             spectral_centroid=section.spectral_centroid_avg,
+            rms_energy=section.rms_energy,
+            spectral_contrast=section.spectral_contrast_avg,
             relative_energy=relative_energy,
             movement_shape=movement.shape,
             movement_amplitude=movement.amplitude,
@@ -272,6 +278,7 @@ def generate_show(
                 fill_rudiment=fill_name,
                 groove_category=groove_cat,
                 effect_speed=effect_speed,
+                lighting_role=gc.lighting_role,
                 match_scores=top_scores,
             )
 

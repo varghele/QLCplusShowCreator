@@ -18,6 +18,22 @@ class ActivationRole(Enum):
     FILL_ONLY = "fill"       # Plays only fill blocks (punches in for fills)
 
 
+class LightingRole(Enum):
+    """Semantic role a fixture group plays in the show design.
+
+    Assigned by the user in config YAML, used by autogen for
+    activation priority and temporal behavior.
+
+    Rhythm and movement are attributes (applied per-section by the
+    algorithm), not roles. Any role can have rhythmic or movement
+    behavior depending on the section's audio character.
+    """
+    WASH = "wash"        # Base illumination, broad coverage, always on
+    KEY = "key"          # Front-of-stage visibility, vocal-aware, always on
+    TEXTURE = "texture"  # Gobos, prism, breakup patterns, medium+ energy
+    ACCENT = "accent"    # Sparse, high-impact peaks — strobes, blinders
+
+
 @dataclass
 class GroupActivation:
     """Activation state for a fixture group in a section."""
@@ -27,12 +43,13 @@ class GroupActivation:
 
 @dataclass
 class GroupClassification:
-    """Stage position classification for a fixture group."""
+    """Stage position and role classification for a fixture group."""
     name: str
     zone: str  # "front", "mid", "back", "overhead"
     has_moving_heads: bool = False
     has_gobos: bool = False
     has_prism: bool = False
+    lighting_role: str = ""  # User-assigned: backbone, accent, ambient, movement, effect
 
 
 def classify_fixture_groups(config: Configuration) -> Dict[str, GroupClassification]:
@@ -91,6 +108,7 @@ def classify_fixture_groups(config: Configuration) -> Dict[str, GroupClassificat
             has_moving_heads=has_mh,
             has_gobos=has_gobos,
             has_prism=has_prism,
+            lighting_role=getattr(group, 'lighting_role', ''),
         )
 
     return classifications
@@ -134,6 +152,28 @@ def apply_vocal_rule(
     return weights
 
 
+def _group_activation_priority(gc: GroupClassification) -> int:
+    """Activation priority: lower = activated first."""
+    ROLE_PRIORITY = {
+        "wash": 0, "key": 1, "texture": 2, "accent": 3,
+    }
+    if gc.lighting_role:
+        return ROLE_PRIORITY.get(gc.lighting_role, 2)
+    # Fallback: zone-based priority for unconfigured groups
+    zone_priority = {"front": 0, "mid": 1, "overhead": 2, "back": 3}
+    return zone_priority.get(gc.zone, 2)
+
+
+# Role-based minimum energy thresholds and base weights
+_ROLE_ENERGY_CONFIG = {
+    #           (min_energy, low_weight, full_weight)
+    "wash":     (0.00, 0.50, 1.0),   # Always active, at least half intensity
+    "key":      (0.00, 0.30, 0.8),   # Always active, subtle, vocal-aware
+    "texture":  (0.40, 0.50, 1.0),   # Gobos/prism at medium+ energy
+    "accent":   (0.60, 0.70, 1.0),   # Only at peaks, punchy
+}
+
+
 def compute_richness_weights(
     group_classifications: Dict[str, GroupClassification],
     spectral_richness: float,
@@ -142,14 +182,9 @@ def compute_richness_weights(
 ) -> Dict[str, float]:
     """Compute intensity weight per group based on relative energy level.
 
-    Uses tiered activation: quiet sections have fewer groups active.
-    Returns 0.0 for groups that should be inactive (no blocks generated).
-
-    Note: activation roles (FULL/GROOVE_ONLY/FILL_ONLY) are assigned
-    separately by assign_group_roles() based on rudiment matching results.
-
-    Args:
-        relative_energy: 0.0-1.0, this section's energy relative to the song's range.
+    When fixture groups have lighting_role assigned, uses role-based
+    activation thresholds (backbone always on, accent only at peaks).
+    Falls back to tiered zone-based activation for unconfigured groups.
 
     Returns:
         {group_name: weight} where 0.0 = inactive, 0.1-1.0 = active
@@ -157,22 +192,44 @@ def compute_richness_weights(
     if not group_classifications:
         return {}
 
-    # Sort groups by activation priority: front first, back last
-    zone_priority = {"front": 0, "mid": 1, "overhead": 2, "back": 3}
+    has_roles = any(gc.lighting_role for gc in group_classifications.values())
+
+    if has_roles:
+        # Role-based activation: each role has its own energy threshold
+        weights = {}
+        for name, gc in group_classifications.items():
+            role = gc.lighting_role
+            if role and role in _ROLE_ENERGY_CONFIG:
+                min_energy, low_weight, full_weight = _ROLE_ENERGY_CONFIG[role]
+                if relative_energy < min_energy:
+                    weights[name] = 0.0
+                else:
+                    # Interpolate from low_weight to full_weight as energy rises
+                    # above the threshold toward 1.0
+                    headroom = 1.0 - min_energy
+                    if headroom > 0:
+                        t = min(1.0, (relative_energy - min_energy) / headroom)
+                    else:
+                        t = 1.0
+                    weights[name] = low_weight + t * (full_weight - low_weight)
+            else:
+                # No role assigned: use energy-proportional weight with zone fallback
+                weights[name] = max(0.3, relative_energy) if relative_energy > 0.15 else 0.0
+        return weights
+
+    # Fallback: original zone-based tiered activation
     sorted_groups = sorted(
         group_classifications.items(),
-        key=lambda x: zone_priority.get(x[1].zone, 2)
+        key=lambda x: _group_activation_priority(x[1])
     )
 
     total = len(sorted_groups)
     weights = {}
 
     if relative_energy < 0.15:
-        # Very quiet: only 1 primary group, dimmed
         for i, (name, gc) in enumerate(sorted_groups):
             weights[name] = 0.3 if i == 0 else 0.0
     elif relative_energy < 0.35:
-        # Low: 1-2 groups, primary full, secondary dimmed
         num_active = max(1, min(2, total))
         for i, (name, gc) in enumerate(sorted_groups):
             if i < num_active:
@@ -180,7 +237,6 @@ def compute_richness_weights(
             else:
                 weights[name] = 0.0
     elif relative_energy < 0.65:
-        # Medium: most groups active, back dimmed
         num_active = max(2, int(total * 0.75))
         for i, (name, gc) in enumerate(sorted_groups):
             if i < num_active:
@@ -188,7 +244,6 @@ def compute_richness_weights(
             else:
                 weights[name] = 0.0
     else:
-        # High: all groups active
         for name in group_classifications:
             weights[name] = 1.0
 
@@ -198,30 +253,22 @@ def compute_richness_weights(
 def assign_group_roles(
     per_group_rudiments: Dict[str, tuple],
     relative_energy: float,
+    group_classifications: Optional[Dict[str, 'GroupClassification']] = None,
 ) -> Dict[str, ActivationRole]:
-    """Derive activation roles from the rudiment assignments.
+    """Derive activation roles from rudiment assignments and lighting roles.
 
-    Instead of hardcoding which fixture types get which roles, this
-    inspects the envelope category of each group's assigned groove
-    rudiment to determine its natural character:
+    When lighting_role is assigned, it overrides envelope-based logic:
+    - wash → FULL always (carries both groove and fill)
+    - key → GROOVE_ONLY (steady presence, no fill variation)
+    - accent → FILL_ONLY at low/medium energy (punch-in for impact)
+    - texture → use existing envelope-based logic
 
-    - SPIKE / STOCHASTIC envelopes → fill character (punchy, dramatic)
-    - FLAT / RAMP / ROLLING envelopes → groove character (sustaining, flowing)
-    - OSCILLATING envelopes → versatile (full participation)
-
-    Energy modulates how roles are applied:
-    - High energy (≥0.65): everyone FULL regardless of character
-    - Medium (0.35–0.65): fill-character groups become FILL_ONLY, rest FULL
-    - Low (<0.35): fill-character → FILL_ONLY, groove-character → GROOVE_ONLY
+    When no roles are assigned, falls back to envelope category logic:
+    - SPIKE / STOCHASTIC envelopes → fill character
+    - FLAT / RAMP / ROLLING envelopes → groove character
+    - OSCILLATING → versatile
 
     A safety check ensures at least one group always carries the groove.
-
-    Args:
-        per_group_rudiments: {group_name: (groove_name, fill_name)}
-        relative_energy: 0.0-1.0
-
-    Returns:
-        {group_name: ActivationRole}
     """
     from rudiments.registry import get_intensity_rudiments
     from rudiments.rudiment import EnvelopeCategory
@@ -235,13 +282,26 @@ def assign_group_roles(
 
     intensity_rudiments = get_intensity_rudiments()
 
-    # Classify each group's groove rudiment character
     FILL_CATEGORIES = {EnvelopeCategory.SPIKE, EnvelopeCategory.STOCHASTIC}
     GROOVE_CATEGORIES = {EnvelopeCategory.FLAT, EnvelopeCategory.RAMP, EnvelopeCategory.ROLLING}
-    # OSCILLATING is versatile — gets FULL at medium, GROOVE at low
 
     roles = {}
     for group_name, (groove_name, _fill_name) in per_group_rudiments.items():
+        # Check for lighting role override first
+        gc = group_classifications.get(group_name) if group_classifications else None
+        role_str = gc.lighting_role if gc else ""
+
+        if role_str == "wash":
+            roles[group_name] = ActivationRole.FULL
+            continue
+        elif role_str == "key":
+            roles[group_name] = ActivationRole.GROOVE_ONLY
+            continue
+        elif role_str == "accent":
+            roles[group_name] = ActivationRole.FILL_ONLY
+            continue
+        # texture / empty → fall through to envelope logic
+
         rudiment = intensity_rudiments.get(groove_name)
         if not rudiment:
             roles[group_name] = ActivationRole.FULL
@@ -249,17 +309,13 @@ def assign_group_roles(
 
         category = rudiment.envelope.category
         is_fill_character = category in FILL_CATEGORIES
-        is_groove_character = category in GROOVE_CATEGORIES
 
         if relative_energy < 0.35:
-            # Low energy: strict role separation
             if is_fill_character:
                 roles[group_name] = ActivationRole.FILL_ONLY
             else:
                 roles[group_name] = ActivationRole.GROOVE_ONLY
         else:
-            # Medium energy: fill-character groups punch in for fills,
-            # everything else plays fully
             if is_fill_character:
                 roles[group_name] = ActivationRole.FILL_ONLY
             else:
@@ -268,7 +324,6 @@ def assign_group_roles(
     # Safety: ensure at least one group carries the groove
     has_groove = any(r != ActivationRole.FILL_ONLY for r in roles.values())
     if not has_groove and roles:
-        # Promote the first group (highest zone priority) to carry groove
         first = next(iter(per_group_rudiments))
         roles[first] = (
             ActivationRole.GROOVE_ONLY if relative_energy < 0.35

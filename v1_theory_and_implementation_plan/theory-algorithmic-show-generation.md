@@ -1,7 +1,13 @@
 # Algorithmic Light Show Generation — Theory & Framework
 
-**Version:** 2.0
-**Last Updated:** March 2026
+**Version:** 3.0
+**Last Updated:** April 2026
+
+### Changelog
+
+- **v3.0 (April 2026)**: Major revision based on empirical testing against 8 songs with hand-made show comparisons. Replaced spectral flux with RMS energy as primary energy driver. Replaced spectral richness with spectral contrast as secondary energy signal. Updated vocal detection to HPSS + MFCC delta method. Replaced zone-based fixture activation with user-assignable lighting roles (wash, key, texture, accent). Added rhythm and movement as algorithmic attributes rather than roles. Added empirical metric validation data. See `docs/metric_analysis_results.md` for detailed analysis.
+- **v2.0 (March 2026)**: Initial framework with rudiment system, audio analysis, and spatial model.
+
 
 ---
 
@@ -149,56 +155,112 @@ For quick candidate filtering before detailed comparison, envelope shapes are cl
 
 The algorithm extracts multiple parameters from the audio to drive lighting decisions. Each parameter maps to specific lighting dimensions.
 
-### 3.1 Spectral Flux
+Parameters are divided into two tiers based on empirical testing across 8 songs (see Section 3.8):
 
-**What it measures**: How much the frequency spectrum changes between consecutive time frames.
+- **Tier 1 (energy drivers)**: RMS energy and spectral contrast. These determine section intensity and fixture activation.
+- **Tier 2 (character drivers)**: Spectral flux, transient sharpness, vocal presence, spectral centroid. These drive rudiment matching, color, and spatial rules but do NOT determine energy.
 
-**What it drives**: Overall visual activity level, transition speed, and rudiment flux target.
-- High spectral flux → more fixture changes, faster effects, higher-flux rudiments
-- Low spectral flux → stability, slower transitions, lower-flux rudiments
-- Average flux per section enables cross-section comparison
+### 3.1 RMS Energy (Tier 1 — Primary)
 
-**Resolution**: Calculated per-frame (typically 43Hz at 1024-sample windows / 44.1kHz) and averaged per section for target definition.
+**What it measures**: Root mean square amplitude — direct measurement of loudness. Computed via `librosa.feature.rms()`.
 
-### 3.2 Transient Sharpness
+**What it drives**: Primary input to the section energy composite (Section 3.8). Determines overall visual intensity, fixture activation thresholds, and movement amplitude scaling.
+- High RMS → more fixture groups active, higher intensities, wider movements
+- Low RMS → fewer groups, dimmer output, tighter movements
 
-**What it measures**: How percussive (fast attack) versus sustained (slow attack) the sound is. Measured via onset detection algorithms.
+**Why RMS over spectral flux**: Empirical testing showed spectral flux has an average range of 0.028 across sections (USELESS for energy differentiation). RMS has an average range of 0.346 (GOOD). RMS is also immune to metronome/click tracks present in backing tracks, which create constant onset strength that masks musical dynamics in flux measurements.
 
-**What it drives**: Rudiment type selection.
+**Resolution**: Per-frame, normalized to 0-1 against song maximum, averaged per section.
+
+### 3.2 Spectral Contrast (Tier 1 — Secondary)
+
+**What it measures**: Peak-to-valley prominence across frequency bands. Computed via `librosa.feature.spectral_contrast()`, averaged across the default 7 frequency bands to produce a single per-frame value.
+
+**What it drives**: Secondary input to the section energy composite. Captures how prominent instruments are above the noise floor — a full band hitting hard produces high contrast, while a quiet ambient section has low contrast.
+
+**Limitations**: Average range of 0.094 across songs (WEAK standalone). Useful as a 40% contributor to the energy composite, where it adds texture that pure loudness misses.
+
+**Resolution**: Per-frame, normalized to 0-1, averaged per section.
+
+### 3.3 Spectral Flux (Tier 2 — Character)
+
+**What it measures**: How much the frequency spectrum changes between consecutive time frames. Computed via `librosa.onset.onset_strength()`.
+
+**What it drives**: Rudiment envelope matching (Section 2.5). The flux *contour* over a section (32-point envelope) is compared against rudiment envelopes via cosine similarity. The flux *average* provides the target flux level for rudiment selection.
+
+**Important**: Spectral flux is **not** used for energy calculation. Empirical testing showed it has an average range of only 0.028 across sections — too compressed to differentiate a quiet bridge from a loud chorus. It remains valuable for *pattern matching* (the shape of flux changes matters even when the magnitude doesn't vary much).
+
+**Resolution**: Per-frame (typically 43Hz), averaged per section for target definition; 32-point contour for envelope matching.
+
+### 3.4 Transient Sharpness (Tier 2 — Character)
+
+**What it measures**: How percussive (fast attack) versus sustained (slow attack) the sound is. Measured via onset density (onsets per second, normalized).
+
+**What it drives**: Rudiment type filtering via envelope categories (Section 2.5).
 - High transient sharpness (percussive) → snappy rudiments: stroke, strobe, sparkle, chase
 - Low transient sharpness (sustained) → flowing rudiments: wave, pulse, fade, swell
 
+**Note**: Transient sharpness shows OK-to-GOOD differentiation (average range 0.291) and may be a candidate for inclusion in the energy composite in future iterations.
+
 **Resolution**: Per-onset, averaged per section.
 
-### 3.3 Spectral Richness
+### 3.5 Vocal Presence Detection (Tier 2 — Character)
 
-**What it measures**: How many distinct harmonic components or instruments are simultaneously present. Measured by counting significant spectral peaks or occupied frequency bandwidth.
+**What it measures**: Whether a lead vocalist is currently singing, using a two-stage detection pipeline:
 
-**What it drives**:
-- **Lighting density**: How many fixture groups are active simultaneously. Sparse instrumentation → fewer groups active. Dense arrangement → all groups active.
-- **Gobo/prism activation**: When spectral richness exceeds a configurable threshold, gobos and prisms are activated on capable fixtures to add visual texture matching the audio complexity.
+1. **Harmonic-Percussive Source Separation (HPSS)**: `librosa.decompose.hpss()` decomposes the spectrogram into harmonic and percussive components. The harmonic component isolates tonal content (vocals, sustained instruments), removing drums and transients.
+
+2. **MFCC Delta Variance**: MFCCs (Mel-Frequency Cepstral Coefficients) are computed on the harmonic component. The *delta* (first derivative) of MFCC coefficients captures how rapidly the spectral shape changes. The RMS of delta coefficients (excluding c0/energy) produces a per-frame vocal score. Vocals score high because phoneme transitions cause rapid spectral shape changes; sustained brass, strings, or organ score low because their spectral shape is stable.
+
+**Why HPSS+MFCC over band-energy ratio**: The previous method (energy ratio in the 300Hz-3kHz band) was triggered equally by vocals, brass, guitar, and any mid-range-heavy instrument. The MFCC delta approach discriminates based on *spectral dynamics*, not frequency band occupancy.
+
+**What it drives**: Spatial focus rules (Section 6) and key role weight modulation.
+- Vocals present → boost key role fixtures (front-of-stage performer visibility)
+- Vocals absent → key role dims (but doesn't turn off), wash/texture emphasized
+
+**Resolution**: Continuous 0-1 score per frame, averaged per section.
+
+### 3.6 Spectral Centroid (Tier 2 — Character)
+
+**What it measures**: Frequency center of mass in Hz. Computed via `librosa.feature.spectral_centroid()`.
+
+**What it drives**: Color mapping (Section 4). Higher centroid → brighter/warmer hues; lower centroid → darker/cooler hues.
+
+**Resolution**: Per-frame in Hz, averaged per section.
+
+### 3.7 Spectral Richness (Tier 2 — Legacy)
+
+**What it measures**: Combination of spectral bandwidth and spectral flatness: `0.6 * normalized_bandwidth + 0.4 * spectral_flatness`.
+
+**What it drives**: Gobo/prism activation thresholds only. When spectral richness exceeds `spectral_richness_gobo_threshold` (default 0.7) or `spectral_richness_prism_threshold` (default 0.8), gobos and prisms activate on capable fixtures.
+
+**Important**: Spectral richness is **not** used for energy calculation or fixture group activation. Empirical testing showed it has an average range of 0.077 across sections (USELESS-WEAK). It is retained solely for gobo/prism threshold decisions, where the absolute level (not cross-section differentiation) matters.
 
 **Resolution**: Per-frame, averaged per section.
 
-### 3.4 Vocal Presence Detection
+### 3.8 Section Energy Profile
 
-**What it measures**: Whether a lead vocalist is currently singing. Detected via pitch detection in the vocal frequency range or spectral isolation techniques.
+Each section receives a **relative energy** score (0.0-1.0) that drives fixture activation, intensity scaling, and movement amplitude. The composite formula:
 
-**What it drives**: Spatial focus rules (Section 6).
-- Vocals present → prioritize front-stage lighting zones, increase front-stage density
-- Vocals absent → shift to atmospheric/back/ambient fixtures
+```
+relative_energy = 0.6 × percentile_rank(rms_energy) + 0.4 × spectral_contrast_avg
+```
 
-**Resolution**: Binary flag per time segment, with configurable debounce to avoid rapid switching.
+Where `percentile_rank(rms_energy)` is the section's rank among all sections' RMS values, normalized to 0-1. This percentile approach normalizes across songs with different mastering levels — a quietly mastered track and a loudly mastered track both produce a full 0-1 range.
 
-### 3.5 Section Energy Profile
+**Empirical validation** (8 songs, 130+ sections):
 
-Beyond individual parameters, each section gets a composite energy profile that combines:
-- Average spectral flux (overall activity)
-- Transient character (percussive vs. sustained)
-- Spectral richness (density)
-- Vocal presence ratio (% of section with vocals)
+| Metric | Avg Range | Verdict | Role in Energy |
+|--------|-----------|---------|---------------|
+| spectral_flux | 0.028 | USELESS | Not used (v2: was primary) |
+| spectral_richness | 0.077 | WEAK | Not used (v2: was secondary) |
+| rms_energy | 0.346 | GOOD | **Primary (60%)** |
+| spectral_contrast | 0.094 | WEAK | **Secondary (40%)** |
+| **energy composite** | **0.578** | **GOOD** | — |
 
-This composite profile is what the algorithm matches rudiment combinations against.
+The composite correctly ranks choruses above verses, verses above bridges, and quiet sections at the bottom across all tested songs. The previous formula (`0.6*percentile(flux) + 0.4*richness`) incorrectly scored "quiet" sections above choruses due to flux compression.
+
+See `docs/metric_analysis_results.md` for detailed per-song data.
 
 ---
 
@@ -260,12 +322,13 @@ For each section, extract target values:
 
 | Target | Source | Used By |
 |--------|--------|---------|
+| Relative energy | RMS percentile rank + spectral contrast (Section 3.8) | Fixture role activation, intensity scaling, movement amplitude |
 | Target flux range | Spectral flux average ± tolerance | Rudiment selection |
 | Target flux envelope shape | Spectral flux contour over section | Rudiment matching |
 | Transient character | Onset sharpness average | Rudiment type filtering |
-| Spectral richness | Peak count / bandwidth | Fixture group count, gobo/prism activation |
+| Spectral richness | Bandwidth + flatness | Gobo/prism activation only |
 | Mood position | Key + centroid + tempo | Color palette |
-| Vocal presence flag | Pitch detection | Spatial rules |
+| Vocal presence | HPSS + MFCC delta score | Key role weight, spatial rules |
 | Color palette | Mood model output | ColourBlock generation |
 
 ### Step 3: Phrase Structure Definition
@@ -341,12 +404,13 @@ Transitions are applied as post-processing on the generated block sequence. Futu
 
 ### Step 10: Spatial Application
 
-Apply the selected rudiments to fixture groups using the spatial model:
+Apply the selected rudiments to fixture groups using the lighting role model (Section 6):
 
-1. **Vocal rule**: When vocals are present, increase front-stage fixture group activity. Shift intensity balance toward front-stage groups.
-2. **Atmospheric rule**: When vocals are absent, shift activity toward back and ambient fixture groups.
-3. **Density matching**: Scale the number of active fixture groups to spectral richness. Low richness → 1–2 groups active. High richness → all groups active.
+1. **Role-based activation**: Each fixture group's lighting role (wash, key, texture, accent) determines its energy threshold for activation and its temporal behavior (FULL, GROOVE_ONLY, FILL_ONLY). See Section 6.3 for role definitions.
+2. **Vocal rule**: Vocal presence modulates the key role weight — boosted when vocals are present, dimmed (not off) otherwise. Also affects front-zone groups via `apply_vocal_rule()`.
+3. **Atmospheric rule**: When vocals are absent, shift intensity balance toward wash and texture groups.
 4. **Gobo/prism activation**: When spectral richness exceeds the configured threshold, activate gobos and prisms on capable fixtures (generates SpecialBlocks).
+5. **Movement attribute**: Groups with moving head capabilities receive a `MovementStrategy` based on section energy — shape selected from energy-tiered pools, amplitude scales with relative energy.
 
 ### Step 11: Block Generation
 
@@ -363,7 +427,7 @@ Blocks are placed on the timeline in the existing LightLane/LightBlock structure
 
 ## 6. Spatial Lighting Model
 
-The system maintains a 3D stage model derived from the show creator's fixture configuration.
+The system maintains a 3D stage model derived from the show creator's fixture configuration, combined with user-assigned **lighting roles** that define each fixture group's purpose.
 
 ### 6.1 Data Available
 
@@ -374,25 +438,90 @@ Each fixture has:
 - Fixture type and capabilities (from QXF definition)
 - Beam direction vector (calculated from orientation)
 
-### 6.2 Spatial Rules
+Each fixture group additionally has:
+- **`lighting_role`** (user-assigned): one of `wash`, `key`, `texture`, `accent`, or empty for fallback behavior
+- Automatic zone classification (front/mid/back/overhead) as fallback when no role is assigned
 
-| Rule | Condition | Action |
-|------|-----------|--------|
-| **Vocal focus** | Vocal presence detected | Increase intensity/activity of front-stage groups (lower Y values, closer to audience) |
-| **Atmospheric** | No vocal presence | Shift activity to back-stage and overhead groups |
-| **Density scaling** | Spectral richness level | Scale number of simultaneously active fixture groups proportionally |
-| **Gobo/prism threshold** | Spectral richness > threshold | Activate gobos/prisms on capable fixtures |
-| **Movement scaling** | Section energy | Higher energy → wider movement amplitudes, faster speeds |
+### 6.2 Design Principles
 
-### 6.3 Fixture Group Classification
+The role system follows professional lighting design practice (McCandless method, ETC training series, modern concert LD layering):
 
-For spatial rules, fixture groups are classified by their average position:
+1. **Roles describe purpose, not behavior.** A role says what the fixture group IS (wash, key, accent), not how it behaves at any given moment. Behavioral variation comes from the algorithm's rudiment and movement assignment per section.
+
+2. **Rhythm and movement are attributes, not roles.** Professional practice treats beat-synced patterns and pan/tilt movement as attributes that can be applied to ANY layer. A wash fixture doing a chase pattern is still a wash — it's a wash with rhythmic behavior. The groove/fill rudiment system handles this: a "stroke" rudiment on a wash = rhythmic wash, a "static" rudiment on the same wash = mood wash. Similarly, `MovementStrategy` is applied to any group with pan/tilt capability regardless of role.
+
+3. **4 roles for 4-8 fixture groups.** The professional 3-4 layer model (base → key → accent → effect) maps well to small-venue setups without requiring 1:1 role-to-group mapping.
+
+### 6.3 Lighting Roles
+
+| Role | Description | Activation Threshold | Weight Range | Temporal Behavior |
+|------|-------------|---------------------|-------------|-------------------|
+| **wash** | Base illumination, broad coverage, sets color palette and mood. The visual foundation. | energy >= 0.00 (always) | 0.50 – 1.00 | FULL: plays both groove and fill blocks |
+| **key** | Front-of-stage performer visibility. Vocal-aware — boosted when vocals present, dimmed otherwise. Stable patterns. | energy >= 0.00 (always) | 0.30 – 0.80 | GROOVE_ONLY: steady presence, no fill variation |
+| **texture** | Gobos, prism, breakup patterns, beam effects. Adds visual complexity at medium+ energy. | energy >= 0.40 | 0.50 – 1.00 | Envelope-based: follows rudiment character |
+| **accent** | Sparse, high-impact moments — strobes, blinders, bumps. Punches in at peaks only. | energy >= 0.60 | 0.70 – 1.00 | FILL_ONLY: only fires during fill blocks |
+
+**Activation diagram:**
+
+```
+Energy:  0.0 ──────────── 0.40 ──── 0.60 ──── 1.0
+         │                  │          │
+         wash + key         texture    accent
+         (always on)        (medium+)  (peaks only)
+```
+
+**Weight interpolation:** Within its active range, each role's weight ramps from base minimum to 1.0:
+
+```
+weight = base_weight + t × (1.0 - base_weight)
+where t = (energy - threshold) / (1.0 - threshold)
+```
+
+### 6.4 Algorithmic Attributes
+
+These are NOT user-assigned. The algorithm applies them per-section based on audio character and fixture capabilities:
+
+| Attribute | What it does | Applied to | Driven by |
+|-----------|-------------|-----------|-----------|
+| **Rhythm** | Beat-synced intensity patterns (stroke, chase, ping-pong, sparkle) | Any role | Groove/fill rudiment assignment based on audio character |
+| **Movement** | Pan/tilt sweeps, lissajous figures, position changes | Any group with moving heads | `MovementStrategy` based on section energy and spot targets |
+
+A wash fixture in a high-energy chorus might receive: `wash role + stroke rudiment (rhythm) + circle movement`. The same fixture in a quiet verse: `wash role + static rudiment + linear_sweep movement`. The role stays constant; the attributes change per section.
+
+### 6.5 Typical Fixture-to-Role Mappings
+
+These are examples, not defaults. Roles are user-assigned per setup:
+
+| Fixture Type | Typical Role | Rationale |
+|-------------|-------------|-----------|
+| LED bars, pixel strips | wash | Broad coverage, color foundation |
+| Wash lights (floor/truss) | wash | Stage fill, color base |
+| Front pars, face lights | key | Performer visibility |
+| Moving heads (with gobos) | texture | Gobos, prism, beam effects |
+| Sunstrips, blinders | accent | High-impact, sparse deployment |
+| Strobes | accent | Peak moments only |
+
+### 6.6 Zone Classification (Fallback)
+
+When no `lighting_role` is assigned, the system falls back to automatic zone-based classification using fixture positions:
+
 - **Front-stage**: Average Y position < stage_depth × 0.33
 - **Mid-stage**: Average Y position between 0.33 and 0.66 × stage_depth
 - **Back-stage**: Average Y position > stage_depth × 0.66
 - **Overhead**: Average Z position > stage_height × 0.5
 
-This classification is automatic based on fixture positions and used to apply the vocal/atmospheric rules.
+Zone classification uses a tiered activation model (front first, back last) that is less accurate than role-based activation but provides backward compatibility.
+
+### 6.7 Spatial Modifiers
+
+These rules modulate role-based activation:
+
+| Rule | Condition | Action |
+|------|-----------|--------|
+| **Vocal focus** | Vocal presence detected | Boost key role weight; increase front-zone group intensity |
+| **Atmospheric** | No vocal presence | Dim key role (not off); shift emphasis to wash/texture |
+| **Gobo/prism threshold** | Spectral richness > threshold | Activate gobos/prisms on capable fixtures (SpecialBlocks) |
+| **Movement scaling** | Section energy | Higher energy → wider movement amplitudes, faster speeds; shapes selected from energy-tiered pools |
 
 ---
 
@@ -430,38 +559,53 @@ These parameters should be exposed to the operator for tuning:
 | `live_rolling_window_bars` | 4 | Rolling analysis window size in bars (live mode only) |
 | `live_transition_bars` | 2 | Number of bars over which to crossfade between grooves when audio character shifts (live mode only) |
 | `live_fill_duration_bars` | 1 | How long a manually triggered fill lasts before returning to groove (live mode only) |
+| `wash_min_energy` | 0.00 | Minimum energy for wash role activation |
+| `key_min_energy` | 0.00 | Minimum energy for key role activation |
+| `texture_min_energy` | 0.40 | Minimum energy for texture role activation |
+| `accent_min_energy` | 0.60 | Minimum energy for accent role activation |
 
 ---
 
 ## 9. Open Questions & Future Development
 
+### 9.0 Completed (v3.0)
+
+- **~~Fixture group role presets~~** → Implemented as lighting roles: wash, key, texture, accent (Section 6.3). User-assignable via `lighting_role` field on FixtureGroup.
+- **~~Investigation/debugging system~~** → Implemented as Generation Inspector (live dashboard with mel spectrogram, toggleable feature plots, 3D flux/transient plot, activation heatmap, rudiment score breakdown) and CLI test harness (`tests/autogen_harness.py`).
+- **~~Metric validation~~** → Completed across 8 songs. Spectral flux and richness demoted; RMS energy and spectral contrast adopted. Results in `docs/metric_analysis_results.md`.
+- **~~Vocal detection improvement~~** → Replaced band-energy ratio with HPSS + MFCC delta variance method.
+
 ### 9.1 Near-Term
 
-- **Musical coherence formalization**: The coherence scoring rules need empirical testing and refinement. Starting rules: fills must have higher flux than grooves; adjacent sections must differ by at least `cross_section_contrast_min`; within-section grooves should maintain >80% rudiment consistency.
-- **Weighting calibration**: The 60/40 fidelity/coherence split is a starting point. May need per-genre presets (e.g., electronic music might weight flux fidelity higher; ballads might weight coherence higher).
-- **Color model refinement**: The two-axis model needs quantitative mapping from spectral centroid to hue. Needs a defined color space (HSL recommended) and concrete mapping curves.
-- **Tolerance band sizing**: Empirical testing needed to find the sweet spot between too narrow (boring, repetitive) and too wide (incoherent).
-- **Envelope comparison method**: Cosine similarity is simple and fast; DTW (Dynamic Time Warping) handles tempo variations better but is more expensive. Need to evaluate both.
+- **Energy composite refinement**: Spectral contrast is WEAK (avg range 0.094). Transient sharpness (avg range 0.291, OK-GOOD) is a candidate for inclusion. Test formula: `0.5*rms_rank + 0.25*contrast + 0.25*transient`.
+- **Key role vocal tracking**: Key is currently "always on at low weight." Should modulate more dynamically with vocal presence — boosted during singing, dimmed to minimum during instrumental passages. Integrate with HPSS+MFCC vocal detection.
+- **Click track robustness**: All tested audio files contain metronome/click tracks which depress onset-based metrics. Consider HPSS percussive separation to isolate musical transients from click before computing flux and transient sharpness.
+- **Musical coherence formalization**: Continued testing needed. Starting rules: fills > grooves flux; adjacent sections differ by `cross_section_contrast_min`; within-section grooves >80% consistent.
+- **Weighting calibration**: 60/40 fidelity/coherence split may need per-genre tuning.
+- **Color model refinement**: Two-axis model needs quantitative spectral centroid → hue mapping (HSL).
+- **Tolerance band sizing**: Empirical testing needed (narrow = boring; wide = incoherent).
 
 ### 9.2 Medium-Term
 
-- **Transition rudiment library**: Dedicated transition patterns for common section boundaries (verse→chorus, chorus→bridge, etc.) would improve transition quality beyond parameter blending.
-- **Genre presets**: Pre-tuned parameter sets for common genres (rock, EDM, ballad, jazz, ambient) that set appropriate defaults for tolerance bands, weights, and thresholds.
-- **Fixture group role presets**: Named roles (key light, fill light, atmosphere, accent) with associated spatial and rudiment-selection biases.
+- **Transition rudiment library**: Dedicated transition patterns for common section boundaries (verse→chorus, chorus→bridge, etc.).
+- **Genre presets**: Pre-tuned parameter sets for common genres (rock, EDM, ballad, jazz, ambient).
+- **Role energy threshold tuning UI**: Currently `_ROLE_ENERGY_CONFIG` thresholds are hardcoded in `autogen/spatial.py`. Expose via AutogenConfig for per-show tuning.
+- **Rhythm attribute formalization**: Currently rhythm is an emergent property of rudiment assignment. Could be more explicit — e.g., a per-section "rhythmic intensity" score that biases rudiment selection toward beat-synced patterns (stroke, chase) vs. static ones.
+- **Effect speed capping**: At high BPMs (190+), effect speeds reach 4x which is too fast. Need BPM-aware speed ceiling.
 
 ### 9.3 Long-Term
 
-- **Live auto-show mode**: Real-time audio analysis with on-the-fly rudiment selection. Requires low-latency spectral analysis and simplified scoring for real-time performance. Steady groove output with rolling analysis window for smooth transitions. Key design elements:
-  - **Rolling analysis window** (default ~4 bars): Smooths audio parameters over time to prevent the lighting from chasing every transient. Sustained character shifts trigger gradual rudiment transitions.
-  - **Operator override controls**: Physical or on-screen buttons for real-time overrides:
-    - **"Fill now"**: Triggers a one-bar fill at the next bar boundary, then returns to groove. Allows the operator to punctuate moments the algorithm can't predict (audience reaction, performer cue).
-    - **"Vocals active" (toggle)**: Manually signals vocal presence to the spatial system, overriding automatic vocal detection. Useful when detection is unreliable or for spoken-word segments.
-    - **"Energy up/down"**: Bias the algorithm's flux target up or down by a configurable offset, allowing the operator to push or pull the show's energy level.
-    - **"Blackout"**: Immediate all-off, overriding everything.
-    - **"Next section"**: Force a section-change transition, useful when the operator knows a change is coming before the audio analysis detects it.
-  - These controls inject events into the algorithm's decision loop. They take priority over automatic analysis but the algorithm resumes normal operation after the override expires.
-- **Machine learning refinement**: Train scoring weights on operator-approved shows to improve automatic generation quality over time.
-- **Audience energy feedback**: Integration with crowd noise or motion sensors to dynamically adjust show energy.
+- **Live auto-show mode**: Real-time audio analysis with on-the-fly rudiment selection. Requires low-latency spectral analysis and simplified scoring. Key design elements:
+  - **Rolling analysis window** (default ~4 bars): Smooths parameters, prevents chasing every transient.
+  - **Operator override controls**:
+    - **"Fill now"**: One-bar fill at next bar boundary, then return to groove.
+    - **"Vocals active" (toggle)**: Manual vocal presence override.
+    - **"Energy up/down"**: Bias energy target by configurable offset.
+    - **"Blackout"**: Immediate all-off.
+    - **"Next section"**: Force section-change transition.
+  - Overrides take priority; algorithm resumes after override expires.
+- **Machine learning refinement**: Train scoring weights on operator-approved shows.
+- **Audience energy feedback**: Crowd noise/motion sensors for dynamic energy adjustment.
 
 ---
 
@@ -518,7 +662,17 @@ These are reference shapes. Actual envelope curves are parameterized (speed, int
 | Spatial model | Fixture positions + orientation from `config/models.py` |
 | Color wheel | QXF parsing in `utils/tcp/protocol.py`, DMX handling in `dmx_manager.py` |
 | Gobo/prism | SpecialBlock with gobo_index, prism fields |
+| **Lighting roles** | `autogen/spatial.py` → `LightingRole` enum (wash, key, texture, accent) |
+| **Role-based activation** | `autogen/spatial.py` → `compute_richness_weights()`, `_ROLE_ENERGY_CONFIG` |
+| **Role-based temporal behavior** | `autogen/spatial.py` → `assign_group_roles()` with `group_classifications` parameter |
+| **RMS energy** | `audio/spectral_analysis.py` → `SectionAnalysis.rms_energy`, `librosa.feature.rms()` |
+| **Spectral contrast** | `audio/spectral_analysis.py` → `SectionAnalysis.spectral_contrast_avg`, `librosa.feature.spectral_contrast()` |
+| **Vocal detection (HPSS+MFCC)** | `audio/spectral_analysis.py` → `librosa.decompose.hpss()` + `librosa.feature.mfcc()` delta RMS |
+| **Energy composite** | `autogen/generator.py` → `0.6*percentile_rank(rms) + 0.4*spectral_contrast` (line ~150) |
+| **Generation Inspector** | `gui/dialogs/generation_inspector.py` → live dashboard with spectrogram, features, activation grid |
+| **CLI test harness** | `tests/autogen_harness.py` → standalone pipeline runner with metric diagnostics |
+| **Metric analysis results** | `docs/metric_analysis_results.md` → empirical validation across 8 songs |
 
 ---
 
-*Framework developed through theoretical exploration, March 2026.*
+*Framework developed March 2026. Updated April 2026 with empirical metric validation and lighting role system.*

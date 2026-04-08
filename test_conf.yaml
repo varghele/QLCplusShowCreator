@@ -59,96 +59,94 @@ block_defs:
       direction: in
       effect_speed: 1/2
       effect_type: fade
-      intensity: 102.0
+      intensity: 183.60000000000002
       iris: 255.0
       strobe_speed: 0.0
     d10:
-      direction: in
-      effect_speed: 1/2
-      effect_type: fade
-      intensity: 127.5
+      effect_speed: '1'
+      effect_type: heartbeat
+      intensity: 71.39999999999999
       iris: 255.0
       strobe_speed: 0.0
     d11:
       effect_speed: '1'
-      effect_type: heartbeat
-      intensity: 102.0
+      effect_type: fill
+      intensity: 132.6
       iris: 255.0
       strobe_speed: 0.0
     d12:
-      effect_speed: '1'
-      effect_type: fill
-      intensity: 102.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d13:
-      direction: in
-      effect_speed: '1'
-      effect_type: fade
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d14:
-      effect_speed: '1'
-      effect_type: chase
-      intensity: 71.39999999999999
-      iris: 255.0
-      strobe_speed: 0.0
-    d15:
-      effect_speed: '1'
-      effect_type: random_stroke
-      intensity: 102.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d16:
-      effect_speed: '1'
-      effect_type: chase
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d17:
-      effect_speed: '1'
-      effect_type: static
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d18:
-      effect_speed: '1'
-      effect_type: static
-      intensity: 102.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d19:
-      direction: in
-      effect_speed: '1'
-      effect_type: fade
-      intensity: 92.82
-      iris: 255.0
-      strobe_speed: 0.0
-    d2:
-      effect_speed: 1/2
-      effect_type: static
-      intensity: 102.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d20:
       direction: in
       effect_speed: '1'
       effect_type: fade
       intensity: 132.6
       iris: 255.0
       strobe_speed: 0.0
-    d21:
+    d13:
       effect_speed: '1'
-      effect_type: stroke
-      intensity: 255.0
+      effect_type: chase
+      intensity: 71.39999999999999
       iris: 255.0
       strobe_speed: 0.0
-    d22:
+    d14:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 102.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d15:
+      effect_speed: '1'
+      effect_type: chase
+      intensity: 102.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d16:
+      effect_speed: '1'
+      effect_type: sparkle
+      intensity: 102.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d17:
       direction: in
       effect_speed: '1'
       effect_type: fade
       intensity: 71.39999999999999
+      iris: 255.0
+      strobe_speed: 0.0
+    d18:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 71.39999999999999
+      iris: 255.0
+      strobe_speed: 0.0
+    d19:
+      effect_speed: '1'
+      effect_type: random_stroke
+      intensity: 102.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d2:
+      effect_speed: 1/2
+      effect_type: static
+      intensity: 183.60000000000002
+      iris: 255.0
+      strobe_speed: 0.0
+    d20:
+      direction: in
+      effect_speed: '1'
+      effect_type: fade
+      intensity: 102.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d21:
+      effect_speed: '2'
+      effect_type: random_stroke
+      intensity: 229.5
+      iris: 255.0
+      strobe_speed: 0.0
+    d22:
+      effect_speed: '2'
+      effect_type: heartbeat
+      intensity: 229.5
       iris: 255.0
       strobe_speed: 0.0
     d23:
@@ -158,94 +156,97 @@ block_defs:
       iris: 255.0
       strobe_speed: 0.0
     d24:
+      direction: in
       effect_speed: '2'
-      effect_type: random_stroke
+      effect_type: fade
       intensity: 229.5
       iris: 255.0
       strobe_speed: 0.0
     d25:
-      effect_speed: '2'
-      effect_type: wave
-      intensity: 127.5
-      iris: 255.0
-      strobe_speed: 0.0
-    d26:
-      effect_speed: '2'
-      effect_type: static
-      intensity: 127.5
-      iris: 255.0
-      strobe_speed: 0.0
-    d27:
       effect_speed: 1/2
-      effect_type: static
+      effect_type: sparkle
       intensity: 229.5
       iris: 255.0
       strobe_speed: 0.0
-    d28:
+    d26:
       effect_speed: 1/2
       effect_type: heartbeat
       intensity: 229.5
       iris: 255.0
       strobe_speed: 0.0
+    d27:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 61.199999999999996
+      iris: 255.0
+      strobe_speed: 0.0
+    d28:
+      direction: in
+      effect_speed: '1'
+      effect_type: fade
+      intensity: 137.70000000000002
+      iris: 255.0
+      strobe_speed: 0.0
     d29:
-      effect_speed: 1/2
-      effect_type: pulse
-      intensity: 127.5
+      effect_speed: '1'
+      effect_type: static
+      intensity: 137.70000000000002
       iris: 255.0
       strobe_speed: 0.0
     d3:
-      direction: in
       effect_speed: 1/2
-      effect_type: fade
+      effect_type: fill
       intensity: 229.5
       iris: 255.0
       strobe_speed: 0.0
     d30:
-      effect_speed: 1/2
-      effect_type: static
-      intensity: 127.5
+      effect_speed: '1'
+      effect_type: wave
+      intensity: 137.70000000000002
       iris: 255.0
       strobe_speed: 0.0
     d31:
       effect_speed: '1'
       effect_type: fill
-      intensity: 61.199999999999996
+      intensity: 79.56
       iris: 255.0
       strobe_speed: 0.0
     d32:
+      direction: in
       effect_speed: '1'
-      effect_type: fill
-      intensity: 179.01000000000002
+      effect_type: fade
+      intensity: 153.0
       iris: 255.0
       strobe_speed: 0.0
     d33:
+      direction: in
       effect_speed: '1'
-      effect_type: wave
-      intensity: 160.65
+      effect_type: fade
+      intensity: 179.01000000000002
       iris: 255.0
       strobe_speed: 0.0
     d34:
       effect_speed: '1'
-      effect_type: static
-      intensity: 160.65
+      effect_type: waterfall
+      intensity: 137.70000000000002
       iris: 255.0
       strobe_speed: 0.0
     d35:
       effect_speed: '1'
-      effect_type: fill
-      intensity: 79.56
+      effect_type: random_stroke
+      intensity: 153.0
       iris: 255.0
       strobe_speed: 0.0
     d36:
       effect_speed: '1'
       effect_type: fill
-      intensity: 153.0
+      intensity: 179.01000000000002
       iris: 255.0
       strobe_speed: 0.0
     d37:
       effect_speed: '1'
-      effect_type: fill
-      intensity: 208.84500000000003
+      effect_type: wave
+      intensity: 61.199999999999996
       iris: 255.0
       strobe_speed: 0.0
     d38:
@@ -256,14 +257,14 @@ block_defs:
       strobe_speed: 0.0
     d39:
       effect_speed: '1'
-      effect_type: static
-      intensity: 137.70000000000002
+      effect_type: chase
+      intensity: 61.199999999999996
       iris: 255.0
       strobe_speed: 0.0
     d4:
       effect_speed: 1/2
       effect_type: heartbeat
-      intensity: 102.0
+      intensity: 183.60000000000002
       iris: 255.0
       strobe_speed: 0.0
     d40:
@@ -276,246 +277,43 @@ block_defs:
       direction: in
       effect_speed: '1'
       effect_type: fade
-      intensity: 79.56
-      iris: 255.0
-      strobe_speed: 0.0
-    d42:
-      effect_speed: '1'
-      effect_type: random_stroke
-      intensity: 179.01000000000002
-      iris: 255.0
-      strobe_speed: 0.0
-    d43:
-      effect_speed: '1'
-      effect_type: chase
-      intensity: 178.5
-      iris: 255.0
-      strobe_speed: 0.0
-    d44:
-      effect_speed: '1'
-      effect_type: static
-      intensity: 178.5
-      iris: 255.0
-      strobe_speed: 0.0
-    d45:
-      direction: in
-      effect_speed: '1'
-      effect_type: fade
-      intensity: 160.65
-      iris: 255.0
-      strobe_speed: 0.0
-    d46:
-      direction: in
-      effect_speed: '1'
-      effect_type: fade
       intensity: 61.199999999999996
       iris: 255.0
       strobe_speed: 0.0
     d5:
-      effect_speed: 1/2
-      effect_type: fill
-      intensity: 102.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d6:
       direction: in
       effect_speed: 1/2
       effect_type: fade
       intensity: 238.68000000000004
       iris: 255.0
       strobe_speed: 0.0
-    d7:
+    d6:
       direction: in
       effect_speed: 1/2
       effect_type: fade
+      intensity: 229.5
+      iris: 255.0
+      strobe_speed: 0.0
+    d7:
+      effect_speed: 1/2
+      effect_type: fill
       intensity: 183.60000000000002
       iris: 255.0
       strobe_speed: 0.0
     d8:
       effect_speed: 1/2
-      effect_type: static
+      effect_type: random_stroke
       intensity: 183.60000000000002
       iris: 255.0
       strobe_speed: 0.0
     d9:
       effect_speed: 1/2
-      effect_type: cascade
-      intensity: 127.5
+      effect_type: static
+      intensity: 229.5
       iris: 255.0
       strobe_speed: 0.0
   movement:
     m0:
-      effect_speed: 1/2
-      effect_type: linear_sweep
-      interpolate_from_previous: true
-      lissajous_ratio: '1:2'
-      pan: 127.5
-      pan_amplitude: 48.93479822551603
-      pan_fine: 0.0
-      pan_max: 255.0
-      pan_min: 0.0
-      phase_offset_degrees: 0.0
-      phase_offset_enabled: false
-      speed: 255.0
-      target_spot_name: Crowd
-      tilt: 127.5
-      tilt_amplitude: 48.93479822551603
-      tilt_fine: 0.0
-      tilt_max: 255.0
-      tilt_min: 0.0
-    m1:
-      effect_speed: 1/2
-      effect_type: square
-      interpolate_from_previous: true
-      lissajous_ratio: '1:2'
-      pan: 127.5
-      pan_amplitude: 72.70812585998749
-      pan_fine: 0.0
-      pan_max: 255.0
-      pan_min: 0.0
-      phase_offset_degrees: 0.0
-      phase_offset_enabled: false
-      speed: 255.0
-      target_spot_name: Crowd
-      tilt: 127.5
-      tilt_amplitude: 72.70812585998749
-      tilt_fine: 0.0
-      tilt_max: 255.0
-      tilt_min: 0.0
-    m10:
-      effect_speed: 1/2
-      effect_type: circle
-      interpolate_from_previous: true
-      lissajous_ratio: '1:2'
-      pan: 127.5
-      pan_amplitude: 37.13459912274419
-      pan_fine: 0.0
-      pan_max: 255.0
-      pan_min: 0.0
-      phase_offset_degrees: 0.0
-      phase_offset_enabled: false
-      speed: 255.0
-      target_spot_name: Stage
-      tilt: 127.5
-      tilt_amplitude: 37.13459912274419
-      tilt_fine: 0.0
-      tilt_max: 255.0
-      tilt_min: 0.0
-    m11:
-      effect_speed: 1/2
-      effect_type: bounce
-      interpolate_from_previous: true
-      lissajous_ratio: '1:2'
-      pan: 127.5
-      pan_amplitude: 62.967365921537386
-      pan_fine: 0.0
-      pan_max: 255.0
-      pan_min: 0.0
-      phase_offset_degrees: 0.0
-      phase_offset_enabled: false
-      speed: 255.0
-      target_spot_name: Crowd
-      tilt: 127.5
-      tilt_amplitude: 62.967365921537386
-      tilt_fine: 0.0
-      tilt_max: 255.0
-      tilt_min: 0.0
-    m12:
-      effect_speed: 1/2
-      effect_type: fan
-      interpolate_from_previous: true
-      lissajous_ratio: '1:2'
-      pan: 127.5
-      pan_amplitude: 46.681865757115546
-      pan_fine: 0.0
-      pan_max: 255.0
-      pan_min: 0.0
-      phase_offset_degrees: 0.0
-      phase_offset_enabled: false
-      speed: 255.0
-      target_spot_name: Crowd
-      tilt: 127.5
-      tilt_amplitude: 46.681865757115546
-      tilt_fine: 0.0
-      tilt_max: 255.0
-      tilt_min: 0.0
-    m13:
-      effect_speed: 1/2
-      effect_type: circle
-      interpolate_from_previous: true
-      lissajous_ratio: '1:2'
-      pan: 127.5
-      pan_amplitude: 44.150945174131664
-      pan_fine: 0.0
-      pan_max: 255.0
-      pan_min: 0.0
-      phase_offset_degrees: 0.0
-      phase_offset_enabled: false
-      speed: 255.0
-      target_spot_name: Stage
-      tilt: 127.5
-      tilt_amplitude: 44.150945174131664
-      tilt_fine: 0.0
-      tilt_max: 255.0
-      tilt_min: 0.0
-    m14:
-      effect_speed: '1'
-      effect_type: circle
-      interpolate_from_previous: true
-      lissajous_ratio: '1:2'
-      pan: 127.5
-      pan_amplitude: 78.5919538298098
-      pan_fine: 0.0
-      pan_max: 255.0
-      pan_min: 0.0
-      phase_offset_degrees: 0.0
-      phase_offset_enabled: false
-      speed: 255.0
-      target_spot_name: Crowd
-      tilt: 127.5
-      tilt_amplitude: 78.5919538298098
-      tilt_fine: 0.0
-      tilt_max: 255.0
-      tilt_min: 0.0
-    m15:
-      effect_speed: '1'
-      effect_type: diamond
-      interpolate_from_previous: true
-      lissajous_ratio: '1:2'
-      pan: 127.5
-      pan_amplitude: 80.0
-      pan_fine: 0.0
-      pan_max: 255.0
-      pan_min: 0.0
-      phase_offset_degrees: 0.0
-      phase_offset_enabled: false
-      speed: 255.0
-      target_spot_name: Crowd
-      tilt: 127.5
-      tilt_amplitude: 80.0
-      tilt_fine: 0.0
-      tilt_max: 255.0
-      tilt_min: 0.0
-    m16:
-      effect_speed: '1'
-      effect_type: bounce
-      interpolate_from_previous: true
-      lissajous_ratio: '1:2'
-      pan: 127.5
-      pan_amplitude: 62.967365921537386
-      pan_fine: 0.0
-      pan_max: 255.0
-      pan_min: 0.0
-      phase_offset_degrees: 0.0
-      phase_offset_enabled: false
-      speed: 255.0
-      target_spot_name: Crowd
-      tilt: 127.5
-      tilt_amplitude: 62.967365921537386
-      tilt_fine: 0.0
-      tilt_max: 255.0
-      tilt_min: 0.0
-    m17:
       effect_speed: 1/2
       effect_type: linear_sweep
       interpolate_from_previous: true
@@ -534,7 +332,7 @@ block_defs:
       tilt_fine: 0.0
       tilt_max: 255.0
       tilt_min: 0.0
-    m18:
+    m1:
       effect_speed: 1/2
       effect_type: linear_sweep
       interpolate_from_previous: true
@@ -550,6 +348,177 @@ block_defs:
       target_spot_name: Crowd
       tilt: 127.5
       tilt_amplitude: 58.721757870619236
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m10:
+      effect_speed: 1/2
+      effect_type: square
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 69.31392256596281
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_spot_name: Crowd
+      tilt: 127.5
+      tilt_amplitude: 69.31392256596281
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m11:
+      effect_speed: 1/2
+      effect_type: circle
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 37.13459912274419
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_spot_name: Stage
+      tilt: 127.5
+      tilt_amplitude: 37.13459912274419
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m12:
+      effect_speed: 1/2
+      effect_type: bounce
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 62.967365921537386
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_spot_name: Crowd
+      tilt: 127.5
+      tilt_amplitude: 62.967365921537386
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m13:
+      effect_speed: 1/2
+      effect_type: fan
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 46.681865757115546
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_spot_name: Stage
+      tilt: 127.5
+      tilt_amplitude: 46.681865757115546
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m14:
+      effect_speed: 1/2
+      effect_type: circle
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 44.150945174131664
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_spot_name: Stage
+      tilt: 127.5
+      tilt_amplitude: 44.150945174131664
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m15:
+      effect_speed: '1'
+      effect_type: circle
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 78.5919538298098
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_spot_name: Crowd
+      tilt: 127.5
+      tilt_amplitude: 78.5919538298098
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m16:
+      effect_speed: '1'
+      effect_type: diamond
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 80.0
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_spot_name: Crowd
+      tilt: 127.5
+      tilt_amplitude: 80.0
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m17:
+      effect_speed: '1'
+      effect_type: bounce
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 62.967365921537386
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_spot_name: Crowd
+      tilt: 127.5
+      tilt_amplitude: 62.967365921537386
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m18:
+      effect_speed: 1/2
+      effect_type: linear_sweep
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 48.93479822551603
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_spot_name: Crowd
+      tilt: 127.5
+      tilt_amplitude: 48.93479822551603
       tilt_fine: 0.0
       tilt_max: 255.0
       tilt_min: 0.0
@@ -574,20 +543,20 @@ block_defs:
       tilt_min: 0.0
     m2:
       effect_speed: 1/2
-      effect_type: linear_sweep
+      effect_type: square
       interpolate_from_previous: true
       lissajous_ratio: '1:2'
       pan: 127.5
-      pan_amplitude: 39.34017318238739
+      pan_amplitude: 72.70812585998749
       pan_fine: 0.0
       pan_max: 255.0
       pan_min: 0.0
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 255.0
-      target_spot_name: Stage
+      target_spot_name: Crowd
       tilt: 127.5
-      tilt_amplitude: 39.34017318238739
+      tilt_amplitude: 72.70812585998749
       tilt_fine: 0.0
       tilt_max: 255.0
       tilt_min: 0.0
@@ -650,11 +619,30 @@ block_defs:
       tilt_min: 0.0
     m23:
       effect_speed: 1/2
-      effect_type: circle
+      effect_type: square
       interpolate_from_previous: true
       lissajous_ratio: '1:2'
       pan: 127.5
-      pan_amplitude: 44.56151894729303
+      pan_amplitude: 57.761602138302344
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_spot_name: Crowd
+      tilt: 127.5
+      tilt_amplitude: 57.761602138302344
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m24:
+      effect_speed: 1/2
+      effect_type: fan
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 56.018238908538656
       pan_fine: 0.0
       pan_max: 255.0
       pan_min: 0.0
@@ -663,11 +651,30 @@ block_defs:
       speed: 255.0
       target_spot_name: Stage
       tilt: 127.5
-      tilt_amplitude: 44.56151894729303
+      tilt_amplitude: 56.018238908538656
       tilt_fine: 0.0
       tilt_max: 255.0
       tilt_min: 0.0
     m3:
+      effect_speed: 1/2
+      effect_type: linear_sweep
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 39.34017318238739
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_spot_name: Stage
+      tilt: 127.5
+      tilt_amplitude: 39.34017318238739
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m4:
       effect_speed: 1/2
       effect_type: circle
       interpolate_from_previous: true
@@ -686,7 +693,7 @@ block_defs:
       tilt_fine: 0.0
       tilt_max: 255.0
       tilt_min: 0.0
-    m4:
+    m5:
       effect_speed: 1/2
       effect_type: linear_sweep
       interpolate_from_previous: true
@@ -705,7 +712,7 @@ block_defs:
       tilt_fine: 0.0
       tilt_max: 255.0
       tilt_min: 0.0
-    m5:
+    m6:
       effect_speed: 1/2
       effect_type: square
       interpolate_from_previous: true
@@ -724,7 +731,7 @@ block_defs:
       tilt_fine: 0.0
       tilt_max: 255.0
       tilt_min: 0.0
-    m6:
+    m7:
       effect_speed: 1/2
       effect_type: diamond
       interpolate_from_previous: true
@@ -743,7 +750,7 @@ block_defs:
       tilt_fine: 0.0
       tilt_max: 255.0
       tilt_min: 0.0
-    m7:
+    m8:
       effect_speed: 1/2
       effect_type: bounce
       interpolate_from_previous: true
@@ -762,13 +769,13 @@ block_defs:
       tilt_fine: 0.0
       tilt_max: 255.0
       tilt_min: 0.0
-    m8:
+    m9:
       effect_speed: 1/2
       effect_type: linear_sweep
       interpolate_from_previous: true
       lissajous_ratio: '1:2'
       pan: 127.5
-      pan_amplitude: 49.925902752821585
+      pan_amplitude: 41.60491896068466
       pan_fine: 0.0
       pan_max: 255.0
       pan_min: 0.0
@@ -777,26 +784,7 @@ block_defs:
       speed: 255.0
       target_spot_name: Stage
       tilt: 127.5
-      tilt_amplitude: 49.925902752821585
-      tilt_fine: 0.0
-      tilt_max: 255.0
-      tilt_min: 0.0
-    m9:
-      effect_speed: 1/2
-      effect_type: square
-      interpolate_from_previous: true
-      lissajous_ratio: '1:2'
-      pan: 127.5
-      pan_amplitude: 69.31392256596281
-      pan_fine: 0.0
-      pan_max: 255.0
-      pan_min: 0.0
-      phase_offset_degrees: 0.0
-      phase_offset_enabled: false
-      speed: 255.0
-      target_spot_name: Crowd
-      tilt: 127.5
-      tilt_amplitude: 69.31392256596281
+      tilt_amplitude: 41.60491896068466
       tilt_fine: 0.0
       tilt_max: 255.0
       tilt_min: 0.0
@@ -1594,12 +1582,12 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c0
+      ref: c1
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d9
-    effect_name: auto.cascade
+      ref: d8
+    effect_name: auto.random_stroke
     movement_blocks: []
     name: null
     riff_source: null
@@ -1613,8 +1601,8 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d10
-    effect_name: auto.fade
+      ref: d9
+    effect_name: auto.static
     movement_blocks: []
     name: null
     riff_source: null
@@ -1628,8 +1616,8 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d1
-    effect_name: auto.fade
+      ref: d2
+    effect_name: auto.static
     movement_blocks: []
     name: null
     riff_source: null
@@ -1639,11 +1627,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c1
+      ref: c0
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d11
+      ref: d10
     effect_name: auto.heartbeat
     movement_blocks:
     - end: 1.0
@@ -1661,12 +1649,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d12
+      ref: d11
     effect_name: auto.fill
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m0
+      ref: m1
     name: null
     riff_source: null
     riff_version: null
@@ -1679,12 +1667,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d13
+      ref: d12
     effect_name: auto.fade
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m1
+      ref: m2
     name: null
     riff_source: null
     riff_version: null
@@ -1697,12 +1685,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d14
+      ref: d13
     effect_name: auto.chase
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m2
+      ref: m3
     name: null
     riff_source: null
     riff_version: null
@@ -1715,12 +1703,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d15
-    effect_name: auto.random_stroke
+      ref: d14
+    effect_name: auto.static
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m3
+      ref: m4
     name: null
     riff_source: null
     riff_version: null
@@ -1733,12 +1721,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d16
+      ref: d15
     effect_name: auto.chase
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m4
+      ref: m5
     name: null
     riff_source: null
     riff_version: null
@@ -1751,12 +1739,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d17
+      ref: d14
     effect_name: auto.static
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m4
+      ref: m5
     name: null
     riff_source: null
     riff_version: null
@@ -1784,12 +1772,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d18
+      ref: d14
     effect_name: auto.static
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m5
+      ref: m6
     name: null
     riff_source: null
     riff_version: null
@@ -1802,12 +1790,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d12
-    effect_name: auto.fill
+      ref: d16
+    effect_name: auto.sparkle
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m6
+      ref: m7
     name: null
     riff_source: null
     riff_version: null
@@ -1820,12 +1808,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d16
+      ref: d15
     effect_name: auto.chase
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m7
+      ref: m8
     name: null
     riff_source: null
     riff_version: null
@@ -1838,12 +1826,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d17
+      ref: d14
     effect_name: auto.static
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m7
+      ref: m8
     name: null
     riff_source: null
     riff_version: null
@@ -1856,12 +1844,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d19
+      ref: d17
     effect_name: auto.fade
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m8
+      ref: m9
     name: null
     riff_source: null
     riff_version: null
@@ -1874,12 +1862,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d20
+      ref: d12
     effect_name: auto.fade
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m9
+      ref: m10
     name: null
     riff_source: null
     riff_version: null
@@ -1892,12 +1880,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d14
-    effect_name: auto.chase
+      ref: d18
+    effect_name: auto.static
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m10
+      ref: m11
     name: null
     riff_source: null
     riff_version: null
@@ -1910,12 +1898,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d21
-    effect_name: auto.stroke
+      ref: d19
+    effect_name: auto.random_stroke
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m11
+      ref: m12
     name: null
     riff_source: null
     riff_version: null
@@ -1928,12 +1916,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d13
+      ref: d20
     effect_name: auto.fade
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m11
+      ref: m12
     name: null
     riff_source: null
     riff_version: null
@@ -1946,12 +1934,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d16
-    effect_name: auto.chase
+      ref: d20
+    effect_name: auto.fade
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m12
+      ref: m13
     name: null
     riff_source: null
     riff_version: null
@@ -1965,7 +1953,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: d3
-    effect_name: auto.fade
+    effect_name: auto.fill
     movement_blocks: []
     name: null
     riff_source: null
@@ -1979,12 +1967,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d17
+      ref: d14
     effect_name: auto.static
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m12
+      ref: m13
     name: null
     riff_source: null
     riff_version: null
@@ -1997,12 +1985,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d22
+      ref: d17
     effect_name: auto.fade
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m13
+      ref: m14
     name: null
     riff_source: null
     riff_version: null
@@ -2015,12 +2003,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d23
-    effect_name: auto.sparkle
+      ref: d21
+    effect_name: auto.random_stroke
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m14
+      ref: m15
     name: null
     riff_source: null
     riff_version: null
@@ -2033,12 +2021,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d24
-    effect_name: auto.random_stroke
+      ref: d22
+    effect_name: auto.heartbeat
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m15
+      ref: m16
     name: null
     riff_source: null
     riff_version: null
@@ -2051,12 +2039,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d25
-    effect_name: auto.wave
+      ref: d23
+    effect_name: auto.sparkle
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m16
+      ref: m17
     name: null
     riff_source: null
     riff_version: null
@@ -2069,12 +2057,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d26
-    effect_name: auto.static
+      ref: d24
+    effect_name: auto.fade
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m16
+      ref: m17
     name: null
     riff_source: null
     riff_version: null
@@ -2087,8 +2075,8 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d27
-    effect_name: auto.static
+      ref: d25
+    effect_name: auto.sparkle
     movement_blocks: []
     name: null
     riff_source: null
@@ -2102,8 +2090,8 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d28
-    effect_name: auto.heartbeat
+      ref: d3
+    effect_name: auto.fill
     movement_blocks: []
     name: null
     riff_source: null
@@ -2117,8 +2105,8 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d29
-    effect_name: auto.pulse
+      ref: d26
+    effect_name: auto.heartbeat
     movement_blocks: []
     name: null
     riff_source: null
@@ -2132,8 +2120,8 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d30
-    effect_name: auto.static
+      ref: d6
+    effect_name: auto.fade
     movement_blocks: []
     name: null
     riff_source: null
@@ -2162,12 +2150,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d31
-    effect_name: auto.fill
+      ref: d27
+    effect_name: auto.static
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m17
+      ref: m0
     name: null
     riff_source: null
     riff_version: null
@@ -2180,8 +2168,8 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d32
-    effect_name: auto.fill
+      ref: d28
+    effect_name: auto.fade
     movement_blocks:
     - end: 1.0
       offset: 0.0
@@ -2198,12 +2186,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d33
-    effect_name: auto.wave
+      ref: d29
+    effect_name: auto.static
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m19
+      ref: m18
     name: null
     riff_source: null
     riff_version: null
@@ -2216,8 +2204,8 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d34
-    effect_name: auto.static
+      ref: d30
+    effect_name: auto.wave
     movement_blocks:
     - end: 1.0
       offset: 0.0
@@ -2230,11 +2218,29 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d29
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m19
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb45:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
       ref: c2
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d35
+      ref: d31
     effect_name: auto.fill
     movement_blocks:
     - end: 1.0
@@ -2244,7 +2250,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb45:
+  lb46:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -2252,30 +2258,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d36
-    effect_name: auto.fill
+      ref: d32
+    effect_name: auto.fade
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m3
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb46:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c1
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d37
-    effect_name: auto.fill
-    movement_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: m21
+      ref: m4
     name: null
     riff_source: null
     riff_version: null
@@ -2288,12 +2276,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d38
-    effect_name: auto.fill
+      ref: d33
+    effect_name: auto.fade
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m5
+      ref: m21
     name: null
     riff_source: null
     riff_version: null
@@ -2306,12 +2294,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d39
-    effect_name: auto.static
+      ref: d34
+    effect_name: auto.waterfall
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m5
+      ref: m6
     name: null
     riff_source: null
     riff_version: null
@@ -2320,11 +2308,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c2
+      ref: c1
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d40
+      ref: d29
     effect_name: auto.static
     movement_blocks:
     - end: 1.0
@@ -2342,8 +2330,8 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d5
-    effect_name: auto.fill
+      ref: d1
+    effect_name: auto.fade
     movement_blocks: []
     name: null
     riff_source: null
@@ -2353,16 +2341,16 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c0
+      ref: c2
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d37
-    effect_name: auto.fill
+      ref: d35
+    effect_name: auto.random_stroke
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m22
+      ref: m7
     name: null
     riff_source: null
     riff_version: null
@@ -2371,16 +2359,16 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c1
+      ref: c0
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d41
-    effect_name: auto.fade
+      ref: d36
+    effect_name: auto.fill
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m8
+      ref: m22
     name: null
     riff_source: null
     riff_version: null
@@ -2393,8 +2381,8 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d42
-    effect_name: auto.random_stroke
+      ref: d37
+    effect_name: auto.wave
     movement_blocks:
     - end: 1.0
       offset: 0.0
@@ -2407,11 +2395,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c2
+      ref: c1
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d35
+      ref: d38
     effect_name: auto.fill
     movement_blocks:
     - end: 1.0
@@ -2425,16 +2413,16 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c0
+      ref: c1
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d43
-    effect_name: auto.chase
+      ref: d29
+    effect_name: auto.static
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m11
+      ref: m23
     name: null
     riff_source: null
     riff_version: null
@@ -2443,12 +2431,12 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c0
+      ref: c2
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d44
-    effect_name: auto.static
+      ref: d39
+    effect_name: auto.chase
     movement_blocks:
     - end: 1.0
       offset: 0.0
@@ -2461,11 +2449,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c1
+      ref: c0
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d45
+      ref: d32
     effect_name: auto.fade
     movement_blocks:
     - end: 1.0
@@ -2479,11 +2467,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c1
+      ref: c0
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d34
+      ref: d40
     effect_name: auto.static
     movement_blocks:
     - end: 1.0
@@ -2501,12 +2489,30 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d46
+      ref: d33
     effect_name: auto.fade
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m13
+      ref: m24
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb59:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d41
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m14
     name: null
     riff_source: null
     riff_version: null
@@ -2519,7 +2525,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d6
+      ref: d5
     effect_name: auto.fade
     movement_blocks: []
     name: null
@@ -2534,7 +2540,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d3
+      ref: d6
     effect_name: auto.fade
     movement_blocks: []
     name: null
@@ -2545,12 +2551,12 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c1
+      ref: c0
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
       ref: d7
-    effect_name: auto.fade
+    effect_name: auto.fill
     movement_blocks: []
     name: null
     riff_source: null
@@ -2564,8 +2570,8 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d8
-    effect_name: auto.static
+      ref: d4
+    effect_name: auto.heartbeat
     movement_blocks: []
     name: null
     riff_source: null
@@ -2667,7 +2673,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: C:/Users/mgmfi/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT\audiofiles\light_track_cycle_of_a_psycho_test_wo_klick.mp3
+      audio_file_path: C:/Users/varghele/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT/light_burning_out\audiofiles\light_track_cycle_of_a_psycho_test_wo_klick.mp3
       lanes:
       - fixture_targets:
         - BARS - Dimmer
@@ -2727,55 +2733,55 @@ shows:
           ref: lb4
           start: 120.57971
         - end: 129.855072
-          ref: lb5
+          ref: lb8
           start: 127.536232
         - end: 136.811594
           ref: lb4
           start: 129.855072
         - end: 139.130435
-          ref: lb5
+          ref: lb8
           start: 136.811594
         - end: 141.449275
           ref: lb4
           start: 139.130435
         - end: 166.956522
-          ref: lb8
+          ref: lb9
           start: 160.0
         - end: 169.275362
-          ref: lb9
+          ref: lb10
           start: 166.956522
         - end: 176.231884
-          ref: lb8
+          ref: lb9
           start: 169.275362
         - end: 178.550725
-          ref: lb9
+          ref: lb10
           start: 176.231884
         - end: 204.057971
-          ref: lb10
+          ref: lb3
           start: 197.101449
         - end: 206.376812
           ref: lb11
           start: 204.057971
         - end: 213.333333
-          ref: lb4
+          ref: lb12
           start: 206.376812
         - end: 215.652174
           ref: lb12
           start: 213.333333
         - end: 222.608696
-          ref: lb4
+          ref: lb12
           start: 215.652174
         - end: 224.927536
           ref: lb12
           start: 222.608696
         - end: 231.884058
-          ref: lb4
+          ref: lb12
           start: 224.927536
         - end: 234.202899
           ref: lb12
           start: 231.884058
         - end: 236.521739
-          ref: lb4
+          ref: lb12
           start: 234.202899
         muted: false
         name: Auto - BARS - Dimmer
@@ -2783,21 +2789,15 @@ shows:
       - fixture_targets:
         - FP - Dimmer
         light_blocks:
-        - end: 9.275362
+        - end: 2.318841
           ref: lb13
-          start: 2.318841
+          start: 0.0
         - end: 11.594203
           ref: lb14
           start: 9.275362
-        - end: 18.550725
-          ref: lb13
-          start: 11.594203
         - end: 20.869565
           ref: lb14
           start: 18.550725
-        - end: 23.188406
-          ref: lb13
-          start: 20.869565
         - end: 32.463768
           ref: lb15
           start: 30.144928
@@ -2870,12 +2870,12 @@ shows:
         - end: 141.449275
           ref: lb22
           start: 139.130435
-        - end: 150.724638
+        - end: 148.405797
           ref: lb24
-          start: 148.405797
-        - end: 160.0
+          start: 141.449275
+        - end: 157.681159
           ref: lb24
-          start: 157.681159
+          start: 150.724638
         - end: 169.275362
           ref: lb25
           start: 166.956522
@@ -2969,129 +2969,132 @@ shows:
         - end: 2.318841
           ref: lb40
           start: 0.0
+        - end: 9.275362
+          ref: lb41
+          start: 2.318841
         - end: 11.594203
-          ref: lb41
-          start: 9.275362
-        - end: 20.869565
-          ref: lb41
-          start: 18.550725
-        - end: 30.144928
           ref: lb42
+          start: 9.275362
+        - end: 18.550725
+          ref: lb41
+          start: 11.594203
+        - end: 20.869565
+          ref: lb42
+          start: 18.550725
+        - end: 23.188406
+          ref: lb41
+          start: 20.869565
+        - end: 30.144928
+          ref: lb43
           start: 23.188406
         - end: 32.463768
-          ref: lb43
+          ref: lb44
           start: 30.144928
         - end: 39.42029
-          ref: lb42
+          ref: lb43
           start: 32.463768
         - end: 41.73913
-          ref: lb43
+          ref: lb44
           start: 39.42029
         - end: 51.014493
-          ref: lb44
+          ref: lb45
           start: 48.695652
         - end: 57.971014
-          ref: lb45
+          ref: lb46
           start: 53.333333
         - end: 67.246377
-          ref: lb46
+          ref: lb47
           start: 64.927536
         - end: 76.521739
-          ref: lb46
+          ref: lb47
           start: 74.202899
         - end: 85.797101
-          ref: lb47
+          ref: lb48
           start: 78.84058
         - end: 88.115942
-          ref: lb48
+          ref: lb49
           start: 85.797101
         - end: 95.072464
-          ref: lb47
+          ref: lb48
           start: 88.115942
         - end: 97.391304
-          ref: lb48
+          ref: lb49
           start: 95.072464
         - end: 104.347826
-          ref: lb47
+          ref: lb48
           start: 97.391304
         - end: 106.666667
-          ref: lb48
+          ref: lb49
           start: 104.347826
         - end: 113.623188
-          ref: lb47
+          ref: lb48
           start: 106.666667
         - end: 115.942029
-          ref: lb48
+          ref: lb49
           start: 113.623188
         - end: 120.57971
-          ref: lb49
+          ref: lb50
           start: 115.942029
         - end: 129.855072
-          ref: lb50
+          ref: lb51
           start: 127.536232
         - end: 139.130435
-          ref: lb50
+          ref: lb51
           start: 136.811594
-        - end: 150.724638
-          ref: lb51
-          start: 148.405797
-        - end: 160.0
-          ref: lb51
-          start: 157.681159
+        - end: 148.405797
+          ref: lb52
+          start: 141.449275
+        - end: 157.681159
+          ref: lb52
+          start: 150.724638
+        - end: 166.956522
+          ref: lb53
+          start: 160.0
         - end: 169.275362
-          ref: lb52
-          start: 166.956522
-        - end: 178.550725
-          ref: lb52
-          start: 176.231884
-        - end: 187.826087
-          ref: lb53
-          start: 185.507246
-        - end: 197.101449
-          ref: lb53
-          start: 194.782609
-        - end: 204.057971
           ref: lb54
+          start: 166.956522
+        - end: 176.231884
+          ref: lb53
+          start: 169.275362
+        - end: 178.550725
+          ref: lb54
+          start: 176.231884
+        - end: 185.507246
+          ref: lb55
+          start: 178.550725
+        - end: 194.782609
+          ref: lb55
+          start: 187.826087
+        - end: 204.057971
+          ref: lb56
           start: 197.101449
         - end: 206.376812
-          ref: lb55
+          ref: lb57
           start: 204.057971
-        - end: 213.333333
-          ref: lb56
-          start: 206.376812
         - end: 215.652174
-          ref: lb57
-          start: 213.333333
-        - end: 222.608696
-          ref: lb56
-          start: 215.652174
-        - end: 224.927536
-          ref: lb57
-          start: 222.608696
-        - end: 231.884058
-          ref: lb56
-          start: 224.927536
-        - end: 234.202899
-          ref: lb57
-          start: 231.884058
-        - end: 236.521739
-          ref: lb56
-          start: 234.202899
-        - end: 243.478261
           ref: lb58
+          start: 213.333333
+        - end: 224.927536
+          ref: lb58
+          start: 222.608696
+        - end: 234.202899
+          ref: lb58
+          start: 231.884058
+        - end: 243.478261
+          ref: lb59
           start: 236.521739
         - end: 252.753623
-          ref: lb58
+          ref: lb59
           start: 245.797101
         - end: 257.391304
-          ref: lb58
+          ref: lb59
           start: 255.072464
         muted: false
         name: Auto - WASH - Dimmer
         solo: false
     trigger_channel: null
     trigger_device: null
-shows_directory: C:/Users/mgmfi/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT
+shows_directory: C:/Users/varghele/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT/light_burning_out
 spots:
   Crowd:
     name: Crowd

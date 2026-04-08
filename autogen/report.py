@@ -5,7 +5,7 @@ chose specific rudiments, roles, colors, and activation patterns.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -29,6 +29,7 @@ class GroupSectionReport:
     fill_rudiment: str = "static"
     groove_category: str = "flat"    # envelope category of groove rudiment
     effect_speed: str = "1"
+    lighting_role: str = ""          # User-assigned fixture role
     # Top match candidates with sub-score breakdown
     match_scores: List[MatchScoreEntry] = field(default_factory=list)
 
@@ -45,6 +46,8 @@ class SectionReport:
     spectral_richness: float = 0.0
     vocal_presence: float = 0.0
     spectral_centroid: float = 0.0
+    rms_energy: float = 0.0
+    spectral_contrast: float = 0.0
     relative_energy: float = 0.0
     # Per-group decisions
     group_reports: Dict[str, GroupSectionReport] = field(default_factory=dict)
@@ -68,6 +71,10 @@ class GenerationReport:
     frame_richness: List[float] = field(default_factory=list)
     frame_vocal: List[float] = field(default_factory=list)
     frame_centroid: List[float] = field(default_factory=list)
+    # Mel spectrogram for inspector (numpy arrays, optional)
+    mel_spectrogram_db: Any = field(default=None, repr=False)  # shape: n_mels × n_time
+    mel_frequencies: Any = field(default=None, repr=False)      # shape: n_mels
+    mel_times: Any = field(default=None, repr=False)            # shape: n_time
 
     def get_section_at(self, time: float) -> Optional[SectionReport]:
         """Find the section report active at a given time."""

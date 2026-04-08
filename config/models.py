@@ -87,6 +87,9 @@ class FixtureGroup:
     default_roll: float = 0.0
     default_z_height: float = 3.0  # Default height in meters
 
+    # User-assigned lighting role for autogen activation decisions
+    lighting_role: str = ""  # "backbone", "accent", "ambient", "movement", "effect"
+
 
 @dataclass
 class FixtureGroupCapabilities:
@@ -1248,6 +1251,7 @@ class Configuration:
                     'default_pitch': group.default_pitch,
                     'default_roll': group.default_roll,
                     'default_z_height': group.default_z_height,
+                    'lighting_role': group.lighting_role,
                     'fixtures': [asdict(f) for f in group.fixtures]
                 }
                 for name, group in self.groups.items()
@@ -1328,7 +1332,8 @@ class Configuration:
                 default_yaw=group_data.get('default_yaw', 0.0),
                 default_pitch=group_data.get('default_pitch', 0.0),
                 default_roll=group_data.get('default_roll', 0.0),
-                default_z_height=group_data.get('default_z_height', 3.0)
+                default_z_height=group_data.get('default_z_height', 3.0),
+                lighting_role=group_data.get('lighting_role', ''),
             )
 
         # Handle shows
