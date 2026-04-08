@@ -4,7 +4,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 from PyQt6 import QtWidgets, QtCore, QtGui
-from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLineEdit
+from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QComboBox
 from PyQt6.QtGui import QFont
 from config.models import Configuration, Fixture, FixtureMode, FixtureGroup
 from utils.fixture_utils import determine_fixture_type, get_cached_fixture_definitions
@@ -138,7 +138,7 @@ class FixturesTab(BaseTab):
     def _setup_table(self):
         """Initialize table structure and properties"""
         headers = ['Universe', 'Address', 'Manufacturer', 'Model', 'Channels',
-                   'Mode', 'Name', 'Group']
+                   'Mode', 'Name', 'Group', 'Role']
         self.table.setColumnCount(len(headers))
         self.table.setHorizontalHeaderLabels(headers)
 
@@ -334,6 +334,30 @@ class FixturesTab(BaseTab):
             group_combo.currentTextChanged.connect(create_group_handler(row, group_combo))
             self.table.setCellWidget(row, 7, group_combo)
 
+            # Role combo box (per group — all fixtures in the same group share a role)
+            role_combo = QComboBox()
+            role_combo.addItems(["", "wash", "key", "texture", "accent"])
+            # Read current role from group if fixture has one
+            if fixture.group and fixture.group in self.config.groups:
+                current_role = self.config.groups[fixture.group].lighting_role or ""
+                idx = role_combo.findText(current_role)
+                if idx >= 0:
+                    role_combo.setCurrentIndex(idx)
+
+            def create_role_handler(current_row):
+                def handle_role_change(text):
+                    if self._is_rebuilding:
+                        return
+                    fix = self.config.fixtures[current_row]
+                    if fix.group and fix.group in self.config.groups:
+                        self.config.groups[fix.group].lighting_role = text
+                        # Update all other rows in the same group
+                        self._sync_role_combos(fix.group, text)
+                return handle_role_change
+
+            role_combo.currentTextChanged.connect(create_role_handler(row))
+            self.table.setCellWidget(row, 8, role_combo)
+
         # Re-enable signals and update colors
         self.table.blockSignals(False)
         self._update_row_colors()
@@ -404,7 +428,10 @@ class FixturesTab(BaseTab):
             main_window.on_groups_changed()
 
     def _update_groups(self):
-        """Rebuild groups from fixtures, preserving colors and orientation defaults"""
+        """Rebuild groups from fixtures, preserving colors, orientation defaults, and lighting roles"""
+        # Apply any pending role from new group creation
+        pending_role = getattr(self, '_pending_group_role', None)
+
         # Store existing group properties (colors and orientation defaults)
         existing_props = {
             name: {
@@ -414,6 +441,7 @@ class FixturesTab(BaseTab):
                 'default_pitch': getattr(group, 'default_pitch', 0.0),
                 'default_roll': getattr(group, 'default_roll', 0.0),
                 'default_z_height': getattr(group, 'default_z_height', 3.0),
+                'lighting_role': getattr(group, 'lighting_role', ''),
             }
             for name, group in self.config.groups.items()
         }
@@ -434,19 +462,31 @@ class FixturesTab(BaseTab):
                         default_pitch=props.get('default_pitch', 0.0),
                         default_roll=props.get('default_roll', 0.0),
                         default_z_height=props.get('default_z_height', 3.0),
+                        lighting_role=props.get('lighting_role', ''),
                     )
                 self.config.groups[fixture.group].fixtures.append(fixture)
+
+        # Apply pending lighting role from new group creation
+        if pending_role:
+            group_name, role = pending_role
+            if group_name in self.config.groups:
+                self.config.groups[group_name].lighting_role = role
+            self._pending_group_role = None
 
         # Update existing groups set
         self.existing_groups = set(self.config.groups.keys())
 
     def _handle_new_group(self, group_combo):
-        """Show dialog to create new group"""
+        """Show dialog to create new group with optional lighting role"""
         dialog = QDialog(self)
         dialog.setWindowTitle("Add New Group")
         layout = QFormLayout()
         new_group_input = QLineEdit()
         layout.addRow("Group Name:", new_group_input)
+
+        role_combo = QComboBox()
+        role_combo.addItems(["", "wash", "key", "texture", "accent"])
+        layout.addRow("Lighting Role:", role_combo)
 
         button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok |
@@ -461,6 +501,9 @@ class FixturesTab(BaseTab):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_group = new_group_input.text().strip()
             if new_group:
+                # Store the role for when the group gets created in _update_groups
+                self._pending_group_role = (new_group, role_combo.currentText())
+
                 # Update the current fixture's group combobox
                 current_index = group_combo.findText("Add New...")
                 group_combo.removeItem(current_index)
@@ -487,6 +530,20 @@ class FixturesTab(BaseTab):
                     add_new_index = combo.findText("Add New...")
                     if add_new_index != -1:
                         combo.insertItem(add_new_index, group_name)
+
+    def _sync_role_combos(self, group_name: str, role: str):
+        """Sync all role combos for fixtures in the same group."""
+        for row in range(self.table.rowCount()):
+            if row >= len(self.config.fixtures):
+                continue
+            if self.config.fixtures[row].group == group_name:
+                combo = self.table.cellWidget(row, 8)
+                if combo and isinstance(combo, QComboBox):
+                    combo.blockSignals(True)
+                    idx = combo.findText(role)
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+                    combo.blockSignals(False)
 
     def _update_row_colors(self):
         """Apply group colors to table rows"""

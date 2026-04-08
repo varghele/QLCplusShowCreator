@@ -1,6 +1,6 @@
 """Convert rudiment selections into concrete sublane blocks."""
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from config.models import DimmerBlock, MovementBlock
 from rudiments.registry import get_rudiment
@@ -52,6 +52,8 @@ def rudiment_to_movement_block(
     params: Dict[str, Any],
     start_time: float,
     end_time: float,
+    target_spot_name: Optional[str] = None,
+    target_plane_name: Optional[str] = None,
 ) -> MovementBlock:
     """Convert a movement rudiment to a MovementBlock.
 
@@ -60,6 +62,8 @@ def rudiment_to_movement_block(
         params: Override parameters (amplitude, speed, etc.)
         start_time: Block start time in seconds
         end_time: Block end time in seconds
+        target_spot_name: Optional spot name for auto pan/tilt targeting
+        target_plane_name: Optional plane name for world-space movement
 
     Returns:
         A MovementBlock configured for this rudiment
@@ -83,6 +87,8 @@ def rudiment_to_movement_block(
         pan_amplitude=amplitude,
         tilt_amplitude=amplitude,
         lissajous_ratio=merged.get("freq_ratio", "1:2"),
+        target_spot_name=target_spot_name,
+        target_plane_name=target_plane_name,
     )
 
     return block

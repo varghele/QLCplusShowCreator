@@ -8,7 +8,7 @@ ArtNet target.
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QLabel, QPushButton, QSpinBox, QDoubleSpinBox, QCheckBox,
+    QLabel, QPushButton, QSpinBox, QDoubleSpinBox, QCheckBox, QSlider,
     QLineEdit, QComboBox, QGroupBox, QTableWidget, QTableWidgetItem,
     QProgressBar, QFrame,
 )
@@ -26,7 +26,10 @@ from live.bpm_detector import TapBPM, AutoBPMDetector
 from live.widgets.color_wheel import HSVColorWheel
 from live.widgets.group_submasters import GroupSubmasterPanel
 from live.widgets.energy_fader import EnergySensitivityFader
-from live.widgets.riff_palette import RiffPaletteWidget
+from live.widgets.riff_palette import GroupRiffConstraintPanel
+from live.widgets.metrics_tracker import LiveMetricsTracker
+from autogen.spatial import ensure_default_spots, compute_stage_planes
+from config.models import StagePlane
 
 
 class LiveModeWindow(QMainWindow):
@@ -172,13 +175,11 @@ class LiveModeWindow(QMainWindow):
         bpm_layout.addStretch()
         center_layout.addWidget(bpm_group)
 
-        # Riff palette
-        palette_label = QLabel("Riff Palette")
-        palette_label.setStyleSheet("font-weight: bold;")
-        center_layout.addWidget(palette_label)
-        self._riff_palette = RiffPaletteWidget()
-        self._riff_palette.riff_forced.connect(self._on_riff_forced)
-        center_layout.addWidget(self._riff_palette)
+        # Per-group riff constraints
+        group_names = list(self.config.groups.keys())
+        self._riff_constraints = GroupRiffConstraintPanel(group_names)
+        self._riff_constraints.constraints_changed.connect(self._on_constraints_changed)
+        center_layout.addWidget(self._riff_constraints)
 
         # Fill Now button
         self._fill_btn = QPushButton("FILL NOW")
@@ -190,11 +191,34 @@ class LiveModeWindow(QMainWindow):
         self._fill_btn.clicked.connect(self._on_fill_now)
         center_layout.addWidget(self._fill_btn)
 
+        # Movement speed limiter
+        speed_row = QHBoxLayout()
+        speed_label = QLabel("Max Speed:")
+        speed_label.setStyleSheet("font-size: 10px;")
+        speed_label.setFixedWidth(65)
+        self._speed_slider = QSlider(Qt.Orientation.Horizontal)
+        self._speed_slider.setRange(0, 360)
+        self._speed_slider.setValue(0)
+        self._speed_slider.setFixedHeight(20)
+        self._speed_value_label = QLabel("OFF")
+        self._speed_value_label.setFixedWidth(40)
+        self._speed_value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._speed_value_label.setStyleSheet("font-size: 10px;")
+        self._speed_slider.valueChanged.connect(self._on_speed_changed)
+        speed_row.addWidget(speed_label)
+        speed_row.addWidget(self._speed_slider)
+        speed_row.addWidget(self._speed_value_label)
+        center_layout.addLayout(speed_row)
+
         # Color wheel
         center_layout.addSpacing(8)
         self._color_wheel = HSVColorWheel()
         self._color_wheel.color_changed.connect(self._on_color_changed)
         center_layout.addWidget(self._color_wheel)
+
+        # Metrics tracker (30-second scrolling chart)
+        self._metrics_tracker = LiveMetricsTracker()
+        center_layout.addWidget(self._metrics_tracker)
 
         center_layout.addStretch()
         splitter.addWidget(center_panel)
@@ -230,6 +254,16 @@ class LiveModeWindow(QMainWindow):
         self._input_device_combo = QComboBox()
         input_layout.addWidget(self._input_device_combo)
         right_layout.addWidget(input_group)
+
+        # Target plane selector
+        plane_group = QGroupBox("Movement Target")
+        plane_layout = QVBoxLayout(plane_group)
+        self._plane_combo = QComboBox()
+        self._stage_planes: dict = {}  # name -> StagePlane
+        self._populate_plane_combo()
+        self._plane_combo.currentTextChanged.connect(self._on_target_plane_changed)
+        plane_layout.addWidget(self._plane_combo)
+        right_layout.addWidget(plane_group)
 
         # Group submasters
         group_names = list(self.config.groups.keys())
@@ -278,6 +312,21 @@ class LiveModeWindow(QMainWindow):
                 if self._input_device_combo.itemData(i) == default.index:
                     self._input_device_combo.setCurrentIndex(i)
                     break
+
+    def _populate_plane_combo(self):
+        """Populate target plane combo from stage cuboid faces."""
+        planes = compute_stage_planes(self.config)
+        self._stage_planes = {p.name: p for p in planes}
+
+        self._plane_combo.clear()
+        self._plane_combo.addItem("None (manual)")
+        for plane in planes:
+            self._plane_combo.addItem(plane.name)
+
+        # Default to Front (audience-facing)
+        front_idx = self._plane_combo.findText("Front")
+        if front_idx >= 0:
+            self._plane_combo.setCurrentIndex(front_idx)
 
     def _populate_universe_table(self):
         """Fill universe mapping table from config."""
@@ -331,6 +380,10 @@ class LiveModeWindow(QMainWindow):
             self._engine.set_groove_bars(self._groove_bars_spinbox.value())
             self._engine.set_energy_sensitivity(self._energy_fader.value())
             self._engine.set_on_riffs_updated(self._on_riffs_updated_from_engine)
+            # Set initial target plane from combo
+            plane_text = self._plane_combo.currentText()
+            plane = self._stage_planes.get(plane_text) if plane_text != "None (manual)" else None
+            self._engine.set_target_plane(plane)
 
             # Create DMX controller
             target_ip = self._ip_input.text().strip() or "192.168.1.151"
@@ -339,6 +392,8 @@ class LiveModeWindow(QMainWindow):
             )
             self._dmx_controller.set_universe_mapping(self._get_universe_mapping())
             self._dmx_controller.set_engine(self._engine)
+            # Pass stage planes to DMX manager for world-space movement
+            self._dmx_controller.dmx_manager.set_stage_planes(self._stage_planes)
 
             # Start everything
             self._live_input.start()
@@ -462,21 +517,31 @@ class LiveModeWindow(QMainWindow):
             else:
                 self._engine.set_color_override((r, g, b))
 
+    def _on_speed_changed(self, value):
+        if value == 0:
+            self._speed_value_label.setText("OFF")
+        else:
+            self._speed_value_label.setText(f"{value}°/s")
+        if self._engine:
+            self._engine.set_max_movement_speed(float(value))
+
+    def _on_target_plane_changed(self, text):
+        if self._engine:
+            plane = self._stage_planes.get(text) if text != "None (manual)" else None
+            self._engine.set_target_plane(plane)
+
     def _on_submaster_changed(self, group_name, value):
         if self._engine:
             self._engine.set_group_submaster(group_name, value)
 
-    def _on_riff_forced(self, slot, name):
+    def _on_constraints_changed(self, group_name, allowed):
         if self._engine:
-            if name:
-                self._engine.set_riff_override(slot, name)
-            else:
-                self._engine.set_riff_override(slot, None)
+            self._engine.set_group_constraints(group_name, allowed)
 
-    def _on_riffs_updated_from_engine(self, top_rudiments):
+    def _on_riffs_updated_from_engine(self, per_group_rudiments):
         """Called from engine (potentially from DMX thread) — schedule UI update."""
         # This is safe because we schedule it for the next UI tick
-        self._pending_riff_update = top_rudiments
+        self._pending_riff_update = per_group_rudiments
 
     # ── UI update ──
 
@@ -491,6 +556,7 @@ class LiveModeWindow(QMainWindow):
             self._meter_bars['richness'].setValue(int(frame.richness * 100))
             self._meter_bars['vocal'].setValue(int(frame.vocal * 100))
             self._meter_bars['centroid'].setValue(int(frame.centroid * 100))
+            self._metrics_tracker.append_frame(frame)
             self._meter_bars['contrast'].setValue(int(frame.contrast * 100))
 
         # Update status
@@ -506,9 +572,10 @@ class LiveModeWindow(QMainWindow):
             )
             self._bpm_display.setText(str(int(self._engine.bpm)))
 
-        # Update riff palette
+        # Update riff constraint panel (active riff display only)
         if hasattr(self, '_pending_riff_update') and self._pending_riff_update:
-            self._riff_palette.update_slots(self._pending_riff_update)
+            active = {g: r[0] for g, r in self._pending_riff_update.items()}
+            self._riff_constraints.update_active_riffs(active)
             self._pending_riff_update = None
 
         # Auto BPM

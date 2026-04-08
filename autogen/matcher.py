@@ -6,7 +6,7 @@ dual-criteria scoring (Section 5, Steps 4-7) from the theory.
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from audio.spectral_analysis import SectionAnalysis
 from rudiments.rudiment import (
@@ -443,12 +443,18 @@ def select_rudiments_per_group(
     previous_section_rudiments: Optional[Dict[str, str]] = None,
     section_type: str = "generic",
     previous_section_type: Optional[str] = None,
+    allowed_per_group: Optional[Dict[str, Set[str]]] = None,
 ) -> Dict[str, Tuple[str, str]]:
     """Select different groove+fill rudiments per fixture group.
 
     Uses iterative refinement: each round re-scores candidates with
     diversity penalties/bonuses based on what other groups are using.
     Iterates until stable or max 10 rounds.
+
+    Args:
+        allowed_per_group: Optional per-group constraint sets. If provided,
+            each group's key maps to a set of allowed rudiment names.
+            Groups not in the dict or with None/empty sets are unconstrained.
 
     Returns:
         {group_name: (groove_name, fill_name)}
@@ -471,10 +477,20 @@ def select_rudiments_per_group(
     intensity_rudiments = get_intensity_rudiments()
     ranked = list(base_scores.keys())
 
+    def _ranked_for_group(group_name: str) -> List[str]:
+        """Return ranked candidates filtered by group constraints."""
+        if not allowed_per_group:
+            return ranked
+        allowed = allowed_per_group.get(group_name)
+        if not allowed:
+            return ranked
+        return [r for r in ranked if r in allowed]
+
     # Initial greedy assignment (round 0)
     current_assignments: Dict[str, str] = {}
     for i, group_name in enumerate(group_names):
-        current_assignments[group_name] = ranked[i % len(ranked)]
+        group_ranked = _ranked_for_group(group_name)
+        current_assignments[group_name] = group_ranked[i % len(group_ranked)]
 
     # Iterative refinement
     max_rounds = 10
@@ -482,13 +498,15 @@ def select_rudiments_per_group(
         changed = False
 
         for group_name in group_names:
+            group_ranked = _ranked_for_group(group_name)
+
             # Score each candidate with diversity adjustment
             other_assignments = {k: v for k, v in current_assignments.items() if k != group_name}
 
             best_candidate = current_assignments[group_name]
             best_score = -1.0
 
-            for candidate_name in ranked:
+            for candidate_name in group_ranked:
                 base = base_scores[candidate_name].total_score
                 diversity = _compute_diversity_adjustment(
                     candidate_name, other_assignments, intensity_rudiments
@@ -511,9 +529,10 @@ def select_rudiments_per_group(
     for group_name in group_names:
         groove_name = current_assignments[group_name]
         groove_flux = intensity_rudiments[groove_name].average_flux
+        group_ranked = _ranked_for_group(group_name)
 
         fill_name = groove_name  # Fallback
-        for candidate in ranked:
+        for candidate in group_ranked:
             if candidate == groove_name:
                 continue
             if intensity_rudiments[candidate].average_flux > groove_flux:

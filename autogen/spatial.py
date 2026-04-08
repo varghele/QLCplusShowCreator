@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
-from config.models import Configuration, FixtureGroup, Spot
+from config.models import Configuration, FixtureGroup, Spot, StagePlane
 
 
 class ActivationRole(Enum):
@@ -377,3 +377,39 @@ def ensure_default_spots(config: Configuration) -> List[str]:
         config.spots[name] = spot
 
     return list(default_spots.keys())
+
+
+def compute_stage_planes(config: Configuration) -> List[StagePlane]:
+    """Compute the 6 faces of the stage bounding cuboid as target planes.
+
+    Stage coordinate system:
+    - X: left-right (centered at 0), range [-W/2, W/2]
+    - Y: depth (0 = front/audience, D = back of stage)
+    - Z: height (0 = floor, max_Z = highest fixture)
+
+    Returns planes with inward-facing normals and tangent axes for
+    projecting movement patterns onto each face.
+    """
+    w = config.stage_width if hasattr(config, 'stage_width') and config.stage_width else 10.0
+    d = config.stage_height if hasattr(config, 'stage_height') and config.stage_height else 6.0
+
+    # Compute max Z from fixtures
+    max_z = 3.0  # default minimum
+    for fixture in config.fixtures:
+        group = config.groups.get(fixture.group) if fixture.group else None
+        z = fixture.get_effective_z(group)
+        if z > max_z:
+            max_z = z
+
+    hw = w / 2.0  # half width
+    hd = d / 2.0  # half depth
+    hz = max_z / 2.0  # half height
+
+    return [
+        StagePlane("Floor",   (0.0, hd, 0.0),     (0, 0, 1),   (1, 0, 0), (0, 1, 0)),
+        StagePlane("Ceiling", (0.0, hd, max_z),    (0, 0, -1),  (1, 0, 0), (0, 1, 0)),
+        StagePlane("Front",   (0.0, 0.0, hz),      (0, 1, 0),   (1, 0, 0), (0, 0, 1)),
+        StagePlane("Back",    (0.0, d, hz),         (0, -1, 0),  (1, 0, 0), (0, 0, 1)),
+        StagePlane("Left",    (-hw, hd, hz),        (1, 0, 0),   (0, 1, 0), (0, 0, 1)),
+        StagePlane("Right",   (hw, hd, hz),         (-1, 0, 0),  (0, 1, 0), (0, 0, 1)),
+    ]

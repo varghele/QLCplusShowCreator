@@ -12,7 +12,7 @@ import colorsys
 import numpy as np
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Optional, Tuple, Dict, List, Callable
+from typing import Optional, Tuple, Dict, List, Set, Callable
 
 from audio.realtime_spectral import LiveFeatureFrame
 from audio.spectral_analysis import SectionAnalysis
@@ -29,6 +29,12 @@ from config.models import DimmerBlock, ColourBlock, MovementBlock, SpecialBlock,
 _WINDOW_SECONDS = 45
 _FRAMES_PER_SEC = 86  # approximate
 _MAX_WINDOW = _WINDOW_SECONDS * _FRAMES_PER_SEC
+
+# Energy-tiered movement shape pools (from autogen/generator.py)
+_HIGH_ENERGY_SHAPES = ["circle", "figure_8", "lissajous", "diamond"]
+_MEDIUM_ENERGY_SHAPES = ["bounce", "linear_sweep", "square", "triangle"]
+_LOW_ENERGY_SHAPES = ["linear_sweep", "fan", "circle"]
+_VERY_LOW_SHAPES = ["linear_sweep"]
 
 
 @dataclass
@@ -76,8 +82,12 @@ class LiveShowEngine:
         self._energy_sensitivity: float = 0.7
         self._color_override: Optional[Tuple[int, int, int]] = None
         self._group_submasters: Dict[str, float] = {g: 1.0 for g in self._group_names}
-        self._heavy_threshold: float = 0.85
-        self._riff_palette_overrides: Dict[int, Optional[str]] = {i: None for i in range(8)}
+        self._heavy_threshold: float = 0.95
+        self._group_constraints: Dict[str, Optional[Set[str]]] = {g: None for g in self._group_names}
+
+        # Movement state
+        self._target_plane = None  # Optional[StagePlane]
+        self._movement_cycle_index: int = 0
 
         # Auto color state
         self._auto_color_rgb: Tuple[int, int, int] = (255, 255, 255)
@@ -89,11 +99,8 @@ class LiveShowEngine:
         self._dmx_manager = None
 
         # Callbacks for UI updates
-        self._on_riffs_updated: Optional[Callable[[List[str]], None]] = None
+        self._on_riffs_updated: Optional[Callable[[Dict[str, Tuple[str, str]]], None]] = None
         self._on_state_changed: Optional[Callable[[], None]] = None
-
-        # Top rudiment names for palette
-        self._top_rudiments: List[str] = []
 
         # Last heavy interrupt time (prevent rapid re-triggers)
         self._last_heavy_time: float = 0.0
@@ -129,12 +136,23 @@ class LiveShowEngine:
         with self._lock:
             self._heavy_threshold = max(0.0, min(1.0, value))
 
-    def set_riff_override(self, slot: int, rudiment_name: Optional[str]):
+    def set_group_constraints(self, group_name: str, allowed: Optional[Set[str]]):
+        """Set allowed rudiments for a group. None or empty = all allowed."""
         with self._lock:
-            if 0 <= slot < 8:
-                self._riff_palette_overrides[slot] = rudiment_name
+            if group_name in self._group_constraints:
+                self._group_constraints[group_name] = allowed if allowed else None
 
-    def set_on_riffs_updated(self, callback: Optional[Callable[[List[str]], None]]):
+    def set_target_plane(self, plane):
+        """Set the target plane for moving heads. None = no targeting."""
+        with self._lock:
+            self._target_plane = plane
+
+    def set_max_movement_speed(self, degrees_per_sec: float):
+        """Set max pan/tilt speed. Forwarded to DMX manager."""
+        if self._dmx_manager:
+            self._dmx_manager.set_max_pan_tilt_speed(degrees_per_sec)
+
+    def set_on_riffs_updated(self, callback: Optional[Callable[[Dict[str, Tuple[str, str]]], None]]):
         self._on_riffs_updated = callback
 
     def set_on_state_changed(self, callback: Optional[Callable[[], None]]):
@@ -168,9 +186,9 @@ class LiveShowEngine:
             return self._groove_bars
 
     @property
-    def top_rudiments(self) -> List[str]:
+    def per_group_rudiments(self) -> Dict[str, Tuple[str, str]]:
         with self._lock:
-            return list(self._top_rudiments)
+            return dict(self._per_group_rudiments)
 
     # ── Audio feature input (called from analysis thread) ──
 
@@ -179,11 +197,12 @@ class LiveShowEngine:
         with self._lock:
             self._window.append(frame)
 
-            # Check heavy interrupt
+            # Check heavy interrupt (debounce at least 4 seconds to avoid
+            # rapid re-triggering from self-normalizing EMA signals)
             if (self._running
                     and not self._cycle.is_fill
                     and frame.rms > self._heavy_threshold
-                    and (time.monotonic() - self._last_heavy_time) > 1.0):
+                    and (time.monotonic() - self._last_heavy_time) > 4.0):
                 self._trigger_heavy_interrupt()
 
     # ── Engine tick (called from DMX thread at 30Hz) ──
@@ -287,6 +306,7 @@ class LiveShowEngine:
         self._cycle.cycle_start_time = self._engine_time
         self._cycle.bar_index = 0
         self._cycle.is_fill = False
+        self._movement_cycle_index += 1
 
         # Build profile from sliding window
         profile = self._build_window_profile()
@@ -349,38 +369,56 @@ class LiveShowEngine:
 
     def _select_next_riffs(self, profile: SectionAnalysis):
         """Use the autogen matcher to select riffs per group."""
-        # Get scores for palette
+        from rudiments.registry import get_intensity_rudiments
+
         scores = match_rudiments_to_section(
             profile, self._bpm,
             previous_section_rudiments=self._previous_rudiments,
             section_type="generic",
         )
-        self._top_rudiments = list(scores.keys())[:8]
+        ranked = list(scores.keys())
+        intensity_rudiments = get_intensity_rudiments()
 
-        # Check for manual overrides
-        forced_groove = None
-        for slot in range(8):
-            override = self._riff_palette_overrides.get(slot)
-            if override is not None:
-                forced_groove = override
-                break
+        # Build allowed_per_group from constraints, handle locked groups separately
+        allowed_per_group = {}
+        locked_result = {}
+        auto_groups = []
 
-        if forced_groove:
-            # Use forced riff for all groups (simplified)
-            # Pick a contrasting fill
-            fill = self._top_rudiments[1] if len(self._top_rudiments) > 1 else "stroke"
-            if fill == forced_groove and len(self._top_rudiments) > 2:
-                fill = self._top_rudiments[2]
-            self._per_group_rudiments = {
-                g: (forced_groove, fill) for g in self._group_names
-            }
-        else:
-            # Normal per-group selection
-            self._per_group_rudiments = select_rudiments_per_group(
-                profile, self._bpm, self._group_names,
+        for group_name in self._group_names:
+            allowed = self._group_constraints.get(group_name)
+            if allowed is None:
+                # Unconstrained
+                auto_groups.append(group_name)
+            elif len(allowed) == 1:
+                # Locked — force this riff, pick a fill from ranked
+                forced = next(iter(allowed))
+                forced_flux = intensity_rudiments[forced].average_flux if forced in intensity_rudiments else 0.5
+                fill = forced  # fallback
+                for candidate in ranked:
+                    if candidate == forced:
+                        continue
+                    if intensity_rudiments[candidate].average_flux > forced_flux:
+                        fill = candidate
+                        break
+                locked_result[group_name] = (forced, fill)
+            else:
+                # Curated — pass constraint to matcher
+                auto_groups.append(group_name)
+                allowed_per_group[group_name] = allowed
+
+        # Select riffs for auto/curated groups via matcher
+        if auto_groups:
+            matcher_result = select_rudiments_per_group(
+                profile, self._bpm, auto_groups,
                 previous_section_rudiments=self._previous_rudiments,
                 section_type="generic",
+                allowed_per_group=allowed_per_group if allowed_per_group else None,
             )
+        else:
+            matcher_result = {}
+
+        # Merge locked + matcher results
+        self._per_group_rudiments = {**matcher_result, **locked_result}
 
         # Store for next cycle's contrast
         self._previous_rudiments = {
@@ -393,10 +431,10 @@ class LiveShowEngine:
             self._cycle.groove_rudiment = first[0]
             self._cycle.fill_rudiment = first[1]
 
-        # Notify UI
+        # Notify UI with full per-group dict
         if self._on_riffs_updated:
             try:
-                self._on_riffs_updated(list(self._top_rudiments))
+                self._on_riffs_updated(dict(self._per_group_rudiments))
             except Exception:
                 pass
 
@@ -458,10 +496,13 @@ class LiveShowEngine:
                 rudiment_name = groove_name
 
             # Compute intensity with weights and submaster
+            # Richness weight drives activation (0-1), vocal weight is a subtle
+            # modifier (compressed to 0.7-1.0 range to avoid crushing intensity)
             base_weight = richness_weights.get(group_name, 1.0)
-            vocal_weight = vocal_weights.get(group_name, 1.0)
+            vocal_raw = vocal_weights.get(group_name, 1.0)
+            vocal_weight = 0.7 + 0.3 * vocal_raw  # compress 0-1 → 0.7-1.0
             submaster = self._group_submasters.get(group_name, 1.0)
-            intensity = base_weight * vocal_weight * submaster
+            intensity = max(0.3, base_weight) * vocal_weight * submaster
 
             # Create dimmer block
             params = {"intensity": intensity, "speed": 1.0}
@@ -510,15 +551,28 @@ class LiveShowEngine:
             # Movement block for groups with moving heads
             gc = self._group_classifications.get(group_name)
             if gc and gc.has_moving_heads:
-                movement_name = "circle" if relative_energy > 0.4 else "static"
-                amplitude = 0.3 + 0.5 * relative_energy
+                # Select shape from energy-tiered pool, rotating across cycles
+                if relative_energy >= 0.7:
+                    pool = _HIGH_ENERGY_SHAPES
+                elif relative_energy >= 0.4:
+                    pool = _MEDIUM_ENERGY_SHAPES
+                elif relative_energy >= 0.15:
+                    pool = _LOW_ENERGY_SHAPES
+                else:
+                    pool = _VERY_LOW_SHAPES
+                movement_name = pool[self._movement_cycle_index % len(pool)]
+
+                amplitude = 25.0 + 55.0 * relative_energy
+                speed = "1/2" if relative_energy < 0.4 else "1"
                 mov_params = {
                     "amplitude": amplitude,
-                    "speed": 1.0,
+                    "speed": speed,
                 }
                 try:
+                    plane_name = self._target_plane.name if self._target_plane else None
                     movement_block = rudiment_to_movement_block(
                         movement_name, mov_params, bar_start, bar_end,
+                        target_plane_name=plane_name,
                     )
                     self._dmx_manager.block_started(
                         lane_key, group.fixtures, movement_block, 'movement', bar_start,

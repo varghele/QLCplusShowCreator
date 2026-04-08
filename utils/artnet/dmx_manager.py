@@ -161,7 +161,23 @@ class DMXManager:
         # fixtures is a list of Fixture objects resolved from the lane's targets
         self.active_blocks: Dict[str, Dict[str, Tuple[List[Fixture], object, float]]] = {}
 
+        # Movement speed limiting
+        self._max_pan_tilt_speed: float = 0.0  # degrees/sec, 0 = unlimited
+        self._prev_pan: Dict[str, float] = {}  # fixture_key -> last pan DMX
+        self._prev_tilt: Dict[str, float] = {}  # fixture_key -> last tilt DMX
+
+        # Stage planes for world-space movement (set by live mode)
+        self._stage_planes: Dict[str, 'StagePlane'] = {}
+
         print(f"DMX Manager initialized with {len(self.dmx_state)} universes")
+
+    def set_max_pan_tilt_speed(self, degrees_per_sec: float):
+        """Set maximum pan/tilt speed in degrees/second. 0 = unlimited."""
+        self._max_pan_tilt_speed = max(0.0, degrees_per_sec)
+
+    def set_stage_planes(self, planes: dict):
+        """Set stage planes dict (name -> StagePlane) for world-space movement."""
+        self._stage_planes = planes
 
     def set_song_structure(self, song_structure):
         """
@@ -709,42 +725,7 @@ class DMXManager:
         tilt_min = block.tilt_min
         tilt_max = block.tilt_max
 
-        # Resolve center position (target spot or manual)
-        if block.target_spot_name and self.config and hasattr(self.config, 'spots'):
-            spot = self.config.spots.get(block.target_spot_name)
-            if spot:
-                fixture = fixture_map.fixture
-                group = self.config.groups.get(fixture.group) if fixture.group else None
-                mounting, yaw, pitch, roll = fixture.get_effective_orientation(group)
-                fixture_z = fixture.get_effective_z(group)
-
-                pan_degrees, tilt_degrees = calculate_pan_tilt(
-                    fixture_x=fixture.x, fixture_y=fixture.y, fixture_z=fixture_z,
-                    target_x=spot.x, target_y=spot.y, target_z=spot.z,
-                    mounting=mounting, yaw=yaw, pitch=pitch, roll=roll
-                )
-                pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
-
-                if DEBUG_PRINTS:
-                    debug_key = f"_spot_debug_{fixture.name}"
-                    if not hasattr(self, debug_key):
-                        setattr(self, debug_key, True)
-                        print(f"[SPOT TARGET] {fixture.name} at ({fixture.x}, {fixture.y}, {fixture_z}) "
-                              f"-> Spot '{block.target_spot_name}' at ({spot.x}, {spot.y}, {spot.z})")
-                        print(f"  orientation: mounting={mounting}, yaw={yaw}, pitch={pitch}, roll={roll}")
-                        print(f"  calculated: pan={pan_degrees:.1f}°, tilt={tilt_degrees:.1f}°")
-                        print(f"  DMX: pan={pan_dmx}, tilt={tilt_dmx}")
-
-                center_pan = float(pan_dmx)
-                center_tilt = float(tilt_dmx)
-            else:
-                center_pan = block.pan
-                center_tilt = block.tilt
-        else:
-            center_pan = block.pan
-            center_tilt = block.tilt
-
-        # Compute timing parameters
+        # Compute timing parameters (shared by both rendering modes)
         speed_multiplier = parse_speed(block.effect_speed)
         bpm = get_bpm(self.song_structure, current_time)
 
@@ -758,41 +739,135 @@ class DMXManager:
             progress = 0
         t = 2 * math.pi * total_cycles * progress
 
-        # Apply phase offset for circle/figure_8/lissajous/random (t-based shapes)
+        # Apply phase offset for t-based shapes
         if block.phase_offset_enabled and total_fixtures > 1:
             phase_offset_radians = block.phase_offset_degrees * math.pi / 180.0
             t = t + (fixture_index * phase_offset_radians)
 
-        # Build context and dispatch to shape function
-        ctx = MovementContext(
-            t=t,
-            progress=progress,
-            total_cycles=total_cycles,
-            center_pan=center_pan,
-            center_tilt=center_tilt,
-            pan_amplitude=block.pan_amplitude,
-            tilt_amplitude=block.tilt_amplitude,
-            fixture_index=fixture_index,
-            total_fixtures=total_fixtures,
-            phase_offset_enabled=block.phase_offset_enabled,
-            phase_offset_degrees=block.phase_offset_degrees,
-            lissajous_ratio=block.lissajous_ratio,
-        )
+        # Check for plane-based world-space rendering
+        plane = None
+        if block.target_plane_name and self._stage_planes:
+            plane = self._stage_planes.get(block.target_plane_name)
 
-        shape_fn = MOVEMENT_REGISTRY.get(block.effect_type, MOVEMENT_REGISTRY["static"])
-        result = shape_fn(ctx)
+        if plane:
+            # ── World-space plane rendering ──
+            # Run shape with normalized center/amplitude to extract offsets
+            norm_center = 127.5
+            norm_amplitude = 50.0
+            ctx = MovementContext(
+                t=t, progress=progress, total_cycles=total_cycles,
+                center_pan=norm_center, center_tilt=norm_center,
+                pan_amplitude=norm_amplitude, tilt_amplitude=norm_amplitude,
+                fixture_index=fixture_index, total_fixtures=total_fixtures,
+                phase_offset_enabled=block.phase_offset_enabled,
+                phase_offset_degrees=block.phase_offset_degrees,
+                lissajous_ratio=block.lissajous_ratio,
+            )
+            shape_fn = MOVEMENT_REGISTRY.get(block.effect_type, MOVEMENT_REGISTRY["static"])
+            result = shape_fn(ctx)
 
-        # Apply clipping to boundaries
-        pan = max(pan_min, min(pan_max, result.pan))
-        tilt = max(tilt_min, min(tilt_max, result.tilt))
+            # Extract normalized offsets (-1 to +1)
+            if norm_amplitude > 0:
+                u_offset = (result.pan - norm_center) / norm_amplitude
+                v_offset = (result.tilt - norm_center) / norm_amplitude
+            else:
+                u_offset = 0.0
+                v_offset = 0.0
 
-        # Debug output
-        if DEBUG_PRINTS and block.target_spot_name:
-            final_debug_key = f"_spot_final_debug_{fixture_map.fixture.name}"
-            if not hasattr(self, final_debug_key):
-                setattr(self, final_debug_key, True)
-                print(f"  [DMX OUTPUT] {fixture_map.fixture.name}: final pan={int(pan)}, tilt={int(tilt)} "
-                      f"(effect={block.effect_type}, center_pan={center_pan:.1f}, center_tilt={center_tilt:.1f})")
+            # Convert amplitude from DMX-like units to meters on plane
+            amplitude_meters = block.pan_amplitude / 20.0
+
+            # Compute world-space target on the plane
+            target_x = plane.point[0] + u_offset * amplitude_meters * plane.u_axis[0] + v_offset * amplitude_meters * plane.v_axis[0]
+            target_y = plane.point[1] + u_offset * amplitude_meters * plane.u_axis[1] + v_offset * amplitude_meters * plane.v_axis[1]
+            target_z = plane.point[2] + u_offset * amplitude_meters * plane.u_axis[2] + v_offset * amplitude_meters * plane.v_axis[2]
+
+            # Convert world target to pan/tilt for this fixture
+            fixture = fixture_map.fixture
+            group = self.config.groups.get(fixture.group) if fixture.group else None
+            mounting, yaw, pitch, roll = fixture.get_effective_orientation(group)
+            fixture_z = fixture.get_effective_z(group)
+
+            pan_degrees, tilt_degrees = calculate_pan_tilt(
+                fixture_x=fixture.x, fixture_y=fixture.y, fixture_z=fixture_z,
+                target_x=target_x, target_y=target_y, target_z=target_z,
+                mounting=mounting, yaw=yaw, pitch=pitch, roll=roll
+            )
+            pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
+
+            pan = max(pan_min, min(pan_max, float(pan_dmx)))
+            tilt = max(tilt_min, min(tilt_max, float(tilt_dmx)))
+        else:
+            # ── Standard DMX-space rendering ──
+            # Resolve center position (target spot or manual)
+            if block.target_spot_name and self.config and hasattr(self.config, 'spots'):
+                spot = self.config.spots.get(block.target_spot_name)
+                if spot:
+                    fixture = fixture_map.fixture
+                    group = self.config.groups.get(fixture.group) if fixture.group else None
+                    mounting, yaw, pitch, roll = fixture.get_effective_orientation(group)
+                    fixture_z = fixture.get_effective_z(group)
+
+                    pan_degrees, tilt_degrees = calculate_pan_tilt(
+                        fixture_x=fixture.x, fixture_y=fixture.y, fixture_z=fixture_z,
+                        target_x=spot.x, target_y=spot.y, target_z=spot.z,
+                        mounting=mounting, yaw=yaw, pitch=pitch, roll=roll
+                    )
+                    pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
+
+                    if DEBUG_PRINTS:
+                        debug_key = f"_spot_debug_{fixture.name}"
+                        if not hasattr(self, debug_key):
+                            setattr(self, debug_key, True)
+                            print(f"[SPOT TARGET] {fixture.name} at ({fixture.x}, {fixture.y}, {fixture_z}) "
+                                  f"-> Spot '{block.target_spot_name}' at ({spot.x}, {spot.y}, {spot.z})")
+                            print(f"  orientation: mounting={mounting}, yaw={yaw}, pitch={pitch}, roll={roll}")
+                            print(f"  calculated: pan={pan_degrees:.1f}°, tilt={tilt_degrees:.1f}°")
+                            print(f"  DMX: pan={pan_dmx}, tilt={tilt_dmx}")
+
+                    center_pan = float(pan_dmx)
+                    center_tilt = float(tilt_dmx)
+                else:
+                    center_pan = block.pan
+                    center_tilt = block.tilt
+            else:
+                center_pan = block.pan
+                center_tilt = block.tilt
+
+            # Build context and dispatch to shape function
+            ctx = MovementContext(
+                t=t, progress=progress, total_cycles=total_cycles,
+                center_pan=center_pan, center_tilt=center_tilt,
+                pan_amplitude=block.pan_amplitude, tilt_amplitude=block.tilt_amplitude,
+                fixture_index=fixture_index, total_fixtures=total_fixtures,
+                phase_offset_enabled=block.phase_offset_enabled,
+                phase_offset_degrees=block.phase_offset_degrees,
+                lissajous_ratio=block.lissajous_ratio,
+            )
+
+            shape_fn = MOVEMENT_REGISTRY.get(block.effect_type, MOVEMENT_REGISTRY["static"])
+            result = shape_fn(ctx)
+
+            pan = max(pan_min, min(pan_max, result.pan))
+            tilt = max(tilt_min, min(tilt_max, result.tilt))
+
+        # Apply speed limiting (max degrees/sec)
+        if self._max_pan_tilt_speed > 0:
+            fixture_key = f"{fixture_map.fixture.universe}_{fixture_map.fixture.address}"
+            prev_pan = self._prev_pan.get(fixture_key, pan)
+            prev_tilt = self._prev_tilt.get(fixture_key, tilt)
+
+            # Convert degrees/sec to max DMX change per frame (30Hz, 540 degree pan range)
+            max_dmx_per_frame = (self._max_pan_tilt_speed / 540.0) * 255.0 / 30.0
+
+            delta_pan = max(-max_dmx_per_frame, min(max_dmx_per_frame, pan - prev_pan))
+            delta_tilt = max(-max_dmx_per_frame, min(max_dmx_per_frame, tilt - prev_tilt))
+
+            pan = prev_pan + delta_pan
+            tilt = prev_tilt + delta_tilt
+
+            self._prev_pan[fixture_key] = pan
+            self._prev_tilt[fixture_key] = tilt
 
         # Set pan/tilt channels
         for ch_offset in fixture_map.pan_channels:

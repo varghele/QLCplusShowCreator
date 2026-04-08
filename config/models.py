@@ -1,7 +1,7 @@
 # config/models.py
 
 from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import yaml
 import xml.etree.ElementTree as ET
 import os
@@ -71,6 +71,16 @@ class Spot:
     x: float = 0.0     # X position in meters
     y: float = 0.0     # Y position in meters
     z: float = 0.0     # Z height in meters (for 3D targeting)
+
+
+@dataclass
+class StagePlane:
+    """A face of the stage bounding cuboid for movement targeting."""
+    name: str                                    # "Floor", "Ceiling", "Front", "Back", "Left", "Right"
+    point: Tuple[float, float, float]            # Center of the face (meters)
+    normal: Tuple[float, float, float]           # Inward-facing normal
+    u_axis: Tuple[float, float, float]           # Tangent axis (pan maps to)
+    v_axis: Tuple[float, float, float]           # Tangent axis (tilt maps to)
 
 
 @dataclass
@@ -290,6 +300,9 @@ class MovementBlock:
     # Target spot for automatic pan/tilt calculation
     target_spot_name: Optional[str] = None  # Name of spot to point at (None = use manual pan/tilt)
 
+    # Target plane for world-space movement (takes priority over target_spot_name)
+    target_plane_name: Optional[str] = None  # Name of stage plane ("Floor", "Front", etc.)
+
     modified: bool = False  # True if user edited this block after riff insertion
 
     def to_dict(self) -> Dict:
@@ -314,6 +327,7 @@ class MovementBlock:
             "phase_offset_enabled": self.phase_offset_enabled,
             "phase_offset_degrees": self.phase_offset_degrees,
             "target_spot_name": self.target_spot_name,
+            "target_plane_name": self.target_plane_name,
             "modified": self.modified
         }
 
@@ -340,6 +354,7 @@ class MovementBlock:
             phase_offset_enabled=data.get("phase_offset_enabled", False),
             phase_offset_degrees=data.get("phase_offset_degrees", 0.0),
             target_spot_name=data.get("target_spot_name"),
+            target_plane_name=data.get("target_plane_name"),
             modified=data.get("modified", False)
         )
 
