@@ -181,15 +181,26 @@ class LiveModeWindow(QMainWindow):
         self._riff_constraints.constraints_changed.connect(self._on_constraints_changed)
         center_layout.addWidget(self._riff_constraints)
 
-        # Fill Now button
+        # Groove Now / Fill Now buttons
+        groove_fill_row = QHBoxLayout()
+        self._groove_btn = QPushButton("GROOVE NOW")
+        self._groove_btn.setFixedHeight(50)
+        self._groove_btn.setStyleSheet(
+            "font-size: 16px; font-weight: bold; "
+            "background-color: #27ae60; color: white; border-radius: 6px;"
+        )
+        self._groove_btn.clicked.connect(self._on_groove_now)
+        groove_fill_row.addWidget(self._groove_btn)
+
         self._fill_btn = QPushButton("FILL NOW")
         self._fill_btn.setFixedHeight(50)
         self._fill_btn.setStyleSheet(
-            "font-size: 18px; font-weight: bold; "
+            "font-size: 16px; font-weight: bold; "
             "background-color: #e74c3c; color: white; border-radius: 6px;"
         )
         self._fill_btn.clicked.connect(self._on_fill_now)
-        center_layout.addWidget(self._fill_btn)
+        groove_fill_row.addWidget(self._fill_btn)
+        center_layout.addLayout(groove_fill_row)
 
         # Movement speed limiter
         speed_row = QHBoxLayout()
@@ -505,6 +516,10 @@ class LiveModeWindow(QMainWindow):
     def _on_groove_bars_changed(self, value):
         if self._engine:
             self._engine.set_groove_bars(value)
+
+    def _on_groove_now(self):
+        if self._engine:
+            self._engine.force_groove()
 
     def _on_fill_now(self):
         if self._engine:
