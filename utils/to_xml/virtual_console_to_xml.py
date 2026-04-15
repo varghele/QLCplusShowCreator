@@ -132,11 +132,12 @@ def create_vc_slider(
     mode.set("Monitor", "false")
     mode.text = slider_mode
 
-    if slider_mode == "Level" and channels:
+    if slider_mode in ("Level", "Submaster") and channels:
         level = ET.SubElement(slider, "Level")
         level.set("LowLimit", "0")
         level.set("HighLimit", "255")
-        level.set("Value", "0")
+        # Submasters default to fully open (255); Level sliders default to 0
+        level.set("Value", "255" if slider_mode == "Submaster" else "0")
 
         for fixture_id, channel in channels:
             ch = ET.SubElement(level, "Channel")
@@ -1136,7 +1137,7 @@ def build_virtual_console(
     right_column_x = SCREEN_WIDTH - right_column_width - MARGIN
     right_column_y = groups_start_y
 
-    if master_presets or has_speed_dial:
+    if master_presets or has_speed_dial or num_group_sliders > 0:
         available_height = SCREEN_HEIGHT - right_column_y - MARGIN
 
         # Collect preset sections
@@ -1215,7 +1216,7 @@ def build_virtual_console(
                 create_vc_slider(
                     master_frame, widget_id, group_name,
                     current_inner_x, current_inner_y, SLIDER_WIDTH, actual_gm_slider_height,
-                    "Level", group_dimmer_channels, None,
+                    "Submaster", group_dimmer_channels, None,
                     VC_DARK_GREY_BACKGROUND if options.get('dark_mode') else "Default"
                 )
                 widget_id += 1
