@@ -64,7 +64,11 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
     create_channels_groups(engine, config, fixture_id_map, fixture_definitions)
 
     # Create Shows using Configuration data and collect show function IDs
-    function_id_counter = create_shows(engine, config, fixture_id_map, fixture_definitions)
+    export_overrides = {}
+    if vc_options and vc_options.get('override_intensity_255'):
+        export_overrides['override_intensity_255'] = True
+    function_id_counter = create_shows(engine, config, fixture_id_map, fixture_definitions,
+                                       export_overrides=export_overrides)
 
     # Detect fixture group capabilities for VC generation
     capabilities_map = {}

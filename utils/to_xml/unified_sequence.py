@@ -210,7 +210,8 @@ def sample_dimmer_at_time(
     total_fixtures: int,
     step_idx: int,
     total_steps: int,
-    bpm: float = 120.0
+    bpm: float = 120.0,
+    override_intensity_255: bool = False
 ) -> Optional[int]:
     """
     Sample the dimmer intensity at a given time.
@@ -223,6 +224,7 @@ def sample_dimmer_at_time(
         step_idx: Current step index (for animated effects)
         total_steps: Total number of steps
         bpm: Beats per minute for timing calculations
+        override_intensity_255: If True, force base intensity to 255
 
     Returns:
         Intensity value (0-255) or None if no dimmer block at this time
@@ -237,7 +239,7 @@ def sample_dimmer_at_time(
     if not active_block:
         return None
 
-    base_intensity = int(active_block.intensity)
+    base_intensity = 255 if override_intensity_255 else int(active_block.intensity)
     effect_type = active_block.effect_type
 
     # Calculate relative position within the block
@@ -1016,7 +1018,8 @@ def build_unified_step(
     all_lane_fixtures: List = None,  # Full fixture list for cross-group effects
     bpm: float = 120.0,  # BPM for timing calculations
     signature: str = "4/4",  # Time signature for movement calculations
-    config: Any = None  # Configuration object for spot targeting
+    config: Any = None,  # Configuration object for spot targeting
+    export_overrides: dict = None
 ) -> ET.Element:
     """
     Build a single unified step with all channel values for all fixtures.
@@ -1098,7 +1101,8 @@ def build_unified_step(
 
         # Sample all effect types at this time
         # Use global_fixture_idx and total_fixtures_for_effects for cross-group effects
-        dimmer_value = sample_dimmer_at_time(time_s, dimmer_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm)
+        _override_intensity = bool(export_overrides and export_overrides.get('override_intensity_255'))
+        dimmer_value = sample_dimmer_at_time(time_s, dimmer_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm, override_intensity_255=_override_intensity)
         movement_values = sample_movement_at_time(time_s, movement_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm, signature, config, fixture)
         colour_values = sample_colour_at_time(time_s, colour_blocks)
         special_values = sample_special_at_time(time_s, special_blocks)
@@ -1174,7 +1178,7 @@ def build_unified_step(
                     # For pixelbar twinkle/waterfall, set dimmer to block's base intensity
                     # (effect modulation happens in color channels)
                     if is_pixelbar_sparkle or is_pixelbar_waterfall:
-                        dimmer_to_use = int(active_dimmer_block.intensity)
+                        dimmer_to_use = 255 if _override_intensity else int(active_dimmer_block.intensity)
                     else:
                         dimmer_to_use = dimmer_value
                     channel_values.append(f"{ch['channel']},{dimmer_to_use}")
@@ -1450,7 +1454,8 @@ def generate_unified_sequence_steps(
     bpm: float,
     signature: str = "4/4",
     all_lane_fixtures: List = None,  # All fixtures in the lane for cross-group effects
-    config: Any = None  # Configuration object for spot targeting
+    config: Any = None,  # Configuration object for spot targeting
+    export_overrides: dict = None
 ) -> List[ET.Element]:
     """
     Generate unified sequence steps for a light block.
@@ -1515,7 +1520,8 @@ def generate_unified_sequence_steps(
             all_lane_fixtures=all_lane_fixtures,  # Pass full fixture list for cross-group effects
             bpm=bpm,  # Pass BPM for timing-based effects like ping-pong
             signature=signature,  # Pass signature for movement timing
-            config=config  # Pass config for spot targeting
+            config=config,  # Pass config for spot targeting
+            export_overrides=export_overrides
         )
 
         steps.append(step)

@@ -750,7 +750,8 @@ def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixtu
 
 
 def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_map,
-                                function_id_counter, fixture_definitions):
+                                function_id_counter, fixture_definitions,
+                                export_overrides: dict = None):
     """
     Creates Track elements from timeline_data (new timeline-based format).
 
@@ -762,9 +763,12 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
         fixture_id_map: Dictionary mapping fixture object IDs to their sequential IDs
         function_id_counter: Current function ID counter
         fixture_definitions: Dictionary of fixture definitions loaded from QLC+
+        export_overrides: Optional dict with export-time overrides
     Returns:
         int: Next available function ID
     """
+    if export_overrides is None:
+        export_overrides = {}
     from timeline.song_structure import SongStructure
     from utils.target_resolver import resolve_targets_unique, validate_targets, detect_targets_capabilities
 
@@ -935,7 +939,8 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                         bpm=block_bpm,
                         signature=block_signature,
                         all_lane_fixtures=sorted_lane_fixtures,  # All fixtures in lane for cross-group effects
-                        config=config  # Pass config for spot targeting
+                        config=config,  # Pass config for spot targeting
+                        export_overrides=export_overrides
                     )
 
                     print(f"      Generated {len(steps) if steps else 0} steps")
@@ -979,7 +984,8 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
     return function_id_counter
 
 
-def create_shows(engine, config: Configuration, fixture_id_map: dict, fixture_definitions: dict):
+def create_shows(engine, config: Configuration, fixture_id_map: dict, fixture_definitions: dict,
+                  export_overrides: dict = None):
     """
     Creates show function elements from Configuration data
 
@@ -988,9 +994,12 @@ def create_shows(engine, config: Configuration, fixture_id_map: dict, fixture_de
         config: Configuration object containing show data
         fixture_id_map: Dictionary mapping fixture object IDs to their sequential IDs
         fixture_definitions: Dictionary of fixture definitions loaded from QLC+
+        export_overrides: Optional dict with export-time overrides (e.g. override_intensity_255)
     Returns:
         int: Next available function ID
     """
+    if export_overrides is None:
+        export_overrides = {}
     function_id_counter = 0
 
     # Process each show in the configuration
@@ -1025,7 +1034,8 @@ def create_shows(engine, config: Configuration, fixture_id_map: dict, fixture_de
                 config,
                 fixture_id_map,
                 function_id_counter,
-                fixture_definitions
+                fixture_definitions,
+                export_overrides=export_overrides
             )
             print(f"Successfully created show from timeline: {show_name}")
         else:

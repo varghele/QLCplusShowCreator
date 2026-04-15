@@ -378,7 +378,8 @@ class StructureTab(BaseTab):
 
         self.trigger_device_combo = QComboBox()
         self.trigger_device_combo.setMinimumWidth(160)
-        self.trigger_device_combo.addItem("None")
+        self.trigger_device_combo.addItem("No Trigger")
+        self.trigger_device_combo.addItem("None")  # Generic MIDI (no profile)
         # Populate with discovered MIDI profiles
         self._midi_profiles = []
         try:
@@ -864,7 +865,7 @@ class StructureTab(BaseTab):
             self.trigger_channel_spin.setEnabled(True)
             self.trigger_channel_spin.setValue(max(0, self.current_show.trigger_channel))
         else:
-            self.trigger_device_combo.setCurrentIndex(0)  # "None"
+            self.trigger_device_combo.setCurrentIndex(0)  # "No Trigger"
             self.trigger_channel_spin.setEnabled(False)
             self.trigger_channel_spin.setValue(0)
 
@@ -876,7 +877,7 @@ class StructureTab(BaseTab):
         if not self.current_show:
             return
 
-        if device_name == "None" or not device_name:
+        if device_name == "No Trigger" or not device_name:
             self.current_show.trigger_device = ""
             self.current_show.trigger_channel = -1
             self.trigger_channel_spin.setEnabled(False)

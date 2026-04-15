@@ -117,6 +117,21 @@ class WorkspaceOptionsDialog(QDialog):
         vc_layout.addWidget(self.sub_options_widget)
         layout.addWidget(vc_group)
 
+        # Export overrides group
+        overrides_group = QGroupBox("Export Overrides")
+        overrides_layout = QVBoxLayout(overrides_group)
+
+        self.override_intensity_checkbox = QCheckBox("Override all intensities to 255 (max)")
+        self.override_intensity_checkbox.setChecked(False)
+        self.override_intensity_checkbox.setToolTip(
+            "Forces all dimmer/intensity values to 255 during export,\n"
+            "regardless of what is set in the show configuration.\n"
+            "Useful for older shows where intensity wasn't adjusted."
+        )
+        overrides_layout.addWidget(self.override_intensity_checkbox)
+
+        layout.addWidget(overrides_group)
+
         # Dark mode option
         appearance_group = QGroupBox("Appearance")
         appearance_layout = QVBoxLayout(appearance_group)
@@ -170,4 +185,5 @@ class WorkspaceOptionsDialog(QDialog):
             'speed_dial': self.speed_dial_checkbox.isChecked(),
             'master_presets': self.master_presets_checkbox.isChecked(),
             'dark_mode': self.dark_mode_checkbox.isChecked(),
+            'override_intensity_255': self.override_intensity_checkbox.isChecked(),
         }

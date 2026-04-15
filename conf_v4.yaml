@@ -516,8 +516,8 @@ block_defs:
       iris: 255.0
       strobe_speed: 0.0
     d19:
-      effect_speed: '4'
-      effect_type: waterfall
+      effect_speed: '2'
+      effect_type: stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
@@ -528,63 +528,63 @@ block_defs:
       iris: 255.0
       strobe_speed: 0.0
     d20:
-      effect_speed: '2'
-      effect_type: stroke
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d21:
       effect_speed: '1'
       effect_type: pulse
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d22:
+    d21:
       effect_speed: '1'
       effect_type: heartbeat
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d23:
+    d22:
       effect_speed: '1'
       effect_type: ping_pong
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d24:
+    d23:
       effect_speed: '4'
       effect_type: stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d25:
+    d24:
       effect_speed: '1'
       effect_type: throb
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d26:
+    d25:
       effect_speed: '2'
       effect_type: wave
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
+    d26:
+      effect_speed: '1'
+      effect_type: throb
+      intensity: 110.86956521739131
+      iris: 255.0
+      strobe_speed: 0.0
     d27:
-      effect_speed: '2'
-      effect_type: chase
-      intensity: 255.0
+      effect_speed: '1'
+      effect_type: static
+      intensity: 138.58695652173913
       iris: 255.0
       strobe_speed: 0.0
     d28:
-      effect_speed: '2'
-      effect_type: waterfall
-      intensity: 255.0
+      effect_speed: '1'
+      effect_type: stroke
+      intensity: 138.58695652173913
       iris: 255.0
       strobe_speed: 0.0
     d29:
       effect_speed: '1'
-      effect_type: throb
-      intensity: 110.86956521739131
+      effect_type: static
+      intensity: 133.04347826086956
       iris: 255.0
       strobe_speed: 0.0
     d3:
@@ -595,62 +595,62 @@ block_defs:
       strobe_speed: 0.0
     d30:
       effect_speed: '1'
-      effect_type: static
-      intensity: 138.58695652173913
-      iris: 255.0
-      strobe_speed: 0.0
-    d31:
-      effect_speed: '1'
-      effect_type: stroke
-      intensity: 138.58695652173913
-      iris: 255.0
-      strobe_speed: 0.0
-    d32:
-      effect_speed: '1'
-      effect_type: static
-      intensity: 133.04347826086956
-      iris: 255.0
-      strobe_speed: 0.0
-    d33:
-      effect_speed: '1'
       effect_type: throb
       intensity: 149.0
       iris: 255.0
       strobe_speed: 0.0
-    d34:
+    d31:
       effect_speed: '1'
       effect_type: throb
       intensity: 121.0
       iris: 255.0
       strobe_speed: 0.0
-    d35:
+    d32:
       effect_speed: '1'
       effect_type: static
       intensity: 160.7608695652174
       iris: 255.0
       strobe_speed: 0.0
-    d36:
+    d33:
       effect_speed: 1/2
       effect_type: random_stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d37:
+    d34:
       effect_speed: '1'
       effect_type: wave
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d38:
+    d35:
       effect_speed: '1'
       effect_type: waterfall
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d39:
+    d36:
       effect_speed: 1/2
       effect_type: wave
       intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d37:
+      effect_speed: 1/2
+      effect_type: throb
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d38:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 127.5
+      iris: 255.0
+      strobe_speed: 0.0
+    d39:
+      effect_speed: 1/2
+      effect_type: throb
+      intensity: 138.0
       iris: 255.0
       strobe_speed: 0.0
     d4:
@@ -660,63 +660,63 @@ block_defs:
       iris: 255.0
       strobe_speed: 0.0
     d40:
-      effect_speed: 1/2
-      effect_type: throb
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d41:
-      effect_speed: '1'
-      effect_type: waterfall
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d42:
-      effect_speed: '1'
-      effect_type: static
-      intensity: 127.5
-      iris: 255.0
-      strobe_speed: 0.0
-    d43:
-      effect_speed: 1/2
-      effect_type: throb
-      intensity: 138.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d44:
       effect_speed: '1'
       effect_type: stroke
       intensity: 149.0
       iris: 255.0
       strobe_speed: 0.0
-    d45:
+    d41:
       effect_speed: '1'
       effect_type: throb
       intensity: 133.0
       iris: 255.0
       strobe_speed: 0.0
-    d46:
+    d42:
       effect_speed: '8'
       effect_type: random_stroke
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d47:
+    d43:
       effect_speed: '2'
       effect_type: sparkle
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d48:
+    d44:
       effect_speed: '2'
       effect_type: fill
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d49:
+    d45:
       effect_speed: '8'
       effect_type: ping_pong
       intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d46:
+      effect_speed: '1'
+      effect_type: chase
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d47:
+      effect_speed: '1'
+      effect_type: pulse
+      intensity: 110.86956521739131
+      iris: 255.0
+      strobe_speed: 0.0
+    d48:
+      effect_speed: '1'
+      effect_type: throb
+      intensity: 166.30434782608697
+      iris: 255.0
+      strobe_speed: 0.0
+    d49:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 144.13043478260872
       iris: 255.0
       strobe_speed: 0.0
     d5:
@@ -727,64 +727,64 @@ block_defs:
       strobe_speed: 0.0
     d50:
       effect_speed: '1'
-      effect_type: chase
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d51:
-      effect_speed: '1'
-      effect_type: pulse
-      intensity: 110.86956521739131
-      iris: 255.0
-      strobe_speed: 0.0
-    d52:
-      effect_speed: '1'
-      effect_type: throb
-      intensity: 166.30434782608697
-      iris: 255.0
-      strobe_speed: 0.0
-    d53:
-      effect_speed: '1'
-      effect_type: static
-      intensity: 144.13043478260872
-      iris: 255.0
-      strobe_speed: 0.0
-    d54:
-      effect_speed: '1'
       effect_type: static
       intensity: 116.41304347826087
       iris: 255.0
       strobe_speed: 0.0
-    d55:
+    d51:
       effect_speed: '1'
       effect_type: static
       intensity: 105.0
       iris: 255.0
       strobe_speed: 0.0
-    d56:
+    d52:
       effect_speed: '1'
       effect_type: static
       intensity: 121.0
       iris: 255.0
       strobe_speed: 0.0
-    d57:
+    d53:
       effect_speed: '1'
       effect_type: ping_pong
       intensity: 99.78260869565216
       iris: 255.0
       strobe_speed: 0.0
-    d58:
+    d54:
       effect_speed: '1'
       effect_type: sparkle
       intensity: 88.69565217391305
       iris: 255.0
       strobe_speed: 0.0
-    d59:
+    d55:
       effect_speed: '2'
       effect_type: ping_pong
       intensity: 255.0
       iris: 255.0
       strobe_speed: 20.0
+    d56:
+      effect_speed: 1/4
+      effect_type: static
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d57:
+      effect_speed: '2'
+      effect_type: ping_pong
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d58:
+      effect_speed: 1/16
+      effect_type: stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d59:
+      effect_speed: 1/4
+      effect_type: sparkle
+      intensity: 121.95652173913044
+      iris: 255.0
+      strobe_speed: 0.0
     d6:
       effect_speed: '4'
       effect_type: random_stroke
@@ -792,63 +792,63 @@ block_defs:
       iris: 255.0
       strobe_speed: 0.0
     d60:
-      effect_speed: 1/4
-      effect_type: static
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d61:
-      effect_speed: '2'
-      effect_type: ping_pong
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d62:
-      effect_speed: '1'
-      effect_type: chase
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d63:
-      effect_speed: 1/16
-      effect_type: stroke
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d64:
-      effect_speed: 1/4
-      effect_type: sparkle
-      intensity: 121.95652173913044
-      iris: 255.0
-      strobe_speed: 0.0
-    d65:
       effect_speed: '2'
       effect_type: strobe
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d66:
-      effect_speed: 1/2
-      effect_type: chase
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d67:
+    d61:
       effect_speed: '1'
       effect_type: sparkle
       intensity: 127.5
       iris: 255.0
       strobe_speed: 0.0
-    d68:
+    d62:
       effect_speed: 1/2
       effect_type: sparkle
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d69:
+    d63:
       effect_speed: '1'
       effect_type: waterfall
       intensity: 171.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d64:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 99.78260869565216
+      iris: 255.0
+      strobe_speed: 0.0
+    d65:
+      effect_speed: '1'
+      effect_type: throb
+      intensity: 144.13043478260872
+      iris: 255.0
+      strobe_speed: 0.0
+    d66:
+      effect_speed: '1'
+      effect_type: ping_pong
+      intensity: 166.30434782608697
+      iris: 255.0
+      strobe_speed: 0.0
+    d67:
+      effect_speed: '1'
+      effect_type: ping_pong
+      intensity: 127.5
+      iris: 255.0
+      strobe_speed: 0.0
+    d68:
+      effect_speed: '1'
+      effect_type: throb
+      intensity: 182.93478260869568
+      iris: 255.0
+      strobe_speed: 0.0
+    d69:
+      effect_speed: '1'
+      effect_type: throb
+      intensity: 110.0
       iris: 255.0
       strobe_speed: 0.0
     d7:
@@ -860,61 +860,61 @@ block_defs:
     d70:
       effect_speed: '1'
       effect_type: static
-      intensity: 99.78260869565216
-      iris: 255.0
-      strobe_speed: 0.0
-    d71:
-      effect_speed: '1'
-      effect_type: throb
-      intensity: 144.13043478260872
-      iris: 255.0
-      strobe_speed: 0.0
-    d72:
-      effect_speed: '1'
-      effect_type: ping_pong
-      intensity: 166.30434782608697
-      iris: 255.0
-      strobe_speed: 0.0
-    d73:
-      effect_speed: '1'
-      effect_type: ping_pong
-      intensity: 127.5
-      iris: 255.0
-      strobe_speed: 0.0
-    d74:
-      effect_speed: '1'
-      effect_type: throb
-      intensity: 182.93478260869568
-      iris: 255.0
-      strobe_speed: 0.0
-    d75:
-      effect_speed: '1'
-      effect_type: throb
-      intensity: 110.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d76:
-      effect_speed: '1'
-      effect_type: static
       intensity: 110.86956521739131
       iris: 255.0
       strobe_speed: 0.0
-    d77:
+    d71:
       effect_speed: '1'
       effect_type: static
       intensity: 121.95652173913044
       iris: 255.0
       strobe_speed: 0.0
-    d78:
+    d72:
       effect_speed: '1'
       effect_type: static
       intensity: 138.0
       iris: 255.0
       strobe_speed: 0.0
-    d79:
+    d73:
       effect_speed: '1'
       effect_type: static
       intensity: 149.67391304347825
+      iris: 255.0
+      strobe_speed: 0.0
+    d74:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 171.84782608695653
+      iris: 255.0
+      strobe_speed: 0.0
+    d75:
+      effect_speed: 1/4
+      effect_type: stroke
+      intensity: 127.5
+      iris: 255.0
+      strobe_speed: 0.0
+    d76:
+      effect_speed: 1/2
+      effect_type: stroke
+      intensity: 149.67391304347825
+      iris: 255.0
+      strobe_speed: 0.0
+    d77:
+      effect_speed: 1/2
+      effect_type: stroke
+      intensity: 144.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d78:
+      effect_speed: 1/4
+      effect_type: random_stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d79:
+      effect_speed: 1/2
+      effect_type: waterfall
+      intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
     d8:
@@ -924,81 +924,45 @@ block_defs:
       iris: 255.0
       strobe_speed: 0.0
     d80:
-      effect_speed: '1'
-      effect_type: static
-      intensity: 171.84782608695653
-      iris: 255.0
-      strobe_speed: 0.0
-    d81:
-      effect_speed: 1/4
-      effect_type: stroke
-      intensity: 127.5
-      iris: 255.0
-      strobe_speed: 0.0
-    d82:
-      effect_speed: 1/2
-      effect_type: stroke
-      intensity: 149.67391304347825
-      iris: 255.0
-      strobe_speed: 0.0
-    d83:
-      effect_speed: 1/2
-      effect_type: stroke
-      intensity: 144.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d84:
-      effect_speed: 1/4
-      effect_type: random_stroke
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d85:
-      effect_speed: 1/2
-      effect_type: waterfall
-      intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d86:
       effect_speed: 1/2
       effect_type: throb
       intensity: 144.0
       iris: 255.0
       strobe_speed: 0.0
-    d87:
+    d81:
       effect_speed: '1'
       effect_type: static
       intensity: 127.0
       iris: 255.0
       strobe_speed: 0.0
-    d88:
+    d82:
       effect_speed: '4'
       effect_type: fill
       intensity: 255.0
       iris: 255.0
       strobe_speed: 0.0
-    d89:
+    d83:
       effect_speed: '1'
       effect_type: static
       intensity: 177.3913043478261
+      iris: 255.0
+      strobe_speed: 0.0
+    d84:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 166.30434782608697
+      iris: 255.0
+      strobe_speed: 0.0
+    d85:
+      effect_speed: '1'
+      effect_type: stroke
+      intensity: 160.0
       iris: 255.0
       strobe_speed: 0.0
     d9:
       effect_speed: '1'
       effect_type: static
       intensity: 255.0
-      iris: 255.0
-      strobe_speed: 0.0
-    d90:
-      effect_speed: '1'
-      effect_type: static
-      intensity: 166.30434782608697
-      iris: 255.0
-      strobe_speed: 0.0
-    d91:
-      effect_speed: '1'
-      effect_type: stroke
-      intensity: 160.0
       iris: 255.0
       strobe_speed: 0.0
   movement:
@@ -1015,6 +979,7 @@ block_defs:
       phase_offset_degrees: 15.0
       phase_offset_enabled: true
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 10.0
@@ -1034,6 +999,7 @@ block_defs:
       phase_offset_degrees: 15.0
       phase_offset_enabled: true
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 5.0
@@ -1053,6 +1019,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 30.0
@@ -1072,6 +1039,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 5.0
@@ -1091,6 +1059,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: null
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1110,6 +1079,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 10.0
@@ -1129,6 +1099,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 5.0
@@ -1148,6 +1119,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1167,6 +1139,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: null
       tilt: 245.7
       tilt_amplitude: 50.0
@@ -1186,6 +1159,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1205,6 +1179,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1224,6 +1199,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1243,6 +1219,7 @@ block_defs:
       phase_offset_degrees: 15.0
       phase_offset_enabled: true
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 10.0
@@ -1262,6 +1239,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 5.0
@@ -1281,6 +1259,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: null
       tilt: 227.2
       tilt_amplitude: 50.0
@@ -1300,6 +1279,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1319,6 +1299,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 10.0
@@ -1338,6 +1319,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1357,6 +1339,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 5.0
@@ -1376,6 +1359,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1395,6 +1379,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1414,6 +1399,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 5.0
@@ -1433,6 +1419,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 5.0
@@ -1452,6 +1439,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1471,6 +1459,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1490,6 +1479,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1509,6 +1499,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1528,6 +1519,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 25.0
@@ -1547,6 +1539,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1566,6 +1559,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: null
       tilt: 191.3
       tilt_amplitude: 50.0
@@ -1585,6 +1579,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: null
       tilt: 191.3
       tilt_amplitude: 50.0
@@ -1604,6 +1599,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 5.0
@@ -1623,6 +1619,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: null
       tilt: 255.0
       tilt_amplitude: 50.0
@@ -1642,6 +1639,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1661,6 +1659,7 @@ block_defs:
       phase_offset_degrees: 15.0
       phase_offset_enabled: true
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 7.0
@@ -1680,6 +1679,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1699,6 +1699,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1718,6 +1719,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1737,6 +1739,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1756,6 +1759,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1775,6 +1779,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1794,6 +1799,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 5.0
@@ -1813,6 +1819,7 @@ block_defs:
       phase_offset_degrees: 15.0
       phase_offset_enabled: true
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 5.0
@@ -1832,6 +1839,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 10.0
@@ -1851,6 +1859,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot2
       tilt: 127.5
       tilt_amplitude: 50.0
@@ -1870,6 +1879,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: Spot1
       tilt: 127.5
       tilt_amplitude: 10.0
@@ -1889,6 +1899,7 @@ block_defs:
       phase_offset_degrees: 0.0
       phase_offset_enabled: false
       speed: 0.0
+      target_plane_name: null
       target_spot_name: null
       tilt: 246.9
       tilt_amplitude: 50.0
@@ -2509,6 +2520,7 @@ groups:
       yaw: 0.0
       z: 2.0
       z_uses_group_default: true
+    lighting_role: wash
     name: BARS
   FP:
     color: '#90ee90'
@@ -2542,6 +2554,7 @@ groups:
       yaw: 0.0
       z: 0.0
       z_uses_group_default: false
+    lighting_role: ''
     name: FP
   MH:
     color: '#add8e6'
@@ -2639,6 +2652,7 @@ groups:
       yaw: 0.0
       z: 2.0
       z_uses_group_default: true
+    lighting_role: wash
     name: MH
   SUNS:
     color: '#b0c4de'
@@ -2700,6 +2714,7 @@ groups:
       yaw: 0.0
       z: 2.0
       z_uses_group_default: true
+    lighting_role: texture
     name: SUNS
   WASH:
     color: '#ffdab9'
@@ -2773,6 +2788,7 @@ groups:
       yaw: 0.0
       z: 0.0
       z_uses_group_default: false
+    lighting_role: accent
     name: WASH
 light_block_defs:
   lb0:
@@ -2862,12 +2878,9 @@ light_block_defs:
       offset: 0.0
       ref: c8
     dimmer_blocks:
-    - end: 0.111111
-      offset: 0.0
-      ref: d46
     - end: 1.0
-      offset: 0.111111
-      ref: d25
+      offset: 0.0
+      ref: d43
     effect_name: ''
     movement_blocks: []
     name: null
@@ -2882,7 +2895,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d10
+      ref: d44
     effect_name: ''
     movement_blocks: []
     name: null
@@ -2890,36 +2903,6 @@ light_block_defs:
     riff_version: null
     special_blocks: []
   lb102:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c8
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d47
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb103:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c8
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d48
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb104:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -2940,7 +2923,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb105:
+  lb103:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -2948,7 +2931,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.875
       offset: 0.0
-      ref: d28
+      ref: d12
     - end: 1.0
       offset: 0.875
       ref: d2
@@ -2958,7 +2941,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb106:
+  lb104:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -2966,7 +2949,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.6
       offset: 0.0
-      ref: d25
+      ref: d24
     - end: 0.8
       offset: 0.6
       ref: d4
@@ -2979,7 +2962,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb107:
+  lb105:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -2987,10 +2970,40 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.75
       offset: 0.0
-      ref: d25
+      ref: d24
     - end: 1.0
       offset: 0.75
       ref: d4
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb106:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c13
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d12
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb107:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c13
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d16
     effect_name: ''
     movement_blocks: []
     name: null
@@ -3001,11 +3014,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c13
+      ref: c0
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d28
+      ref: d33
     effect_name: ''
     movement_blocks: []
     name: null
@@ -3016,11 +3029,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c13
+      ref: c8
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d16
+      ref: d24
     effect_name: ''
     movement_blocks: []
     name: null
@@ -3052,41 +3065,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d36
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb111:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c8
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d25
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb112:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
       ref: c8
     dimmer_blocks:
     - end: 0.461538
       offset: 0.0
-      ref: d25
+      ref: d24
     - end: 0.615385
       offset: 0.461538
       ref: d4
@@ -3102,7 +3085,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb113:
+  lb111:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3110,7 +3093,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d20
+      ref: d19
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -3123,7 +3106,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb114:
+  lb112:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3156,7 +3139,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.25
       ref: s2
-  lb115:
+  lb113:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3167,16 +3150,16 @@ light_block_defs:
       ref: d9
     - end: 0.333333
       offset: 0.291667
-      ref: d49
+      ref: d45
     - end: 0.625
       offset: 0.333333
       ref: d9
     - end: 0.666667
       offset: 0.625
-      ref: d49
+      ref: d45
     - end: 1.0
       offset: 0.666667
-      ref: d25
+      ref: d24
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -3189,7 +3172,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s7
-  lb116:
+  lb114:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3210,7 +3193,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb117:
+  lb115:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3231,7 +3214,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb118:
+  lb116:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3239,7 +3222,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d25
+      ref: d24
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -3252,7 +3235,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb119:
+  lb117:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3276,6 +3259,57 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s8
+  lb118:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d9
+    effect_name: ''
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m23
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: s8
+  lb119:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 0.4
+      offset: 0.0
+      ref: d5
+    - end: 0.6
+      offset: 0.4
+      ref: d22
+    - end: 0.8
+      offset: 0.6
+      ref: d10
+    - end: 1.0
+      offset: 0.8
+      ref: d10
+    effect_name: ''
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m24
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: s0
   lb12:
     colour_blocks:
     - end: 1.0
@@ -3303,63 +3337,12 @@ light_block_defs:
       offset: 0.0
       ref: c0
     dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d9
-    effect_name: ''
-    movement_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: m23
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: s8
-  lb121:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 0.4
-      offset: 0.0
-      ref: d5
-    - end: 0.6
-      offset: 0.4
-      ref: d23
-    - end: 0.8
-      offset: 0.6
-      ref: d10
-    - end: 1.0
-      offset: 0.8
-      ref: d10
-    effect_name: ''
-    movement_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: m24
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: s0
-  lb122:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
     - end: 0.5
       offset: 0.0
       ref: d5
     - end: 0.75
       offset: 0.5
-      ref: d23
+      ref: d22
     - end: 1.0
       offset: 0.75
       ref: d10
@@ -3375,7 +3358,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb123:
+  lb121:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3396,7 +3379,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s9
-  lb124:
+  lb122:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3404,7 +3387,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d36
+      ref: d33
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -3417,7 +3400,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb125:
+  lb123:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3441,7 +3424,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb126:
+  lb124:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3452,7 +3435,7 @@ light_block_defs:
       ref: d5
     - end: 0.461538
       offset: 0.307692
-      ref: d23
+      ref: d22
     - end: 0.615385
       offset: 0.461538
       ref: d10
@@ -3474,7 +3457,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb127:
+  lb125:
     colour_blocks: []
     dimmer_blocks:
     - end: 1.0
@@ -3486,12 +3469,36 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
+  lb126:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d22
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb127:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
   lb128:
     colour_blocks: []
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d23
+      ref: d44
     effect_name: ''
     movement_blocks: []
     name: null
@@ -3503,7 +3510,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d2
+      ref: d46
     effect_name: ''
     movement_blocks: []
     name: null
@@ -3530,30 +3537,6 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d48
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb131:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d50
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb132:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
       ref: d0
     effect_name: ''
     movement_blocks: []
@@ -3561,7 +3544,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb133:
+  lb131:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3569,14 +3552,14 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d20
+      ref: d19
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb134:
+  lb132:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3591,7 +3574,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb135:
+  lb133:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3599,14 +3582,14 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d49
+      ref: d45
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb136:
+  lb134:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3621,7 +3604,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb137:
+  lb135:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3636,7 +3619,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb138:
+  lb136:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3651,7 +3634,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb139:
+  lb137:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3659,10 +3642,49 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.75
       offset: 0.0
-      ref: d51
+      ref: d47
     - end: 0.875
       offset: 0.75
       ref: d5
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb138:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 0.6
+      offset: 0.0
+      ref: d22
+    - end: 0.8
+      offset: 0.6
+      ref: d10
+    - end: 1.0
+      offset: 0.8
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb139:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 0.75
+      offset: 0.0
+      ref: d22
+    - end: 1.0
+      offset: 0.75
+      ref: d10
     effect_name: ''
     movement_blocks: []
     name: null
@@ -3690,51 +3712,12 @@ light_block_defs:
       offset: 0.0
       ref: c0
     dimmer_blocks:
-    - end: 0.6
-      offset: 0.0
-      ref: d23
-    - end: 0.8
-      offset: 0.6
-      ref: d10
-    - end: 1.0
-      offset: 0.8
-      ref: d2
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb141:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 0.75
-      offset: 0.0
-      ref: d23
-    - end: 1.0
-      offset: 0.75
-      ref: d10
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb142:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
     - end: 0.333333
       offset: 0.0
       ref: d2
     - end: 0.666667
       offset: 0.333333
-      ref: d36
+      ref: d33
     - end: 1.0
       offset: 0.666667
       ref: d2
@@ -3744,7 +3727,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb143:
+  lb141:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3762,7 +3745,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb144:
+  lb142:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3770,7 +3753,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.461538
       offset: 0.0
-      ref: d23
+      ref: d22
     - end: 0.615385
       offset: 0.461538
       ref: d10
@@ -3786,7 +3769,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb145:
+  lb143:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3794,7 +3777,37 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d52
+      ref: d48
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb144:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d49
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb145:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d29
     effect_name: ''
     movement_blocks: []
     name: null
@@ -3805,11 +3818,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c12
+      ref: c16
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d53
+      ref: d29
     effect_name: ''
     movement_blocks: []
     name: null
@@ -3820,11 +3833,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c0
+      ref: c12
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d32
+      ref: d50
     effect_name: ''
     movement_blocks: []
     name: null
@@ -3835,11 +3848,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c16
+      ref: c12
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d32
+      ref: d29
     effect_name: ''
     movement_blocks: []
     name: null
@@ -3852,9 +3865,12 @@ light_block_defs:
       offset: 0.0
       ref: c12
     dimmer_blocks:
-    - end: 1.0
+    - end: 0.923077
       offset: 0.0
-      ref: d54
+      ref: d50
+    - end: 1.0
+      offset: 0.923077
+      ref: d10
     effect_name: ''
     movement_blocks: []
     name: null
@@ -3886,39 +3902,6 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c12
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d32
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb151:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c12
-    dimmer_blocks:
-    - end: 0.923077
-      offset: 0.0
-      ref: d54
-    - end: 1.0
-      offset: 0.923077
-      ref: d10
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb152:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
       ref: c0
     dimmer_blocks:
     - end: 0.125
@@ -3948,7 +3931,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb153:
+  lb151:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3981,7 +3964,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb154:
+  lb152:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -3999,7 +3982,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb155:
+  lb153:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4017,7 +4000,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb156:
+  lb154:
     colour_blocks:
     - end: 0.875
       offset: 0.0
@@ -4028,7 +4011,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.875
       offset: 0.0
-      ref: d55
+      ref: d51
     - end: 0.9375
       offset: 0.875
       ref: d5
@@ -4041,7 +4024,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb157:
+  lb155:
     colour_blocks:
     - end: 0.875
       offset: 0.0
@@ -4052,13 +4035,43 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.875
       offset: 0.0
-      ref: d56
+      ref: d52
     - end: 0.9375
       offset: 0.875
       ref: d5
     - end: 1.0
       offset: 0.9375
       ref: d5
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb156:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d53
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb157:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c17
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d54
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4069,11 +4082,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c0
+      ref: c18
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d57
+      ref: d54
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4081,51 +4094,6 @@ light_block_defs:
     riff_version: null
     special_blocks: []
   lb159:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c17
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d58
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb16:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c2
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.002286
-      ref: d19
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb160:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c18
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d58
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb161:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4140,7 +4108,22 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb162:
+  lb16:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.002286
+      ref: d18
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb160:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4151,14 +4134,14 @@ light_block_defs:
       ref: d2
     - end: 1.0
       offset: 0.75
-      ref: d59
+      ref: d55
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb163:
+  lb161:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4188,7 +4171,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb164:
+  lb162:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4212,7 +4195,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb165:
+  lb163:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4236,7 +4219,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb166:
+  lb164:
     colour_blocks:
     - end: 0.0625
       offset: 0.0
@@ -4256,7 +4239,7 @@ light_block_defs:
       ref: d5
     - end: 0.5
       offset: 0.0625
-      ref: d60
+      ref: d56
     - end: 0.5625
       offset: 0.5
       ref: d9
@@ -4269,7 +4252,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb167:
+  lb165:
     colour_blocks:
     - end: 0.25
       offset: 0.0
@@ -4283,10 +4266,40 @@ light_block_defs:
       ref: d5
     - end: 1.0
       offset: 0.25
-      ref: d60
+      ref: d56
     effect_name: ''
     movement_blocks: []
     name: HIT_WASHES
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb166:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d57
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb167:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c19
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d4
+    effect_name: ''
+    movement_blocks: []
+    name: null
     riff_source: null
     riff_version: null
     special_blocks: []
@@ -4294,11 +4307,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c0
+      ref: c19
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d61
+      ref: d46
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4313,7 +4326,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d4
+      ref: d10
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4340,7 +4353,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d50
+      ref: d13
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4353,9 +4366,15 @@ light_block_defs:
       offset: 0.0
       ref: c19
     dimmer_blocks:
-    - end: 1.0
+    - end: 0.0625
       offset: 0.0
-      ref: d62
+      ref: d5
+    - end: 0.3125
+      offset: 0.0625
+      ref: d10
+    - end: 1.0
+      offset: 0.3125
+      ref: d46
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4368,9 +4387,18 @@ light_block_defs:
       offset: 0.0
       ref: c19
     dimmer_blocks:
-    - end: 1.0
+    - end: 0.035714
       offset: 0.0
+      ref: d5
+    - end: 0.178571
+      offset: 0.035714
       ref: d10
+    - end: 0.428571
+      offset: 0.178571
+      ref: d46
+    - end: 1.0
+      offset: 0.428571
+      ref: d35
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4381,7 +4409,7 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c19
+      ref: c20
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
@@ -4396,17 +4424,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c19
+      ref: c20
     dimmer_blocks:
-    - end: 0.0625
-      offset: 0.0
-      ref: d5
-    - end: 0.3125
-      offset: 0.0625
-      ref: d10
     - end: 1.0
-      offset: 0.3125
-      ref: d50
+      offset: 0.0
+      ref: d58
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4417,20 +4439,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c19
+      ref: c20
     dimmer_blocks:
-    - end: 0.035714
-      offset: 0.0
-      ref: d5
-    - end: 0.178571
-      offset: 0.035714
-      ref: d10
-    - end: 0.428571
-      offset: 0.178571
-      ref: d50
     - end: 1.0
-      offset: 0.428571
-      ref: d41
+      offset: 0.0
+      ref: d2
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4443,9 +4456,12 @@ light_block_defs:
       offset: 0.0
       ref: c20
     dimmer_blocks:
-    - end: 1.0
+    - end: 0.75
       offset: 0.0
-      ref: d13
+      ref: d2
+    - end: 1.0
+      offset: 0.75
+      ref: d17
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4453,66 +4469,6 @@ light_block_defs:
     riff_version: null
     special_blocks: []
   lb177:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c20
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d63
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb178:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c20
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d2
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb179:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c20
-    dimmer_blocks:
-    - end: 0.75
-      offset: 0.0
-      ref: d2
-    - end: 1.0
-      offset: 0.75
-      ref: d27
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb18:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d12
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb180:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4545,7 +4501,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb181:
+  lb178:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4559,14 +4515,14 @@ light_block_defs:
       ref: d10
     - end: 1.0
       offset: 0.416667
-      ref: d50
+      ref: d46
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb182:
+  lb179:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4584,7 +4540,19 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb183:
+  lb18:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d12
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb180:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4592,7 +4560,43 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d41
+      ref: d35
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb181:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d59
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb182:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d60
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb183:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d58
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4604,7 +4608,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d64
+      ref: d61
     effect_name: ''
     movement_blocks: []
     name: null
@@ -4616,54 +4620,6 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d65
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb186:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d63
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb187:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d66
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb188:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d67
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb189:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
       ref: d9
     effect_name: ''
     movement_blocks: []
@@ -4671,19 +4627,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb19:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d20
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb190:
+  lb186:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4704,7 +4648,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb191:
+  lb187:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4746,7 +4690,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s10
-  lb192:
+  lb188:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4788,7 +4732,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s10
-  lb193:
+  lb189:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4812,7 +4756,19 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb194:
+  lb19:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d19
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb190:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4820,7 +4776,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d68
+      ref: d62
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -4833,7 +4789,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb195:
+  lb191:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4872,7 +4828,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb196:
+  lb192:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4899,7 +4855,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.5
       ref: s2
-  lb197:
+  lb193:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4938,7 +4894,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb198:
+  lb194:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4959,7 +4915,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s7
-  lb199:
+  lb195:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -4986,6 +4942,90 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
+  lb196:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c23
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d9
+    effect_name: ''
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m17
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: s2
+  lb197:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c23
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d9
+    effect_name: ''
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m17
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: s0
+  lb198:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c21
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d11
+    effect_name: ''
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m17
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: s2
+  lb199:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d9
+    effect_name: ''
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m33
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: s11
   lb2:
     colour_blocks:
     - end: 1.0
@@ -5047,90 +5087,6 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c23
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d9
-    effect_name: ''
-    movement_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: m17
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: s2
-  lb201:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c23
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d9
-    effect_name: ''
-    movement_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: m17
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: s0
-  lb202:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c21
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d11
-    effect_name: ''
-    movement_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: m17
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: s2
-  lb203:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d9
-    effect_name: ''
-    movement_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: m33
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: s11
-  lb204:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
       ref: c8
     dimmer_blocks:
     - end: 1.0
@@ -5142,7 +5098,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb205:
+  lb201:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5153,13 +5109,13 @@ light_block_defs:
       ref: d16
     - end: 0.25
       offset: 0.125
-      ref: d23
+      ref: d22
     - end: 0.375
       offset: 0.25
       ref: d16
     - end: 0.5
       offset: 0.375
-      ref: d23
+      ref: d22
     - end: 0.875
       offset: 0.5
       ref: d16
@@ -5172,7 +5128,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb206:
+  lb202:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5189,10 +5145,10 @@ light_block_defs:
       ref: d5
     - end: 0.5
       offset: 0.25
-      ref: d23
+      ref: d22
     - end: 0.875
       offset: 0.5
-      ref: d25
+      ref: d24
     - end: 1.0
       offset: 0.875
       ref: d11
@@ -5202,7 +5158,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb207:
+  lb203:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5219,10 +5175,10 @@ light_block_defs:
       ref: d5
     - end: 0.5
       offset: 0.25
-      ref: d23
+      ref: d22
     - end: 0.75
       offset: 0.5
-      ref: d25
+      ref: d24
     - end: 1.0
       offset: 0.875
       ref: d11
@@ -5235,7 +5191,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb208:
+  lb204:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5250,7 +5206,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb209:
+  lb205:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5274,19 +5230,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb21:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d16
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb210:
+  lb206:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5294,14 +5238,14 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d69
+      ref: d63
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb211:
+  lb207:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5318,10 +5262,10 @@ light_block_defs:
       ref: d5
     - end: 0.444444
       offset: 0.222222
-      ref: d23
+      ref: d22
     - end: 0.666667
       offset: 0.444444
-      ref: d25
+      ref: d24
     - end: 1.0
       offset: 0.777778
       ref: d10
@@ -5334,19 +5278,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb212:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d62
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb213:
+  lb208:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5354,7 +5286,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d23
+      ref: d22
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -5367,7 +5299,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb214:
+  lb209:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5394,7 +5326,19 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb215:
+  lb21:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d16
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb210:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5417,7 +5361,7 @@ light_block_defs:
       ref: d10
     - end: 0.5
       offset: 0.375
-      ref: d23
+      ref: d22
     - end: 0.515625
       offset: 0.5
       ref: d5
@@ -5448,7 +5392,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb216:
+  lb211:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5469,7 +5413,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb217:
+  lb212:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5490,7 +5434,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s12
-  lb218:
+  lb213:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5498,7 +5442,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.25
       offset: 0.0625
-      ref: d23
+      ref: d22
     - end: 0.0625
       offset: 0.0
       ref: d5
@@ -5507,19 +5451,19 @@ light_block_defs:
       ref: d5
     - end: 0.5
       offset: 0.3125
-      ref: d23
+      ref: d22
     - end: 0.5625
       offset: 0.5
       ref: d5
     - end: 0.75
       offset: 0.5625
-      ref: d23
+      ref: d22
     - end: 0.8125
       offset: 0.75
       ref: d5
     - end: 1.0
       offset: 0.8125
-      ref: d23
+      ref: d22
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -5532,7 +5476,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb219:
+  lb214:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5540,7 +5484,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d36
+      ref: d33
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -5553,19 +5497,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s13
-  lb22:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d17
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb220:
+  lb215:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5588,7 +5520,7 @@ light_block_defs:
       ref: d10
     - end: 0.470588
       offset: 0.352941
-      ref: d23
+      ref: d22
     - end: 0.485294
       offset: 0.470588
       ref: d5
@@ -5619,7 +5551,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb221:
+  lb216:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5627,14 +5559,14 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d70
+      ref: d64
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb222:
+  lb217:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5642,20 +5574,20 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.5
       offset: 0.0
-      ref: d54
+      ref: d50
     - end: 0.75
       offset: 0.5
-      ref: d71
+      ref: d65
     - end: 1.0
       offset: 0.75
-      ref: d72
+      ref: d66
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb223:
+  lb218:
     colour_blocks:
     - end: 0.125
       offset: 0.0
@@ -5687,7 +5619,7 @@ light_block_defs:
       ref: d10
     - end: 0.25
       offset: 0.125
-      ref: d73
+      ref: d67
     - end: 0.265625
       offset: 0.25
       ref: d5
@@ -5696,7 +5628,7 @@ light_block_defs:
       ref: d10
     - end: 0.5
       offset: 0.375
-      ref: d73
+      ref: d67
     - end: 0.515625
       offset: 0.5
       ref: d5
@@ -5705,10 +5637,10 @@ light_block_defs:
       ref: d10
     - end: 0.75
       offset: 0.625
-      ref: d74
+      ref: d68
     - end: 0.875
       offset: 0.75
-      ref: d25
+      ref: d24
     - end: 0.9375
       offset: 0.875
       ref: d2
@@ -5724,7 +5656,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb224:
+  lb219:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5732,14 +5664,26 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d40
+      ref: d37
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb225:
+  lb22:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d17
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb220:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5754,7 +5698,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb226:
+  lb221:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -5762,7 +5706,139 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d75
+      ref: d69
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb222:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d70
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb223:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 0.015625
+      offset: 0.0
+      ref: d5
+    - end: 0.5
+      offset: 0.0625
+      ref: d71
+    - end: 0.0625
+      offset: 0.015625
+      ref: d2
+    - end: 0.515625
+      offset: 0.5
+      ref: d5
+    - end: 0.5625
+      offset: 0.515625
+      ref: d2
+    - end: 1.0
+      offset: 0.5625
+      ref: d29
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb224:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c24
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d49
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb225:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c24
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d27
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb226:
+    colour_blocks:
+    - end: 0.8125
+      offset: 0.75
+      ref: c0
+    - end: 1.0
+      offset: 0.8125
+      ref: c12
+    - end: 0.0625
+      offset: 0.0
+      ref: c0
+    - end: 0.25
+      offset: 0.0625
+      ref: c12
+    - end: 0.3125
+      offset: 0.25
+      ref: c0
+    - end: 0.5
+      offset: 0.3125
+      ref: c12
+    - end: 0.5625
+      offset: 0.5
+      ref: c0
+    - end: 0.75
+      offset: 0.5625
+      ref: c12
+    dimmer_blocks:
+    - end: 0.25
+      offset: 0.0625
+      ref: d72
+    - end: 0.0625
+      offset: 0.0
+      ref: d5
+    - end: 0.3125
+      offset: 0.25
+      ref: d5
+    - end: 0.5625
+      offset: 0.5
+      ref: d5
+    - end: 0.8125
+      offset: 0.75
+      ref: d5
+    - end: 0.5
+      offset: 0.3125
+      ref: d73
+    - end: 0.75
+      offset: 0.5625
+      ref: d73
+    - end: 1.0
+      offset: 0.8125
+      ref: d74
     effect_name: ''
     movement_blocks: []
     name: null
@@ -5773,11 +5849,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c12
+      ref: c24
     dimmer_blocks:
     - end: 1.0
-      offset: 0.0
-      ref: d76
+      offset: 0.03125
+      ref: d75
     effect_name: ''
     movement_blocks: []
     name: null
@@ -5790,24 +5866,27 @@ light_block_defs:
       offset: 0.0
       ref: c12
     dimmer_blocks:
-    - end: 0.015625
+    - end: 0.014706
       offset: 0.0
       ref: d5
-    - end: 0.5
-      offset: 0.0625
-      ref: d77
-    - end: 0.0625
-      offset: 0.015625
+    - end: 0.470588
+      offset: 0.058824
+      ref: d71
+    - end: 0.058824
+      offset: 0.014706
       ref: d2
-    - end: 0.515625
-      offset: 0.5
+    - end: 0.485294
+      offset: 0.470588
       ref: d5
-    - end: 0.5625
-      offset: 0.515625
+    - end: 0.529412
+      offset: 0.485294
       ref: d2
+    - end: 0.882353
+      offset: 0.529412
+      ref: d29
     - end: 1.0
-      offset: 0.5625
-      ref: d32
+      offset: 0.882353
+      ref: d10
     effect_name: ''
     movement_blocks: []
     name: null
@@ -5818,11 +5897,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c24
+      ref: c25
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d53
+      ref: d38
     effect_name: ''
     movement_blocks: []
     name: null
@@ -5849,7 +5928,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d30
+      ref: d38
     effect_name: ''
     movement_blocks: []
     name: null
@@ -5858,55 +5937,13 @@ light_block_defs:
     special_blocks: []
   lb231:
     colour_blocks:
-    - end: 0.8125
-      offset: 0.75
-      ref: c0
     - end: 1.0
-      offset: 0.8125
-      ref: c12
-    - end: 0.0625
       offset: 0.0
-      ref: c0
-    - end: 0.25
-      offset: 0.0625
-      ref: c12
-    - end: 0.3125
-      offset: 0.25
-      ref: c0
-    - end: 0.5
-      offset: 0.3125
-      ref: c12
-    - end: 0.5625
-      offset: 0.5
-      ref: c0
-    - end: 0.75
-      offset: 0.5625
-      ref: c12
+      ref: c25
     dimmer_blocks:
-    - end: 0.25
-      offset: 0.0625
-      ref: d78
-    - end: 0.0625
-      offset: 0.0
-      ref: d5
-    - end: 0.3125
-      offset: 0.25
-      ref: d5
-    - end: 0.5625
-      offset: 0.5
-      ref: d5
-    - end: 0.8125
-      offset: 0.75
-      ref: d5
-    - end: 0.5
-      offset: 0.3125
-      ref: d79
-    - end: 0.75
-      offset: 0.5625
-      ref: d79
     - end: 1.0
-      offset: 0.8125
-      ref: d80
+      offset: 0.0
+      ref: d76
     effect_name: ''
     movement_blocks: []
     name: null
@@ -5914,99 +5951,6 @@ light_block_defs:
     riff_version: null
     special_blocks: []
   lb232:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c24
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.03125
-      ref: d81
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb233:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c12
-    dimmer_blocks:
-    - end: 0.014706
-      offset: 0.0
-      ref: d5
-    - end: 0.470588
-      offset: 0.058824
-      ref: d77
-    - end: 0.058824
-      offset: 0.014706
-      ref: d2
-    - end: 0.485294
-      offset: 0.470588
-      ref: d5
-    - end: 0.529412
-      offset: 0.485294
-      ref: d2
-    - end: 0.882353
-      offset: 0.529412
-      ref: d32
-    - end: 1.0
-      offset: 0.882353
-      ref: d10
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb234:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c25
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d42
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb235:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c24
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d42
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb236:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c25
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d82
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb237:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6030,7 +5974,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb238:
+  lb233:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6045,7 +5989,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb239:
+  lb234:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6053,26 +5997,14 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d83
+      ref: d77
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb24:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d18
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb240:
+  lb235:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6080,14 +6012,14 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d63
+      ref: d58
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb241:
+  lb236:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6095,7 +6027,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d36
+      ref: d33
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -6108,7 +6040,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb242:
+  lb237:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6116,7 +6048,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.5
       offset: 0.0
-      ref: d36
+      ref: d33
     - end: 1.0
       offset: 0.5
       ref: d5
@@ -6132,7 +6064,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb243:
+  lb238:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6153,7 +6085,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb244:
+  lb239:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6161,13 +6093,13 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.75
       offset: 0.0
-      ref: d68
+      ref: d62
     - end: 0.875
       offset: 0.75
       ref: d4
     - end: 1.0
       offset: 0.875
-      ref: d61
+      ref: d57
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -6180,7 +6112,19 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb245:
+  lb24:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d18
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb240:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6197,7 +6141,7 @@ light_block_defs:
       ref: d9
     - end: 1.0
       offset: 0.875
-      ref: d61
+      ref: d57
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -6210,7 +6154,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s14
-  lb246:
+  lb241:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6231,7 +6175,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb247:
+  lb242:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6261,7 +6205,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s15
-  lb248:
+  lb243:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6278,7 +6222,7 @@ light_block_defs:
       ref: d9
     - end: 1.0
       offset: 0.933333
-      ref: d61
+      ref: d57
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -6291,7 +6235,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s14
-  lb249:
+  lb244:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6312,22 +6256,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb25:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c3
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d21
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb250:
+  lb245:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6351,7 +6280,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb251:
+  lb246:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6411,7 +6340,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb252:
+  lb247:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6426,7 +6355,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb253:
+  lb248:
     colour_blocks:
     - end: 0.997917
       offset: 0.0
@@ -6434,25 +6363,25 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.125
       offset: 0.0
-      ref: d25
+      ref: d24
     - end: 0.25
       offset: 0.125
       ref: d4
     - end: 0.375
       offset: 0.25
-      ref: d25
+      ref: d24
     - end: 0.5
       offset: 0.375
       ref: d4
     - end: 0.625
       offset: 0.5
-      ref: d25
+      ref: d24
     - end: 0.75
       offset: 0.625
       ref: d4
     - end: 0.875
       offset: 0.75
-      ref: d61
+      ref: d57
     - end: 1.0
       offset: 0.875
       ref: d11
@@ -6462,7 +6391,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb254:
+  lb249:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6470,14 +6399,29 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.015625
-      ref: d40
+      ref: d37
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb255:
+  lb25:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c3
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d20
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb250:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6485,29 +6429,14 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d41
+      ref: d35
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb256:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c20
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d38
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb257:
+  lb251:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6515,14 +6444,14 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d84
+      ref: d78
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb258:
+  lb252:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6537,7 +6466,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb259:
+  lb253:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6545,7 +6474,94 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d38
+      ref: d35
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb254:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d10
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb255:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c20
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.016667
+      ref: d37
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb256:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 0.777778
+      offset: 0.0
+      ref: d78
+    - end: 1.0
+      offset: 0.777778
+      ref: d0
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb257:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d79
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb258:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d57
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb259:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c18
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d69
     effect_name: ''
     movement_blocks: []
     name: null
@@ -6573,120 +6589,21 @@ light_block_defs:
       offset: 0.0
       ref: c0
     dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d10
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb261:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c20
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.016667
-      ref: d40
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb262:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 0.777778
-      offset: 0.0
-      ref: d84
-    - end: 1.0
-      offset: 0.777778
-      ref: d0
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb263:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d85
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb264:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d38
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb265:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d61
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb266:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c18
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d75
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb267:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
     - end: 0.125
       offset: 0.0
-      ref: d23
+      ref: d22
     - end: 0.25
       offset: 0.125
       ref: d5
     - end: 0.375
       offset: 0.25
-      ref: d23
+      ref: d22
     - end: 0.5
       offset: 0.375
       ref: d5
     - end: 0.625
       offset: 0.5
-      ref: d23
+      ref: d22
     - end: 0.75
       offset: 0.625
       ref: d5
@@ -6695,14 +6612,14 @@ light_block_defs:
       ref: d5
     - end: 1.0
       offset: 0.875
-      ref: d61
+      ref: d57
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb268:
+  lb261:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6717,7 +6634,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb269:
+  lb262:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6726,6 +6643,126 @@ light_block_defs:
     - end: 1.0
       offset: 0.015625
       ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb263:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c18
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb264:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c18
+    dimmer_blocks:
+    - end: 0.777778
+      offset: 0.0
+      ref: d2
+    - end: 1.0
+      offset: 0.777778
+      ref: d0
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb265:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c24
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.5
+      ref: d49
+    - end: 0.0625
+      offset: 0.0
+      ref: d10
+    - end: 0.1875
+      offset: 0.125
+      ref: d10
+    - end: 0.3125
+      offset: 0.25
+      ref: d10
+    - end: 0.4375
+      offset: 0.375
+      ref: d10
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb266:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c24
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d80
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb267:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d81
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb268:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d27
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb269:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c24
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d50
     effect_name: ''
     movement_blocks: []
     name: null
@@ -6751,10 +6788,10 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c18
+      ref: c24
     dimmer_blocks:
     - end: 1.0
-      offset: 0.0
+      offset: 0.015625
       ref: d2
     effect_name: ''
     movement_blocks: []
@@ -6766,7 +6803,7 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c18
+      ref: c24
     dimmer_blocks:
     - end: 0.777778
       offset: 0.0
@@ -6784,126 +6821,6 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c24
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.5
-      ref: d53
-    - end: 0.0625
-      offset: 0.0
-      ref: d10
-    - end: 0.1875
-      offset: 0.125
-      ref: d10
-    - end: 0.3125
-      offset: 0.25
-      ref: d10
-    - end: 0.4375
-      offset: 0.375
-      ref: d10
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb273:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c24
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d86
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb274:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d87
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb275:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d30
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb276:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c24
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d54
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb277:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c24
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.015625
-      ref: d2
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb278:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c24
-    dimmer_blocks:
-    - end: 0.777778
-      offset: 0.0
-      ref: d2
-    - end: 1.0
-      offset: 0.777778
-      ref: d0
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb279:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
       ref: c8
     dimmer_blocks:
     - end: 1.0
@@ -6915,25 +6832,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb28:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c3
-    dimmer_blocks:
-    - end: 0.363636
-      offset: 0.0
-      ref: d22
-    - end: 0.727273
-      offset: 0.363636
-      ref: d7
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb280:
+  lb273:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6948,7 +6847,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb281:
+  lb274:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6956,20 +6855,20 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.5
       offset: 0.0
-      ref: d25
+      ref: d24
     - end: 0.75
       offset: 0.5
-      ref: d68
+      ref: d62
     - end: 1.0
       offset: 0.75
-      ref: d40
+      ref: d37
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb282:
+  lb275:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -6977,7 +6876,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.75
       offset: 0.0
-      ref: d88
+      ref: d82
     - end: 1.0
       offset: 0.75
       ref: d11
@@ -6987,7 +6886,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb283:
+  lb276:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7002,7 +6901,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb284:
+  lb277:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7023,7 +6922,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb285:
+  lb278:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7034,13 +6933,13 @@ light_block_defs:
       ref: d9
     - end: 0.875
       offset: 0.5
-      ref: d25
+      ref: d24
     - end: 0.5
       offset: 0.375
       ref: d4
     - end: 1.0
       offset: 0.875
-      ref: d20
+      ref: d19
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -7056,7 +6955,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb286:
+  lb279:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7064,7 +6963,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.75
       offset: 0.0
-      ref: d40
+      ref: d37
     - end: 1.0
       offset: 0.75
       ref: d11
@@ -7080,7 +6979,25 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s16
-  lb287:
+  lb28:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c3
+    dimmer_blocks:
+    - end: 0.363636
+      offset: 0.0
+      ref: d21
+    - end: 0.727273
+      offset: 0.363636
+      ref: d7
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb280:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7088,10 +7005,10 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.875
       offset: 0.5
-      ref: d25
+      ref: d24
     - end: 1.0
       offset: 0.875
-      ref: d20
+      ref: d19
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -7107,7 +7024,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb288:
+  lb281:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7128,7 +7045,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb289:
+  lb282:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7149,22 +7066,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb29:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c3
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d23
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb290:
+  lb283:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7172,10 +7074,10 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.25
       offset: 0.125
-      ref: d25
+      ref: d24
     - end: 0.5
       offset: 0.375
-      ref: d25
+      ref: d24
     - end: 1.0
       offset: 0.75
       ref: d11
@@ -7191,7 +7093,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb291:
+  lb284:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7212,31 +7114,31 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s2
-  lb292:
+  lb285:
     colour_blocks: []
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d68
+      ref: d62
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb293:
+  lb286:
     colour_blocks: []
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d25
+      ref: d24
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb294:
+  lb287:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7254,7 +7156,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb295:
+  lb288:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7265,17 +7167,17 @@ light_block_defs:
       ref: d9
     - end: 1.0
       offset: 0.5
-      ref: d25
+      ref: d24
     - end: 0.5
       offset: 0.375
-      ref: d61
+      ref: d57
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb296:
+  lb289:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7283,14 +7185,29 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.5
       offset: 0.375
-      ref: d61
+      ref: d57
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb297:
+  lb29:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c3
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d22
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb290:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7298,14 +7215,14 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d23
+      ref: d22
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb298:
+  lb291:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7319,14 +7236,14 @@ light_block_defs:
       ref: d9
     - end: 1.0
       offset: 0.625
-      ref: d23
+      ref: d22
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb299:
+  lb292:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7334,7 +7251,82 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d25
+      ref: d24
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb293:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d83
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb294:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d73
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb295:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d84
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb296:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d85
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb297:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c8
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d9
     effect_name: ''
     movement_blocks: []
     name: null
@@ -7383,81 +7375,6 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb300:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c12
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d89
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb301:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c12
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d79
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb302:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d90
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb303:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c12
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d91
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb304:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c8
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d9
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
   lb31:
     colour_blocks:
     - end: 1.0
@@ -7469,7 +7386,7 @@ light_block_defs:
       ref: d5
     - end: 1.0
       offset: 0.5
-      ref: d24
+      ref: d23
     effect_name: ''
     movement_blocks: []
     name: null
@@ -7484,7 +7401,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d25
+      ref: d24
     effect_name: ''
     movement_blocks: []
     name: null
@@ -7565,7 +7482,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d23
+      ref: d22
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -7700,7 +7617,7 @@ light_block_defs:
       ref: d9
     - end: 1.0
       offset: 0.5
-      ref: d20
+      ref: d19
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -7745,7 +7662,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d26
+      ref: d25
     effect_name: ''
     movement_blocks: []
     name: null
@@ -7760,7 +7677,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.111111
-      ref: d25
+      ref: d24
     - end: 0.111111
       offset: 0.0
       ref: d4
@@ -7778,7 +7695,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.2
-      ref: d25
+      ref: d24
     - end: 0.2
       offset: 0.0
       ref: d4
@@ -7879,11 +7796,14 @@ light_block_defs:
       offset: 0.0
       ref: s4
   lb50:
-    colour_blocks: []
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d27
+      ref: d22
     effect_name: ''
     movement_blocks: []
     name: null
@@ -7891,11 +7811,14 @@ light_block_defs:
     riff_version: null
     special_blocks: []
   lb51:
-    colour_blocks: []
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d28
+      ref: d24
     effect_name: ''
     movement_blocks: []
     name: null
@@ -7903,36 +7826,6 @@ light_block_defs:
     riff_version: null
     special_blocks: []
   lb52:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d23
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb53:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d25
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb54:
     colour_blocks:
     - end: 0.996875
       offset: 0.0
@@ -7947,7 +7840,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb55:
+  lb53:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7955,14 +7848,14 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d29
+      ref: d26
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb56:
+  lb54:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -7980,6 +7873,36 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
+  lb55:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c5
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d27
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb56:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c5
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d28
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
   lb57:
     colour_blocks:
     - end: 1.0
@@ -7988,7 +7911,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d30
+      ref: d29
     effect_name: ''
     movement_blocks: []
     name: null
@@ -7999,11 +7922,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c5
+      ref: c6
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d31
+      ref: d30
     effect_name: ''
     movement_blocks: []
     name: null
@@ -8014,11 +7937,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c5
+      ref: c0
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d32
+      ref: d31
     effect_name: ''
     movement_blocks: []
     name: null
@@ -8050,11 +7973,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c6
+      ref: c5
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d33
+      ref: d32
     effect_name: ''
     movement_blocks: []
     name: null
@@ -8065,41 +7988,11 @@ light_block_defs:
     colour_blocks:
     - end: 1.0
       offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d34
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb62:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c5
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d35
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb63:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
       ref: c6
     dimmer_blocks:
     - end: 0.888889
       offset: 0.0
-      ref: d33
+      ref: d30
     - end: 1.0
       offset: 0.888889
       ref: d10
@@ -8109,7 +8002,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb64:
+  lb62:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8130,7 +8023,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb65:
+  lb63:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8138,7 +8031,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d36
+      ref: d33
     effect_name: ''
     movement_blocks:
     - end: 1.0
@@ -8151,6 +8044,48 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s7
+  lb64:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d34
+    effect_name: ''
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m14
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: s2
+  lb65:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d21
+    effect_name: ''
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m15
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: s0
   lb66:
     colour_blocks:
     - end: 1.0
@@ -8159,12 +8094,12 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d37
+      ref: d21
     effect_name: ''
     movement_blocks:
     - end: 1.0
       offset: 0.0
-      ref: m14
+      ref: m16
     name: null
     riff_source: null
     riff_version: null
@@ -8178,51 +8113,9 @@ light_block_defs:
       offset: 0.0
       ref: c0
     dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d22
-    effect_name: ''
-    movement_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: m15
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: s0
-  lb68:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d22
-    effect_name: ''
-    movement_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: m16
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: s2
-  lb69:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c0
-    dimmer_blocks:
     - end: 0.75
       offset: 0.0
-      ref: d36
+      ref: d33
     - end: 0.875
       offset: 0.75
       ref: d10
@@ -8244,22 +8137,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb7:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c1
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d12
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb70:
+  lb68:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8267,7 +8145,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.666667
       offset: 0.0
-      ref: d22
+      ref: d21
     - end: 0.777778
       offset: 0.666667
       ref: d10
@@ -8289,7 +8167,7 @@ light_block_defs:
     - end: 1.0
       offset: 0.0
       ref: s0
-  lb71:
+  lb69:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8297,10 +8175,55 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.5
       offset: 0.0
-      ref: d36
+      ref: d33
     - end: 1.0
       offset: 0.5
       ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb7:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d12
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb70:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c8
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d35
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb71:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c8
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d36
     effect_name: ''
     movement_blocks: []
     name: null
@@ -8315,7 +8238,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d38
+      ref: d37
     effect_name: ''
     movement_blocks: []
     name: null
@@ -8330,7 +8253,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d39
+      ref: d21
     effect_name: ''
     movement_blocks: []
     name: null
@@ -8338,36 +8261,6 @@ light_block_defs:
     riff_version: null
     special_blocks: []
   lb74:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c8
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d40
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb75:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c8
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d22
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb76:
     colour_blocks:
     - end: 0.875
       offset: 0.0
@@ -8391,7 +8284,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb77:
+  lb75:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8399,7 +8292,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.666667
       offset: 0.0
-      ref: d40
+      ref: d37
     - end: 0.777778
       offset: 0.666667
       ref: d10
@@ -8415,7 +8308,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb78:
+  lb76:
     colour_blocks: []
     dimmer_blocks:
     - end: 1.0
@@ -8427,12 +8320,36 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
+  lb77:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d35
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb78:
+    colour_blocks: []
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d21
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
   lb79:
     colour_blocks: []
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d41
+      ref: d15
     effect_name: ''
     movement_blocks: []
     name: null
@@ -8461,30 +8378,6 @@ light_block_defs:
     riff_version: null
     special_blocks: []
   lb80:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d22
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb81:
-    colour_blocks: []
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d15
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb82:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8499,7 +8392,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb83:
+  lb81:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8514,7 +8407,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb84:
+  lb82:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8529,7 +8422,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb85:
+  lb83:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8537,14 +8430,14 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d40
+      ref: d37
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb86:
+  lb84:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8562,7 +8455,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb87:
+  lb85:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8586,6 +8479,36 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
+  lb86:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d27
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb87:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d38
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
   lb88:
     colour_blocks:
     - end: 1.0
@@ -8594,7 +8517,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d30
+      ref: d39
     effect_name: ''
     movement_blocks: []
     name: null
@@ -8609,7 +8532,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 1.0
       offset: 0.0
-      ref: d42
+      ref: d40
     effect_name: ''
     movement_blocks: []
     name: null
@@ -8643,39 +8566,9 @@ light_block_defs:
       offset: 0.0
       ref: c12
     dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d43
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb91:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c12
-    dimmer_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: d44
-    effect_name: ''
-    movement_blocks: []
-    name: null
-    riff_source: null
-    riff_version: null
-    special_blocks: []
-  lb92:
-    colour_blocks:
-    - end: 1.0
-      offset: 0.0
-      ref: c12
-    dimmer_blocks:
     - end: 0.75
       offset: 0.0
-      ref: d45
+      ref: d41
     - end: 0.875
       offset: 0.75
       ref: d10
@@ -8688,7 +8581,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb93:
+  lb91:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8696,7 +8589,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.666667
       offset: 0.0
-      ref: d43
+      ref: d39
     - end: 0.777778
       offset: 0.666667
       ref: d10
@@ -8712,7 +8605,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb94:
+  lb92:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8720,7 +8613,7 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.166667
       offset: 0.0
-      ref: d20
+      ref: d19
     - end: 0.833333
       offset: 0.166667
       ref: d4
@@ -8729,14 +8622,14 @@ light_block_defs:
       ref: d5
     - end: 1.0
       offset: 0.875
-      ref: d20
+      ref: d19
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb95:
+  lb93:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8751,7 +8644,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb96:
+  lb94:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8765,14 +8658,14 @@ light_block_defs:
       ref: d11
     - end: 1.0
       offset: 0.5
-      ref: d20
+      ref: d19
     effect_name: ''
     movement_blocks: []
     name: null
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb97:
+  lb95:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8796,7 +8689,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb98:
+  lb96:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8811,7 +8704,7 @@ light_block_defs:
     riff_source: null
     riff_version: null
     special_blocks: []
-  lb99:
+  lb97:
     colour_blocks:
     - end: 1.0
       offset: 0.0
@@ -8819,10 +8712,43 @@ light_block_defs:
     dimmer_blocks:
     - end: 0.125
       offset: 0.0
-      ref: d46
+      ref: d42
     - end: 1.0
       offset: 0.125
       ref: d9
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb98:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c8
+    dimmer_blocks:
+    - end: 0.111111
+      offset: 0.0
+      ref: d42
+    - end: 1.0
+      offset: 0.111111
+      ref: d24
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb99:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c8
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d10
     effect_name: ''
     movement_blocks: []
     name: null
@@ -8836,6 +8762,20 @@ midi_input_devices:
   uid: apc mini mk2
   universe_id: 2
 shows:
+  SBD_PAUSE:
+    effects: []
+    parts:
+    - bpm: 120.0
+      color: '#4CAF50'
+      name: Intro
+      num_bars: 128
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
   SBD_black_and_blues:
     effects: []
     parts:
@@ -8918,7 +8858,7 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
-      audio_file_path: C:/LICHT/SBD\audiofiles\light_black_and_blues.wav
+      audio_file_path: ''
       lanes:
       - fixture_targets:
         - MH
@@ -9325,13 +9265,13 @@ shows:
           ref: lb21
           start: 53.333333
         - end: 78.84058
-          ref: lb50
+          ref: lb22
           start: 57.971014
         - end: 141.449275
-          ref: lb50
+          ref: lb22
           start: 120.57971
         - end: 236.521739
-          ref: lb50
+          ref: lb22
           start: 206.376812
         - end: 97.391304
           ref: lb17
@@ -9346,7 +9286,7 @@ shows:
           ref: lb17
           start: 178.550725
         - end: 178.550725
-          ref: lb51
+          ref: lb18
           start: 160.0
         - end: 255.072464
           ref: lb17
@@ -9358,40 +9298,40 @@ shows:
         - WASH
         light_blocks:
         - end: 41.73913
-          ref: lb52
+          ref: lb50
           start: 23.188406
         - end: 115.942029
-          ref: lb52
+          ref: lb50
           start: 97.391304
         - end: 23.188406
-          ref: lb52
+          ref: lb50
           start: 2.318841
         - end: 53.333333
-          ref: lb52
+          ref: lb50
           start: 41.73913
         - end: 78.84058
-          ref: lb53
+          ref: lb51
           start: 57.971014
         - end: 141.449275
-          ref: lb53
+          ref: lb51
           start: 120.57971
         - end: 236.521739
-          ref: lb53
+          ref: lb51
           start: 206.376812
         - end: 97.391304
-          ref: lb54
+          ref: lb52
           start: 78.84058
         - end: 160.0
-          ref: lb54
+          ref: lb52
           start: 141.449275
         - end: 197.101449
-          ref: lb54
+          ref: lb52
           start: 178.550725
         - end: 206.376812
-          ref: lb55
+          ref: lb53
           start: 197.101449
         - end: 257.391304
-          ref: lb56
+          ref: lb54
           start: 236.521739
         muted: false
         name: Lane 4
@@ -9400,43 +9340,43 @@ shows:
         - FP
         light_blocks:
         - end: 41.73913
-          ref: lb57
+          ref: lb55
           start: 23.188406
         - end: 115.942029
-          ref: lb57
+          ref: lb55
           start: 97.391304
         - end: 23.188406
-          ref: lb58
+          ref: lb56
           start: 2.318841
         - end: 53.333333
-          ref: lb58
+          ref: lb56
           start: 41.73913
         - end: 78.84058
-          ref: lb59
+          ref: lb57
           start: 57.971014
         - end: 141.449275
-          ref: lb59
+          ref: lb57
           start: 120.57971
         - end: 236.521739
-          ref: lb59
+          ref: lb57
           start: 206.376812
         - end: 97.391304
-          ref: lb60
+          ref: lb58
           start: 78.84058
         - end: 160.0
-          ref: lb60
+          ref: lb58
           start: 141.449275
         - end: 197.101449
-          ref: lb60
+          ref: lb58
           start: 178.550725
         - end: 178.550725
-          ref: lb61
+          ref: lb59
           start: 169.275362
         - end: 206.376812
-          ref: lb62
+          ref: lb60
           start: 197.101449
         - end: 257.391304
-          ref: lb63
+          ref: lb61
           start: 236.521739
         muted: false
         name: Lane 5
@@ -9525,7 +9465,7 @@ shows:
         - MH
         light_blocks:
         - end: 9.275362
-          ref: lb64
+          ref: lb62
           start: 0.0
         muted: false
         name: Lane 1
@@ -9620,37 +9560,37 @@ shows:
         - MH
         light_blocks:
         - end: 29.333333
-          ref: lb65
+          ref: lb63
           start: 13.333333
         - end: 40.0
-          ref: lb66
+          ref: lb64
           start: 29.333333
         - end: 50.666667
-          ref: lb67
+          ref: lb65
           start: 40.0
         - end: 72.0
-          ref: lb66
+          ref: lb64
           start: 50.666667
         - end: 93.333333
-          ref: lb67
+          ref: lb65
           start: 72.0
         - end: 130.666667
-          ref: lb67
+          ref: lb65
           start: 109.333333
         - end: 109.333333
-          ref: lb66
+          ref: lb64
           start: 93.333333
         - end: 184.0
-          ref: lb67
+          ref: lb65
           start: 162.666667
         - end: 152.0
-          ref: lb68
+          ref: lb66
           start: 130.666667
         - end: 162.666667
-          ref: lb69
+          ref: lb67
           start: 152.0
         - end: 196.0
-          ref: lb70
+          ref: lb68
           start: 184.0
         muted: false
         name: Lane 1
@@ -9659,40 +9599,40 @@ shows:
         - BARS
         light_blocks:
         - end: 13.333333
-          ref: lb71
+          ref: lb69
           start: 2.666667
         - end: 29.333333
-          ref: lb72
+          ref: lb70
           start: 13.333333
         - end: 40.0
-          ref: lb73
+          ref: lb71
           start: 29.333333
         - end: 50.666667
-          ref: lb74
+          ref: lb72
           start: 40.0
         - end: 93.333333
-          ref: lb74
+          ref: lb72
           start: 72.0
         - end: 72.0
-          ref: lb73
+          ref: lb71
           start: 50.666667
         - end: 109.333333
-          ref: lb73
+          ref: lb71
           start: 93.333333
         - end: 130.666667
-          ref: lb74
+          ref: lb72
           start: 109.333333
         - end: 184.0
-          ref: lb74
+          ref: lb72
           start: 162.666667
         - end: 152.0
-          ref: lb75
+          ref: lb73
           start: 130.666667
         - end: 162.666667
-          ref: lb76
+          ref: lb74
           start: 152.0
         - end: 196.0
-          ref: lb77
+          ref: lb75
           start: 184.0
         muted: false
         name: Lane 2
@@ -9701,40 +9641,40 @@ shows:
         - SUNS
         light_blocks:
         - end: 13.333333
-          ref: lb78
+          ref: lb76
           start: 8.0
         - end: 29.333333
-          ref: lb79
+          ref: lb77
           start: 13.333333
         - end: 40.0
-          ref: lb80
+          ref: lb78
           start: 29.333333
         - end: 50.666667
-          ref: lb78
+          ref: lb76
           start: 40.0
         - end: 72.0
-          ref: lb80
+          ref: lb78
           start: 50.666667
         - end: 93.333333
-          ref: lb78
+          ref: lb76
           start: 72.0
         - end: 130.666667
-          ref: lb78
+          ref: lb76
           start: 109.333333
         - end: 109.333333
-          ref: lb80
+          ref: lb78
           start: 93.333333
         - end: 184.0
-          ref: lb78
+          ref: lb76
           start: 162.666667
         - end: 152.0
-          ref: lb51
+          ref: lb18
           start: 130.666667
         - end: 160.0
-          ref: lb81
+          ref: lb79
           start: 152.0
         - end: 192.0
-          ref: lb78
+          ref: lb76
           start: 184.0
         muted: false
         name: Lane 3
@@ -9743,31 +9683,31 @@ shows:
         - WASH
         light_blocks:
         - end: 13.333333
-          ref: lb82
+          ref: lb80
           start: 8.0
         - end: 29.333333
-          ref: lb83
+          ref: lb81
           start: 24.0
         - end: 50.666667
-          ref: lb84
+          ref: lb82
           start: 40.0
         - end: 93.333333
-          ref: lb84
+          ref: lb82
           start: 72.0
         - end: 130.666667
-          ref: lb84
+          ref: lb82
           start: 109.333333
         - end: 184.0
-          ref: lb84
+          ref: lb82
           start: 162.666667
         - end: 152.0
-          ref: lb85
+          ref: lb83
           start: 130.666667
         - end: 162.666667
-          ref: lb86
+          ref: lb84
           start: 152.0
         - end: 196.0
-          ref: lb87
+          ref: lb85
           start: 184.0
         muted: false
         name: Lane 4
@@ -9776,41 +9716,169 @@ shows:
         - FP
         light_blocks:
         - end: 29.333333
-          ref: lb88
+          ref: lb86
           start: 2.666667
         - end: 40.0
-          ref: lb89
+          ref: lb87
           start: 29.333333
         - end: 50.666667
-          ref: lb90
+          ref: lb88
           start: 40.0
         - end: 72.0
-          ref: lb89
+          ref: lb87
           start: 50.666667
         - end: 93.333333
-          ref: lb90
+          ref: lb88
           start: 72.0
         - end: 130.666667
-          ref: lb90
+          ref: lb88
           start: 109.333333
         - end: 109.333333
-          ref: lb89
+          ref: lb87
           start: 93.333333
         - end: 184.0
-          ref: lb90
+          ref: lb88
           start: 162.666667
         - end: 152.0
-          ref: lb91
+          ref: lb89
           start: 130.666667
         - end: 162.666667
-          ref: lb92
+          ref: lb90
           start: 152.0
         - end: 196.0
-          ref: lb93
+          ref: lb91
           start: 184.0
         muted: false
         name: Lane 5
         solo: false
+    trigger_channel: null
+    trigger_device: null
+  SBD_i_gotta_sing:
+    effects: []
+    parts:
+    - bpm: 211.0
+      color: '#ffffff'
+      name: Klickintro
+      num_bars: 3
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#aaaaff'
+      name: Intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#00aaff'
+      name: Rise
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ffaa00'
+      name: Riff
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#00aaff'
+      name: Interlude
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#00ffff'
+      name: Vers
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ffaa00'
+      name: Riff
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ffff00'
+      name: Prechorus
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ff007f'
+      name: Chorus
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#00aaff'
+      name: Interlude
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#00ffff'
+      name: Vers
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ffff00'
+      name: Prechorus
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ff007f'
+      name: Chorus
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#00aaff'
+      name: Cpart
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ffaa00'
+      name: Riff
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ff0000'
+      name: Solo1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ff0000'
+      name: Solo2
+      num_bars: 18
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ff007f'
+      name: Chorus
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ff007f'
+      name: Chorus
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 211.0
+      color: '#ff0000'
+      name: Outro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
     trigger_channel: null
     trigger_device: null
   SBD_intro_and_devils_dance:
@@ -9943,73 +10011,73 @@ shows:
         - BARS
         light_blocks:
         - end: 16.0
-          ref: lb94
+          ref: lb92
           start: 0.0
         - end: 37.333333
-          ref: lb95
+          ref: lb93
           start: 16.0
         - end: 42.666667
-          ref: lb96
+          ref: lb94
           start: 37.333333
         - end: 64.0
-          ref: lb97
+          ref: lb95
           start: 42.666667
         - end: 68.666667
-          ref: lb98
+          ref: lb96
           start: 64.0
         - end: 74.0
-          ref: lb99
+          ref: lb97
           start: 68.666667
         - end: 79.333333
-          ref: lb99
+          ref: lb97
           start: 74.0
         - end: 85.333333
-          ref: lb100
+          ref: lb98
           start: 79.333333
         - end: 89.333333
-          ref: lb101
+          ref: lb99
           start: 85.333333
         - end: 92.0
-          ref: lb102
+          ref: lb100
           start: 89.333333
         - end: 121.538462
-          ref: lb103
+          ref: lb101
           start: 106.769231
         - end: 136.307692
-          ref: lb104
+          ref: lb102
           start: 121.538462
         - end: 184.307692
-          ref: lb104
+          ref: lb102
           start: 169.538462
         - end: 151.076923
-          ref: lb105
+          ref: lb103
           start: 136.307692
         - end: 169.538462
-          ref: lb106
+          ref: lb104
           start: 151.076923
         - end: 206.461538
-          ref: lb107
+          ref: lb105
           start: 191.692308
         - end: 191.692308
-          ref: lb108
+          ref: lb106
           start: 184.307692
         - end: 221.230769
-          ref: lb109
+          ref: lb107
           start: 206.461538
         - end: 243.384615
-          ref: lb110
+          ref: lb108
           start: 228.615385
         - end: 258.153846
-          ref: lb111
+          ref: lb109
           start: 243.384615
         - end: 265.538462
-          ref: lb108
+          ref: lb106
           start: 258.153846
         - end: 280.307692
-          ref: lb107
+          ref: lb105
           start: 265.538462
         - end: 304.307692
-          ref: lb112
+          ref: lb110
           start: 280.307692
         muted: false
         name: Lane 1
@@ -10018,58 +10086,58 @@ shows:
         - MH
         light_blocks:
         - end: 42.666667
-          ref: lb113
+          ref: lb111
           start: 40.0
         - end: 64.0
-          ref: lb114
+          ref: lb112
           start: 42.666667
         - end: 85.333333
-          ref: lb115
+          ref: lb113
           start: 69.333333
         - end: 92.0
-          ref: lb116
+          ref: lb114
           start: 89.333333
         - end: 106.769231
-          ref: lb117
+          ref: lb115
           start: 99.384615
         - end: 121.538462
-          ref: lb118
+          ref: lb116
           start: 106.769231
         - end: 136.307692
-          ref: lb119
+          ref: lb117
           start: 121.538462
         - end: 184.307692
-          ref: lb119
+          ref: lb117
           start: 169.538462
         - end: 149.230769
-          ref: lb120
+          ref: lb118
           start: 143.692308
         - end: 169.538462
-          ref: lb121
+          ref: lb119
           start: 151.076923
         - end: 206.461538
-          ref: lb122
+          ref: lb120
           start: 191.692308
         - end: 191.692308
-          ref: lb120
+          ref: lb118
           start: 184.307692
         - end: 221.230769
-          ref: lb123
+          ref: lb121
           start: 206.461538
         - end: 243.384615
-          ref: lb124
+          ref: lb122
           start: 236.0
         - end: 258.153846
-          ref: lb125
+          ref: lb123
           start: 243.384615
         - end: 265.538462
-          ref: lb120
+          ref: lb118
           start: 258.153846
         - end: 280.307692
-          ref: lb122
+          ref: lb120
           start: 265.538462
         - end: 304.307692
-          ref: lb126
+          ref: lb124
           start: 280.307692
         muted: false
         name: Lane 2
@@ -10078,58 +10146,58 @@ shows:
         - SUNS
         light_blocks:
         - end: 16.0
-          ref: lb127
+          ref: lb125
           start: 14.0
         - end: 37.333333
-          ref: lb128
+          ref: lb126
           start: 16.0
         - end: 40.0
-          ref: lb129
+          ref: lb127
           start: 37.333333
         - end: 42.666667
-          ref: lb130
+          ref: lb128
           start: 40.0
         - end: 53.333333
-          ref: lb131
+          ref: lb129
           start: 42.666667
         - end: 64.0
           ref: lb17
           start: 53.333333
         - end: 68.666667
-          ref: lb132
+          ref: lb130
           start: 64.0
         - end: 92.0
-          ref: lb79
+          ref: lb77
           start: 89.333333
         - end: 89.333333
           ref: lb23
           start: 85.333333
         - end: 106.769231
-          ref: lb131
+          ref: lb129
           start: 92.0
         - end: 121.538462
-          ref: lb130
+          ref: lb128
           start: 106.769231
         - end: 134.461538
           ref: lb23
           start: 132.615385
         - end: 136.307692
-          ref: lb50
+          ref: lb22
           start: 134.461538
         - end: 184.307692
-          ref: lb50
+          ref: lb22
           start: 182.461538
         - end: 182.461538
           ref: lb23
           start: 180.615385
         - end: 149.230769
-          ref: lb51
+          ref: lb18
           start: 143.692308
         - end: 151.076923
-          ref: lb129
+          ref: lb127
           start: 149.230769
         - end: 162.153846
-          ref: lb79
+          ref: lb77
           start: 151.076923
         - end: 166.153846
           ref: lb23
@@ -10141,37 +10209,37 @@ shows:
           ref: lb23
           start: 202.769231
         - end: 202.769231
-          ref: lb79
+          ref: lb77
           start: 191.692308
         - end: 189.846154
-          ref: lb51
+          ref: lb18
           start: 184.307692
         - end: 191.692308
-          ref: lb129
+          ref: lb127
           start: 189.846154
         - end: 221.230769
           ref: lb23
           start: 217.538462
         - end: 243.384615
-          ref: lb129
+          ref: lb127
           start: 221.230769
         - end: 258.153846
           ref: lb17
           start: 256.307692
         - end: 263.692308
-          ref: lb51
+          ref: lb18
           start: 258.153846
         - end: 265.538462
-          ref: lb129
+          ref: lb127
           start: 263.692308
         - end: 276.615385
-          ref: lb79
+          ref: lb77
           start: 265.538462
         - end: 298.769231
           ref: lb23
           start: 295.076923
         - end: 291.384615
-          ref: lb79
+          ref: lb77
           start: 280.307692
         - end: 295.076923
           ref: lb23
@@ -10192,67 +10260,67 @@ shows:
         - WASH
         light_blocks:
         - end: 37.333333
-          ref: lb52
+          ref: lb50
           start: 16.0
         - end: 42.666667
-          ref: lb133
+          ref: lb131
           start: 40.0
         - end: 64.0
           ref: lb47
           start: 42.666667
         - end: 68.666667
-          ref: lb134
+          ref: lb132
           start: 64.0
         - end: 74.666667
-          ref: lb135
+          ref: lb133
           start: 74.0
         - end: 80.0
-          ref: lb135
+          ref: lb133
           start: 79.333333
         - end: 89.333333
-          ref: lb136
+          ref: lb134
           start: 85.333333
         - end: 92.0
-          ref: lb137
+          ref: lb135
           start: 89.333333
         - end: 106.769231
-          ref: lb138
+          ref: lb136
           start: 92.0
         - end: 121.538462
-          ref: lb52
+          ref: lb50
           start: 106.769231
         - end: 136.307692
-          ref: lb139
+          ref: lb137
           start: 121.538462
         - end: 184.307692
-          ref: lb139
+          ref: lb137
           start: 169.538462
         - end: 143.692308
-          ref: lb53
+          ref: lb51
           start: 136.307692
         - end: 169.538462
-          ref: lb140
+          ref: lb138
           start: 151.076923
         - end: 206.461538
-          ref: lb141
+          ref: lb139
           start: 191.692308
         - end: 191.692308
           ref: lb47
           start: 189.846154
         - end: 243.384615
-          ref: lb142
+          ref: lb140
           start: 221.230769
         - end: 258.153846
-          ref: lb143
+          ref: lb141
           start: 243.384615
         - end: 265.538462
           ref: lb47
           start: 263.692308
         - end: 280.307692
-          ref: lb141
+          ref: lb139
           start: 265.538462
         - end: 304.307692
-          ref: lb144
+          ref: lb142
           start: 280.307692
         muted: false
         name: Lane 4
@@ -10261,58 +10329,58 @@ shows:
         - FP
         light_blocks:
         - end: 37.333333
-          ref: lb88
+          ref: lb86
           start: 2.666667
         - end: 64.0
-          ref: lb145
+          ref: lb143
           start: 37.333333
         - end: 68.666667
-          ref: lb98
+          ref: lb96
           start: 64.0
         - end: 85.333333
-          ref: lb146
+          ref: lb144
           start: 69.333333
         - end: 89.333333
-          ref: lb136
+          ref: lb134
           start: 85.333333
         - end: 92.0
-          ref: lb137
+          ref: lb135
           start: 89.333333
         - end: 121.538462
-          ref: lb89
+          ref: lb87
           start: 92.0
         - end: 136.307692
-          ref: lb147
+          ref: lb145
           start: 121.538462
         - end: 184.307692
-          ref: lb138
+          ref: lb136
           start: 169.538462
         - end: 151.076923
-          ref: lb148
+          ref: lb146
           start: 143.692308
         - end: 169.538462
-          ref: lb149
+          ref: lb147
           start: 151.076923
         - end: 206.461538
-          ref: lb149
+          ref: lb147
           start: 191.692308
         - end: 191.692308
-          ref: lb148
+          ref: lb146
           start: 184.307692
         - end: 243.384615
-          ref: lb148
+          ref: lb146
           start: 206.461538
         - end: 258.153846
-          ref: lb150
+          ref: lb148
           start: 243.384615
         - end: 265.538462
-          ref: lb148
+          ref: lb146
           start: 258.153846
         - end: 280.307692
-          ref: lb149
+          ref: lb147
           start: 265.538462
         - end: 304.307692
-          ref: lb151
+          ref: lb149
           start: 280.307692
         muted: false
         name: Lane 5
@@ -10455,10 +10523,10 @@ shows:
         - WASH:0
         light_blocks:
         - end: 12.5
-          ref: lb152
+          ref: lb150
           start: 2.5
         - end: 143.75
-          ref: lb152
+          ref: lb150
           start: 133.75
         muted: false
         name: WASH_L
@@ -10467,10 +10535,10 @@ shows:
         - WASH:1
         light_blocks:
         - end: 12.5
-          ref: lb153
+          ref: lb151
           start: 2.5
         - end: 143.75
-          ref: lb153
+          ref: lb151
           start: 133.75
         muted: false
         name: WASH_R
@@ -10479,106 +10547,106 @@ shows:
         - WASH
         light_blocks:
         - end: 17.5
-          ref: lb154
+          ref: lb152
           start: 12.5
         - end: 22.5
-          ref: lb154
+          ref: lb152
           start: 17.5
         - end: 31.25
-          ref: lb154
+          ref: lb152
           start: 26.25
         - end: 26.25
-          ref: lb155
+          ref: lb153
           start: 22.5
         - end: 36.25
-          ref: lb156
+          ref: lb154
           start: 31.25
         - end: 41.25
-          ref: lb157
+          ref: lb155
           start: 36.25
         - end: 46.25
-          ref: lb157
+          ref: lb155
           start: 41.25
         - end: 51.25
-          ref: lb157
+          ref: lb155
           start: 46.25
         - end: 66.25
-          ref: lb154
+          ref: lb152
           start: 61.25
         - end: 71.25
-          ref: lb154
+          ref: lb152
           start: 66.25
         - end: 75.0
-          ref: lb155
+          ref: lb153
           start: 71.25
         - end: 85.0
-          ref: lb156
+          ref: lb154
           start: 80.0
         - end: 90.0
-          ref: lb156
+          ref: lb154
           start: 85.0
         - end: 95.0
-          ref: lb156
+          ref: lb154
           start: 90.0
         - end: 100.0
-          ref: lb156
+          ref: lb154
           start: 95.0
         - end: 61.25
-          ref: lb158
+          ref: lb156
           start: 51.25
         - end: 110.0
-          ref: lb158
+          ref: lb156
           start: 100.0
         - end: 78.75
-          ref: lb155
+          ref: lb153
           start: 75.0
         - end: 115.0
-          ref: lb154
+          ref: lb152
           start: 110.0
         - end: 120.0
-          ref: lb154
+          ref: lb152
           start: 115.0
         - end: 123.75
-          ref: lb155
+          ref: lb153
           start: 120.0
         - end: 128.75
-          ref: lb159
+          ref: lb157
           start: 123.75
         - end: 133.75
-          ref: lb160
+          ref: lb158
           start: 128.75
         - end: 153.75
-          ref: lb161
+          ref: lb159
           start: 143.75
         - end: 163.75
-          ref: lb162
+          ref: lb160
           start: 153.75
         - end: 173.75
-          ref: lb163
+          ref: lb161
           start: 163.75
         - end: 193.125
-          ref: lb164
+          ref: lb162
           start: 186.875
         - end: 198.125
-          ref: lb154
+          ref: lb152
           start: 193.125
         - end: 203.125
-          ref: lb154
+          ref: lb152
           start: 198.125
         - end: 206.875
-          ref: lb165
+          ref: lb163
           start: 203.125
         - end: 211.875
-          ref: lb166
+          ref: lb164
           start: 206.875
         - end: 213.125
-          ref: lb167
+          ref: lb165
           start: 211.875
         - end: 216.183272
-          ref: lb168
+          ref: lb166
           start: 213.126929
         - end: 234.127197
-          ref: lb159
+          ref: lb157
           start: 216.183272
         muted: false
         name: WASH_COMB
@@ -10587,103 +10655,103 @@ shows:
         - BARS
         light_blocks:
         - end: 5.3125
-          ref: lb169
+          ref: lb167
           start: 3.75
         - end: 7.5
-          ref: lb170
+          ref: lb168
           start: 6.25
         - end: 10.0
-          ref: lb171
+          ref: lb168
           start: 8.75
         - end: 12.5
-          ref: lb172
+          ref: lb169
           start: 11.25
         - end: 51.25
-          ref: lb173
+          ref: lb170
           start: 31.25
         - end: 17.5
-          ref: lb174
+          ref: lb171
           start: 12.5
         - end: 22.5
-          ref: lb174
+          ref: lb171
           start: 17.5
         - end: 31.25
-          ref: lb175
+          ref: lb172
           start: 22.5
         - end: 61.25
-          ref: lb176
+          ref: lb173
           start: 51.25
         - end: 66.25
-          ref: lb174
+          ref: lb171
           start: 61.25
         - end: 71.25
-          ref: lb174
+          ref: lb171
           start: 66.25
         - end: 100.0
-          ref: lb173
+          ref: lb170
           start: 80.0
         - end: 110.0
-          ref: lb176
+          ref: lb173
           start: 100.0
         - end: 80.0
-          ref: lb175
+          ref: lb172
           start: 71.25
         - end: 115.0
-          ref: lb174
+          ref: lb171
           start: 110.0
         - end: 120.0
-          ref: lb174
+          ref: lb171
           start: 115.0
         - end: 128.75
-          ref: lb175
+          ref: lb172
           start: 120.0
         - end: 133.75
-          ref: lb177
+          ref: lb174
           start: 128.75
         - end: 138.75
-          ref: lb170
+          ref: lb168
           start: 137.5
         - end: 141.25
-          ref: lb171
+          ref: lb168
           start: 140.0
         - end: 143.75
-          ref: lb172
+          ref: lb169
           start: 142.5
         - end: 136.5625
-          ref: lb169
+          ref: lb167
           start: 135.0
         - end: 153.75
-          ref: lb178
+          ref: lb175
           start: 143.75
         - end: 163.75
-          ref: lb179
+          ref: lb176
           start: 153.75
         - end: 173.75
-          ref: lb180
+          ref: lb177
           start: 163.75
         - end: 193.125
-          ref: lb164
+          ref: lb162
           start: 186.875
         - end: 198.125
-          ref: lb174
+          ref: lb171
           start: 193.125
         - end: 203.125
-          ref: lb174
+          ref: lb171
           start: 198.125
         - end: 206.875
-          ref: lb181
+          ref: lb178
           start: 203.125
         - end: 211.875
-          ref: lb174
+          ref: lb171
           start: 206.875
         - end: 213.132716
-          ref: lb182
+          ref: lb179
           start: 211.875
         - end: 216.183272
-          ref: lb170
+          ref: lb168
           start: 213.136574
         - end: 234.127197
-          ref: lb183
+          ref: lb180
           start: 216.183272
         muted: false
         name: Lane 4
@@ -10692,22 +10760,22 @@ shows:
         - SUNS
         light_blocks:
         - end: 3.75
-          ref: lb129
+          ref: lb127
           start: 2.5
         - end: 6.25
-          ref: lb129
+          ref: lb127
           start: 5.0
         - end: 8.75
-          ref: lb129
+          ref: lb127
           start: 7.5
         - end: 11.25
-          ref: lb129
+          ref: lb127
           start: 10.0
         - end: 12.5
           ref: lb23
           start: 11.25
         - end: 51.25
-          ref: lb184
+          ref: lb181
           start: 31.25
         - end: 12.8125
           ref: lb17
@@ -10734,10 +10802,10 @@ shows:
           ref: lb17
           start: 26.25
         - end: 58.75
-          ref: lb79
+          ref: lb77
           start: 51.25
         - end: 61.25
-          ref: lb185
+          ref: lb182
           start: 58.75
         - end: 66.5625
           ref: lb17
@@ -10764,13 +10832,13 @@ shows:
           ref: lb23
           start: 61.5625
         - end: 107.5
-          ref: lb79
+          ref: lb77
           start: 100.0
         - end: 110.0
-          ref: lb185
+          ref: lb182
           start: 107.5
         - end: 100.0
-          ref: lb184
+          ref: lb181
           start: 80.0
         - end: 110.3125
           ref: lb17
@@ -10797,37 +10865,37 @@ shows:
           ref: lb17
           start: 115.0
         - end: 133.75
-          ref: lb186
+          ref: lb183
           start: 128.75
         - end: 137.5
-          ref: lb129
+          ref: lb127
           start: 136.25
         - end: 140.0
-          ref: lb129
+          ref: lb127
           start: 138.75
         - end: 135.0
-          ref: lb129
+          ref: lb127
           start: 133.75
         - end: 142.5
-          ref: lb129
+          ref: lb127
           start: 141.25
         - end: 143.75
           ref: lb23
           start: 142.5
         - end: 153.75
-          ref: lb187
+          ref: lb79
           start: 143.75
         - end: 163.75
-          ref: lb129
+          ref: lb127
           start: 153.75
         - end: 165.0
-          ref: lb129
+          ref: lb127
           start: 164.375
         - end: 167.5
-          ref: lb129
+          ref: lb127
           start: 166.875
         - end: 170.0
-          ref: lb129
+          ref: lb127
           start: 169.375
         - end: 166.25
           ref: lb17
@@ -10839,19 +10907,19 @@ shows:
           ref: lb17
           start: 170.625
         - end: 172.5
-          ref: lb129
+          ref: lb127
           start: 171.25
         - end: 186.875
-          ref: lb188
+          ref: lb184
           start: 174.375
         - end: 187.5
-          ref: lb189
+          ref: lb185
           start: 186.875
         - end: 188.75
-          ref: lb189
+          ref: lb185
           start: 188.125
         - end: 190.0
-          ref: lb189
+          ref: lb185
           start: 189.375
         - end: 203.4375
           ref: lb17
@@ -10902,55 +10970,55 @@ shows:
         - MH
         light_blocks:
         - end: 31.25
-          ref: lb190
+          ref: lb186
           start: 12.5
         - end: 51.25
-          ref: lb191
+          ref: lb187
           start: 31.25
         - end: 100.0
-          ref: lb192
+          ref: lb188
           start: 80.0
         - end: 61.25
-          ref: lb193
+          ref: lb189
           start: 51.25
         - end: 80.0
-          ref: lb190
+          ref: lb186
           start: 61.25
         - end: 110.0
-          ref: lb193
+          ref: lb189
           start: 100.0
         - end: 128.75
-          ref: lb190
+          ref: lb186
           start: 110.0
         - end: 133.75
-          ref: lb194
+          ref: lb190
           start: 128.75
         - end: 143.75
-          ref: lb195
+          ref: lb191
           start: 133.75
         - end: 163.75
-          ref: lb196
+          ref: lb192
           start: 143.75
         - end: 173.75
-          ref: lb197
+          ref: lb193
           start: 163.75
         - end: 186.875
-          ref: lb198
+          ref: lb194
           start: 174.375
         - end: 193.125
-          ref: lb199
+          ref: lb195
           start: 186.875
         - end: 211.875
-          ref: lb200
+          ref: lb196
           start: 193.125
         - end: 216.183272
-          ref: lb201
+          ref: lb197
           start: 213.126929
         - end: 222.912244
-          ref: lb202
+          ref: lb198
           start: 216.183272
         - end: 234.127197
-          ref: lb203
+          ref: lb199
           start: 222.912244
         muted: false
         name: Lane 6
@@ -11057,58 +11125,58 @@ shows:
         - BARS
         light_blocks:
         - end: 13.894737
-          ref: lb204
+          ref: lb200
           start: 3.789474
         - end: 34.105263
-          ref: lb205
+          ref: lb201
           start: 13.894737
         - end: 54.315789
-          ref: lb205
+          ref: lb201
           start: 34.105263
         - end: 64.421053
-          ref: lb206
+          ref: lb202
           start: 54.315789
         - end: 74.526316
-          ref: lb207
+          ref: lb203
           start: 64.421053
         - end: 145.263158
-          ref: lb207
+          ref: lb203
           start: 135.157895
         - end: 84.631579
-          ref: lb204
+          ref: lb200
           start: 74.526316
         - end: 104.842105
-          ref: lb205
+          ref: lb201
           start: 84.631579
         - end: 135.157895
-          ref: lb206
+          ref: lb202
           start: 125.052632
         - end: 125.052632
-          ref: lb205
+          ref: lb201
           start: 104.842105
         - end: 165.473684
-          ref: lb208
+          ref: lb204
           start: 145.263158
         - end: 185.684211
-          ref: lb85
+          ref: lb83
           start: 165.473684
         - end: 195.789474
-          ref: lb209
+          ref: lb205
           start: 185.684211
         - end: 216.0
-          ref: lb210
+          ref: lb206
           start: 195.789474
         - end: 236.210526
-          ref: lb207
+          ref: lb203
           start: 226.105263
         - end: 226.105263
-          ref: lb206
+          ref: lb202
           start: 216.0
         - end: 257.684211
-          ref: lb211
+          ref: lb207
           start: 246.315789
         - end: 246.315789
-          ref: lb206
+          ref: lb202
           start: 236.210526
         muted: false
         name: Lane 1
@@ -11117,31 +11185,31 @@ shows:
         - SUNS
         light_blocks:
         - end: 13.894737
-          ref: lb212
+          ref: lb129
           start: 3.789474
         - end: 18.947368
-          ref: lb128
+          ref: lb126
           start: 16.421053
         - end: 24.0
-          ref: lb128
+          ref: lb126
           start: 21.473684
         - end: 30.315789
-          ref: lb128
+          ref: lb126
           start: 27.789474
         - end: 34.105263
-          ref: lb50
+          ref: lb22
           start: 31.578947
         - end: 50.526316
-          ref: lb128
+          ref: lb126
           start: 48.0
         - end: 54.315789
-          ref: lb50
+          ref: lb22
           start: 51.789474
         - end: 44.210526
-          ref: lb128
+          ref: lb126
           start: 41.684211
         - end: 39.157895
-          ref: lb128
+          ref: lb126
           start: 36.631579
         - end: 54.631579
           ref: lb17
@@ -11150,58 +11218,58 @@ shows:
           ref: lb23
           start: 54.631579
         - end: 59.368421
-          ref: lb212
+          ref: lb129
           start: 56.842105
         - end: 63.157895
-          ref: lb128
+          ref: lb126
           start: 59.368421
         - end: 64.421053
-          ref: lb50
+          ref: lb22
           start: 63.157895
         - end: 64.736842
           ref: lb17
           start: 64.421053
         - end: 72.0
-          ref: lb128
+          ref: lb126
           start: 69.473684
         - end: 69.473684
-          ref: lb212
+          ref: lb129
           start: 66.947368
         - end: 74.526316
-          ref: lb50
+          ref: lb22
           start: 73.263158
         - end: 66.947368
           ref: lb23
           start: 64.736842
         - end: 73.263158
-          ref: lb129
+          ref: lb127
           start: 72.0
         - end: 125.052632
-          ref: lb50
+          ref: lb22
           start: 122.526316
         - end: 135.473684
           ref: lb17
           start: 135.157895
         - end: 104.842105
-          ref: lb50
+          ref: lb22
           start: 102.315789
         - end: 135.157895
-          ref: lb50
+          ref: lb22
           start: 133.894737
         - end: 114.947368
-          ref: lb128
+          ref: lb126
           start: 112.421053
         - end: 101.052632
-          ref: lb128
+          ref: lb126
           start: 98.526316
         - end: 133.894737
-          ref: lb128
+          ref: lb126
           start: 130.105263
         - end: 127.578947
           ref: lb23
           start: 125.368421
         - end: 109.894737
-          ref: lb128
+          ref: lb126
           start: 107.368421
         - end: 125.368421
           ref: lb17
@@ -11210,34 +11278,34 @@ shows:
           ref: lb23
           start: 135.473684
         - end: 145.263158
-          ref: lb50
+          ref: lb22
           start: 144.0
         - end: 94.736842
-          ref: lb128
+          ref: lb126
           start: 92.210526
         - end: 130.105263
-          ref: lb212
+          ref: lb129
           start: 127.578947
         - end: 142.736842
-          ref: lb128
+          ref: lb126
           start: 140.210526
         - end: 121.263158
-          ref: lb128
+          ref: lb126
           start: 118.736842
         - end: 144.0
-          ref: lb129
+          ref: lb127
           start: 142.736842
         - end: 140.210526
-          ref: lb212
+          ref: lb129
           start: 137.684211
         - end: 84.631579
-          ref: lb212
+          ref: lb129
           start: 74.526316
         - end: 89.684211
-          ref: lb128
+          ref: lb126
           start: 87.157895
         - end: 165.473684
-          ref: lb129
+          ref: lb127
           start: 145.263158
         - end: 185.684211
           ref: lb18
@@ -11258,49 +11326,49 @@ shows:
           ref: lb17
           start: 226.105263
         - end: 221.052632
-          ref: lb212
+          ref: lb129
           start: 218.526316
         - end: 224.842105
-          ref: lb128
+          ref: lb126
           start: 221.052632
         - end: 231.157895
-          ref: lb212
+          ref: lb129
           start: 228.631579
         - end: 228.631579
           ref: lb23
           start: 226.421053
         - end: 233.684211
-          ref: lb128
+          ref: lb126
           start: 231.157895
         - end: 236.210526
-          ref: lb50
+          ref: lb22
           start: 234.947368
         - end: 218.526316
           ref: lb23
           start: 216.315789
         - end: 226.105263
-          ref: lb50
+          ref: lb22
           start: 224.842105
         - end: 234.947368
-          ref: lb129
+          ref: lb127
           start: 233.684211
         - end: 245.052632
-          ref: lb128
+          ref: lb126
           start: 241.263158
         - end: 246.315789
-          ref: lb50
+          ref: lb22
           start: 245.052632
         - end: 255.157895
-          ref: lb129
+          ref: lb127
           start: 253.894737
         - end: 253.894737
-          ref: lb128
+          ref: lb126
           start: 251.368421
         - end: 251.368421
-          ref: lb212
+          ref: lb129
           start: 248.842105
         - end: 241.263158
-          ref: lb212
+          ref: lb129
           start: 238.736842
         - end: 248.842105
           ref: lb23
@@ -11321,40 +11389,40 @@ shows:
         - MH
         light_blocks:
         - end: 13.894737
-          ref: lb213
+          ref: lb208
           start: 3.789474
         - end: 54.315789
-          ref: lb214
+          ref: lb209
           start: 44.210526
         - end: 74.526316
-          ref: lb215
+          ref: lb210
           start: 54.315789
         - end: 84.631579
-          ref: lb213
+          ref: lb208
           start: 74.526316
         - end: 125.052632
-          ref: lb214
+          ref: lb209
           start: 114.947368
         - end: 145.263158
-          ref: lb215
+          ref: lb210
           start: 125.052632
         - end: 165.473684
-          ref: lb216
+          ref: lb211
           start: 155.368421
         - end: 185.684211
-          ref: lb217
+          ref: lb212
           start: 165.473684
         - end: 195.789474
-          ref: lb218
+          ref: lb213
           start: 185.684211
         - end: 216.0
-          ref: lb219
+          ref: lb214
           start: 195.789474
         - end: 236.210526
-          ref: lb215
+          ref: lb210
           start: 216.0
         - end: 257.684211
-          ref: lb220
+          ref: lb215
           start: 236.210526
         muted: false
         name: Lane 3
@@ -11363,52 +11431,52 @@ shows:
         - WASH
         light_blocks:
         - end: 24.0
-          ref: lb221
+          ref: lb216
           start: 13.894737
         - end: 34.105263
-          ref: lb222
+          ref: lb217
           start: 24.0
         - end: 44.210526
-          ref: lb221
+          ref: lb216
           start: 34.105263
         - end: 54.315789
-          ref: lb222
+          ref: lb217
           start: 44.210526
         - end: 74.526316
-          ref: lb223
+          ref: lb218
           start: 54.315789
         - end: 125.052632
-          ref: lb222
+          ref: lb217
           start: 114.947368
         - end: 145.263158
-          ref: lb223
+          ref: lb218
           start: 125.052632
         - end: 114.947368
-          ref: lb221
+          ref: lb216
           start: 104.842105
         - end: 104.842105
-          ref: lb222
+          ref: lb217
           start: 94.736842
         - end: 94.736842
-          ref: lb221
+          ref: lb216
           start: 84.631579
         - end: 165.473684
-          ref: lb224
+          ref: lb219
           start: 145.263158
         - end: 185.684211
-          ref: lb84
+          ref: lb82
           start: 165.473684
         - end: 195.789474
-          ref: lb209
+          ref: lb205
           start: 185.684211
         - end: 216.0
-          ref: lb225
+          ref: lb220
           start: 195.789474
         - end: 236.210526
-          ref: lb223
+          ref: lb218
           start: 216.0
         - end: 256.421053
-          ref: lb223
+          ref: lb218
           start: 236.210526
         muted: false
         name: Lane 4
@@ -11417,46 +11485,46 @@ shows:
         - FP
         light_blocks:
         - end: 13.894737
-          ref: lb226
+          ref: lb221
           start: 3.789474
         - end: 34.105263
-          ref: lb227
+          ref: lb222
           start: 13.894737
         - end: 54.315789
-          ref: lb227
+          ref: lb222
           start: 34.105263
         - end: 74.526316
-          ref: lb228
+          ref: lb223
           start: 54.315789
         - end: 84.631579
-          ref: lb226
+          ref: lb221
           start: 74.526316
         - end: 104.842105
-          ref: lb227
+          ref: lb222
           start: 84.631579
         - end: 145.263158
-          ref: lb228
+          ref: lb223
           start: 125.052632
         - end: 125.052632
-          ref: lb227
+          ref: lb222
           start: 104.842105
         - end: 165.473684
-          ref: lb229
+          ref: lb224
           start: 145.263158
         - end: 185.684211
-          ref: lb230
+          ref: lb225
           start: 165.473684
         - end: 195.789474
-          ref: lb231
+          ref: lb226
           start: 185.684211
         - end: 216.0
-          ref: lb232
+          ref: lb227
           start: 195.789474
         - end: 236.210526
-          ref: lb228
+          ref: lb223
           start: 216.0
         - end: 257.684211
-          ref: lb233
+          ref: lb228
           start: 236.210526
         muted: false
         name: Lane 5
@@ -11619,46 +11687,46 @@ shows:
         - FP
         light_blocks:
         - end: 51.25
-          ref: lb234
+          ref: lb229
           start: 12.5
         - end: 61.25
-          ref: lb235
+          ref: lb230
           start: 51.25
         - end: 80.0
-          ref: lb236
+          ref: lb231
           start: 61.25
         - end: 100.0
-          ref: lb234
+          ref: lb229
           start: 80.0
         - end: 128.75
-          ref: lb236
+          ref: lb231
           start: 110.0
         - end: 133.75
-          ref: lb235
+          ref: lb230
           start: 128.75
         - end: 110.0
-          ref: lb235
+          ref: lb230
           start: 100.0
         - end: 143.75
-          ref: lb237
+          ref: lb232
           start: 133.75
         - end: 163.75
-          ref: lb238
+          ref: lb233
           start: 143.75
         - end: 173.75
-          ref: lb163
+          ref: lb161
           start: 163.75
         - end: 193.125
-          ref: lb164
+          ref: lb162
           start: 186.875
         - end: 213.125
-          ref: lb239
+          ref: lb234
           start: 193.125
         - end: 222.912244
-          ref: lb234
+          ref: lb229
           start: 213.2352
         - end: 234.127197
-          ref: lb240
+          ref: lb235
           start: 222.912244
         muted: false
         name: Lane 7
@@ -11797,7 +11865,7 @@ shows:
     - bpm: 183.0
       color: '#ff0000'
       name: outro
-      num_bars: 2
+      num_bars: 3
       signature: 4/4
       transition: instant
     timeline_data:
@@ -11901,13 +11969,13 @@ shows:
     - bpm: 193.0
       color: '#ffff00'
       name: prechorus3
-      num_bars: 18
+      num_bars: 16
       signature: 4/4
       transition: instant
     - bpm: 193.0
       color: '#ff0080'
       name: chorus3
-      num_bars: 15
+      num_bars: 16
       signature: 4/4
       transition: instant
     - bpm: 193.0
@@ -11919,7 +11987,7 @@ shows:
     - bpm: 193.0
       color: '#ff0000'
       name: outro2
-      num_bars: 9
+      num_bars: 10
       signature: 4/4
       transition: instant
     timeline_data:
@@ -11929,43 +11997,43 @@ shows:
         - MH
         light_blocks:
         - end: 22.38342
-          ref: lb241
+          ref: lb236
           start: 12.435233
         - end: 42.279793
-          ref: lb242
+          ref: lb237
           start: 22.38342
         - end: 67.150259
-          ref: lb243
+          ref: lb238
           start: 47.253886
         - end: 87.046632
-          ref: lb244
+          ref: lb239
           start: 67.150259
         - end: 106.943005
-          ref: lb245
+          ref: lb240
           start: 87.046632
         - end: 171.606218
-          ref: lb245
+          ref: lb240
           start: 151.709845
         - end: 131.813472
-          ref: lb243
+          ref: lb238
           start: 111.917098
         - end: 151.709845
-          ref: lb244
+          ref: lb239
           start: 131.813472
         - end: 221.34715
-          ref: lb246
+          ref: lb241
           start: 211.398964
         - end: 243.73057
-          ref: lb247
+          ref: lb242
           start: 221.34715
         - end: 262.38342
-          ref: lb248
+          ref: lb243
           start: 243.73057
         - end: 272.331606
-          ref: lb249
+          ref: lb244
           start: 262.38342
         - end: 283.523316
-          ref: lb250
+          ref: lb245
           start: 272.331606
         muted: false
         name: Lane 1
@@ -11974,58 +12042,58 @@ shows:
         - BARS
         light_blocks:
         - end: 22.38342
-          ref: lb251
+          ref: lb246
           start: 2.487047
         - end: 42.279793
-          ref: lb251
+          ref: lb246
           start: 22.38342
         - end: 67.150259
-          ref: lb252
+          ref: lb247
           start: 47.253886
         - end: 87.046632
-          ref: lb253
+          ref: lb248
           start: 67.150259
         - end: 106.943005
-          ref: lb254
+          ref: lb249
           start: 87.046632
         - end: 111.917098
-          ref: lb255
+          ref: lb250
           start: 106.943005
         - end: 131.813472
-          ref: lb252
+          ref: lb247
           start: 111.917098
         - end: 151.709845
-          ref: lb253
+          ref: lb248
           start: 131.813472
         - end: 171.606218
-          ref: lb254
+          ref: lb249
           start: 151.709845
         - end: 47.253886
-          ref: lb256
+          ref: lb250
           start: 42.279793
         - end: 181.554404
-          ref: lb257
+          ref: lb251
           start: 171.606218
         - end: 201.450777
-          ref: lb252
+          ref: lb247
           start: 181.554404
         - end: 221.34715
-          ref: lb258
+          ref: lb252
           start: 201.450777
         - end: 241.243523
-          ref: lb259
+          ref: lb253
           start: 221.34715
         - end: 243.73057
-          ref: lb260
+          ref: lb254
           start: 241.243523
         - end: 262.38342
-          ref: lb261
+          ref: lb255
           start: 243.73057
         - end: 272.331606
-          ref: lb257
+          ref: lb251
           start: 262.38342
         - end: 283.523316
-          ref: lb262
+          ref: lb256
           start: 272.331606
         muted: false
         name: Lane 2
@@ -12034,10 +12102,10 @@ shows:
         - SUNS
         light_blocks:
         - end: 22.38342
-          ref: lb263
+          ref: lb257
           start: 2.487047
         - end: 42.279793
-          ref: lb263
+          ref: lb257
           start: 22.38342
         - end: 50.051813
           ref: lb17
@@ -12064,28 +12132,28 @@ shows:
           ref: lb17
           start: 66.528497
         - end: 82.072539
-          ref: lb264
+          ref: lb77
           start: 67.150259
         - end: 84.559585
-          ref: lb127
+          ref: lb125
           start: 82.072539
         - end: 87.046632
-          ref: lb265
+          ref: lb258
           start: 84.559585
         - end: 106.943005
-          ref: lb81
+          ref: lb79
           start: 87.046632
         - end: 117.202073
           ref: lb17
           start: 116.26943
         - end: 146.735751
-          ref: lb264
+          ref: lb77
           start: 131.813472
         - end: 151.709845
-          ref: lb265
+          ref: lb258
           start: 149.222798
         - end: 171.606218
-          ref: lb81
+          ref: lb79
           start: 151.709845
         - end: 129.637306
           ref: lb17
@@ -12109,37 +12177,37 @@ shows:
           ref: lb17
           start: 123.73057
         - end: 149.222798
-          ref: lb127
+          ref: lb125
           start: 146.735751
         - end: 181.554404
-          ref: lb78
+          ref: lb76
           start: 171.917098
         - end: 201.450777
-          ref: lb50
+          ref: lb22
           start: 181.554404
         - end: 221.34715
-          ref: lb264
+          ref: lb77
           start: 201.450777
         - end: 238.756477
-          ref: lb212
+          ref: lb129
           start: 236.26943
         - end: 241.243523
-          ref: lb50
+          ref: lb22
           start: 238.756477
         - end: 243.73057
           ref: lb23
           start: 241.243523
         - end: 262.38342
-          ref: lb81
+          ref: lb79
           start: 243.73057
         - end: 272.331606
-          ref: lb78
+          ref: lb76
           start: 262.694301
         - end: 281.036269
-          ref: lb78
+          ref: lb76
           start: 272.642487
         - end: 283.523316
-          ref: lb132
+          ref: lb130
           start: 281.036269
         muted: false
         name: Lane 3
@@ -12148,49 +12216,49 @@ shows:
         - WASH
         light_blocks:
         - end: 22.38342
-          ref: lb251
+          ref: lb246
           start: 2.487047
         - end: 42.279793
-          ref: lb251
+          ref: lb246
           start: 22.38342
         - end: 67.150259
-          ref: lb266
+          ref: lb259
           start: 47.253886
         - end: 87.046632
-          ref: lb267
+          ref: lb260
           start: 67.150259
         - end: 106.943005
-          ref: lb254
+          ref: lb249
           start: 87.046632
         - end: 151.709845
-          ref: lb267
+          ref: lb260
           start: 131.813472
         - end: 131.813472
-          ref: lb266
+          ref: lb259
           start: 111.917098
         - end: 171.606218
-          ref: lb254
+          ref: lb249
           start: 151.709845
         - end: 181.554404
-          ref: lb268
+          ref: lb261
           start: 171.606218
         - end: 201.450777
-          ref: lb85
+          ref: lb83
           start: 181.554404
         - end: 221.34715
-          ref: lb269
+          ref: lb262
           start: 201.450777
         - end: 243.73057
-          ref: lb260
+          ref: lb254
           start: 241.243523
         - end: 262.38342
-          ref: lb261
+          ref: lb255
           start: 243.73057
         - end: 272.331606
-          ref: lb270
+          ref: lb263
           start: 262.38342
         - end: 283.523316
-          ref: lb271
+          ref: lb264
           start: 272.331606
         muted: false
         name: Lane 4
@@ -12199,43 +12267,43 @@ shows:
         - FP
         light_blocks:
         - end: 22.38342
-          ref: lb272
+          ref: lb265
           start: 2.487047
         - end: 42.279793
-          ref: lb273
+          ref: lb266
           start: 22.38342
         - end: 67.150259
-          ref: lb274
+          ref: lb267
           start: 47.253886
         - end: 87.046632
-          ref: lb275
+          ref: lb268
           start: 67.150259
         - end: 106.943005
-          ref: lb276
+          ref: lb269
           start: 87.046632
         - end: 171.606218
-          ref: lb276
+          ref: lb269
           start: 151.709845
         - end: 131.813472
-          ref: lb274
+          ref: lb267
           start: 111.917098
         - end: 151.709845
-          ref: lb275
+          ref: lb268
           start: 131.813472
         - end: 181.554404
-          ref: lb268
+          ref: lb261
           start: 171.606218
         - end: 221.34715
-          ref: lb277
+          ref: lb270
           start: 201.450777
         - end: 262.38342
-          ref: lb276
+          ref: lb269
           start: 243.73057
         - end: 272.331606
-          ref: lb238
+          ref: lb233
           start: 262.38342
         - end: 283.523316
-          ref: lb278
+          ref: lb271
           start: 272.331606
         muted: false
         name: Lane 5
@@ -12324,37 +12392,37 @@ shows:
         - BARS
         light_blocks:
         - end: 12.521739
-          ref: lb279
+          ref: lb272
           start: 10.434783
         - end: 29.217391
-          ref: lb280
+          ref: lb273
           start: 12.521739
         - end: 62.608696
-          ref: lb281
+          ref: lb274
           start: 29.217391
         - end: 79.304348
-          ref: lb282
+          ref: lb275
           start: 62.608696
         - end: 96.0
-          ref: lb280
+          ref: lb273
           start: 79.304348
         - end: 112.695652
-          ref: lb111
+          ref: lb109
           start: 96.0
         - end: 129.391304
-          ref: lb282
+          ref: lb275
           start: 112.695652
         - end: 152.805938
-          ref: lb283
+          ref: lb276
           start: 151.830329
         - end: 186.197243
-          ref: lb282
+          ref: lb275
           start: 169.501591
         - end: 169.501591
-          ref: lb111
+          ref: lb109
           start: 152.805938
         - end: 202.892895
-          ref: lb280
+          ref: lb273
           start: 186.197243
         muted: false
         name: Lane 1
@@ -12363,52 +12431,52 @@ shows:
         - MH
         light_blocks:
         - end: 20.869565
-          ref: lb284
+          ref: lb277
           start: 19.826087
         - end: 29.217391
-          ref: lb284
+          ref: lb277
           start: 28.173913
         - end: 62.608696
-          ref: lb285
+          ref: lb278
           start: 45.913043
         - end: 79.304348
-          ref: lb286
+          ref: lb279
           start: 62.608696
         - end: 87.652174
-          ref: lb284
+          ref: lb277
           start: 86.608696
         - end: 96.0
-          ref: lb284
+          ref: lb277
           start: 94.956522
         - end: 112.695652
-          ref: lb287
+          ref: lb280
           start: 96.0
         - end: 129.391304
-          ref: lb286
+          ref: lb279
           start: 112.695652
         - end: 137.196182
-          ref: lb288
+          ref: lb281
           start: 129.391304
         - end: 152.805938
-          ref: lb289
+          ref: lb282
           start: 137.196182
         - end: 186.197243
-          ref: lb286
+          ref: lb279
           start: 169.501591
         - end: 169.501591
-          ref: lb290
+          ref: lb283
           start: 152.805938
         - end: 202.892895
-          ref: lb284
+          ref: lb277
           start: 201.849417
         - end: 194.545069
-          ref: lb284
+          ref: lb277
           start: 193.501591
         - end: 193.501591
-          ref: lb291
+          ref: lb284
           start: 186.197243
         - end: 201.849417
-          ref: lb291
+          ref: lb284
           start: 194.545069
         muted: false
         name: Lane 2
@@ -12417,43 +12485,43 @@ shows:
         - SUNS
         light_blocks:
         - end: 29.217391
-          ref: lb129
+          ref: lb127
           start: 13.043478
         - end: 45.913043
-          ref: lb212
+          ref: lb129
           start: 29.217391
         - end: 54.26087
-          ref: lb292
+          ref: lb285
           start: 45.913043
         - end: 62.608696
-          ref: lb212
+          ref: lb129
           start: 54.26087
         - end: 79.304348
-          ref: lb293
+          ref: lb286
           start: 62.608696
         - end: 96.0
-          ref: lb129
+          ref: lb127
           start: 79.826087
         - end: 112.695652
-          ref: lb212
+          ref: lb129
           start: 96.0
         - end: 129.391304
-          ref: lb293
+          ref: lb286
           start: 112.695652
         - end: 137.196182
-          ref: lb79
+          ref: lb77
           start: 129.391304
         - end: 152.805938
           ref: lb17
           start: 137.196182
         - end: 186.197243
-          ref: lb293
+          ref: lb286
           start: 169.501591
         - end: 169.501591
-          ref: lb79
+          ref: lb77
           start: 152.805938
         - end: 202.892895
-          ref: lb129
+          ref: lb127
           start: 186.718982
         muted: false
         name: Lane 3
@@ -12462,46 +12530,46 @@ shows:
         - WASH
         light_blocks:
         - end: 12.521739
-          ref: lb294
+          ref: lb287
           start: 4.173913
         - end: 20.869565
           ref: lb47
           start: 12.521739
         - end: 29.217391
-          ref: lb52
+          ref: lb50
           start: 20.869565
         - end: 62.608696
-          ref: lb295
+          ref: lb288
           start: 45.913043
         - end: 79.304348
-          ref: lb168
+          ref: lb166
           start: 75.130435
         - end: 87.652174
           ref: lb47
           start: 79.304348
         - end: 96.0
-          ref: lb52
+          ref: lb50
           start: 87.652174
         - end: 112.695652
-          ref: lb296
+          ref: lb289
           start: 96.0
         - end: 129.391304
-          ref: lb168
+          ref: lb166
           start: 125.217391
         - end: 137.196182
-          ref: lb297
+          ref: lb290
           start: 129.391304
         - end: 186.197243
-          ref: lb168
+          ref: lb166
           start: 182.02333
         - end: 169.501591
-          ref: lb298
+          ref: lb291
           start: 152.805938
         - end: 182.02333
-          ref: lb299
+          ref: lb292
           start: 169.501591
         - end: 202.892895
-          ref: lb52
+          ref: lb50
           start: 194.545069
         - end: 194.545069
           ref: lb47
@@ -12513,34 +12581,34 @@ shows:
         - FP
         light_blocks:
         - end: 29.217391
-          ref: lb300
+          ref: lb293
           start: 4.173913
         - end: 62.608696
-          ref: lb301
+          ref: lb294
           start: 29.217391
         - end: 79.304348
-          ref: lb302
+          ref: lb295
           start: 62.608696
         - end: 96.0
-          ref: lb300
+          ref: lb293
           start: 79.304348
         - end: 112.695652
-          ref: lb301
+          ref: lb294
           start: 96.0
         - end: 129.391304
-          ref: lb302
+          ref: lb295
           start: 112.695652
         - end: 186.197243
-          ref: lb302
+          ref: lb295
           start: 169.501591
         - end: 169.501591
-          ref: lb301
+          ref: lb294
           start: 152.805938
         - end: 137.196182
-          ref: lb303
+          ref: lb296
           start: 129.391304
         - end: 202.892895
-          ref: lb300
+          ref: lb293
           start: 186.197243
         muted: false
         name: Lane 5
@@ -12549,7 +12617,7 @@ shows:
         - WASH:0
         light_blocks:
         - end: 145.00106
-          ref: lb304
+          ref: lb297
           start: 137.196182
         muted: false
         name: Lane 6
@@ -12558,14 +12626,14 @@ shows:
         - WASH:1
         light_blocks:
         - end: 152.805938
-          ref: lb304
+          ref: lb297
           start: 145.00106
         muted: false
         name: Lane 7
         solo: false
     trigger_channel: null
     trigger_device: null
-shows_directory: C:/LICHT/SBD
+shows_directory: C:/Users/varghele/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT/MASTER
 spots:
   Spot1:
     name: Spot1
