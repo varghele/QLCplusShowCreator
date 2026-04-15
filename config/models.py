@@ -1087,6 +1087,15 @@ class MidiInputDevice:
 
 
 @dataclass
+class PauseShowConfig:
+    """Settings for the auto-generated PAUSE show."""
+    enabled: bool = False
+    color: str = "#0000FF"
+    trigger_device: str = ""
+    trigger_channel: int = -1
+
+
+@dataclass
 class Universe:
     id: int
     name: str
@@ -1114,6 +1123,7 @@ class Configuration:
     workspace_path: Optional[str] = None
     shows_directory: Optional[str] = None  # Directory where show CSV files and audio are stored
     midi_input_devices: List[MidiInputDevice] = field(default_factory=list)
+    pause_show: PauseShowConfig = field(default_factory=PauseShowConfig)
     stage_width: float = 10.0  # Stage width in meters
     stage_height: float = 6.0  # Stage depth in meters (called height for compatibility)
     grid_size: float = 0.5  # Grid spacing in meters
@@ -1289,6 +1299,7 @@ class Configuration:
                 for show in self.shows.values()
             },
             'midi_input_devices': [asdict(d) for d in self.midi_input_devices] if self.midi_input_devices else None,
+            'pause_show': asdict(self.pause_show) if self.pause_show and self.pause_show.enabled else None,
             'spots': {
                 name: asdict(spot)
                 for name, spot in self.spots.items()
@@ -1427,6 +1438,10 @@ class Configuration:
             for dev_data in data['midi_input_devices']:
                 midi_input_devices.append(MidiInputDevice(**dev_data))
 
+        # Handle pause show config
+        pause_show_data = data.get('pause_show')
+        pause_show = PauseShowConfig(**pause_show_data) if pause_show_data else PauseShowConfig()
+
         config = cls(
             fixtures=fixtures,
             groups=groups,
@@ -1434,6 +1449,7 @@ class Configuration:
             shows=shows,
             spots=spots,
             midi_input_devices=midi_input_devices,
+            pause_show=pause_show,
             workspace_path=data.get('workspace_path'),
             shows_directory=data.get('shows_directory')
         )

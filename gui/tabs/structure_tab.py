@@ -8,11 +8,12 @@ from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QWidget, QLabel,
                              QLineEdit, QSpinBox, QDoubleSpinBox, QColorDialog,
                              QMessageBox, QSplitter, QInputDialog, QSlider,
                              QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
-                             QSizePolicy, QMenu, QFileDialog, QProgressDialog)
+                             QSizePolicy, QMenu, QFileDialog, QProgressDialog,
+                             QGroupBox, QCheckBox)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont, QAction
 import shutil
-from config.models import Configuration, Show, ShowPart, TimelineData, MidiInputDevice
+from config.models import Configuration, Show, ShowPart, TimelineData, MidiInputDevice, PauseShowConfig
 from timeline.song_structure import SongStructure
 from timeline_ui import AudioLaneWidget, MasterTimelineContainer
 from .base_tab import BaseTab
@@ -300,6 +301,10 @@ class StructureTab(BaseTab):
         # Track current highlighted row for playback
         self.current_highlighted_row = -1
 
+        # Pause Show section
+        pause_section = self._create_pause_show_section()
+        main_layout.addWidget(pause_section)
+
         # Playback controls
         playback_bar = self._create_playback_controls()
         main_layout.addLayout(playback_bar)
@@ -423,6 +428,152 @@ class StructureTab(BaseTab):
         toolbar.addStretch()
 
         return toolbar
+
+    def _create_pause_show_section(self):
+        """Create the Pause Show configuration section."""
+        group_box = QGroupBox("Pause Show")
+        group_box.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 10px;
+                color: #888;
+                border: 1px solid #444;
+                border-radius: 4px;
+                margin-top: 6px;
+                padding-top: 14px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 4px;
+            }
+        """)
+
+        layout = QHBoxLayout()
+        layout.setSpacing(10)
+
+        # Enable checkbox
+        self.pause_enable_cb = QCheckBox("Enable")
+        self.pause_enable_cb.setStyleSheet("color: white;")
+        layout.addWidget(self.pause_enable_cb)
+
+        layout.addSpacing(10)
+
+        # Color picker
+        color_label = QLabel("Color:")
+        color_label.setStyleSheet("color: #ccc;")
+        layout.addWidget(color_label)
+
+        self.pause_color_btn = ColorButton("#0000FF")
+        self.pause_color_btn.setFixedWidth(80)
+        self.pause_color_btn.setEnabled(False)
+        layout.addWidget(self.pause_color_btn)
+
+        layout.addSpacing(10)
+
+        # MIDI trigger device
+        trigger_label = QLabel("Trigger:")
+        trigger_label.setStyleSheet("color: #ccc;")
+        layout.addWidget(trigger_label)
+
+        self.pause_trigger_device_combo = QComboBox()
+        self.pause_trigger_device_combo.setMinimumWidth(160)
+        self.pause_trigger_device_combo.addItem("No Trigger")
+        self.pause_trigger_device_combo.addItem("None")  # Generic MIDI
+        for profile in self._midi_profiles:
+            self.pause_trigger_device_combo.addItem(profile['name'])
+        self.pause_trigger_device_combo.setEnabled(False)
+        layout.addWidget(self.pause_trigger_device_combo)
+
+        # MIDI channel
+        ch_label = QLabel("Ch:")
+        ch_label.setStyleSheet("color: #ccc;")
+        layout.addWidget(ch_label)
+
+        self.pause_trigger_channel_spin = QSpinBox()
+        self.pause_trigger_channel_spin.setRange(1, 512)
+        self.pause_trigger_channel_spin.setValue(1)
+        self.pause_trigger_channel_spin.setEnabled(False)
+        self.pause_trigger_channel_spin.setFixedWidth(70)
+        layout.addWidget(self.pause_trigger_channel_spin)
+
+        layout.addStretch()
+
+        group_box.setLayout(layout)
+
+        # Connect signals
+        self.pause_enable_cb.toggled.connect(self._on_pause_enable_changed)
+        self.pause_color_btn.colorChanged.connect(self._on_pause_color_changed)
+        self.pause_trigger_device_combo.currentTextChanged.connect(self._on_pause_trigger_device_changed)
+        self.pause_trigger_channel_spin.valueChanged.connect(self._on_pause_trigger_channel_changed)
+
+        return group_box
+
+    def _on_pause_enable_changed(self, enabled):
+        """Handle pause show enable/disable toggle."""
+        self.config.pause_show.enabled = enabled
+        self.pause_color_btn.setEnabled(enabled)
+        self.pause_trigger_device_combo.setEnabled(enabled)
+        has_device = enabled and self.pause_trigger_device_combo.currentText() not in ("No Trigger", "")
+        self.pause_trigger_channel_spin.setEnabled(has_device)
+        self._auto_save()
+
+    def _on_pause_color_changed(self, color):
+        """Handle pause show color change."""
+        self.config.pause_show.color = color
+        self._auto_save()
+
+    def _on_pause_trigger_device_changed(self, device_name):
+        """Handle pause show trigger device change."""
+        if device_name == "No Trigger" or not device_name:
+            self.config.pause_show.trigger_device = ""
+            self.config.pause_show.trigger_channel = -1
+            self.pause_trigger_channel_spin.setEnabled(False)
+            self.pause_trigger_channel_spin.setValue(1)
+        else:
+            self.config.pause_show.trigger_device = device_name
+            self.pause_trigger_channel_spin.setEnabled(True)
+            if self.config.pause_show.trigger_channel < 0:
+                self.config.pause_show.trigger_channel = 1
+            self._ensure_midi_device(device_name)
+        self._auto_save()
+
+    def _on_pause_trigger_channel_changed(self, channel):
+        """Handle pause show trigger channel change."""
+        self.config.pause_show.trigger_channel = channel
+        self._auto_save()
+
+    def _update_pause_show_widgets(self):
+        """Update pause show widgets from config."""
+        self.pause_enable_cb.blockSignals(True)
+        self.pause_color_btn.blockSignals(True)
+        self.pause_trigger_device_combo.blockSignals(True)
+        self.pause_trigger_channel_spin.blockSignals(True)
+
+        ps = self.config.pause_show
+        self.pause_enable_cb.setChecked(ps.enabled)
+        self.pause_color_btn.set_color(ps.color)
+        self.pause_color_btn.setEnabled(ps.enabled)
+        self.pause_trigger_device_combo.setEnabled(ps.enabled)
+
+        if ps.trigger_device:
+            idx = self.pause_trigger_device_combo.findText(ps.trigger_device)
+            if idx >= 0:
+                self.pause_trigger_device_combo.setCurrentIndex(idx)
+            else:
+                self.pause_trigger_device_combo.addItem(ps.trigger_device)
+                self.pause_trigger_device_combo.setCurrentText(ps.trigger_device)
+            self.pause_trigger_channel_spin.setEnabled(ps.enabled)
+            self.pause_trigger_channel_spin.setValue(max(1, ps.trigger_channel))
+        else:
+            self.pause_trigger_device_combo.setCurrentIndex(0)
+            self.pause_trigger_channel_spin.setEnabled(False)
+            self.pause_trigger_channel_spin.setValue(1)
+
+        self.pause_enable_cb.blockSignals(False)
+        self.pause_color_btn.blockSignals(False)
+        self.pause_trigger_device_combo.blockSignals(False)
+        self.pause_trigger_channel_spin.blockSignals(False)
 
     def _create_playback_controls(self):
         """Create bottom playback control bar."""
@@ -837,6 +988,9 @@ class StructureTab(BaseTab):
         # Load the current show
         self._load_show(self.show_combo.currentText())
 
+        # Update pause show widgets
+        self._update_pause_show_widgets()
+
     def _on_show_changed(self, show_name):
         """Handle show selection change."""
         self._load_show(show_name)
@@ -902,36 +1056,8 @@ class StructureTab(BaseTab):
 
     def _ensure_midi_device(self, profile_name):
         """Ensure a MidiInputDevice exists in config for the given profile name."""
-        # Check if already exists
-        for dev in self.config.midi_input_devices:
-            if dev.name == profile_name:
-                return
-
-        # Find the profile info
-        model_name = profile_name
-        for p in self._midi_profiles:
-            if p['name'] == profile_name:
-                model_name = p['model']
-                break
-
-        # Assign next available universe ID (after existing output universes)
-        used_ids = set()
-        for u in self.config.universes.values():
-            used_ids.add(u.id - 1)  # Convert to 0-based
-        for d in self.config.midi_input_devices:
-            used_ids.add(d.universe_id)
-        next_id = 0
-        while next_id in used_ids:
-            next_id += 1
-
-        device = MidiInputDevice(
-            name=profile_name,
-            uid=model_name.lower(),
-            profile=profile_name,
-            universe_id=next_id,
-            line=1
-        )
-        self.config.midi_input_devices.append(device)
+        from utils.midi_utils import ensure_midi_device_in_config
+        ensure_midi_device_in_config(self.config, profile_name, self._midi_profiles)
 
     def _create_new_show(self):
         """Create a new show with a dialog."""

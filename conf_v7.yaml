@@ -14410,6 +14410,11 @@ midi_input_devices:
   profile: None
   uid: none
   universe_id: 4
+pause_show:
+  color: '#ff0000'
+  enabled: true
+  trigger_channel: 177
+  trigger_device: None
 shows:
   SBD_black_and_blues:
     effects: []

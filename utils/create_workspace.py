@@ -63,20 +63,33 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
     # Create ChannelsGroups using Configuration data and fixture ID mapping
     create_channels_groups(engine, config, fixture_id_map, fixture_definitions)
 
-    # Create Shows using Configuration data and collect show function IDs
-    export_overrides = {}
-    if vc_options and vc_options.get('override_intensity_255'):
-        export_overrides['override_intensity_255'] = True
-    function_id_counter = create_shows(engine, config, fixture_id_map, fixture_definitions,
-                                       export_overrides=export_overrides)
-
-    # Detect fixture group capabilities for VC generation
+    # Detect fixture group capabilities (needed for PAUSE show and VC generation)
     capabilities_map = {}
     for group_name, group in config.groups.items():
         if group.fixtures:
             capabilities_map[group_name] = detect_fixture_group_capabilities(
                 group.fixtures, fixture_definitions
             )
+
+    # Generate PAUSE show if configured
+    _injected_pause = False
+    if config.pause_show and config.pause_show.enabled:
+        from utils.pause_show_generator import generate_pause_show
+        from utils.midi_utils import ensure_midi_device_in_config
+        pause_show = generate_pause_show(config, fixture_definitions, capabilities_map)
+        if pause_show:
+            config.shows["PAUSE"] = pause_show
+            _injected_pause = True
+            # Ensure MIDI device exists for the pause trigger
+            if config.pause_show.trigger_device:
+                ensure_midi_device_in_config(config, config.pause_show.trigger_device)
+
+    # Create Shows using Configuration data and collect show function IDs
+    export_overrides = {}
+    if vc_options and vc_options.get('override_intensity_255'):
+        export_overrides['override_intensity_255'] = True
+    function_id_counter = create_shows(engine, config, fixture_id_map, fixture_definitions,
+                                       export_overrides=export_overrides)
 
     # Collect show function IDs for show buttons
     show_function_ids = {}
@@ -135,6 +148,10 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
         grandmaster.set("ChannelMode", "Intensity")
         grandmaster.set("ValueMode", "Reduce")
         grandmaster.set("SliderMode", "Normal")
+
+    # Remove injected PAUSE show from config (it's ephemeral, only for export)
+    if _injected_pause:
+        del config.shows["PAUSE"]
 
     # Create SimpleDesk section
     simple_desk = ET.SubElement(engine, "SimpleDesk")
