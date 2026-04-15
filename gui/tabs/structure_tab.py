@@ -395,8 +395,8 @@ class StructureTab(BaseTab):
         toolbar.addWidget(ch_label)
 
         self.trigger_channel_spin = QSpinBox()
-        self.trigger_channel_spin.setRange(0, 511)
-        self.trigger_channel_spin.setValue(0)
+        self.trigger_channel_spin.setRange(1, 512)
+        self.trigger_channel_spin.setValue(1)
         self.trigger_channel_spin.setEnabled(False)
         self.trigger_channel_spin.setFixedWidth(70)
         toolbar.addWidget(self.trigger_channel_spin)
@@ -863,11 +863,11 @@ class StructureTab(BaseTab):
                 self.trigger_device_combo.addItem(self.current_show.trigger_device)
                 self.trigger_device_combo.setCurrentText(self.current_show.trigger_device)
             self.trigger_channel_spin.setEnabled(True)
-            self.trigger_channel_spin.setValue(max(0, self.current_show.trigger_channel))
+            self.trigger_channel_spin.setValue(max(1, self.current_show.trigger_channel))
         else:
             self.trigger_device_combo.setCurrentIndex(0)  # "No Trigger"
             self.trigger_channel_spin.setEnabled(False)
-            self.trigger_channel_spin.setValue(0)
+            self.trigger_channel_spin.setValue(1)
 
         self.trigger_device_combo.blockSignals(False)
         self.trigger_channel_spin.blockSignals(False)
@@ -881,12 +881,12 @@ class StructureTab(BaseTab):
             self.current_show.trigger_device = ""
             self.current_show.trigger_channel = -1
             self.trigger_channel_spin.setEnabled(False)
-            self.trigger_channel_spin.setValue(0)
+            self.trigger_channel_spin.setValue(1)
         else:
             self.current_show.trigger_device = device_name
             self.trigger_channel_spin.setEnabled(True)
             if self.current_show.trigger_channel < 0:
-                self.current_show.trigger_channel = 0
+                self.current_show.trigger_channel = 1
 
             # Auto-create MIDI input device in config if not already present
             self._ensure_midi_device(device_name)

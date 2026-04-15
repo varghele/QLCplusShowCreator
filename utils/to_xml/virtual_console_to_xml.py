@@ -926,7 +926,7 @@ def build_virtual_console(
                     if midi_dev.name == show.trigger_device:
                         trigger_input = ET.SubElement(button, "Input")
                         trigger_input.set("Universe", str(midi_dev.universe_id))
-                        trigger_input.set("Channel", str(show.trigger_channel))
+                        trigger_input.set("Channel", str(show.trigger_channel - 1))
                         # TODO: make LowerValue/UpperValue/UpperParams configurable
                         trigger_input.set("LowerValue", "1")
                         trigger_input.set("UpperValue", "26")
