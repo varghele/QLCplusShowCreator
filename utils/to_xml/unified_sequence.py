@@ -211,7 +211,7 @@ def sample_dimmer_at_time(
     step_idx: int,
     total_steps: int,
     bpm: float = 120.0,
-    override_intensity_255: bool = False
+    max_intensity: int = 255
 ) -> Optional[int]:
     """
     Sample the dimmer intensity at a given time.
@@ -224,7 +224,7 @@ def sample_dimmer_at_time(
         step_idx: Current step index (for animated effects)
         total_steps: Total number of steps
         bpm: Beats per minute for timing calculations
-        override_intensity_255: If True, force base intensity to 255
+        max_intensity: Maximum intensity for this group (0-255), scales proportionally
 
     Returns:
         Intensity value (0-255) or None if no dimmer block at this time
@@ -239,7 +239,7 @@ def sample_dimmer_at_time(
     if not active_block:
         return None
 
-    base_intensity = 255 if override_intensity_255 else int(active_block.intensity)
+    base_intensity = int(int(active_block.intensity) * max_intensity / 255)
     effect_type = active_block.effect_type
 
     # Calculate relative position within the block
@@ -1101,8 +1101,8 @@ def build_unified_step(
 
         # Sample all effect types at this time
         # Use global_fixture_idx and total_fixtures_for_effects for cross-group effects
-        _override_intensity = bool(export_overrides and export_overrides.get('override_intensity_255'))
-        dimmer_value = sample_dimmer_at_time(time_s, dimmer_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm, override_intensity_255=_override_intensity)
+        _max_intensity = export_overrides.get('group_max_intensity', 255) if export_overrides else 255
+        dimmer_value = sample_dimmer_at_time(time_s, dimmer_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm, max_intensity=_max_intensity)
         movement_values = sample_movement_at_time(time_s, movement_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm, signature, config, fixture)
         colour_values = sample_colour_at_time(time_s, colour_blocks)
         special_values = sample_special_at_time(time_s, special_blocks)
@@ -1178,7 +1178,7 @@ def build_unified_step(
                     # For pixelbar twinkle/waterfall, set dimmer to block's base intensity
                     # (effect modulation happens in color channels)
                     if is_pixelbar_sparkle or is_pixelbar_waterfall:
-                        dimmer_to_use = 255 if _override_intensity else int(active_dimmer_block.intensity)
+                        dimmer_to_use = int(int(active_dimmer_block.intensity) * _max_intensity / 255)
                     else:
                         dimmer_to_use = dimmer_value
                     channel_values.append(f"{ch['channel']},{dimmer_to_use}")

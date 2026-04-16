@@ -805,10 +805,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """Create QLC+ workspace file from configuration"""
         try:
             # Show workspace options dialog
-            options_dialog = WorkspaceOptionsDialog(self)
+            options_dialog = WorkspaceOptionsDialog(self, config=self.config)
             if options_dialog.exec() != options_dialog.DialogCode.Accepted:
                 return  # User cancelled
 
+            options_dialog.save_group_intensities()
             vc_options = options_dialog.get_options()
 
             # Show progress dialog with log area

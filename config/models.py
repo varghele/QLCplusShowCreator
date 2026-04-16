@@ -100,6 +100,9 @@ class FixtureGroup:
     # User-assigned lighting role for autogen activation decisions
     lighting_role: str = ""  # "backbone", "accent", "ambient", "movement", "effect"
 
+    # Max DMX intensity for export (0-255), used for brightness balancing across groups
+    export_intensity: int = 255
+
 
 @dataclass
 class FixtureGroupCapabilities:
@@ -1277,6 +1280,7 @@ class Configuration:
                     'default_roll': group.default_roll,
                     'default_z_height': group.default_z_height,
                     'lighting_role': group.lighting_role,
+                    'export_intensity': group.export_intensity,
                     'fixtures': [asdict(f) for f in group.fixtures]
                 }
                 for name, group in self.groups.items()
@@ -1360,6 +1364,7 @@ class Configuration:
                 default_roll=group_data.get('default_roll', 0.0),
                 default_z_height=group_data.get('default_z_height', 3.0),
                 lighting_role=group_data.get('lighting_role', ''),
+                export_intensity=group_data.get('export_intensity', 255),
             )
 
         # Handle shows

@@ -86,8 +86,8 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
 
     # Create Shows using Configuration data and collect show function IDs
     export_overrides = {}
-    if vc_options and vc_options.get('override_intensity_255'):
-        export_overrides['override_intensity_255'] = True
+    if vc_options and 'group_intensities' in vc_options:
+        export_overrides['group_intensities'] = vc_options['group_intensities']
     function_id_counter = create_shows(engine, config, fixture_id_map, fixture_definitions,
                                        export_overrides=export_overrides)
 

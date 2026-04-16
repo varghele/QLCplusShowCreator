@@ -4520,6 +4520,7 @@ groups:
     default_roll: 90.0
     default_yaw: 0.0
     default_z_height: 2.0
+    export_intensity: 255
     fixtures:
     - address: 13
       available_modes:
@@ -4658,6 +4659,7 @@ groups:
     default_roll: 0.0
     default_yaw: 0.0
     default_z_height: 3.0
+    export_intensity: 255
     fixtures:
     - address: 293
       available_modes:
@@ -4692,6 +4694,7 @@ groups:
     default_roll: 0.0
     default_yaw: 0.0
     default_z_height: 2.0
+    export_intensity: 255
     fixtures:
     - address: 64
       available_modes:
@@ -4790,6 +4793,7 @@ groups:
     default_roll: 90.0
     default_yaw: 0.0
     default_z_height: 2.0
+    export_intensity: 255
     fixtures:
     - address: 78
       available_modes:
@@ -4852,6 +4856,7 @@ groups:
     default_roll: 0.0
     default_yaw: 0.0
     default_z_height: 0.0
+    export_intensity: 255
     fixtures:
     - address: 1
       available_modes:

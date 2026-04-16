@@ -887,11 +887,16 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
             has_colour = group_capabilities.has_colour if group_capabilities else False
             has_movement = group_capabilities.has_movement if group_capabilities else False
 
+            # Build per-group export overrides with group-specific intensity scaling
+            track_overrides = dict(export_overrides)
+            group_intensity = export_overrides.get('group_intensities', {}).get(group_name, 255)
+            track_overrides['group_max_intensity'] = group_intensity
+
             # Process light blocks using unified sequence approach
             # This creates ONE sequence per LightBlock with ALL effects combined
             from utils.to_xml.unified_sequence import generate_unified_sequence_steps
 
-            print(f"    Processing {len(lane.light_blocks)} light blocks for group '{group_name}'")
+            print(f"    Processing {len(lane.light_blocks)} light blocks for group '{group_name}' (export intensity: {group_intensity})")
 
             for block_idx, block in enumerate(lane.light_blocks):
                 # Check if this block has any sublane blocks
@@ -940,7 +945,7 @@ def create_tracks_from_timeline(show_function, engine, show, config, fixture_id_
                         signature=block_signature,
                         all_lane_fixtures=sorted_lane_fixtures,  # All fixtures in lane for cross-group effects
                         config=config,  # Pass config for spot targeting
-                        export_overrides=export_overrides
+                        export_overrides=track_overrides
                     )
 
                     print(f"      Generated {len(steps) if steps else 0} steps")
@@ -994,7 +999,7 @@ def create_shows(engine, config: Configuration, fixture_id_map: dict, fixture_de
         config: Configuration object containing show data
         fixture_id_map: Dictionary mapping fixture object IDs to their sequential IDs
         fixture_definitions: Dictionary of fixture definitions loaded from QLC+
-        export_overrides: Optional dict with export-time overrides (e.g. override_intensity_255)
+        export_overrides: Optional dict with export-time overrides (e.g. group_intensities)
     Returns:
         int: Next available function ID
     """
