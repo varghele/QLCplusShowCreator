@@ -755,6 +755,74 @@ shows:
       signature: 4/4
       transition: instant
     timeline_data:
+      audio_file_path: ''
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  LYRA_dank_dir:
+    effects: []
+    parts:
+    - bpm: 134.0
+      color: '#ffffff'
+      name: Klick
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 134.0
+      color: '#aaaaff'
+      name: Intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 134.0
+      color: '#00ffff'
+      name: Verse1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 134.0
+      color: '#ff007f'
+      name: Chorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 134.0
+      color: '#00ffff'
+      name: Verse2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 134.0
+      color: '#ff007f'
+      name: Chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 134.0
+      color: '#00ff7f'
+      name: Bridge1
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 134.0
+      color: '#ff007f'
+      name: Chorus3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 134.0
+      color: '#00ff7f'
+      name: Bridge2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 134.0
+      color: '#ff0000'
+      name: Outro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    timeline_data:
       audio_file_path: null
       lanes: []
     trigger_channel: null
@@ -906,6 +974,62 @@ shows:
       color: '#ff0000'
       name: Outro
       num_bars: 8
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  LYRA_mein_kind:
+    effects: []
+    parts:
+    - bpm: 130.0
+      color: '#ffffff'
+      name: Klick
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#aaaaff'
+      name: Intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ffff'
+      name: Verse1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff007f'
+      name: Chorus1
+      num_bars: 24
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ffff'
+      name: Verse2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff007f'
+      name: Chorus2
+      num_bars: 24
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ffff'
+      name: Verse3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff007f'
+      name: Chorus3
+      num_bars: 24
       signature: 4/4
       transition: instant
     timeline_data:
