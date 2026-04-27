@@ -1,0 +1,2426 @@
+fixtures:
+- address: 1
+  available_modes:
+  - channels: 3
+    name: 3 Channels
+  - channels: 4
+    name: 4 Channels
+  - channels: 5
+    name: 5 Channels
+  - channels: 8
+    name: 8 Channels
+  - channels: 10
+    name: 10 Channels
+  - channels: 48
+    name: 48 Channels
+  - channels: 51
+    name: 51 Channels
+  current_mode: 51 Channels
+  group: BARS
+  manufacturer: Varytec
+  model: Giga Bar 5 LED RGBW
+  mounting: custom
+  name: B1
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 90.0
+  type: PIXELBAR
+  universe: 1
+  x: -3.0
+  y: -4.0
+  yaw: 0.0
+  z: 3.0
+  z_uses_group_default: false
+- address: 52
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  group: MHS
+  manufacturer: Varytec
+  model: Hero Spot 60
+  mounting: wall_back
+  name: MH1
+  orientation_uses_group_default: true
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 1
+  x: -1.5
+  y: -4.0
+  yaw: 0.0
+  z: 3.0
+  z_uses_group_default: true
+- address: 66
+  available_modes:
+  - channels: 1
+    name: 1 Channel Mode
+  - channels: 2
+    name: 2 Channels Mode
+  - channels: 5
+    name: 5 Channels Mode
+  - channels: 10
+    name: 10 Channels Mode
+  current_mode: 10 Channels Mode
+  group: SUNS
+  manufacturer: Showtec
+  model: Sunstrip Active
+  mounting: custom
+  name: S1
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 90.0
+  type: SUNSTRIP
+  universe: 1
+  x: 0.0
+  y: -4.0
+  yaw: 0.0
+  z: 3.0
+  z_uses_group_default: false
+- address: 76
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  group: MHS
+  manufacturer: Varytec
+  model: Hero Spot 60
+  mounting: wall_back
+  name: MH2
+  orientation_uses_group_default: true
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 1
+  x: 1.5
+  y: -4.0
+  yaw: 0.0
+  z: 3.0
+  z_uses_group_default: true
+- address: 90
+  available_modes:
+  - channels: 3
+    name: 3 Channels
+  - channels: 4
+    name: 4 Channels
+  - channels: 5
+    name: 5 Channels
+  - channels: 8
+    name: 8 Channels
+  - channels: 10
+    name: 10 Channels
+  - channels: 48
+    name: 48 Channels
+  - channels: 51
+    name: 51 Channels
+  current_mode: 51 Channels
+  group: BARS
+  manufacturer: Varytec
+  model: Giga Bar 5 LED RGBW
+  mounting: custom
+  name: B2
+  orientation_uses_group_default: true
+  pitch: 0.0
+  roll: 90.0
+  type: PIXELBAR
+  universe: 1
+  x: 3.0
+  y: -4.0
+  yaw: 0.0
+  z: 3.0
+  z_uses_group_default: true
+- address: 141
+  available_modes:
+  - channels: 3
+    name: 3 Channels
+  - channels: 4
+    name: 4 Channels
+  - channels: 5
+    name: 5 Channels
+  - channels: 8
+    name: 8 Channels
+  - channels: 10
+    name: 10 Channels
+  - channels: 48
+    name: 48 Channels
+  - channels: 51
+    name: 51 Channels
+  current_mode: 51 Channels
+  group: BARS
+  manufacturer: Varytec
+  model: Giga Bar 5 LED RGBW
+  mounting: custom
+  name: B3
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 90.0
+  type: PIXELBAR
+  universe: 1
+  x: 4.5
+  y: -3.0
+  yaw: -90.0
+  z: 3.0
+  z_uses_group_default: false
+- address: 192
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  group: MHS
+  manufacturer: Varytec
+  model: Hero Spot 60
+  mounting: wall_left
+  name: MH3
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 1
+  x: 4.5
+  y: -1.5
+  yaw: -90.0
+  z: 3.0
+  z_uses_group_default: false
+- address: 206
+  available_modes:
+  - channels: 1
+    name: 1 Channel Mode
+  - channels: 2
+    name: 2 Channels Mode
+  - channels: 5
+    name: 5 Channels Mode
+  - channels: 10
+    name: 10 Channels Mode
+  current_mode: 10 Channels Mode
+  group: SUNS
+  manufacturer: Showtec
+  model: Sunstrip Active
+  mounting: custom
+  name: S2
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 90.0
+  type: SUNSTRIP
+  universe: 1
+  x: 4.0
+  y: 0.0
+  yaw: -90.0
+  z: 3.0
+  z_uses_group_default: false
+- address: 216
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  group: MHS
+  manufacturer: Varytec
+  model: Hero Spot 60
+  mounting: wall_left
+  name: MH4
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 1
+  x: 4.5
+  y: 1.5
+  yaw: -90.0
+  z: 3.0
+  z_uses_group_default: false
+- address: 230
+  available_modes:
+  - channels: 3
+    name: 3 Channels
+  - channels: 4
+    name: 4 Channels
+  - channels: 5
+    name: 5 Channels
+  - channels: 8
+    name: 8 Channels
+  - channels: 10
+    name: 10 Channels
+  - channels: 48
+    name: 48 Channels
+  - channels: 51
+    name: 51 Channels
+  current_mode: 51 Channels
+  group: BARS
+  manufacturer: Varytec
+  model: Giga Bar 5 LED RGBW
+  mounting: custom
+  name: B4
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 90.0
+  type: PIXELBAR
+  universe: 1
+  x: 4.5
+  y: 2.5
+  yaw: -90.0
+  z: 3.0
+  z_uses_group_default: false
+- address: 281
+  available_modes:
+  - channels: 4
+    name: 4 Channel
+  - channels: 6
+    name: 6 Channel
+  - channels: 8
+    name: 8 Channel
+  current_mode: 8 Channel
+  group: PARS
+  manufacturer: Stairville
+  model: 'Retro Flat Par 18x12W RGBW '
+  mounting: standing
+  name: P1
+  orientation_uses_group_default: false
+  pitch: -90.0
+  roll: 0.0
+  type: WASH
+  universe: 1
+  x: 0.0
+  y: -4.5
+  yaw: 0.0
+  z: 3.0
+  z_uses_group_default: false
+- address: 289
+  available_modes:
+  - channels: 4
+    name: 4 Channel
+  - channels: 6
+    name: 6 Channel
+  - channels: 8
+    name: 8 Channel
+  current_mode: 8 Channel
+  group: PARS
+  manufacturer: Stairville
+  model: 'Retro Flat Par 18x12W RGBW '
+  mounting: standing
+  name: P2
+  orientation_uses_group_default: true
+  pitch: -90.0
+  roll: 0.0
+  type: WASH
+  universe: 1
+  x: 4.5
+  y: 0.0
+  yaw: 0.0
+  z: 3.0
+  z_uses_group_default: true
+groups:
+  BARS:
+    color: '#ffb6c1'
+    default_mounting: custom
+    default_pitch: 0.0
+    default_roll: 90.0
+    default_yaw: 0.0
+    default_z_height: 3.0
+    export_intensity: 255
+    fixtures:
+    - address: 1
+      available_modes:
+      - channels: 3
+        name: 3 Channels
+      - channels: 4
+        name: 4 Channels
+      - channels: 5
+        name: 5 Channels
+      - channels: 8
+        name: 8 Channels
+      - channels: 10
+        name: 10 Channels
+      - channels: 48
+        name: 48 Channels
+      - channels: 51
+        name: 51 Channels
+      current_mode: 51 Channels
+      group: BARS
+      manufacturer: Varytec
+      model: Giga Bar 5 LED RGBW
+      mounting: custom
+      name: B1
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 90.0
+      type: PIXELBAR
+      universe: 1
+      x: -3.0
+      y: -4.0
+      yaw: 0.0
+      z: 3.0
+      z_uses_group_default: false
+    - address: 90
+      available_modes:
+      - channels: 3
+        name: 3 Channels
+      - channels: 4
+        name: 4 Channels
+      - channels: 5
+        name: 5 Channels
+      - channels: 8
+        name: 8 Channels
+      - channels: 10
+        name: 10 Channels
+      - channels: 48
+        name: 48 Channels
+      - channels: 51
+        name: 51 Channels
+      current_mode: 51 Channels
+      group: BARS
+      manufacturer: Varytec
+      model: Giga Bar 5 LED RGBW
+      mounting: custom
+      name: B2
+      orientation_uses_group_default: true
+      pitch: 0.0
+      roll: 90.0
+      type: PIXELBAR
+      universe: 1
+      x: 3.0
+      y: -4.0
+      yaw: 0.0
+      z: 3.0
+      z_uses_group_default: true
+    - address: 141
+      available_modes:
+      - channels: 3
+        name: 3 Channels
+      - channels: 4
+        name: 4 Channels
+      - channels: 5
+        name: 5 Channels
+      - channels: 8
+        name: 8 Channels
+      - channels: 10
+        name: 10 Channels
+      - channels: 48
+        name: 48 Channels
+      - channels: 51
+        name: 51 Channels
+      current_mode: 51 Channels
+      group: BARS
+      manufacturer: Varytec
+      model: Giga Bar 5 LED RGBW
+      mounting: custom
+      name: B3
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 90.0
+      type: PIXELBAR
+      universe: 1
+      x: 4.5
+      y: -3.0
+      yaw: -90.0
+      z: 3.0
+      z_uses_group_default: false
+    - address: 230
+      available_modes:
+      - channels: 3
+        name: 3 Channels
+      - channels: 4
+        name: 4 Channels
+      - channels: 5
+        name: 5 Channels
+      - channels: 8
+        name: 8 Channels
+      - channels: 10
+        name: 10 Channels
+      - channels: 48
+        name: 48 Channels
+      - channels: 51
+        name: 51 Channels
+      current_mode: 51 Channels
+      group: BARS
+      manufacturer: Varytec
+      model: Giga Bar 5 LED RGBW
+      mounting: custom
+      name: B4
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 90.0
+      type: PIXELBAR
+      universe: 1
+      x: 4.5
+      y: 2.5
+      yaw: -90.0
+      z: 3.0
+      z_uses_group_default: false
+    lighting_role: wash
+    name: BARS
+  MHS:
+    color: '#add8e6'
+    default_mounting: wall_back
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 3.0
+    export_intensity: 255
+    fixtures:
+    - address: 52
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      group: MHS
+      manufacturer: Varytec
+      model: Hero Spot 60
+      mounting: wall_back
+      name: MH1
+      orientation_uses_group_default: true
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: -1.5
+      y: -4.0
+      yaw: 0.0
+      z: 3.0
+      z_uses_group_default: true
+    - address: 76
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      group: MHS
+      manufacturer: Varytec
+      model: Hero Spot 60
+      mounting: wall_back
+      name: MH2
+      orientation_uses_group_default: true
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: 1.5
+      y: -4.0
+      yaw: 0.0
+      z: 3.0
+      z_uses_group_default: true
+    - address: 192
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      group: MHS
+      manufacturer: Varytec
+      model: Hero Spot 60
+      mounting: wall_left
+      name: MH3
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: 4.5
+      y: -1.5
+      yaw: -90.0
+      z: 3.0
+      z_uses_group_default: false
+    - address: 216
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      group: MHS
+      manufacturer: Varytec
+      model: Hero Spot 60
+      mounting: wall_left
+      name: MH4
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: 4.5
+      y: 1.5
+      yaw: -90.0
+      z: 3.0
+      z_uses_group_default: false
+    lighting_role: wash
+    name: MHS
+  PARS:
+    color: '#ffdab9'
+    default_mounting: standing
+    default_pitch: -90.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 3.0
+    export_intensity: 255
+    fixtures:
+    - address: 281
+      available_modes:
+      - channels: 4
+        name: 4 Channel
+      - channels: 6
+        name: 6 Channel
+      - channels: 8
+        name: 8 Channel
+      current_mode: 8 Channel
+      group: PARS
+      manufacturer: Stairville
+      model: 'Retro Flat Par 18x12W RGBW '
+      mounting: standing
+      name: P1
+      orientation_uses_group_default: false
+      pitch: -90.0
+      roll: 0.0
+      type: WASH
+      universe: 1
+      x: 0.0
+      y: -4.5
+      yaw: 0.0
+      z: 3.0
+      z_uses_group_default: false
+    - address: 289
+      available_modes:
+      - channels: 4
+        name: 4 Channel
+      - channels: 6
+        name: 6 Channel
+      - channels: 8
+        name: 8 Channel
+      current_mode: 8 Channel
+      group: PARS
+      manufacturer: Stairville
+      model: 'Retro Flat Par 18x12W RGBW '
+      mounting: standing
+      name: P2
+      orientation_uses_group_default: true
+      pitch: -90.0
+      roll: 0.0
+      type: WASH
+      universe: 1
+      x: 4.5
+      y: 0.0
+      yaw: 0.0
+      z: 3.0
+      z_uses_group_default: true
+    lighting_role: texture
+    name: PARS
+  SUNS:
+    color: '#90ee90'
+    default_mounting: custom
+    default_pitch: 0.0
+    default_roll: 90.0
+    default_yaw: 0.0
+    default_z_height: 3.0
+    export_intensity: 255
+    fixtures:
+    - address: 66
+      available_modes:
+      - channels: 1
+        name: 1 Channel Mode
+      - channels: 2
+        name: 2 Channels Mode
+      - channels: 5
+        name: 5 Channels Mode
+      - channels: 10
+        name: 10 Channels Mode
+      current_mode: 10 Channels Mode
+      group: SUNS
+      manufacturer: Showtec
+      model: Sunstrip Active
+      mounting: custom
+      name: S1
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 90.0
+      type: SUNSTRIP
+      universe: 1
+      x: 0.0
+      y: -4.0
+      yaw: 0.0
+      z: 3.0
+      z_uses_group_default: false
+    - address: 206
+      available_modes:
+      - channels: 1
+        name: 1 Channel Mode
+      - channels: 2
+        name: 2 Channels Mode
+      - channels: 5
+        name: 5 Channels Mode
+      - channels: 10
+        name: 10 Channels Mode
+      current_mode: 10 Channels Mode
+      group: SUNS
+      manufacturer: Showtec
+      model: Sunstrip Active
+      mounting: custom
+      name: S2
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 90.0
+      type: SUNSTRIP
+      universe: 1
+      x: 4.0
+      y: 0.0
+      yaw: -90.0
+      z: 3.0
+      z_uses_group_default: false
+    lighting_role: accent
+    name: SUNS
+midi_input_devices: null
+pause_show: null
+shows:
+  LYRA_an_guten_tagen:
+    effects: []
+    parts:
+    - bpm: 128.0
+      color: '#ffffff'
+      name: Klick
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 128.0
+      color: '#aaaaff'
+      name: Intro
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 128.0
+      color: '#00ffff'
+      name: Vers1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 128.0
+      color: '#00ffff'
+      name: Vers2
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 128.0
+      color: '#ff007f'
+      name: Chorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 128.0
+      color: '#00ffff'
+      name: Vers3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 128.0
+      color: '#00ffff'
+      name: Vers4
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 128.0
+      color: '#ff007f'
+      name: Chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 128.0
+      color: '#00ff7f'
+      name: Bridge
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 128.0
+      color: '#ffaa00'
+      name: Interlude
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 128.0
+      color: '#4CAF50'
+      name: Chorus
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 128.0
+      color: '#ff0000'
+      name: Outro
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  LYRA_dont_stop_believing:
+    effects: []
+    parts:
+    - bpm: 130.0
+      color: '#ffffff'
+      name: Klick
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#aaaaff'
+      name: Intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ffff'
+      name: Vers1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ffaa00'
+      name: Solo1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ffff'
+      name: Vers2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff007f'
+      name: Chorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ff7f'
+      name: Riff
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ffff'
+      name: Vers3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff007f'
+      name: Chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ffaa00'
+      name: Solo2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff007f'
+      name: Chorus3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff0000'
+      name: Outro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  LYRA_es_war_schoen:
+    effects: []
+    parts:
+    - bpm: 93.0
+      color: '#ffffff'
+      name: Klick
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 93.0
+      color: '#aaaaff'
+      name: Intro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 93.0
+      color: '#00ffff'
+      name: Vers1
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 93.0
+      color: '#ff007f'
+      name: Chorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 93.0
+      color: '#ff557f'
+      name: Postchorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 93.0
+      color: '#00ffff'
+      name: Vers2
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 93.0
+      color: '#ff007f'
+      name: Chorus2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 93.0
+      color: '#ffff00'
+      name: Prebridge
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 93.0
+      color: '#55ff00'
+      name: Bridge
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 93.0
+      color: '#ff007f'
+      name: Chorus3
+      num_bars: 17
+      signature: 4/4
+      transition: instant
+    - bpm: 93.0
+      color: '#ff0000'
+      name: Outro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  LYRA_zeit_fuer_optimisten:
+    effects: []
+    parts:
+    - bpm: 194.0
+      color: '#ffffff'
+      name: Klick
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#aaaaff'
+      name: Intro
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#00ffff'
+      name: Vers1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#00ffff'
+      name: Vers2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#ff007f'
+      name: Chorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#ffaa00'
+      name: Interlude1
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#00ffff'
+      name: Vers3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#ff007f'
+      name: Chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#ffaa00'
+      name: Interlude2
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#ff5500'
+      name: Solo
+      num_bars: 20
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#ff007f'
+      name: Chorus3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#ff007f'
+      name: Chorus4
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 194.0
+      color: '#ff0000'
+      name: Outro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  New Show:
+    effects: []
+    parts:
+    - bpm: 120.0
+      color: '#4CAF50'
+      name: Intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_cycle_of_a_pscho:
+    effects: []
+    parts:
+    - bpm: 103.5
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 1
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#00ffff'
+      name: intro
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#00ffff'
+      name: vers1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#00ff00'
+      name: bridge1
+      num_bars: 5
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#0040ff'
+      name: drop1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ffff00'
+      name: prechorus2
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#0040ff'
+      name: drop2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ffffff'
+      name: pause
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#0040ff'
+      name: drop3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ffffff'
+      name: quiet
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 13
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ff0000'
+      name: outro
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_devils_dance:
+    effects: []
+    parts:
+    - bpm: 90.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 1
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 19
+      signature: 2/4
+      transition: instant
+    - bpm: 90.0
+      color: '#0040ff'
+      name: bassline
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#0040ff'
+      name: full
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#ff8000'
+      name: interlude
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#ff0080'
+      name: chorus
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#ffff00'
+      name: prechorus2
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#00ff00'
+      name: bridge2
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#ffff00'
+      name: prechorus3
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#ff0080'
+      name: chorus4
+      num_bars: 13
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_everybody:
+    effects: []
+    parts:
+    - bpm: 192.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#0040ff'
+      name: intro
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#0040ff'
+      name: speech
+      num_bars: 22
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 22
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#ff0080'
+      name: chorus
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#00ff00'
+      name: bridge2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#0040ff'
+      name: speech2
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 27
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_highway_to_hell:
+    effects: []
+    parts:
+    - bpm: 125.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 1
+      signature: 4/4
+      transition: instant
+    - bpm: 125.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 125.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 17
+      signature: 4/4
+      transition: instant
+    - bpm: 125.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 125.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 17
+      signature: 4/4
+      transition: instant
+    - bpm: 125.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 125.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 125.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 125.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 125.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 11
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_hit_the_road_jack:
+    effects: []
+    parts:
+    - bpm: 180.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#0040ff'
+      name: posaune
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#00ffff'
+      name: vers3
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff0080'
+      name: chorus4
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_insane:
+    effects: []
+    parts:
+    - bpm: 210.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#0040ff'
+      name: drop
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 18
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#0040ff'
+      name: drop
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_intro_and_devils_dance:
+    effects: []
+    parts:
+    - bpm: 90.0
+      color: '#0040ff'
+      name: intromusone
+      num_bars: 6
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#0040ff'
+      name: intromustwo
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#0040ff'
+      name: intromusthree
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 3
+      signature: 2/4
+      transition: instant
+    - bpm: 90.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 18
+      signature: 2/4
+      transition: instant
+    - bpm: 130.0
+      color: '#0040ff'
+      name: bassline
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#0040ff'
+      name: full
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ff00'
+      name: interlude
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff0080'
+      name: chorus
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ffff00'
+      name: prechorus2
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ff00'
+      name: bridge2
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ffff00'
+      name: prechorus3
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff0080'
+      name: chorus4
+      num_bars: 13
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_monsters_in_my_head:
+    effects: []
+    parts:
+    - bpm: 192.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#0040ff'
+      name: bpart
+      num_bars: 15
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 11
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: postchorus1
+      num_bars: 11
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 11
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#0040ff'
+      name: bpart2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#0040ff'
+      name: drop
+      num_bars: 15
+      signature: 2/4
+      transition: instant
+    - bpm: 192.0
+      color: '#00ff00'
+      name: pause
+      num_bars: 15
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: chorus4
+      num_bars: 13
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: outro
+      num_bars: 5
+      signature: 4/4
+      transition: gradual
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_old_school_medicine:
+    effects: []
+    parts:
+    - bpm: 190.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 1
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#0040ff'
+      name: riff1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 32
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#0040ff'
+      name: riff2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 32
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff8000'
+      name: solo1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff8000'
+      name: solo2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff8000'
+      name: interlude
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#0040ff'
+      name: aufstieg
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff0080'
+      name: chorus
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_party_of_one:
+    effects: []
+    parts:
+    - bpm: 192.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 13
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#00ff00'
+      name: bridge1
+      num_bars: 15
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#00ff00'
+      name: bridge2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#ff8000'
+      name: drop
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#0040ff'
+      name: cpart
+      num_bars: 29
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#0040ff'
+      name: outro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_swingin_it:
+    effects: []
+    parts:
+    - bpm: 183.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#0040ff'
+      name: riff1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff8000'
+      name: interlude1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#0040ff'
+      name: groove1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff8000'
+      name: interlude2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff8000'
+      name: interlude3
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus4
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#0040ff'
+      name: groove2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff8000'
+      name: interlude3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus5
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ffffff'
+      name: pause
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus6
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus7
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ffffff'
+      name: pause2
+      num_bars: 5
+      signature: 2/4
+      transition: instant
+    - bpm: 183.0
+      color: '#0040ff'
+      name: groove3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_take_the_wheel:
+    effects: []
+    parts:
+    - bpm: 193.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 3
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ffff'
+      name: intro1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ffff'
+      name: intro2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ff00'
+      name: bridge1
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ff00'
+      name: bridge2
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ffff00'
+      name: prechorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff8000'
+      name: interlude
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#0040ff'
+      name: chant1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#0040ff'
+      name: chant2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ffff00'
+      name: prechorus3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff0000'
+      name: outro2
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_under_the_sea_pt1:
+    effects: []
+    parts:
+    - bpm: 210.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 3
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 14
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#00ff00'
+      name: bridge1
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ffff00'
+      name: prechorus2
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 14
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 14
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#00ff00'
+      name: bridge2
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#0040ff'
+      name: bpart
+      num_bars: 6
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 64
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_under_the_sea_pt2:
+    effects: []
+    parts:
+    - bpm: 210.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#0040ff'
+      name: riff
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ff0080'
+      name: chorus
+      num_bars: 20
+      signature: 4/4
+      transition: instant
+    - bpm: 210.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+  SBD_what_the_funk:
+    effects: []
+    parts:
+    - bpm: 115.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#00ffff'
+      name: intro1
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#00ffff'
+      name: intro2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 123.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 123.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#ff0080'
+      name: chorus4
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: null
+      lanes: []
+    trigger_channel: null
+    trigger_device: null
+shows_directory: C:\Users\varghele\PycharmProjects\QLCplusShowCreator\shows
+spots: {}
+universes:
+  '1':
+    name: Universe 1
+    output:
+      line: '0'
+      parameters:
+        ip: 255.255.255.255
+        subnet: '0'
+        universe: '1'
+      plugin: ArtNet
+workspace_path: null
