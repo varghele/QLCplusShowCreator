@@ -583,39 +583,50 @@ class FixturesTab(BaseTab):
                                     self.color_index += 1
 
                         color = self.group_colors[group_name]
-                        # Group pastels are all light; readable text on them
-                        # is dark. Compute luminance per-color so this still
-                        # works if the user picks a darker custom color
-                        # later — fallback to white text on dark colors.
+                        # Pick text foreground from background luminance so
+                        # readability survives any group color (predefined
+                        # pastels resolve to black; a dark custom color
+                        # would automatically flip to white).
                         luminance = (
                             0.299 * color.red()
                             + 0.587 * color.green()
                             + 0.114 * color.blue()
                         ) / 255.0
                         fg = QtGui.QColor(0, 0, 0) if luminance > 0.5 else QtGui.QColor(255, 255, 255)
+                        fg_hex = fg.name()
 
-                        # All four text cells get the same hue. Widget cells
-                        # (Universe / Address / Mode / Group / Role) stay
-                        # theme-styled — coloring them requires a different
-                        # mechanism (likely a custom delegate) and isn't
-                        # blocked here.
-                        for col in (2, 3, 4, 6):  # Manufacturer, Model, Channels, Name
+                        # Iterate every column once; text cells get
+                        # item.setBackground / setForeground (Qt paints those
+                        # via the delegate now that the QTableView::item rule
+                        # is gone), widget cells get a per-widget stylesheet
+                        # that overrides only background-color + color while
+                        # the global theme still supplies border / padding.
+                        widget_qss = (
+                            f"background-color: {color.name()}; color: {fg_hex};"
+                        )
+                        for col in range(self.table.columnCount()):
                             item = self.table.item(row, col)
                             if item is not None:
                                 item.setBackground(color)
                                 item.setForeground(fg)
+                            cell_widget = self.table.cellWidget(row, col)
+                            if cell_widget is not None:
+                                cell_widget.setStyleSheet(widget_qss)
 
                         if group_name in self.config.groups:
                             self.config.groups[group_name].color = color.name()
                     else:
-                        # Ungrouped — clear background AND foreground on the
-                        # text cells so theme defaults apply on both.
+                        # Ungrouped — clear every per-cell override so theme
+                        # defaults apply on both items and cell widgets.
                         empty_brush = QtGui.QBrush()
-                        for col in (2, 3, 4, 6):
+                        for col in range(self.table.columnCount()):
                             item = self.table.item(row, col)
                             if item is not None:
                                 item.setBackground(empty_brush)
                                 item.setForeground(empty_brush)
+                            cell_widget = self.table.cellWidget(row, col)
+                            if cell_widget is not None:
+                                cell_widget.setStyleSheet("")
         finally:
             pass  # setUpdatesEnabled removed to avoid Qt stack overflow
 
