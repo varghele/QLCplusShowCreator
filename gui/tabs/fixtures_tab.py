@@ -628,7 +628,14 @@ class FixturesTab(BaseTab):
                             if cell_widget is not None:
                                 cell_widget.setStyleSheet("")
         finally:
-            pass  # setUpdatesEnabled removed to avoid Qt stack overflow
+            # Force a viewport repaint. Cell widgets repaint themselves
+            # synchronously when their stylesheet changes, but
+            # QTableWidgetItem.setBackground / setForeground only mark
+            # cells dirty — Qt batches the actual repaint, which can lag
+            # a frame behind interactive events like typing in a combo.
+            # Without this, text cells would only catch up once another
+            # event triggered the next paint cycle.
+            self.table.viewport().update()
 
     def _add_fixture(self):
         """Show dialog to add fixture from QLC+ definitions"""
