@@ -1927,98 +1927,156 @@ class OrientationPanel(QWidget):
         preview_layout.addWidget(self.preview_widget)
         layout.addWidget(preview_group, stretch=1)
 
-        # Presets — laid out as a 4 cols x 2 rows grid so the panel can sit
-        # comfortably in the Stage-tab right column without forcing it wide.
+        # Presets + Fine Adjustment live side-by-side in one row to share
+        # vertical space with the 3D preview above. Otherwise the panel
+        # would either consume most of the right-column height or
+        # squeeze the preview down to nothing.
+        body_row = QHBoxLayout()
+        body_row.setSpacing(6)
+
+        # Presets — 6 mounting presets in a 3 rows x 2 cols block, with
+        # Custom on a 4th row spanning both columns. Custom is the
+        # "this doesn't match a preset" indicator and reads naturally
+        # as a wide bottom button.
         presets_group = QGroupBox("Presets")
         presets_layout = QGridLayout(presets_group)
         presets_layout.setHorizontalSpacing(4)
         presets_layout.setVerticalSpacing(4)
 
+        # Order intentional: mounting pairs read top-to-bottom.
+        named_presets = ["hanging", "standing", "wall_left", "wall_right",
+                         "wall_back", "wall_front"]
         self.preset_buttons = {}
-        cols = 4
-        for index, (preset_id, preset_info) in enumerate(self.PRESETS.items()):
+        for index, preset_id in enumerate(named_presets):
+            preset_info = self.PRESETS[preset_id]
             btn = QPushButton(preset_info['label'])
             btn.setToolTip(preset_info['tooltip'])
             btn.setCheckable(True)
             btn.setMaximumWidth(90)
             btn.clicked.connect(lambda checked, p=preset_id: self._on_preset_clicked(p))
-            row, col = divmod(index, cols)
+            row, col = divmod(index, 2)
             presets_layout.addWidget(btn, row, col)
             self.preset_buttons[preset_id] = btn
 
-        layout.addWidget(presets_group)
+        custom_btn = QPushButton(self.PRESETS['custom']['label'])
+        custom_btn.setToolTip(self.PRESETS['custom']['tooltip'])
+        custom_btn.setCheckable(True)
+        custom_btn.clicked.connect(lambda checked: self._on_preset_clicked('custom'))
+        # Span both columns at the bottom — visually marks Custom as the
+        # "no match" state, distinct from the 6 named presets above it.
+        presets_layout.addWidget(custom_btn, 3, 0, 1, 2)
+        self.preset_buttons['custom'] = custom_btn
 
-        # Fine adjustment — one row per axis: [label | spinbox | +90 button].
-        # Z-height has no rotate button so its trailing cell stays empty.
+        body_row.addWidget(presets_group)
+
+        # Fine adjustment — single QGridLayout so all four axis rows share
+        # the same column widths (label / spinbox / +90 button / stretch).
+        # Earlier per-row QHBoxLayouts let columns drift between rows,
+        # especially the Z-Height row that has no +90 button.
+        # Apply-to-group lives at the bottom of this same grid spanning
+        # every column, so the panel reads as a single block instead of
+        # leaving an orphan checkbox below.
         adjust_group = QGroupBox("Fine Adjustment")
         adjust_layout = QGridLayout(adjust_group)
-        adjust_layout.setHorizontalSpacing(6)
+        adjust_layout.setHorizontalSpacing(4)
         adjust_layout.setVerticalSpacing(4)
 
+        def _add_axis_row(row_index, label_text, spin, rotate_btn=None):
+            label = QLabel(label_text)
+            label.setStyleSheet("font-weight: bold;")
+            label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            adjust_layout.addWidget(label, row_index, 0)
+            spin.setMaximumWidth(90)
+            adjust_layout.addWidget(spin, row_index, 1)
+            if rotate_btn is not None:
+                # Override the theme's default 6px/14px button padding so the
+                # +90° text fits inside the 50px-wide button without clipping.
+                rotate_btn.setMinimumWidth(50)
+                rotate_btn.setMaximumWidth(60)
+                adjust_layout.addWidget(rotate_btn, row_index, 2)
+
         # Yaw
-        adjust_layout.addWidget(QLabel("Yaw:"), 0, 0)
         self.yaw_spin = QDoubleSpinBox()
         self.yaw_spin.setRange(-180, 180)
         self.yaw_spin.setSuffix("°")
         self.yaw_spin.setSingleStep(5)
         self.yaw_spin.setToolTip("Rotation around vertical axis (blue ring)")
-        adjust_layout.addWidget(self.yaw_spin, 0, 1)
         self.yaw_90_btn = QPushButton("+90°")
         self.yaw_90_btn.setToolTip("Rotate yaw by +90°")
-        self.yaw_90_btn.setStyleSheet("background-color: #4466CC; color: white; font-weight: bold;")
-        self.yaw_90_btn.setFixedWidth(50)
+        self.yaw_90_btn.setStyleSheet(
+            "background-color: #4466CC; color: white; font-weight: bold; "
+            "padding: 4px 6px;"
+        )
         self.yaw_90_btn.clicked.connect(lambda: self._rotate_by_90('yaw'))
-        adjust_layout.addWidget(self.yaw_90_btn, 0, 2)
+        _add_axis_row(0, "Yaw:", self.yaw_spin, self.yaw_90_btn)
 
         # Pitch
-        adjust_layout.addWidget(QLabel("Pitch:"), 1, 0)
         self.pitch_spin = QDoubleSpinBox()
         self.pitch_spin.setRange(-90, 90)
         self.pitch_spin.setSuffix("°")
         self.pitch_spin.setSingleStep(5)
         self.pitch_spin.setToolTip("Tilt angle (green ring)")
-        adjust_layout.addWidget(self.pitch_spin, 1, 1)
         self.pitch_90_btn = QPushButton("+90°")
         self.pitch_90_btn.setToolTip("Rotate pitch by +90°")
-        self.pitch_90_btn.setStyleSheet("background-color: #44AA44; color: white; font-weight: bold;")
-        self.pitch_90_btn.setFixedWidth(50)
+        self.pitch_90_btn.setStyleSheet(
+            "background-color: #44AA44; color: white; font-weight: bold; "
+            "padding: 4px 6px;"
+        )
         self.pitch_90_btn.clicked.connect(lambda: self._rotate_by_90('pitch'))
-        adjust_layout.addWidget(self.pitch_90_btn, 1, 2)
+        _add_axis_row(1, "Pitch:", self.pitch_spin, self.pitch_90_btn)
 
         # Roll
-        adjust_layout.addWidget(QLabel("Roll:"), 2, 0)
         self.roll_spin = QDoubleSpinBox()
         self.roll_spin.setRange(-180, 180)
         self.roll_spin.setSuffix("°")
         self.roll_spin.setSingleStep(5)
         self.roll_spin.setToolTip("Rotation around beam axis (red ring)")
-        adjust_layout.addWidget(self.roll_spin, 2, 1)
         self.roll_90_btn = QPushButton("+90°")
         self.roll_90_btn.setToolTip("Rotate roll by +90°")
-        self.roll_90_btn.setStyleSheet("background-color: #CC4444; color: white; font-weight: bold;")
-        self.roll_90_btn.setFixedWidth(50)
+        self.roll_90_btn.setStyleSheet(
+            "background-color: #CC4444; color: white; font-weight: bold; "
+            "padding: 4px 6px;"
+        )
         self.roll_90_btn.clicked.connect(lambda: self._rotate_by_90('roll'))
-        adjust_layout.addWidget(self.roll_90_btn, 2, 2)
+        _add_axis_row(2, "Roll:", self.roll_spin, self.roll_90_btn)
 
-        # Z-height
-        adjust_layout.addWidget(QLabel("Z-Height:"), 3, 0)
+        # Z-height (no rotate button — column 2 stays empty for that row)
         self.z_spin = QDoubleSpinBox()
         self.z_spin.setRange(0, 50)
         self.z_spin.setSuffix(" m")
         self.z_spin.setSingleStep(0.1)
         self.z_spin.setDecimals(2)
         self.z_spin.setToolTip("Height above stage floor")
-        adjust_layout.addWidget(self.z_spin, 3, 1, 1, 2)
+        _add_axis_row(3, "Z-Height:", self.z_spin)
 
-        layout.addWidget(adjust_group)
+        # Trailing stretch column absorbs any leftover horizontal space so
+        # spinboxes don't get pushed wide and rows align cell-for-cell.
+        adjust_layout.setColumnStretch(0, 0)
+        adjust_layout.setColumnStretch(1, 0)
+        adjust_layout.setColumnStretch(2, 0)
+        adjust_layout.setColumnStretch(3, 1)
 
-        # Apply to group checkbox
+        body_row.addWidget(adjust_group)
+
+        # Group Defaults — third box in the body row. Wrapping the
+        # apply-to-group checkbox in its own QGroupBox matches the visual
+        # weight of Presets / Fine Adjustment and keeps the panel as a
+        # single horizontal strip. Minimum width ensures the indicator
+        # and label have room — too narrow and Qt sometimes clips the
+        # click area to nothing.
+        group_defaults_group = QGroupBox("Group Defaults")
+        group_defaults_group.setMinimumWidth(140)
+        gd_layout = QVBoxLayout(group_defaults_group)
         self.apply_to_group_checkbox = QCheckBox("Apply to group default")
         self.apply_to_group_checkbox.setToolTip(
             "If checked, also updates the group's default orientation"
         )
+        gd_layout.addWidget(self.apply_to_group_checkbox)
+        gd_layout.addStretch()
+        body_row.addWidget(group_defaults_group)
         self._refresh_apply_to_group(self.fixtures)
-        layout.addWidget(self.apply_to_group_checkbox)
+
+        layout.addLayout(body_row)
 
     @staticmethod
     def _format_info_text(fixtures: list) -> str:
@@ -2030,8 +2088,28 @@ class OrientationPanel(QWidget):
 
     def _refresh_apply_to_group(self, fixtures: list) -> None:
         """Enable the apply-to-group checkbox only when every selected
-        fixture belongs to the same group. Updates the label accordingly."""
-        groups = set(f.group for f in fixtures if hasattr(f, 'group') and f.group)
+        fixture belongs to the same group. Updates the label accordingly.
+
+        ``FixtureItem`` instances (the StageView's graphics items) don't
+        carry a ``group`` attribute directly; they only know their
+        ``fixture_name``. Resolve via ``self.config`` so the checkbox
+        actually becomes clickable when a grouped fixture is selected.
+        """
+        groups: set = set()
+        for fx in fixtures:
+            group_name = getattr(fx, "group", None)
+            if not group_name and self.config is not None:
+                fx_name = getattr(fx, "fixture_name", None) or getattr(fx, "name", None)
+                if fx_name:
+                    cf = next(
+                        (cf for cf in self.config.fixtures if cf.name == fx_name),
+                        None,
+                    )
+                    if cf is not None:
+                        group_name = cf.group
+            if group_name:
+                groups.add(group_name)
+
         if len(groups) == 1:
             self.apply_to_group_checkbox.setEnabled(True)
             self.apply_to_group_checkbox.setText(
