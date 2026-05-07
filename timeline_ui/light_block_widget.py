@@ -53,10 +53,10 @@ class LightBlockWidget(QWidget):
         # Sublane interaction state
         self.clicked_sublane_type = None  # Which sublane type was clicked (if any)
         self.selected_sublane_type = None  # Which sublane type is currently selected (for highlighting)
-        self.selected_sublane_block = None  # Which specific sublane block is selected (CHANGED: now a reference)
-        self.resizing_sublane = None  # Which sublane is being resized (CHANGED: now stores block reference)
+        self.selected_sublane_block = None  # Which specific sublane block is selected
+        self.resizing_sublane = None  # Block being resized (block reference)
         self.resizing_sublane_edge = None  # 'left' or 'right'
-        self.dragging_sublane = None  # Which sublane is being dragged (CHANGED: now stores block reference)
+        self.dragging_sublane = None  # Block being dragged (block reference)
         self.drag_start_sublane_start = None  # Start time of sublane being resized/dragged
         self.drag_start_sublane_end = None  # End time of sublane being resized/dragged
 
@@ -386,7 +386,7 @@ class LightBlockWidget(QWidget):
         # Draw the sublane block
         painter.setBrush(QBrush(color))
 
-        # Use thicker, brighter border if THIS SPECIFIC BLOCK is selected (CHANGED: check block reference)
+        # Thicker, brighter border if this specific block is selected.
         is_selected = (sublane_block is self.selected_sublane_block)
         if is_selected:
             painter.setPen(QPen(QColor(255, 255, 255), 3))  # Bright white border when selected
@@ -421,7 +421,7 @@ class LightBlockWidget(QWidget):
         # Draw text label if block is wide enough
         self._draw_sublane_block_label(painter, sublane_block, sublane_type, x_offset, y_offset, width, sublane_height, margin)
 
-        # Draw resize handles if THIS SPECIFIC BLOCK is selected (CHANGED: check block reference)
+        # Draw resize handles if this specific block is selected.
         if is_selected:
             handle_color = QColor(255, 255, 255, 150)
             painter.setBrush(QBrush(handle_color))
@@ -1169,7 +1169,7 @@ class LightBlockWidget(QWidget):
             # (sublane_type and sublane_block already retrieved above)
 
             if sublane_block is not None:
-                # Clicked on a sublane block - select it (CHANGED: store block reference)
+                # Clicked on a sublane block - select it.
                 self.clicked_sublane_type = sublane_type
                 self.selected_sublane_type = sublane_type
                 self.selected_sublane_block = sublane_block  # Store block reference
@@ -1182,12 +1182,12 @@ class LightBlockWidget(QWidget):
                 # Check if clicking on edge for resizing
                 # (intensity handle is already checked at the top of this function)
                 if self._is_on_sublane_block_edge(pos, sublane_type, sublane_block):
-                    # Start resizing sublane block (CHANGED: store block reference)
+                    # Start resizing sublane block.
                     self.resizing_sublane = sublane_block
                     edge = self._is_on_sublane_block_edge(pos, sublane_type, sublane_block)
                     self.resizing_sublane_edge = edge
                 else:
-                    # Clicked on sublane block body - enable dragging (CHANGED: store block reference)
+                    # Clicked on sublane block body - enable dragging.
                     self.dragging_sublane = sublane_block
 
             else:
@@ -1343,7 +1343,7 @@ class LightBlockWidget(QWidget):
                 self.duration_changed.emit(self, new_duration)
 
         elif self.resizing_sublane:
-            # Resize sublane block (CHANGED: self.resizing_sublane is now the block reference)
+            # Resize sublane block.
             sublane_block = self.resizing_sublane
 
             if self.resizing_sublane_edge == 'left':
@@ -1379,7 +1379,7 @@ class LightBlockWidget(QWidget):
                     self.update()  # Redraw
 
         elif self.dragging_sublane:
-            # Drag sublane block (CHANGED: self.dragging_sublane is now the block reference)
+            # Drag sublane block.
             sublane_block = self.dragging_sublane
 
             # Calculate new start time
@@ -1532,7 +1532,7 @@ class LightBlockWidget(QWidget):
                 print(f"Warning: Cannot create {sublane_type} block - overlaps with existing block")
                 return  # Abort creation
 
-        # Create the appropriate sublane block and APPEND to list (CHANGED: was replacing single block)
+        # Create the appropriate sublane block and append to its list.
         if sublane_type == "dimmer":
             new_block = DimmerBlock(
                 start_time=start_time,

@@ -70,5 +70,10 @@ effects/effects.json
 release/
 nul
 
-# Old configurations (if not needed)
-# configuration4.yaml
+# Scratch / versioned project configs at the project root.
+# `config.yaml` (the active project) is intentionally tracked;
+# stable historical configs live in `showcreator_archive/` and are tracked there.
+/conf_*.yaml
+
+# Stray default-name show file Windows creates.
+shows/New Show.csv

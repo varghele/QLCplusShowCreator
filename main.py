@@ -20,7 +20,7 @@ if '--version' in sys.argv:
 # Performance profiling - enable with --profile flag
 PROFILING_ENABLED = '--profile' in sys.argv
 if PROFILING_ENABLED:
-    import profile_playback
+    from profiling import profile_playback
     profile_playback.install_all_patches()
     profile_playback.enable_profiling()
     print("\n*** PROFILING ENABLED - Press Ctrl+P in console to print report ***\n")

@@ -1,0 +1,5901 @@
+block_defs:
+  colour:
+    c0:
+      amber: 0.0
+      blue: 255.0
+      color_mode: Wheel
+      color_wheel_position: 65
+      cyan: 0.0
+      green: 0.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 0.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c1:
+      amber: 0.0
+      blue: 255.0
+      color_mode: RGB
+      color_wheel_position: 0
+      cyan: 0.0
+      green: 255.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 255.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c10:
+      amber: 0.0
+      blue: 255.0
+      color_mode: Wheel
+      color_wheel_position: 57
+      cyan: 0.0
+      green: 255.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 0.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c11:
+      amber: 0.0
+      blue: 0.0
+      color_mode: RGB
+      color_wheel_position: 0
+      cyan: 0.0
+      green: 0.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 255.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c12:
+      amber: 0.0
+      blue: 255.0
+      color_mode: Wheel
+      color_wheel_position: 135
+      cyan: 0.0
+      green: 0.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 255.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c13:
+      amber: 0.0
+      blue: 255.0
+      color_mode: Wheel
+      color_wheel_position: 167
+      cyan: 0.0
+      green: 255.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 0.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c14:
+      amber: 0.0
+      blue: 255.0
+      color_mode: RGB
+      color_wheel_position: 0
+      cyan: 0.0
+      green: 255.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 0.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c15:
+      amber: 0.0
+      blue: 0.0
+      color_mode: Wheel
+      color_wheel_position: 87
+      cyan: 0.0
+      green: 100.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 255.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c2:
+      amber: 0.0
+      blue: 255.0
+      color_mode: RGB
+      color_wheel_position: 0
+      cyan: 0.0
+      green: 0.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 0.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c3:
+      amber: 0.0
+      blue: 180.0
+      color_mode: Wheel
+      color_wheel_position: 97
+      cyan: 0.0
+      green: 105.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 255.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c4:
+      amber: 0.0
+      blue: 0.0
+      color_mode: Wheel
+      color_wheel_position: 9
+      cyan: 0.0
+      green: 0.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 255.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c5:
+      amber: 0.0
+      blue: 255.0
+      color_mode: Wheel
+      color_wheel_position: 9
+      cyan: 0.0
+      green: 255.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 255.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c6:
+      amber: 0.0
+      blue: 0.0
+      color_mode: Wheel
+      color_wheel_position: 23
+      cyan: 0.0
+      green: 0.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 255.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c7:
+      amber: 0.0
+      blue: 0.0
+      color_mode: Wheel
+      color_wheel_position: 17
+      cyan: 0.0
+      green: 100.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 255.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+    c8:
+      amber: 0.0
+      blue: 0.0
+      color_mode: Wheel
+      color_wheel_position: 113
+      cyan: 0.0
+      green: 0.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 0.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 255.0
+      yellow: 0.0
+    c9:
+      amber: 0.0
+      blue: 255.0
+      color_mode: Wheel
+      color_wheel_position: 89
+      cyan: 0.0
+      green: 0.0
+      hue: 0.0
+      lime: 0.0
+      magenta: 0.0
+      red: 255.0
+      saturation: 0.0
+      uv: 0.0
+      value: 0.0
+      white: 0.0
+      yellow: 0.0
+  dimmer:
+    d0:
+      effect_speed: '1'
+      effect_type: pulse
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d1:
+      effect_speed: '1'
+      effect_type: stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d10:
+      effect_speed: '1'
+      effect_type: throb
+      intensity: 110.86956521739131
+      iris: 255.0
+      strobe_speed: 0.0
+    d11:
+      effect_speed: 1/2
+      effect_type: throb
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d12:
+      direction: in
+      effect_speed: 1/8
+      effect_type: throb
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d13:
+      effect_speed: 1/4
+      effect_type: ping_pong
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d14:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 99.78260869565216
+      iris: 255.0
+      strobe_speed: 0.0
+    d15:
+      effect_speed: 1/2
+      effect_type: ping_pong
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d16:
+      effect_speed: 1/2
+      effect_type: stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d17:
+      effect_speed: '2'
+      effect_type: stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d18:
+      effect_speed: 1/8
+      effect_type: static
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d19:
+      effect_speed: '8'
+      effect_type: ping_pong
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d2:
+      effect_speed: 1/4
+      effect_type: stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d20:
+      effect_speed: '1'
+      effect_type: pulse
+      intensity: 110.86956521739131
+      iris: 255.0
+      strobe_speed: 0.0
+    d21:
+      effect_speed: 1/2
+      effect_type: random_stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d22:
+      effect_speed: '2'
+      effect_type: random_stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d23:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 105.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d24:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 121.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d25:
+      effect_speed: '1'
+      effect_type: ping_pong
+      intensity: 99.78260869565216
+      iris: 255.0
+      strobe_speed: 0.0
+    d26:
+      effect_speed: '1'
+      effect_type: sparkle
+      intensity: 88.69565217391305
+      iris: 255.0
+      strobe_speed: 0.0
+    d27:
+      effect_speed: '2'
+      effect_type: ping_pong
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 20.0
+    d28:
+      effect_speed: 1/8
+      effect_type: stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d29:
+      effect_speed: 1/4
+      effect_type: static
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d3:
+      effect_speed: '1'
+      effect_type: heartbeat
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d30:
+      effect_speed: '2'
+      effect_type: ping_pong
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d31:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 116.41304347826087
+      iris: 255.0
+      strobe_speed: 0.0
+    d32:
+      effect_speed: '1'
+      effect_type: throb
+      intensity: 144.13043478260872
+      iris: 255.0
+      strobe_speed: 0.0
+    d33:
+      effect_speed: '1'
+      effect_type: ping_pong
+      intensity: 166.30434782608697
+      iris: 255.0
+      strobe_speed: 0.0
+    d34:
+      effect_speed: '1'
+      effect_type: ping_pong
+      intensity: 127.5
+      iris: 255.0
+      strobe_speed: 0.0
+    d35:
+      effect_speed: '1'
+      effect_type: throb
+      intensity: 182.93478260869568
+      iris: 255.0
+      strobe_speed: 0.0
+    d36:
+      direction: in
+      effect_speed: 1/2
+      effect_type: fade
+      intensity: 137.5504232682901
+      iris: 255.0
+      strobe_speed: 0.0
+    d37:
+      effect_speed: 1/2
+      effect_type: static
+      intensity: 137.5504232682901
+      iris: 255.0
+      strobe_speed: 0.0
+    d38:
+      effect_speed: 1/2
+      effect_type: heartbeat
+      intensity: 124.82750923431703
+      iris: 255.0
+      strobe_speed: 0.0
+    d39:
+      direction: in
+      effect_speed: 1/2
+      effect_type: fade
+      intensity: 124.82750923431703
+      iris: 255.0
+      strobe_speed: 0.0
+    d4:
+      effect_speed: '2'
+      effect_type: heartbeat
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d40:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 127.5
+      iris: 255.0
+      strobe_speed: 0.0
+    d41:
+      effect_speed: 1/2
+      effect_type: stroke
+      intensity: 149.67391304347825
+      iris: 255.0
+      strobe_speed: 0.0
+    d42:
+      effect_speed: 1/2
+      effect_type: stroke
+      intensity: 144.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d43:
+      effect_speed: 1/16
+      effect_type: stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d44:
+      effect_speed: '1'
+      effect_type: heartbeat
+      intensity: 100.30399937788599
+      iris: 255.0
+      strobe_speed: 0.0
+    d45:
+      effect_speed: '1'
+      effect_type: random_stroke
+      intensity: 100.81040614920313
+      iris: 255.0
+      strobe_speed: 0.0
+    d46:
+      effect_speed: '1'
+      effect_type: wave
+      intensity: 100.81040614920313
+      iris: 255.0
+      strobe_speed: 0.0
+    d47:
+      direction: in
+      effect_speed: '1'
+      effect_type: fade
+      intensity: 119.95200203915523
+      iris: 255.0
+      strobe_speed: 0.0
+    d48:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 119.95200203915523
+      iris: 255.0
+      strobe_speed: 0.0
+    d49:
+      effect_speed: '1'
+      effect_type: heartbeat
+      intensity: 136.76889733866545
+      iris: 255.0
+      strobe_speed: 0.0
+    d5:
+      effect_speed: '1'
+      effect_type: ping_pong
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d50:
+      effect_speed: '1'
+      effect_type: fill
+      intensity: 136.76889733866545
+      iris: 255.0
+      strobe_speed: 0.0
+    d51:
+      direction: in
+      effect_speed: '1'
+      effect_type: fade
+      intensity: 129.42446690305744
+      iris: 255.0
+      strobe_speed: 0.0
+    d52:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 129.42446690305744
+      iris: 255.0
+      strobe_speed: 0.0
+    d53:
+      effect_speed: '1'
+      effect_type: heartbeat
+      intensity: 132.3863500473926
+      iris: 255.0
+      strobe_speed: 0.0
+    d54:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 132.3863500473926
+      iris: 255.0
+      strobe_speed: 0.0
+    d55:
+      direction: in
+      effect_speed: '1'
+      effect_type: fade
+      intensity: 125.33753062540941
+      iris: 255.0
+      strobe_speed: 0.0
+    d56:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 125.33753062540941
+      iris: 255.0
+      strobe_speed: 0.0
+    d57:
+      effect_speed: '1'
+      effect_type: heartbeat
+      intensity: 111.94431724027794
+      iris: 255.0
+      strobe_speed: 0.0
+    d58:
+      effect_speed: '1'
+      effect_type: fill
+      intensity: 111.94431724027794
+      iris: 255.0
+      strobe_speed: 0.0
+    d59:
+      direction: in
+      effect_speed: '1'
+      effect_type: fade
+      intensity: 107.52567076672463
+      iris: 255.0
+      strobe_speed: 0.0
+    d6:
+      effect_speed: '4'
+      effect_type: stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d60:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 107.52567076672463
+      iris: 255.0
+      strobe_speed: 0.0
+    d61:
+      effect_speed: '1'
+      effect_type: fill
+      intensity: 142.86111995385468
+      iris: 255.0
+      strobe_speed: 0.0
+    d62:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 142.86111995385468
+      iris: 255.0
+      strobe_speed: 0.0
+    d63:
+      direction: in
+      effect_speed: '1'
+      effect_type: fade
+      intensity: 118.38096587928248
+      iris: 255.0
+      strobe_speed: 0.0
+    d64:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 118.38096587928248
+      iris: 255.0
+      strobe_speed: 0.0
+    d65:
+      effect_speed: '1'
+      effect_type: heartbeat
+      intensity: 138.60606186585278
+      iris: 255.0
+      strobe_speed: 0.0
+    d66:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 138.60606186585278
+      iris: 255.0
+      strobe_speed: 0.0
+    d67:
+      direction: in
+      effect_speed: '1'
+      effect_type: fade
+      intensity: 127.4809865110005
+      iris: 255.0
+      strobe_speed: 0.0
+    d68:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 127.4809865110005
+      iris: 255.0
+      strobe_speed: 0.0
+    d69:
+      effect_speed: '1'
+      effect_type: heartbeat
+      intensity: 116.28226925218904
+      iris: 255.0
+      strobe_speed: 0.0
+    d7:
+      effect_speed: '1'
+      effect_type: throb
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d70:
+      effect_speed: '1'
+      effect_type: fill
+      intensity: 116.28226925218904
+      iris: 255.0
+      strobe_speed: 0.0
+    d71:
+      effect_speed: '1'
+      effect_type: heartbeat
+      intensity: 109.19610890889712
+      iris: 255.0
+      strobe_speed: 0.0
+    d72:
+      effect_speed: '1'
+      effect_type: fill
+      intensity: 109.19610890889712
+      iris: 255.0
+      strobe_speed: 0.0
+    d73:
+      direction: in
+      effect_speed: '1'
+      effect_type: fade
+      intensity: 110.28424760867539
+      iris: 255.0
+      strobe_speed: 0.0
+    d74:
+      effect_speed: '1'
+      effect_type: heartbeat
+      intensity: 140.8196557922302
+      iris: 255.0
+      strobe_speed: 0.0
+    d75:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 140.8196557922302
+      iris: 255.0
+      strobe_speed: 0.0
+    d76:
+      effect_speed: '1'
+      effect_type: fill
+      intensity: 122.88833782547351
+      iris: 255.0
+      strobe_speed: 0.0
+    d77:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 122.88833782547351
+      iris: 255.0
+      strobe_speed: 0.0
+    d78:
+      direction: in
+      effect_speed: '1'
+      effect_type: fade
+      intensity: 97.42288395002709
+      iris: 255.0
+      strobe_speed: 0.0
+    d79:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 97.42288395002709
+      iris: 255.0
+      strobe_speed: 0.0
+    d8:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d80:
+      effect_speed: '1'
+      effect_type: static
+      intensity: 113.60112217617255
+      iris: 255.0
+      strobe_speed: 0.0
+    d81:
+      direction: in
+      effect_speed: '1'
+      effect_type: fade
+      intensity: 103.48999442821825
+      iris: 255.0
+      strobe_speed: 0.0
+    d82:
+      effect_speed: '1'
+      effect_type: throb
+      intensity: 110.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d83:
+      effect_speed: '4'
+      effect_type: ping_pong
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+    d9:
+      effect_speed: '1'
+      effect_type: random_stroke
+      intensity: 255.0
+      iris: 255.0
+      strobe_speed: 0.0
+  movement:
+    m0:
+      effect_speed: 1/4
+      effect_type: figure_8
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 80.0
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 80.0
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m1:
+      effect_speed: 1/4
+      effect_type: diamond
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 79.79621446156797
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 79.79621446156797
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m10:
+      effect_speed: 1/2
+      effect_type: bounce
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 47.306037806141894
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 47.306037806141894
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m11:
+      effect_speed: 1/2
+      effect_type: figure_8
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 80.0
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 80.0
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m12:
+      effect_speed: 1/2
+      effect_type: square
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 55.110498344582176
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 55.110498344582176
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m13:
+      effect_speed: 1/2
+      effect_type: bounce
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 61.652996837974214
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 61.652996837974214
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m14:
+      effect_speed: 1/2
+      effect_type: linear_sweep
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 53.60163148850192
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 53.60163148850192
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m15:
+      effect_speed: 1/2
+      effect_type: triangle
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 48.50700640508944
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 48.50700640508944
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m16:
+      effect_speed: 1/2
+      effect_type: bounce
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 49.28932834610648
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 49.28932834610648
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m17:
+      effect_speed: 1/2
+      effect_type: square
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 58.351092554262024
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 58.351092554262024
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m18:
+      effect_speed: 1/2
+      effect_type: fan
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 40.04259630394104
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 40.04259630394104
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m19:
+      effect_speed: 1/2
+      effect_type: bounce
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 51.67400940770575
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 51.67400940770575
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m2:
+      effect_speed: 1/2
+      effect_type: linear_sweep
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 42.11398648083306
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 42.11398648083306
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m20:
+      effect_speed: 1/2
+      effect_type: linear_sweep
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 44.40457115754254
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 44.40457115754254
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m3:
+      effect_speed: 1/2
+      effect_type: fan
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 42.47806978047284
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 42.47806978047284
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m4:
+      effect_speed: 1/2
+      effect_type: square
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 56.24000146605932
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 56.24000146605932
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m5:
+      effect_speed: 1/2
+      effect_type: diamond
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 80.0
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 80.0
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m6:
+      effect_speed: 1/2
+      effect_type: bounce
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 63.050270322459596
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 63.050270322459596
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m7:
+      effect_speed: 1/2
+      effect_type: figure_8
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 78.21567455069166
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 78.21567455069166
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m8:
+      effect_speed: 1/2
+      effect_type: square
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 60.11195012284338
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 60.11195012284338
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+    m9:
+      effect_speed: 1/2
+      effect_type: triangle
+      interpolate_from_previous: true
+      lissajous_ratio: '1:2'
+      pan: 127.5
+      pan_amplitude: 50.48284246033055
+      pan_fine: 0.0
+      pan_max: 255.0
+      pan_min: 0.0
+      phase_offset_degrees: 0.0
+      phase_offset_enabled: false
+      speed: 255.0
+      target_plane_name: null
+      target_spot_name: null
+      tilt: 127.5
+      tilt_amplitude: 50.48284246033055
+      tilt_fine: 0.0
+      tilt_max: 255.0
+      tilt_min: 0.0
+fixtures:
+- address: 1
+  available_modes:
+  - channels: 6
+    name: 6 Channel
+  - channels: 2
+    name: 2 Channel 1
+  - channels: 2
+    name: 2 Channel 2
+  - channels: 3
+    name: 3 Channel 1
+  - channels: 3
+    name: 3 Channel 2
+  - channels: 4
+    name: 4 Channel
+  - channels: 1
+    name: 1 Channel
+  current_mode: 6 Channel
+  group: WASH
+  manufacturer: Stairville
+  model: Wild Wash Pro 648 RGB LED
+  mounting: standing
+  name: W1
+  orientation_uses_group_default: false
+  pitch: -90.0
+  roll: 0.0
+  type: WASH
+  universe: 2
+  x: -3.5
+  y: 2.0
+  yaw: 0.0
+  z: 0.0
+  z_uses_group_default: false
+- address: 7
+  available_modes:
+  - channels: 6
+    name: 6 Channel
+  - channels: 2
+    name: 2 Channel 1
+  - channels: 2
+    name: 2 Channel 2
+  - channels: 3
+    name: 3 Channel 1
+  - channels: 3
+    name: 3 Channel 2
+  - channels: 4
+    name: 4 Channel
+  - channels: 1
+    name: 1 Channel
+  current_mode: 6 Channel
+  group: WASH
+  manufacturer: Stairville
+  model: Wild Wash Pro 648 RGB LED
+  mounting: standing
+  name: W2
+  orientation_uses_group_default: false
+  pitch: -90.0
+  roll: 0.0
+  type: WASH
+  universe: 2
+  x: 3.0
+  y: 2.0
+  yaw: 0.0
+  z: 0.0
+  z_uses_group_default: false
+groups:
+  WASH:
+    color: '#ffdab9'
+    default_mounting: standing
+    default_pitch: -90.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 0.0
+    export_intensity: 255
+    fixtures:
+    - address: 1
+      available_modes:
+      - channels: 6
+        name: 6 Channel
+      - channels: 2
+        name: 2 Channel 1
+      - channels: 2
+        name: 2 Channel 2
+      - channels: 3
+        name: 3 Channel 1
+      - channels: 3
+        name: 3 Channel 2
+      - channels: 4
+        name: 4 Channel
+      - channels: 1
+        name: 1 Channel
+      current_mode: 6 Channel
+      group: WASH
+      manufacturer: Stairville
+      model: Wild Wash Pro 648 RGB LED
+      mounting: standing
+      name: W1
+      orientation_uses_group_default: false
+      pitch: -90.0
+      roll: 0.0
+      type: WASH
+      universe: 2
+      x: -3.5
+      y: 2.0
+      yaw: 0.0
+      z: 0.0
+      z_uses_group_default: false
+    - address: 7
+      available_modes:
+      - channels: 6
+        name: 6 Channel
+      - channels: 2
+        name: 2 Channel 1
+      - channels: 2
+        name: 2 Channel 2
+      - channels: 3
+        name: 3 Channel 1
+      - channels: 3
+        name: 3 Channel 2
+      - channels: 4
+        name: 4 Channel
+      - channels: 1
+        name: 1 Channel
+      current_mode: 6 Channel
+      group: WASH
+      manufacturer: Stairville
+      model: Wild Wash Pro 648 RGB LED
+      mounting: standing
+      name: W2
+      orientation_uses_group_default: false
+      pitch: -90.0
+      roll: 0.0
+      type: WASH
+      universe: 2
+      x: 3.0
+      y: 2.0
+      yaw: 0.0
+      z: 0.0
+      z_uses_group_default: false
+    lighting_role: wash
+    name: WASH
+light_block_defs:
+  lb0:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d0
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb1:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d1
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb10:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.333333
+      ref: c1
+    - end: 0.333333
+      offset: 0.0
+      ref: c3
+    dimmer_blocks:
+    - end: 0.5
+      offset: 0.333333
+      ref: d1
+    - end: 0.666667
+      offset: 0.5
+      ref: d2
+    - end: 0.338889
+      offset: 0.333333
+      ref: d8
+    - end: 0.333333
+      offset: 0.0
+      ref: d4
+    - end: 0.833333
+      offset: 0.666667
+      ref: d9
+    - end: 1.0
+      offset: 0.833333
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb100:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d69
+    effect_name: auto.heartbeat
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m14
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb101:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d70
+    effect_name: auto.fill
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m14
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb102:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d71
+    effect_name: auto.heartbeat
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m15
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb103:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d72
+    effect_name: auto.fill
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m15
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb104:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d73
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m16
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb105:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d74
+    effect_name: auto.heartbeat
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m11
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb106:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d75
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m11
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb107:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d76
+    effect_name: auto.fill
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m17
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb108:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d77
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m17
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb109:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d78
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m18
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb11:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c3
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d8
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb110:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d79
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m18
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb111:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d80
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m19
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb112:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d81
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m20
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb113:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c14
+    dimmer_blocks:
+    - end: 0.0625
+      offset: 0.0
+      ref: d2
+    - end: 0.125
+      offset: 0.09375
+      ref: d1
+    - end: 0.1875
+      offset: 0.125
+      ref: d2
+    - end: 0.3125
+      offset: 0.25
+      ref: d16
+    - end: 0.375
+      offset: 0.34375
+      ref: d1
+    - end: 0.4375
+      offset: 0.375
+      ref: d16
+    - end: 0.5
+      offset: 0.46875
+      ref: d1
+    - end: 0.5625
+      offset: 0.5
+      ref: d2
+    - end: 0.625
+      offset: 0.59375
+      ref: d1
+    - end: 0.6875
+      offset: 0.625
+      ref: d2
+    - end: 0.75
+      offset: 0.71875
+      ref: d1
+    - end: 0.8125
+      offset: 0.75
+      ref: d2
+    - end: 0.875
+      offset: 0.84375
+      ref: d1
+    - end: 0.9375
+      offset: 0.875
+      ref: d2
+    - end: 1.0
+      offset: 0.96875
+      ref: d1
+    - end: 0.25
+      offset: 0.1875
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb114:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c10
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d82
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb115:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.125
+      offset: 0.0
+      ref: d5
+    - end: 0.25
+      offset: 0.125
+      ref: d1
+    - end: 0.375
+      offset: 0.25
+      ref: d5
+    - end: 0.5
+      offset: 0.375
+      ref: d1
+    - end: 0.625
+      offset: 0.5
+      ref: d5
+    - end: 0.75
+      offset: 0.625
+      ref: d1
+    - end: 0.875
+      offset: 0.75
+      ref: d1
+    - end: 1.0
+      offset: 0.875
+      ref: d30
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb116:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c14
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.015625
+      ref: d11
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb117:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c15
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d16
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb118:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c8
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.015625
+      ref: d16
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb119:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb12:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d5
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb120:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c14
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.016667
+      ref: d11
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb121:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c10
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d16
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb122:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c10
+    dimmer_blocks:
+    - end: 0.777778
+      offset: 0.0
+      ref: d16
+    - end: 1.0
+      offset: 0.777778
+      ref: d28
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb123:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.75
+      offset: 0.0
+      ref: d8
+    - end: 1.0
+      offset: 0.75
+      ref: d83
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb124:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c4
+    dimmer_blocks:
+    - end: 0.375
+      offset: 0.0
+      ref: d8
+    - end: 1.0
+      offset: 0.5
+      ref: d7
+    - end: 0.5
+      offset: 0.375
+      ref: d30
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb125:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c4
+    dimmer_blocks:
+    - end: 0.5
+      offset: 0.375
+      ref: d30
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb126:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c4
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d5
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb127:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.125
+      offset: 0.0
+      ref: d8
+    - end: 0.375
+      offset: 0.25
+      ref: d8
+    - end: 1.0
+      offset: 0.625
+      ref: d5
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb128:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c4
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d7
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb129:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d8
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb13:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d7
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb14:
+    colour_blocks:
+    - end: 0.996875
+      offset: 0.0
+      ref: c3
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d1
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb15:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d10
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb16:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c3
+    dimmer_blocks:
+    - end: 0.888889
+      offset: 0.0
+      ref: d1
+    - end: 1.0
+      offset: 0.888889
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb17:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c3
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d11
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb18:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c3
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d12
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb19:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d3
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb2:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb20:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d13
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb21:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c3
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d14
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb22:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c4
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d8
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb23:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c5
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d15
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb24:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d15
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb25:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d11
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb26:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.75
+      offset: 0.0
+      ref: d16
+    - end: 0.875
+      offset: 0.75
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb27:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.666667
+      offset: 0.0
+      ref: d15
+    - end: 0.777778
+      offset: 0.666667
+      ref: d2
+    - end: 0.888889
+      offset: 0.777778
+      ref: d2
+    - end: 1.0
+      offset: 0.888889
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb28:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c4
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d17
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb29:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d1
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb3:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 0.363636
+      offset: 0.0
+      ref: d3
+    - end: 0.727273
+      offset: 0.363636
+      ref: d4
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb30:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d18
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb31:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d19
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb32:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c6
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb33:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c6
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d8
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb34:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d8
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb35:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c7
+    dimmer_blocks:
+    - end: 0.75
+      offset: 0.0
+      ref: d20
+    - end: 0.875
+      offset: 0.75
+      ref: d1
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb36:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.6
+      offset: 0.0
+      ref: d5
+    - end: 0.8
+      offset: 0.6
+      ref: d2
+    - end: 1.0
+      offset: 0.8
+      ref: d16
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb37:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.75
+      offset: 0.0
+      ref: d5
+    - end: 1.0
+      offset: 0.75
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb38:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.333333
+      offset: 0.0
+      ref: d16
+    - end: 0.666667
+      offset: 0.333333
+      ref: d21
+    - end: 1.0
+      offset: 0.666667
+      ref: d16
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb39:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c8
+    dimmer_blocks:
+    - end: 0.875
+      offset: 0.0
+      ref: d8
+    - end: 1.0
+      offset: 0.875
+      ref: d22
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb4:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d5
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb40:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.461538
+      offset: 0.0
+      ref: d5
+    - end: 0.615385
+      offset: 0.461538
+      ref: d2
+    - end: 0.923077
+      offset: 0.615385
+      ref: d16
+    - end: 1.0
+      offset: 0.923077
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb41:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.125
+      offset: 0.0
+      ref: d16
+    - end: 0.375
+      offset: 0.25
+      ref: d16
+    - end: 0.5
+      offset: 0.375
+      ref: d8
+    - end: 0.625
+      offset: 0.5
+      ref: d16
+    - end: 0.75
+      offset: 0.625
+      ref: d8
+    - end: 0.875
+      offset: 0.75
+      ref: d16
+    - end: 1.0
+      offset: 0.875
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb42:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.125
+      offset: 0.0
+      ref: d16
+    - end: 0.375
+      offset: 0.25
+      ref: d16
+    - end: 0.25
+      offset: 0.125
+      ref: d8
+    - end: 0.625
+      offset: 0.5
+      ref: d16
+    - end: 0.75
+      offset: 0.625
+      ref: d8
+    - end: 0.875
+      offset: 0.75
+      ref: d16
+    - end: 1.0
+      offset: 0.875
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb43:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.0625
+      offset: 0.0
+      ref: d1
+    - end: 0.3125
+      offset: 0.0625
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: HIT_WASHES
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb44:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.083333
+      offset: 0.0
+      ref: d1
+    - end: 0.416667
+      offset: 0.083333
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: HIT_WASHES
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb45:
+    colour_blocks:
+    - end: 0.875
+      offset: 0.0
+      ref: c8
+    - end: 1.0
+      offset: 0.875
+      ref: c8
+    dimmer_blocks:
+    - end: 0.875
+      offset: 0.0
+      ref: d23
+    - end: 0.9375
+      offset: 0.875
+      ref: d1
+    - end: 1.0
+      offset: 0.9375
+      ref: d1
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb46:
+    colour_blocks:
+    - end: 0.875
+      offset: 0.0
+      ref: c8
+    - end: 1.0
+      offset: 0.875
+      ref: c8
+    dimmer_blocks:
+    - end: 0.875
+      offset: 0.0
+      ref: d24
+    - end: 0.9375
+      offset: 0.875
+      ref: d1
+    - end: 1.0
+      offset: 0.9375
+      ref: d1
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb47:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d25
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb48:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c9
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d26
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb49:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c10
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d26
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb5:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.5
+      offset: 0.0
+      ref: d1
+    - end: 1.0
+      offset: 0.5
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb50:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c10
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d15
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb51:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c10
+    dimmer_blocks:
+    - end: 0.75
+      offset: 0.0
+      ref: d16
+    - end: 1.0
+      offset: 0.75
+      ref: d27
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb52:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c9
+    dimmer_blocks:
+    - end: 0.0625
+      offset: 0.0
+      ref: d16
+    - end: 0.1875
+      offset: 0.125
+      ref: d16
+    - end: 0.3125
+      offset: 0.25
+      ref: d16
+    - end: 0.4375
+      offset: 0.375
+      ref: d2
+    - end: 0.5625
+      offset: 0.5
+      ref: d16
+    - end: 0.6875
+      offset: 0.625
+      ref: d16
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb53:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.1
+      offset: 0.0
+      ref: d8
+    - end: 0.3
+      offset: 0.2
+      ref: d8
+    - end: 0.5
+      offset: 0.4
+      ref: d8
+    - end: 1.0
+      offset: 0.6
+      ref: d28
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb54:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.083333
+      offset: 0.0
+      ref: d1
+    - end: 0.333333
+      offset: 0.083333
+      ref: d2
+    - end: 0.75
+      offset: 0.666667
+      ref: d1
+    - end: 1.0
+      offset: 0.75
+      ref: d1
+    effect_name: ''
+    movement_blocks: []
+    name: HIT_WASHES
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb55:
+    colour_blocks:
+    - end: 0.0625
+      offset: 0.0
+      ref: c1
+    - end: 0.5
+      offset: 0.0625
+      ref: c10
+    - end: 0.5625
+      offset: 0.5
+      ref: c1
+    - end: 1.0
+      offset: 0.5625
+      ref: c10
+    dimmer_blocks:
+    - end: 0.0625
+      offset: 0.0
+      ref: d1
+    - end: 0.5
+      offset: 0.0625
+      ref: d29
+    - end: 0.5625
+      offset: 0.5
+      ref: d8
+    - end: 1.0
+      offset: 0.5625
+      ref: d8
+    effect_name: ''
+    movement_blocks: []
+    name: HIT_WASHES
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb56:
+    colour_blocks:
+    - end: 0.25
+      offset: 0.0
+      ref: c1
+    - end: 1.0
+      offset: 0.25
+      ref: c10
+    dimmer_blocks:
+    - end: 0.25
+      offset: 0.0
+      ref: d1
+    - end: 1.0
+      offset: 0.25
+      ref: d29
+    effect_name: ''
+    movement_blocks: []
+    name: HIT_WASHES
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb57:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d30
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb58:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c4
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d14
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb59:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c4
+    dimmer_blocks:
+    - end: 0.5
+      offset: 0.0
+      ref: d31
+    - end: 0.75
+      offset: 0.5
+      ref: d32
+    - end: 1.0
+      offset: 0.75
+      ref: d33
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb6:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.5
+      offset: 0.0
+      ref: d1
+    - end: 1.0
+      offset: 0.5
+      ref: d6
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb60:
+    colour_blocks:
+    - end: 0.125
+      offset: 0.0
+      ref: c1
+    - end: 0.25
+      offset: 0.125
+      ref: c4
+    - end: 1.0
+      offset: 0.75
+      ref: c1
+    - end: 0.5
+      offset: 0.375
+      ref: c4
+    - end: 0.375
+      offset: 0.25
+      ref: c1
+    - end: 0.625
+      offset: 0.5
+      ref: c1
+    - end: 0.75
+      offset: 0.625
+      ref: c4
+    dimmer_blocks:
+    - end: 0.015625
+      offset: 0.0
+      ref: d1
+    - end: 0.125
+      offset: 0.015625
+      ref: d2
+    - end: 0.25
+      offset: 0.125
+      ref: d34
+    - end: 0.265625
+      offset: 0.25
+      ref: d1
+    - end: 0.375
+      offset: 0.265625
+      ref: d2
+    - end: 0.5
+      offset: 0.375
+      ref: d34
+    - end: 0.515625
+      offset: 0.5
+      ref: d1
+    - end: 0.625
+      offset: 0.515625
+      ref: d2
+    - end: 0.75
+      offset: 0.625
+      ref: d35
+    - end: 0.875
+      offset: 0.75
+      ref: d7
+    - end: 0.9375
+      offset: 0.875
+      ref: d16
+    - end: 0.953125
+      offset: 0.9375
+      ref: d1
+    - end: 0.96875
+      offset: 0.953125
+      ref: d1
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb61:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c4
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d11
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb62:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.0625
+      offset: 0.0
+      ref: d1
+    - end: 0.3125
+      offset: 0.25
+      ref: d1
+    - end: 0.5625
+      offset: 0.5
+      ref: d1
+    - end: 0.8125
+      offset: 0.75
+      ref: d1
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb63:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.03125
+      ref: d2
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb64:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d36
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m0
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb65:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d37
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m0
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb66:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d38
+    effect_name: auto.heartbeat
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m1
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb67:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d39
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m1
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb68:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d40
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb69:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c13
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d40
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb7:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c0
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d7
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb70:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d41
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb71:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 0.125
+      offset: 0.0
+      ref: d16
+    - end: 0.375
+      offset: 0.25
+      ref: d16
+    - end: 0.625
+      offset: 0.5
+      ref: d16
+    - end: 0.875
+      offset: 0.75
+      ref: d16
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb72:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c13
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d16
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb73:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c13
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d42
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb74:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c12
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d43
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb75:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d44
+    effect_name: auto.heartbeat
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m2
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb76:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d45
+    effect_name: auto.random_stroke
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m3
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb77:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d46
+    effect_name: auto.wave
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m3
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb78:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d47
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m4
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb79:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d48
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m4
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb8:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d4
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb80:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d49
+    effect_name: auto.heartbeat
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m5
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb81:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d50
+    effect_name: auto.fill
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m5
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb82:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d51
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m6
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb83:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d52
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m6
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb84:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d53
+    effect_name: auto.heartbeat
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m7
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb85:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d54
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m7
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb86:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d55
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m8
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb87:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d56
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m8
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb88:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d57
+    effect_name: auto.heartbeat
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m9
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb89:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d58
+    effect_name: auto.fill
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m9
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb9:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c1
+    dimmer_blocks:
+    - end: 0.2499
+      offset: 0.0
+      ref: d1
+    - end: 0.9996
+      offset: 0.2499
+      ref: d4
+    effect_name: ''
+    movement_blocks: []
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb90:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d59
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m10
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb91:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d60
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m10
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb92:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d61
+    effect_name: auto.fill
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m11
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb93:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d62
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m11
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb94:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d63
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m12
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb95:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c2
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d64
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m12
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb96:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d65
+    effect_name: auto.heartbeat
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m5
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb97:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d66
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m5
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb98:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d67
+    effect_name: auto.fade
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m13
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+  lb99:
+    colour_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: c11
+    dimmer_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: d68
+    effect_name: auto.static
+    movement_blocks:
+    - end: 1.0
+      offset: 0.0
+      ref: m13
+    name: null
+    riff_source: null
+    riff_version: null
+    special_blocks: []
+midi_input_devices:
+- line: 1
+  name: Akai APC Mini mk2
+  profile: Akai APC Mini mk2
+  uid: apc mini mk2
+  universe_id: 2
+- line: 1
+  name: ADJ MIDICON-2
+  profile: ADJ MIDICON-2
+  uid: midicon-2
+  universe_id: 3
+- line: 1
+  name: None
+  profile: None
+  uid: none
+  universe_id: 4
+pause_show:
+  color: '#ff0000'
+  enabled: true
+  trigger_channel: 177
+  trigger_device: None
+shows:
+  SBD_black_and_blues:
+    effects: []
+    parts:
+    - bpm: 80.0
+      color: '#ffffff'
+      name: Klickintro
+      num_bars: 1
+      signature: 4/4
+      transition: instant
+    - bpm: 80.0
+      color: '#aaaaff'
+      name: Intro
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 80.0
+      color: '#00ffff'
+      name: Vers
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 80.0
+      color: '#ff007f'
+      name: Chorus
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 80.0
+      color: '#00ffff'
+      name: V2
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 80.0
+      color: '#aaffff'
+      name: V3
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 80.0
+      color: '#ffaa00'
+      name: Solo
+      num_bars: 14
+      signature: 4/4
+      transition: instant
+    - bpm: 80.0
+      color: '#ff007f'
+      name: C2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 80.0
+      color: '#ffff00'
+      name: Pause
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 80.0
+      color: '#ff007f'
+      name: C3
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 80.0
+      color: '#ff0000'
+      name: O1
+      num_bars: 1
+      signature: 4/4
+      transition: instant
+    - bpm: 40.0
+      color: '#ff0000'
+      name: O2
+      num_bars: 1
+      signature: 4/4
+      transition: gradual
+    - bpm: 40.0
+      color: '#ff0000'
+      name: O3
+      num_bars: 3
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: ''
+      lanes:
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - end: 15.0
+          ref: lb0
+          start: 3.0
+        - end: 27.75
+          ref: lb1
+          start: 27.0
+        - end: 39.75
+          ref: lb1
+          start: 39.0
+        - end: 63.0
+          ref: lb2
+          start: 60.0
+        - end: 96.0
+          ref: lb3
+          start: 63.0
+        - end: 117.0
+          ref: lb4
+          start: 105.0
+        - end: 165.0
+          ref: lb5
+          start: 159.0
+        - end: 195.0
+          ref: lb6
+          start: 189.0
+        - end: 219.0
+          ref: lb7
+          start: 195.0
+        - end: 225.0
+          ref: lb8
+          start: 219.0
+        - end: 258.0048
+          ref: lb9
+          start: 246.0
+        - end: 243.0
+          ref: lb10
+          start: 225.0
+        - end: 279.0
+          ref: lb11
+          start: 258.048
+        muted: false
+        name: Lane 4
+        solo: false
+    trigger_channel: 172
+    trigger_device: None
+  SBD_cycle_of_a_pscho:
+    effects: []
+    parts:
+    - bpm: 103.5
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 1
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#00ffff'
+      name: intro
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#00ffff'
+      name: vers1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#00ff00'
+      name: bridge1
+      num_bars: 5
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#0040ff'
+      name: drop1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ffff00'
+      name: prechorus2
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#0040ff'
+      name: drop2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ffffff'
+      name: pause
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#0040ff'
+      name: drop3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ffffff'
+      name: quiet
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 13
+      signature: 4/4
+      transition: instant
+    - bpm: 103.5
+      color: '#ff0000'
+      name: outro
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: light_track_cycle_of_a_psycho.wav
+      lanes:
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - end: 41.73913
+          ref: lb12
+          start: 23.188406
+        - end: 115.942029
+          ref: lb12
+          start: 97.391304
+        - end: 23.188406
+          ref: lb12
+          start: 2.318841
+        - end: 53.333333
+          ref: lb12
+          start: 41.73913
+        - end: 78.84058
+          ref: lb13
+          start: 57.971014
+        - end: 141.449275
+          ref: lb13
+          start: 120.57971
+        - end: 236.521739
+          ref: lb13
+          start: 206.376812
+        - end: 97.391304
+          ref: lb14
+          start: 78.84058
+        - end: 160.0
+          ref: lb14
+          start: 141.449275
+        - end: 197.101449
+          ref: lb14
+          start: 178.550725
+        - end: 206.376812
+          ref: lb15
+          start: 197.101449
+        - end: 257.391304
+          ref: lb16
+          start: 236.521739
+        muted: false
+        name: Lane 4
+        solo: false
+    trigger_channel: 168
+    trigger_device: None
+  SBD_everybody:
+    effects: []
+    parts:
+    - bpm: 195.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#0040ff'
+      name: intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#aa007f'
+      name: speech
+      num_bars: 20
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#ff0080'
+      name: chorus
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#00ff00'
+      name: bridge2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#aa007f'
+      name: speech2
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 195.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 27
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: ''
+      lanes:
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - end: 12.346154
+          ref: lb17
+          start: 2.5
+        - end: 36.961538
+          ref: lb18
+          start: 12.346154
+        - end: 56.615385
+          ref: lb18
+          start: 36.961538
+        - end: 68.923077
+          ref: lb19
+          start: 56.615385
+        - end: 132.923077
+          ref: lb18
+          start: 118.153846
+        - end: 185.846154
+          ref: lb19
+          start: 152.615385
+        - end: 152.576923
+          ref: lb18
+          start: 132.923077
+        - end: 78.769231
+          ref: lb20
+          start: 68.923077
+        - end: 108.307692
+          ref: lb20
+          start: 98.461538
+        - end: 118.153846
+          ref: lb19
+          start: 108.307692
+        - end: 98.461538
+          ref: lb21
+          start: 78.769231
+        muted: false
+        name: Lane 2
+        solo: false
+    trigger_channel: 171
+    trigger_device: None
+  SBD_hit_the_road_jack:
+    effects: []
+    parts:
+    - bpm: 180.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#0040ff'
+      name: posaune
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#00ffff'
+      name: vers3
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff0080'
+      name: chorus4
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 180.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: light_track_hit_the_road.wav
+      lanes:
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - end: 13.333333
+          ref: lb22
+          start: 8.0
+        - end: 29.333333
+          ref: lb23
+          start: 24.0
+        - end: 50.666667
+          ref: lb24
+          start: 40.0
+        - end: 93.333333
+          ref: lb24
+          start: 72.0
+        - end: 130.666667
+          ref: lb24
+          start: 109.333333
+        - end: 184.0
+          ref: lb24
+          start: 162.666667
+        - end: 152.0
+          ref: lb25
+          start: 130.666667
+        - end: 162.666667
+          ref: lb26
+          start: 152.0
+        - end: 196.0
+          ref: lb27
+          start: 184.0
+        muted: false
+        name: Lane 4
+        solo: false
+    trigger_channel: 157
+    trigger_device: None
+  SBD_intro_and_devils_dance:
+    effects: []
+    parts:
+    - bpm: 90.0
+      color: '#0040ff'
+      name: intromusone
+      num_bars: 6
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#0040ff'
+      name: intromustwo
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#0040ff'
+      name: intromusthree
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 17
+      signature: 2/4
+      transition: instant
+    - bpm: 130.0
+      color: '#0040ff'
+      name: bassline
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#0040ff'
+      name: full
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ff00'
+      name: interlude
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff0080'
+      name: chorus
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ffff00'
+      name: prechorus2
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#00ff00'
+      name: bridge2
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ffff00'
+      name: prechorus3
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 130.0
+      color: '#ff0080'
+      name: chorus4
+      num_bars: 13
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: C:/Users/varghele/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT\audiofiles\light_track_intro_and_dd.wav
+      lanes:
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - end: 37.333333
+          ref: lb12
+          start: 16.0
+        - end: 42.666667
+          ref: lb28
+          start: 40.0
+        - end: 64.0
+          ref: lb29
+          start: 42.666667
+        - end: 68.666667
+          ref: lb30
+          start: 64.0
+        - end: 74.666667
+          ref: lb31
+          start: 74.0
+        - end: 80.0
+          ref: lb31
+          start: 79.333333
+        - end: 89.333333
+          ref: lb32
+          start: 85.333333
+        - end: 92.0
+          ref: lb33
+          start: 89.333333
+        - end: 106.769231
+          ref: lb34
+          start: 92.0
+        - end: 121.538462
+          ref: lb12
+          start: 106.769231
+        - end: 136.307692
+          ref: lb35
+          start: 121.538462
+        - end: 184.307692
+          ref: lb35
+          start: 169.538462
+        - end: 143.692308
+          ref: lb13
+          start: 136.307692
+        - end: 169.538462
+          ref: lb36
+          start: 151.076923
+        - end: 206.461538
+          ref: lb37
+          start: 191.692308
+        - end: 191.692308
+          ref: lb29
+          start: 189.846154
+        - end: 243.384615
+          ref: lb38
+          start: 221.230769
+        - end: 258.153846
+          ref: lb39
+          start: 243.384615
+        - end: 265.538462
+          ref: lb29
+          start: 263.692308
+        - end: 280.307692
+          ref: lb37
+          start: 265.538462
+        - end: 304.307692
+          ref: lb40
+          start: 280.307692
+        muted: false
+        name: Lane 4
+        solo: false
+    trigger_channel: 153
+    trigger_device: None
+  SBD_monsters_in_my_head:
+    effects: []
+    parts:
+    - bpm: 192.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#0040ff'
+      name: bpart
+      num_bars: 15
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 11
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: postchorus1
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 11
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff007f'
+      name: postchorus2
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#0040ff'
+      name: interlude
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff8000'
+      name: bpart
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#55ff00'
+      name: bridge
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#0000ff'
+      name: drop
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ffffff'
+      name: pause
+      num_bars: 1
+      signature: 2/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ff557f'
+      name: chorus_repeat
+      num_bars: 5
+      signature: 4/4
+      transition: instant
+    - bpm: 192.0
+      color: '#ffaaff'
+      name: chorus_out
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 107.0
+      color: '#ff0000'
+      name: ritartando
+      num_bars: 2
+      signature: 4/4
+      transition: gradual
+    - bpm: 107.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: ''
+      lanes:
+      - fixture_targets:
+        - WASH:0
+        light_blocks:
+        - end: 12.5
+          ref: lb41
+          start: 2.5
+        - end: 143.75
+          ref: lb41
+          start: 133.75
+        muted: false
+        name: WASH_L
+        solo: false
+      - fixture_targets:
+        - WASH:1
+        light_blocks:
+        - end: 12.5
+          ref: lb42
+          start: 2.5
+        - end: 143.75
+          ref: lb42
+          start: 133.75
+        muted: false
+        name: WASH_R
+        solo: false
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - end: 17.5
+          ref: lb43
+          start: 12.5
+        - end: 22.5
+          ref: lb43
+          start: 17.5
+        - end: 31.25
+          ref: lb43
+          start: 26.25
+        - end: 26.25
+          ref: lb44
+          start: 22.5
+        - end: 36.25
+          ref: lb45
+          start: 31.25
+        - end: 41.25
+          ref: lb46
+          start: 36.25
+        - end: 46.25
+          ref: lb46
+          start: 41.25
+        - end: 51.25
+          ref: lb46
+          start: 46.25
+        - end: 66.25
+          ref: lb43
+          start: 61.25
+        - end: 71.25
+          ref: lb43
+          start: 66.25
+        - end: 75.0
+          ref: lb44
+          start: 71.25
+        - end: 85.0
+          ref: lb45
+          start: 80.0
+        - end: 90.0
+          ref: lb45
+          start: 85.0
+        - end: 95.0
+          ref: lb45
+          start: 90.0
+        - end: 100.0
+          ref: lb45
+          start: 95.0
+        - end: 61.25
+          ref: lb47
+          start: 51.25
+        - end: 110.0
+          ref: lb47
+          start: 100.0
+        - end: 78.75
+          ref: lb44
+          start: 75.0
+        - end: 115.0
+          ref: lb43
+          start: 110.0
+        - end: 120.0
+          ref: lb43
+          start: 115.0
+        - end: 123.75
+          ref: lb44
+          start: 120.0
+        - end: 128.75
+          ref: lb48
+          start: 123.75
+        - end: 133.75
+          ref: lb49
+          start: 128.75
+        - end: 153.75
+          ref: lb50
+          start: 143.75
+        - end: 163.75
+          ref: lb51
+          start: 153.75
+        - end: 173.75
+          ref: lb52
+          start: 163.75
+        - end: 193.125
+          ref: lb53
+          start: 186.875
+        - end: 198.125
+          ref: lb43
+          start: 193.125
+        - end: 203.125
+          ref: lb43
+          start: 198.125
+        - end: 206.875
+          ref: lb54
+          start: 203.125
+        - end: 211.875
+          ref: lb55
+          start: 206.875
+        - end: 213.125
+          ref: lb56
+          start: 211.875
+        - end: 216.183272
+          ref: lb57
+          start: 213.126929
+        - end: 234.127197
+          ref: lb48
+          start: 216.183272
+        muted: false
+        name: WASH_COMB
+        solo: false
+    trigger_channel: 170
+    trigger_device: None
+  SBD_old_school_medicine:
+    effects: []
+    parts:
+    - bpm: 190.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 1
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#0040ff'
+      name: riff1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 32
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#0040ff'
+      name: riff2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 32
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff8000'
+      name: solo1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff8000'
+      name: solo2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff8000'
+      name: interlude
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#0040ff'
+      name: aufstieg
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff0080'
+      name: chorus
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 190.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 17
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: light_track_old_school_medicine.wav
+      lanes:
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - end: 24.0
+          ref: lb58
+          start: 13.894737
+        - end: 34.105263
+          ref: lb59
+          start: 24.0
+        - end: 44.210526
+          ref: lb58
+          start: 34.105263
+        - end: 54.315789
+          ref: lb59
+          start: 44.210526
+        - end: 74.526316
+          ref: lb60
+          start: 54.315789
+        - end: 125.052632
+          ref: lb59
+          start: 114.947368
+        - end: 145.263158
+          ref: lb60
+          start: 125.052632
+        - end: 114.947368
+          ref: lb58
+          start: 104.842105
+        - end: 104.842105
+          ref: lb59
+          start: 94.736842
+        - end: 94.736842
+          ref: lb58
+          start: 84.631579
+        - end: 165.473684
+          ref: lb61
+          start: 145.263158
+        - end: 185.684211
+          ref: lb24
+          start: 165.473684
+        - end: 195.789474
+          ref: lb62
+          start: 185.684211
+        - end: 216.0
+          ref: lb63
+          start: 195.789474
+        - end: 236.210526
+          ref: lb60
+          start: 216.0
+        - end: 256.421053
+          ref: lb60
+          start: 236.210526
+        - end: 13.894737
+          ref: lb12
+          start: 3.789474
+        muted: false
+        name: Lane 4
+        solo: false
+    trigger_channel: 158
+    trigger_device: None
+  SBD_outro:
+    effects: []
+    parts:
+    - bpm: 90.0
+      color: '#4CAF50'
+      name: Intro
+      num_bars: 1
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#4CAF50'
+      name: Part 2
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#4CAF50'
+      name: Part 3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#4CAF50'
+      name: Part 4
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 90.0
+      color: '#4CAF50'
+      name: Part 5
+      num_bars: 10
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: ''
+      lanes:
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - end: 10.666667
+          ref: lb64
+          start: 2.666667
+        - end: 13.333333
+          ref: lb65
+          start: 10.666667
+        - end: 21.333333
+          ref: lb64
+          start: 13.333333
+        - end: 24.0
+          ref: lb65
+          start: 21.333333
+        - end: 29.333333
+          ref: lb64
+          start: 24.0
+        - end: 58.666667
+          ref: lb66
+          start: 50.666667
+        - end: 61.333333
+          ref: lb67
+          start: 58.666667
+        muted: false
+        name: Auto - WASH
+        solo: false
+    trigger_channel: 165
+    trigger_device: None
+  SBD_party_of_one:
+    effects: []
+    parts:
+    - bpm: 192.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 13
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#00ff00'
+      name: bridge1
+      num_bars: 15
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#00ff00'
+      name: bridge2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#ff8000'
+      name: drop
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#0040ff'
+      name: cpart
+      num_bars: 29
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 139.0
+      color: '#0040ff'
+      name: outro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: ''
+      lanes:
+      - fixture_targets:
+        - FP
+        light_blocks:
+        - end: 51.25
+          ref: lb68
+          start: 12.5
+        - end: 61.25
+          ref: lb69
+          start: 51.25
+        - end: 80.0
+          ref: lb70
+          start: 61.25
+        - end: 100.0
+          ref: lb68
+          start: 80.0
+        - end: 128.75
+          ref: lb70
+          start: 110.0
+        - end: 133.75
+          ref: lb69
+          start: 128.75
+        - end: 110.0
+          ref: lb69
+          start: 100.0
+        - end: 143.75
+          ref: lb71
+          start: 133.75
+        - end: 163.75
+          ref: lb72
+          start: 143.75
+        - end: 173.75
+          ref: lb52
+          start: 163.75
+        - end: 193.125
+          ref: lb53
+          start: 186.875
+        - end: 213.125
+          ref: lb73
+          start: 193.125
+        - end: 222.912244
+          ref: lb68
+          start: 213.2352
+        - end: 234.127197
+          ref: lb74
+          start: 222.912244
+        muted: false
+        name: Lane 7
+        solo: false
+    trigger_channel: 169
+    trigger_device: None
+  SBD_swingin_it:
+    effects: []
+    parts:
+    - bpm: 183.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#00ffff'
+      name: intro
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#0040ff'
+      name: riff1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff8000'
+      name: interlude1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#0040ff'
+      name: groove1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff8000'
+      name: interlude2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff8000'
+      name: interlude3
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus4
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#0040ff'
+      name: groove2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff8000'
+      name: interlude3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus5
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ffffff'
+      name: pause
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus6
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0080'
+      name: chorus7
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ffffff'
+      name: pause2
+      num_bars: 5
+      signature: 2/4
+      transition: instant
+    - bpm: 183.0
+      color: '#0040ff'
+      name: groove3
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 183.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: light_track_swingin_it.wav
+      lanes:
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - end: 2.622951
+          ref: lb75
+          start: 0.0
+        - end: 6.557377
+          ref: lb76
+          start: 2.622951
+        - end: 7.868852
+          ref: lb77
+          start: 6.557377
+        - end: 11.803279
+          ref: lb76
+          start: 7.868852
+        - end: 13.114754
+          ref: lb77
+          start: 11.803279
+        - end: 17.04918
+          ref: lb76
+          start: 13.114754
+        - end: 18.360656
+          ref: lb77
+          start: 17.04918
+        - end: 22.295082
+          ref: lb78
+          start: 18.360656
+        - end: 23.606557
+          ref: lb79
+          start: 22.295082
+        - end: 27.540984
+          ref: lb78
+          start: 23.606557
+        - end: 28.852459
+          ref: lb79
+          start: 27.540984
+        - end: 32.786885
+          ref: lb80
+          start: 28.852459
+        - end: 34.098361
+          ref: lb81
+          start: 32.786885
+        - end: 38.032787
+          ref: lb80
+          start: 34.098361
+        - end: 39.344262
+          ref: lb81
+          start: 38.032787
+        - end: 43.278689
+          ref: lb82
+          start: 39.344262
+        - end: 44.590164
+          ref: lb83
+          start: 43.278689
+        - end: 48.52459
+          ref: lb82
+          start: 44.590164
+        - end: 49.836066
+          ref: lb83
+          start: 48.52459
+        - end: 53.770492
+          ref: lb84
+          start: 49.836066
+        - end: 55.081967
+          ref: lb85
+          start: 53.770492
+        - end: 59.016393
+          ref: lb84
+          start: 55.081967
+        - end: 60.327869
+          ref: lb85
+          start: 59.016393
+        - end: 64.262295
+          ref: lb86
+          start: 60.327869
+        - end: 65.57377
+          ref: lb87
+          start: 64.262295
+        - end: 69.508197
+          ref: lb86
+          start: 65.57377
+        - end: 70.819672
+          ref: lb87
+          start: 69.508197
+        - end: 74.754098
+          ref: lb88
+          start: 70.819672
+        - end: 76.065574
+          ref: lb89
+          start: 74.754098
+        - end: 80.0
+          ref: lb88
+          start: 76.065574
+        - end: 81.311475
+          ref: lb89
+          start: 80.0
+        - end: 85.245902
+          ref: lb88
+          start: 81.311475
+        - end: 86.557377
+          ref: lb89
+          start: 85.245902
+        - end: 90.491803
+          ref: lb88
+          start: 86.557377
+        - end: 91.803279
+          ref: lb89
+          start: 90.491803
+        - end: 95.737705
+          ref: lb90
+          start: 91.803279
+        - end: 97.04918
+          ref: lb91
+          start: 95.737705
+        - end: 100.983607
+          ref: lb90
+          start: 97.04918
+        - end: 102.295082
+          ref: lb91
+          start: 100.983607
+        - end: 106.229508
+          ref: lb92
+          start: 102.295082
+        - end: 107.540984
+          ref: lb93
+          start: 106.229508
+        - end: 111.47541
+          ref: lb92
+          start: 107.540984
+        - end: 112.786885
+          ref: lb93
+          start: 111.47541
+        - end: 116.721311
+          ref: lb94
+          start: 112.786885
+        - end: 118.032787
+          ref: lb95
+          start: 116.721311
+        - end: 121.967213
+          ref: lb94
+          start: 118.032787
+        - end: 123.278689
+          ref: lb95
+          start: 121.967213
+        - end: 127.213115
+          ref: lb94
+          start: 123.278689
+        - end: 128.52459
+          ref: lb95
+          start: 127.213115
+        - end: 132.459016
+          ref: lb96
+          start: 128.52459
+        - end: 133.770492
+          ref: lb97
+          start: 132.459016
+        - end: 137.704918
+          ref: lb96
+          start: 133.770492
+        - end: 139.016393
+          ref: lb97
+          start: 137.704918
+        - end: 142.95082
+          ref: lb98
+          start: 139.016393
+        - end: 144.262295
+          ref: lb99
+          start: 142.95082
+        - end: 148.196721
+          ref: lb98
+          start: 144.262295
+        - end: 149.508197
+          ref: lb99
+          start: 148.196721
+        - end: 153.442623
+          ref: lb100
+          start: 149.508197
+        - end: 154.754098
+          ref: lb101
+          start: 153.442623
+        - end: 158.688525
+          ref: lb100
+          start: 154.754098
+        - end: 160.0
+          ref: lb101
+          start: 158.688525
+        - end: 163.934426
+          ref: lb100
+          start: 160.0
+        - end: 165.245902
+          ref: lb101
+          start: 163.934426
+        - end: 169.180328
+          ref: lb100
+          start: 165.245902
+        - end: 170.491803
+          ref: lb101
+          start: 169.180328
+        - end: 174.42623
+          ref: lb94
+          start: 170.491803
+        - end: 175.737705
+          ref: lb95
+          start: 174.42623
+        - end: 179.672131
+          ref: lb94
+          start: 175.737705
+        - end: 180.983607
+          ref: lb95
+          start: 179.672131
+        - end: 184.918033
+          ref: lb102
+          start: 180.983607
+        - end: 186.229508
+          ref: lb103
+          start: 184.918033
+        - end: 190.163934
+          ref: lb102
+          start: 186.229508
+        - end: 191.47541
+          ref: lb103
+          start: 190.163934
+        - end: 194.098361
+          ref: lb104
+          start: 191.47541
+        - end: 198.032787
+          ref: lb105
+          start: 194.098361
+        - end: 199.344262
+          ref: lb106
+          start: 198.032787
+        - end: 203.278689
+          ref: lb105
+          start: 199.344262
+        - end: 204.590164
+          ref: lb106
+          start: 203.278689
+        - end: 208.52459
+          ref: lb107
+          start: 204.590164
+        - end: 209.836066
+          ref: lb108
+          start: 208.52459
+        - end: 213.770492
+          ref: lb107
+          start: 209.836066
+        - end: 215.081967
+          ref: lb108
+          start: 213.770492
+        - end: 217.04918
+          ref: lb109
+          start: 215.081967
+        - end: 217.704918
+          ref: lb110
+          start: 217.04918
+        - end: 218.360656
+          ref: lb109
+          start: 217.704918
+        - end: 222.295082
+          ref: lb111
+          start: 218.360656
+        - end: 223.606557
+          ref: lb111
+          start: 222.295082
+        - end: 227.540984
+          ref: lb111
+          start: 223.606557
+        - end: 228.852459
+          ref: lb111
+          start: 227.540984
+        - end: 232.786885
+          ref: lb111
+          start: 228.852459
+        - end: 234.098361
+          ref: lb111
+          start: 232.786885
+        - end: 238.032787
+          ref: lb111
+          start: 234.098361
+        - end: 239.344262
+          ref: lb111
+          start: 238.032787
+        - end: 241.967213
+          ref: lb112
+          start: 239.344262
+        muted: false
+        name: Auto - WASH
+        solo: false
+    trigger_channel: 156
+    trigger_device: None
+  SBD_take_the_wheel:
+    effects: []
+    parts:
+    - bpm: 193.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ffff'
+      name: intro1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ffff'
+      name: intro2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ff00'
+      name: bridge1
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ffff00'
+      name: prechorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ff00'
+      name: bridge2
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ffff00'
+      name: prechorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff8000'
+      name: interlude
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#0040ff'
+      name: chant1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#0040ff'
+      name: chant2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ffff00'
+      name: prechorus3
+      num_bars: 18
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 15
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 193.0
+      color: '#ff0000'
+      name: outro2
+      num_bars: 9
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: ''
+      lanes:
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - end: 22.38342
+          ref: lb113
+          start: 2.487047
+        - end: 42.279793
+          ref: lb113
+          start: 22.38342
+        - end: 67.150259
+          ref: lb114
+          start: 47.253886
+        - end: 87.046632
+          ref: lb115
+          start: 67.150259
+        - end: 106.943005
+          ref: lb116
+          start: 87.046632
+        - end: 151.709845
+          ref: lb115
+          start: 131.813472
+        - end: 131.813472
+          ref: lb114
+          start: 111.917098
+        - end: 171.606218
+          ref: lb116
+          start: 151.709845
+        - end: 181.554404
+          ref: lb117
+          start: 171.606218
+        - end: 201.450777
+          ref: lb25
+          start: 181.554404
+        - end: 221.34715
+          ref: lb118
+          start: 201.450777
+        - end: 243.73057
+          ref: lb119
+          start: 241.243523
+        - end: 262.38342
+          ref: lb120
+          start: 243.73057
+        - end: 272.331606
+          ref: lb121
+          start: 262.38342
+        - end: 283.523316
+          ref: lb122
+          start: 272.331606
+        muted: false
+        name: Lane 4
+        solo: false
+    trigger_channel: 167
+    trigger_device: None
+  SBD_what_the_funk_v2:
+    effects: []
+    parts:
+    - bpm: 115.0
+      color: '#ffffff'
+      name: klickintro
+      num_bars: 2
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#00ffff'
+      name: intro1
+      num_bars: 12
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#00ffff'
+      name: vers1
+      num_bars: 16
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#ff0080'
+      name: chorus1
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#00ffff'
+      name: intro2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#00ffff'
+      name: vers2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#ff0080'
+      name: chorus2
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 123.0
+      color: '#00ff00'
+      name: bridge
+      num_bars: 4
+      signature: 4/4
+      transition: instant
+    - bpm: 123.0
+      color: '#ff8000'
+      name: solo
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#ff0080'
+      name: chorus3
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#ff0080'
+      name: chorus4
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    - bpm: 115.0
+      color: '#ff0000'
+      name: outro
+      num_bars: 8
+      signature: 4/4
+      transition: instant
+    timeline_data:
+      audio_file_path: C:/Users/varghele/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT\audiofiles\light_track_burning_out.wav
+      lanes:
+      - fixture_targets:
+        - WASH
+        light_blocks:
+        - end: 12.521739
+          ref: lb123
+          start: 4.173913
+        - end: 20.869565
+          ref: lb29
+          start: 12.521739
+        - end: 29.217391
+          ref: lb12
+          start: 20.869565
+        - end: 62.608696
+          ref: lb124
+          start: 45.913043
+        - end: 79.304348
+          ref: lb57
+          start: 75.130435
+        - end: 87.652174
+          ref: lb29
+          start: 79.304348
+        - end: 96.0
+          ref: lb12
+          start: 87.652174
+        - end: 112.695652
+          ref: lb125
+          start: 96.0
+        - end: 129.391304
+          ref: lb57
+          start: 125.217391
+        - end: 137.196182
+          ref: lb126
+          start: 129.391304
+        - end: 186.197243
+          ref: lb57
+          start: 182.02333
+        - end: 169.501591
+          ref: lb127
+          start: 152.805938
+        - end: 182.02333
+          ref: lb128
+          start: 169.501591
+        - end: 202.892895
+          ref: lb12
+          start: 194.545069
+        - end: 194.545069
+          ref: lb29
+          start: 186.197243
+        muted: false
+        name: Lane 4
+        solo: false
+      - fixture_targets:
+        - WASH:0
+        light_blocks:
+        - end: 145.00106
+          ref: lb129
+          start: 137.196182
+        muted: false
+        name: Lane 6
+        solo: false
+      - fixture_targets:
+        - WASH:1
+        light_blocks:
+        - end: 152.805938
+          ref: lb129
+          start: 145.00106
+        muted: false
+        name: Lane 7
+        solo: false
+    trigger_channel: 160
+    trigger_device: None
+shows_directory: C:/Users/varghele/Proton Drive/varghele/My files/SHOO BEE DOOM/LICHT
+spots:
+  Spot1:
+    name: Spot1
+    x: 0.0
+    y: 2.5
+    z: 0.0
+  Spot2:
+    name: Spot2
+    x: 0.0
+    y: 3.0
+    z: 3.0000000000000013
+universes:
+  '1':
+    name: Universe 1
+    output:
+      line: '0'
+      parameters:
+        ip: 255.255.255.255
+        subnet: '0'
+        universe: '1'
+      plugin: ArtNet
+  '2':
+    name: Universe 2
+    output:
+      line: '0'
+      parameters:
+        ip: 255.255.255.255
+        subnet: '0'
+        universe: '2'
+      plugin: ArtNet
+workspace_path: null
