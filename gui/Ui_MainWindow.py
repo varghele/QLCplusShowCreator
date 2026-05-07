@@ -7,7 +7,9 @@ from gui.StageView import StageView
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("QLCShowCreator")
-        MainWindow.resize(1250, 900)
+        # Fallback geometry only — main.py uses showMaximized so this only
+        # applies if the window is later un-maximized by the user.
+        MainWindow.resize(1600, 1000)
         MainWindow.setWindowTitle("QLC+ Show Creator")
 
         # Create central widget
@@ -52,28 +54,20 @@ class Ui_MainWindow(object):
         status_layout.setContentsMargins(0, 0, 10, 0)
         status_layout.setSpacing(15)
 
-        # ArtNet status indicator with toggle button
+        # ArtNet status indicator with toggle button. Per-theme styling lives
+        # in resources/themes/*.qss; here we only set role/status dynamic
+        # properties that the stylesheets target.
         artnet_layout = QtWidgets.QHBoxLayout()
         artnet_layout.setSpacing(4)
         artnet_label = QtWidgets.QLabel("ArtNet:")
-        artnet_label.setStyleSheet("font-weight: bold; color: #888;")
+        artnet_label.setProperty("role", "status-label")
         self.artnet_status_indicator = QtWidgets.QLabel("OFF")
-        self.artnet_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
+        self.artnet_status_indicator.setProperty("status", "off")
         self.artnet_status_indicator.setToolTip("ArtNet DMX Output Status")
         self.artnet_toggle_btn = QtWidgets.QPushButton("●")
         self.artnet_toggle_btn.setFixedSize(24, 24)
-        self.artnet_toggle_btn.setStyleSheet("""
-            QPushButton {
-                font-size: 14px;
-                color: #666;
-                background-color: transparent;
-                border: 1px solid #555;
-                border-radius: 12px;
-            }
-            QPushButton:hover {
-                background-color: #444;
-            }
-        """)
+        self.artnet_toggle_btn.setProperty("role", "status-pill")
+        self.artnet_toggle_btn.setProperty("status", "off")
         self.artnet_toggle_btn.setToolTip("Click to toggle ArtNet")
         self.artnet_toggle_btn.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         artnet_layout.addWidget(artnet_label)
@@ -81,28 +75,19 @@ class Ui_MainWindow(object):
         artnet_layout.addWidget(self.artnet_toggle_btn)
         status_layout.addLayout(artnet_layout)
 
-        # TCP/Visualizer status indicator with toggle button
+        # TCP/Visualizer status indicator with toggle button. Same dynamic-
+        # property pattern as the ArtNet pill; theme files do the colors.
         tcp_layout = QtWidgets.QHBoxLayout()
         tcp_layout.setSpacing(4)
         tcp_label = QtWidgets.QLabel("Visualizer:")
-        tcp_label.setStyleSheet("font-weight: bold; color: #888;")
+        tcp_label.setProperty("role", "status-label")
         self.tcp_status_indicator = QtWidgets.QLabel("OFF")
-        self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
+        self.tcp_status_indicator.setProperty("status", "off")
         self.tcp_status_indicator.setToolTip("TCP Visualizer Server Status")
         self.tcp_toggle_btn = QtWidgets.QPushButton("●")
         self.tcp_toggle_btn.setFixedSize(24, 24)
-        self.tcp_toggle_btn.setStyleSheet("""
-            QPushButton {
-                font-size: 14px;
-                color: #666;
-                background-color: transparent;
-                border: 1px solid #555;
-                border-radius: 12px;
-            }
-            QPushButton:hover {
-                background-color: #444;
-            }
-        """)
+        self.tcp_toggle_btn.setProperty("role", "status-pill")
+        self.tcp_toggle_btn.setProperty("status", "off")
         self.tcp_toggle_btn.setToolTip("Click to toggle Visualizer Server")
         self.tcp_toggle_btn.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
         tcp_layout.addWidget(tcp_label)
@@ -189,6 +174,27 @@ class Ui_MainWindow(object):
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionExit)
 
+        # View menu — fullscreen toggle + theme picker.
+        self.menuView = QtWidgets.QMenu("View", parent=self.menubar)
+        self.actionToggleFullscreen = QAction("Toggle Fullscreen", MainWindow)
+        self.actionToggleFullscreen.setShortcut("F11")
+        self.actionToggleFullscreen.setCheckable(True)
+        self.menuView.addAction(self.actionToggleFullscreen)
+        self.menuView.addSeparator()
+
+        self.menuTheme = QtWidgets.QMenu("Theme", parent=self.menuView)
+        self.themeActionGroup = QtGui.QActionGroup(MainWindow)
+        self.themeActionGroup.setExclusive(True)
+        self.actionThemeDark = QAction("Dark", MainWindow)
+        self.actionThemeDark.setCheckable(True)
+        self.actionThemeLight = QAction("Light", MainWindow)
+        self.actionThemeLight.setCheckable(True)
+        self.themeActionGroup.addAction(self.actionThemeDark)
+        self.themeActionGroup.addAction(self.actionThemeLight)
+        self.menuTheme.addAction(self.actionThemeDark)
+        self.menuTheme.addAction(self.actionThemeLight)
+        self.menuView.addMenu(self.menuTheme)
+
         # Settings menu
         self.menuSettings = QtWidgets.QMenu("Settings", parent=self.menubar)
         self.actionAudioSettings = QAction("Audio Settings...", MainWindow)
@@ -203,5 +209,6 @@ class Ui_MainWindow(object):
         # Add menus to menubar
         MainWindow.setMenuBar(self.menubar)
         self.menubar.addAction(self.menuFile.menuAction())
+        self.menubar.addAction(self.menuView.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
         self.menubar.addAction(self.menuHelp.menuAction())

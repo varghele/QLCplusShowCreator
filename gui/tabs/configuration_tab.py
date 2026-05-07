@@ -115,13 +115,10 @@ class ConfigurationTab(BaseTab):
                 "  etc."
             )
 
-        # Set table properties
-        self.universe_list.setSelectionBehavior(
-            QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
-        )
-        self.universe_list.setSelectionMode(
-            QtWidgets.QAbstractItemView.SelectionMode.SingleSelection
-        )
+        # Modern table styling (alternating rows, no grid, row selection,
+        # padded headers). Visuals come from the active theme stylesheet.
+        from gui.widgets.modern_table import apply_modern_table_style
+        apply_modern_table_style(self.universe_list)
 
         # Make table stretch to fill available space
         self.universe_list.setSizePolicy(

@@ -162,10 +162,11 @@ class FixturesTab(BaseTab):
         self.table.setColumnWidth(6, 140)  # Name
         self.table.setColumnWidth(7, 140)  # Group
 
-        # Table properties
+        # Modern table styling — alternating rows, no grid, padded headers.
+        # Visuals come from the active theme stylesheet.
+        from gui.widgets.modern_table import apply_modern_table_style
+        apply_modern_table_style(self.table)
         self.table.setSortingEnabled(True)
-        self.table.setShowGrid(True)
-        self.table.setAlternatingRowColors(True)
         self.table.horizontalHeader().setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
 
     def connect_signals(self):

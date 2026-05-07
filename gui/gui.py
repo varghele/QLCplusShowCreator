@@ -65,101 +65,77 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._update_toolbar_status()
 
     def _update_toolbar_status(self):
-        """Update ArtNet and TCP status indicators in toolbar."""
-        # Update ArtNet status
+        """Update ArtNet and TCP status indicators in toolbar.
+
+        Drives the QSS dynamic-property selectors (`status="off"|"on"|"active"|"ready"`)
+        rather than re-applying inline stylesheets, so the active theme stays
+        in charge of the actual colors.
+        """
+        # ArtNet
         artnet_controller = getattr(self.shows_tab, 'artnet_controller', None)
         artnet_enabled = getattr(self.shows_tab, 'artnet_enabled', False)
-
         if artnet_controller and artnet_enabled:
             self.artnet_status_indicator.setText("ON")
-            self.artnet_status_indicator.setStyleSheet("font-weight: bold; color: #4CAF50;")
+            self._set_status(self.artnet_status_indicator, "on")
+            self._set_status(self.artnet_toggle_btn, "on")
             self.artnet_status_indicator.setToolTip("ArtNet DMX Output: Enabled")
-            self.artnet_toggle_btn.setStyleSheet("""
-                QPushButton {
-                    font-size: 14px;
-                    color: #4CAF50;
-                    background-color: transparent;
-                    border: 1px solid #4CAF50;
-                    border-radius: 12px;
-                }
-                QPushButton:hover {
-                    background-color: #2E4A2E;
-                }
-            """)
             self.artnet_toggle_btn.setToolTip("Click to disable ArtNet")
         else:
             self.artnet_status_indicator.setText("OFF")
-            self.artnet_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
+            self._set_status(self.artnet_status_indicator, "off")
+            self._set_status(self.artnet_toggle_btn, "off")
             self.artnet_status_indicator.setToolTip("ArtNet DMX Output: Disabled")
-            self.artnet_toggle_btn.setStyleSheet("""
-                QPushButton {
-                    font-size: 14px;
-                    color: #666;
-                    background-color: transparent;
-                    border: 1px solid #555;
-                    border-radius: 12px;
-                }
-                QPushButton:hover {
-                    background-color: #444;
-                }
-            """)
             self.artnet_toggle_btn.setToolTip("Click to enable ArtNet")
 
-        # Update TCP status
+        # TCP visualizer server
         tcp_server = getattr(self.shows_tab, 'tcp_server', None)
-
         if tcp_server and tcp_server.is_running():
             client_count = tcp_server.get_client_count()
             if client_count > 0:
                 self.tcp_status_indicator.setText(f"{client_count}")
-                self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #4CAF50;")
-                self.tcp_status_indicator.setToolTip(f"TCP Visualizer Server: {client_count} client(s) connected")
-                self.tcp_toggle_btn.setStyleSheet("""
-                    QPushButton {
-                        font-size: 14px;
-                        color: #4CAF50;
-                        background-color: transparent;
-                        border: 1px solid #4CAF50;
-                        border-radius: 12px;
-                    }
-                    QPushButton:hover {
-                        background-color: #2E4A2E;
-                    }
-                """)
+                self._set_status(self.tcp_status_indicator, "active")
+                self._set_status(self.tcp_toggle_btn, "active")
+                self.tcp_status_indicator.setToolTip(
+                    f"TCP Visualizer Server: {client_count} client(s) connected"
+                )
             else:
                 self.tcp_status_indicator.setText("ON")
-                self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #2196F3;")
+                self._set_status(self.tcp_status_indicator, "ready")
+                self._set_status(self.tcp_toggle_btn, "ready")
                 self.tcp_status_indicator.setToolTip("TCP Visualizer Server: Running, no clients")
-                self.tcp_toggle_btn.setStyleSheet("""
-                    QPushButton {
-                        font-size: 14px;
-                        color: #2196F3;
-                        background-color: transparent;
-                        border: 1px solid #2196F3;
-                        border-radius: 12px;
-                    }
-                    QPushButton:hover {
-                        background-color: #1A3A4A;
-                    }
-                """)
             self.tcp_toggle_btn.setToolTip("Click to stop Visualizer Server")
         else:
             self.tcp_status_indicator.setText("OFF")
-            self.tcp_status_indicator.setStyleSheet("font-weight: bold; color: #666;")
+            self._set_status(self.tcp_status_indicator, "off")
+            self._set_status(self.tcp_toggle_btn, "off")
             self.tcp_status_indicator.setToolTip("TCP Visualizer Server: Not running")
-            self.tcp_toggle_btn.setStyleSheet("""
-                QPushButton {
-                    font-size: 14px;
-                    color: #666;
-                    background-color: transparent;
-                    border: 1px solid #555;
-                    border-radius: 12px;
-                }
-                QPushButton:hover {
-                    background-color: #444;
-                }
-            """)
             self.tcp_toggle_btn.setToolTip("Click to start Visualizer Server")
+
+    def _set_status(self, widget, value):
+        """Set the `status` dynamic property on a widget and re-polish so QSS
+        selectors keyed off it (e.g. ``QLabel[status="on"]``) re-evaluate."""
+        widget.setProperty("status", value)
+        style = widget.style()
+        if style:
+            style.unpolish(widget)
+            style.polish(widget)
+
+    def _toggle_fullscreen(self):
+        """F11 — switch between fullscreen and the previous (maximized) state."""
+        if self.isFullScreen():
+            self.showMaximized()
+            self.actionToggleFullscreen.setChecked(False)
+        else:
+            self.showFullScreen()
+            self.actionToggleFullscreen.setChecked(True)
+
+    def _set_theme(self, name: str):
+        """Apply and persist the selected theme."""
+        from gui.theme_manager import ThemeManager
+        ThemeManager().apply(QtWidgets.QApplication.instance(), name)
+        # Force the toolbar-status pills to re-evaluate their dynamic props
+        # against the new theme.
+        self._update_toolbar_status()
 
     def _toggle_artnet(self):
         """Toggle ArtNet output via shows tab."""
@@ -400,6 +376,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Settings menu actions
         self.actionAudioSettings.triggered.connect(self.open_audio_settings)
+
+        # View menu actions
+        self.actionToggleFullscreen.triggered.connect(self._toggle_fullscreen)
+        self.actionThemeDark.triggered.connect(lambda: self._set_theme("dark"))
+        self.actionThemeLight.triggered.connect(lambda: self._set_theme("light"))
+        # Reflect the active theme in the menu's check state.
+        from gui.theme_manager import ThemeManager
+        active = ThemeManager().current() or "dark"
+        if active == "light":
+            self.actionThemeLight.setChecked(True)
+        else:
+            self.actionThemeDark.setChecked(True)
 
         # Render menu (insert before Help)
         self.menuRender = QtWidgets.QMenu("Render", parent=self.menubar)
