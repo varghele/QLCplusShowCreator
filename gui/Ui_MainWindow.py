@@ -1,5 +1,5 @@
 from PyQt6 import QtCore, QtWidgets, QtGui
-from PyQt6.QtWidgets import QToolBar
+from PyQt6.QtWidgets import QToolButton
 from PyQt6.QtGui import QAction, QFont
 from gui.StageView import StageView
 
@@ -16,39 +16,27 @@ class Ui_MainWindow(object):
         self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
         self.centralwidget.setObjectName("centralwidget")
 
-        # Create toolbar
-        self.toolbar = QToolBar()
-        MainWindow.addToolBar(self.toolbar)
-
-        # Create actions with icons from QtWidgets.QStyle
-        style = self.style()  # Get style from the widget
-        self.saveAction = QAction(QtWidgets.QApplication.style().standardIcon(
-            QtWidgets.QStyle.StandardPixmap.SP_DialogSaveButton),
+        # The Save/Load/Import/Create actions used to live on a separate
+        # QToolBar row. They now sit on the menubar's right corner together
+        # with the ArtNet/Visualizer status pills, freeing a vertical line
+        # of UI. The QAction objects stay around so gui.py's existing
+        # connections keep working — only the visual host changed.
+        style_obj = QtWidgets.QApplication.style()
+        self.saveAction = QAction(
+            style_obj.standardIcon(QtWidgets.QStyle.StandardPixmap.SP_DialogSaveButton),
             "Save Configuration", MainWindow)
-        self.loadAction = QAction(QtWidgets.QApplication.style().standardIcon(
-            QtWidgets.QStyle.StandardPixmap.SP_DialogOpenButton),
+        self.loadAction = QAction(
+            style_obj.standardIcon(QtWidgets.QStyle.StandardPixmap.SP_DialogOpenButton),
             "Load Configuration", MainWindow)
-        self.importWorkspaceAction = QAction(QtWidgets.QApplication.style().standardIcon(
-            QtWidgets.QStyle.StandardPixmap.SP_FileDialogDetailedView),
+        self.importWorkspaceAction = QAction(
+            style_obj.standardIcon(QtWidgets.QStyle.StandardPixmap.SP_FileDialogDetailedView),
             "Import Workspace", MainWindow)
-        self.createWorkspaceAction = QAction(QtWidgets.QApplication.style().standardIcon(
-            QtWidgets.QStyle.StandardPixmap.SP_MediaSeekForward),
+        self.createWorkspaceAction = QAction(
+            style_obj.standardIcon(QtWidgets.QStyle.StandardPixmap.SP_MediaSeekForward),
             "Create Workspace", MainWindow)
 
-        # Add actions to toolbar
-        self.toolbar.addAction(self.saveAction)
-        self.toolbar.addAction(self.loadAction)
-        self.toolbar.addSeparator()
-        self.toolbar.addAction(self.importWorkspaceAction)
-        self.toolbar.addAction(self.createWorkspaceAction)
-
-        # Spacer to push status indicators to the right
-        spacer = QtWidgets.QWidget()
-        spacer.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
-                             QtWidgets.QSizePolicy.Policy.Expanding)
-        self.toolbar.addWidget(spacer)
-
-        # Status indicators container
+        # Status indicators container — shared by ArtNet and TCP/Visualizer
+        # state widgets. Will be packed into the menubar corner below.
         status_container = QtWidgets.QWidget()
         status_layout = QtWidgets.QHBoxLayout(status_container)
         status_layout.setContentsMargins(0, 0, 10, 0)
@@ -95,7 +83,9 @@ class Ui_MainWindow(object):
         tcp_layout.addWidget(self.tcp_toggle_btn)
         status_layout.addLayout(tcp_layout)
 
-        self.toolbar.addWidget(status_container)
+        # Hold the assembled status container; the corner widget is wired
+        # up after the menubar exists (in setupStatusAndMenu).
+        self._status_container = status_container
 
         # Main layout
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralwidget)
@@ -212,3 +202,31 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuView.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
         self.menubar.addAction(self.menuHelp.menuAction())
+
+        # Right corner of the menubar: the four icon shortcuts plus the
+        # ArtNet/Visualizer status pills (assembled earlier in setupUi).
+        # Replaces the old standalone QToolBar, freeing one full row of
+        # vertical space.
+        corner = QtWidgets.QWidget()
+        corner_layout = QtWidgets.QHBoxLayout(corner)
+        corner_layout.setContentsMargins(0, 0, 6, 0)
+        corner_layout.setSpacing(2)
+
+        for action in (self.saveAction, self.loadAction,
+                       self.importWorkspaceAction, self.createWorkspaceAction):
+            btn = QToolButton()
+            btn.setDefaultAction(action)
+            btn.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonIconOnly)
+            btn.setAutoRaise(True)
+            corner_layout.addWidget(btn)
+
+        # Vertical separator between the icons and the status pills.
+        sep = QtWidgets.QFrame()
+        sep.setFrameShape(QtWidgets.QFrame.Shape.VLine)
+        sep.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
+        corner_layout.addWidget(sep)
+
+        if hasattr(self, "_status_container") and self._status_container is not None:
+            corner_layout.addWidget(self._status_container)
+
+        self.menubar.setCornerWidget(corner, QtCore.Qt.Corner.TopRightCorner)

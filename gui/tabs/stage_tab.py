@@ -242,6 +242,11 @@ class StageTab(BaseTab):
         # Orientation dialog trigger from right-click menu
         self.stage_view.set_orientation_requested.connect(self._on_set_orientation_requested)
 
+        # Auto-bind the inline orientation panel whenever the user changes
+        # the selection on the 2D StageView — single-click on a fixture is
+        # enough to start editing it, no right-click required.
+        self.stage_view.scene.selectionChanged.connect(self._on_stage_selection_changed)
+
     def update_from_config(self):
         """Refresh stage view from configuration"""
         if self.stage_view:
@@ -548,6 +553,18 @@ class StageTab(BaseTab):
             return
         self._inline_orientation_fixtures = list(fixture_items)
         self.orientation_panel.set_fixtures(self._inline_orientation_fixtures)
+
+    def _on_stage_selection_changed(self):
+        """Re-bind the inline orientation panel to whatever fixtures are
+        currently selected on the 2D StageView. Empty selection → panel
+        shows "No fixture selected" and disables its inputs.
+        """
+        selected = [
+            item for item in self.stage_view.scene.selectedItems()
+            if isinstance(item, FixtureItem)
+        ]
+        self._inline_orientation_fixtures = selected
+        self.orientation_panel.set_fixtures(selected)
 
     def _on_inline_orientation_changed(self):
         """Slot fired by OrientationPanel.values_changed — push edits live

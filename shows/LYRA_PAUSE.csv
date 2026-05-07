@@ -1,2 +1,5 @@
 showpart,signature,bpm,num_bars,transition,color
 Intro,4/4,120.0,8,instant,#4CAF50
+Part 2,4/4,120.0,8,instant,#4CAF50
+Part 3,4/4,120.0,8,instant,#4CAF50
+Part 4,4/4,120.0,8,instant,#4CAF50

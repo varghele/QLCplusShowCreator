@@ -101,7 +101,10 @@ class OrientationPreviewWidget(QOpenGLWidget):
         self.render_timer.timeout.connect(self.update)
         self.render_timer.start(33)  # ~30 FPS
 
-        self.setMinimumSize(300, 300)
+        # Compact-friendly minimum so the preview can sit comfortably inside
+        # the Stage tab's right-hand splitter without forcing the whole
+        # column wide. The dialog wrapper still sets a 500x550 dialog min.
+        self.setMinimumSize(180, 160)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def initializeGL(self):
@@ -1902,6 +1905,9 @@ class OrientationPanel(QWidget):
         self._connect_signals()
         if fixtures:
             self._load_initial_values()
+        else:
+            # Inline embedders (Stage tab) start with no selection.
+            self._set_inputs_enabled(False)
 
     def _setup_ui(self):
         """Set up the panel UI."""
@@ -1921,24 +1927,33 @@ class OrientationPanel(QWidget):
         preview_layout.addWidget(self.preview_widget)
         layout.addWidget(preview_group, stretch=1)
 
-        # Presets
+        # Presets — laid out as a 4 cols x 2 rows grid so the panel can sit
+        # comfortably in the Stage-tab right column without forcing it wide.
         presets_group = QGroupBox("Presets")
-        presets_layout = QHBoxLayout(presets_group)
+        presets_layout = QGridLayout(presets_group)
+        presets_layout.setHorizontalSpacing(4)
+        presets_layout.setVerticalSpacing(4)
 
         self.preset_buttons = {}
-        for preset_id, preset_info in self.PRESETS.items():
+        cols = 4
+        for index, (preset_id, preset_info) in enumerate(self.PRESETS.items()):
             btn = QPushButton(preset_info['label'])
             btn.setToolTip(preset_info['tooltip'])
             btn.setCheckable(True)
+            btn.setMaximumWidth(90)
             btn.clicked.connect(lambda checked, p=preset_id: self._on_preset_clicked(p))
-            presets_layout.addWidget(btn)
+            row, col = divmod(index, cols)
+            presets_layout.addWidget(btn, row, col)
             self.preset_buttons[preset_id] = btn
 
         layout.addWidget(presets_group)
 
-        # Fine adjustment
+        # Fine adjustment — one row per axis: [label | spinbox | +90 button].
+        # Z-height has no rotate button so its trailing cell stays empty.
         adjust_group = QGroupBox("Fine Adjustment")
         adjust_layout = QGridLayout(adjust_group)
+        adjust_layout.setHorizontalSpacing(6)
+        adjust_layout.setVerticalSpacing(4)
 
         # Yaw
         adjust_layout.addWidget(QLabel("Yaw:"), 0, 0)
@@ -1948,8 +1963,6 @@ class OrientationPanel(QWidget):
         self.yaw_spin.setSingleStep(5)
         self.yaw_spin.setToolTip("Rotation around vertical axis (blue ring)")
         adjust_layout.addWidget(self.yaw_spin, 0, 1)
-
-        # Yaw +90 button (blue)
         self.yaw_90_btn = QPushButton("+90°")
         self.yaw_90_btn.setToolTip("Rotate yaw by +90°")
         self.yaw_90_btn.setStyleSheet("background-color: #4466CC; color: white; font-weight: bold;")
@@ -1958,48 +1971,44 @@ class OrientationPanel(QWidget):
         adjust_layout.addWidget(self.yaw_90_btn, 0, 2)
 
         # Pitch
-        adjust_layout.addWidget(QLabel("Pitch:"), 0, 3)
+        adjust_layout.addWidget(QLabel("Pitch:"), 1, 0)
         self.pitch_spin = QDoubleSpinBox()
         self.pitch_spin.setRange(-90, 90)
         self.pitch_spin.setSuffix("°")
         self.pitch_spin.setSingleStep(5)
         self.pitch_spin.setToolTip("Tilt angle (green ring)")
-        adjust_layout.addWidget(self.pitch_spin, 0, 4)
-
-        # Pitch +90 button (green)
+        adjust_layout.addWidget(self.pitch_spin, 1, 1)
         self.pitch_90_btn = QPushButton("+90°")
         self.pitch_90_btn.setToolTip("Rotate pitch by +90°")
         self.pitch_90_btn.setStyleSheet("background-color: #44AA44; color: white; font-weight: bold;")
         self.pitch_90_btn.setFixedWidth(50)
         self.pitch_90_btn.clicked.connect(lambda: self._rotate_by_90('pitch'))
-        adjust_layout.addWidget(self.pitch_90_btn, 0, 5)
+        adjust_layout.addWidget(self.pitch_90_btn, 1, 2)
 
         # Roll
-        adjust_layout.addWidget(QLabel("Roll:"), 1, 0)
+        adjust_layout.addWidget(QLabel("Roll:"), 2, 0)
         self.roll_spin = QDoubleSpinBox()
         self.roll_spin.setRange(-180, 180)
         self.roll_spin.setSuffix("°")
         self.roll_spin.setSingleStep(5)
         self.roll_spin.setToolTip("Rotation around beam axis (red ring)")
-        adjust_layout.addWidget(self.roll_spin, 1, 1)
-
-        # Roll +90 button (red)
+        adjust_layout.addWidget(self.roll_spin, 2, 1)
         self.roll_90_btn = QPushButton("+90°")
         self.roll_90_btn.setToolTip("Rotate roll by +90°")
         self.roll_90_btn.setStyleSheet("background-color: #CC4444; color: white; font-weight: bold;")
         self.roll_90_btn.setFixedWidth(50)
         self.roll_90_btn.clicked.connect(lambda: self._rotate_by_90('roll'))
-        adjust_layout.addWidget(self.roll_90_btn, 1, 2)
+        adjust_layout.addWidget(self.roll_90_btn, 2, 2)
 
         # Z-height
-        adjust_layout.addWidget(QLabel("Z-Height:"), 1, 3)
+        adjust_layout.addWidget(QLabel("Z-Height:"), 3, 0)
         self.z_spin = QDoubleSpinBox()
         self.z_spin.setRange(0, 50)
         self.z_spin.setSuffix(" m")
         self.z_spin.setSingleStep(0.1)
         self.z_spin.setDecimals(2)
         self.z_spin.setToolTip("Height above stage floor")
-        adjust_layout.addWidget(self.z_spin, 1, 4, 1, 2)  # Span 2 columns
+        adjust_layout.addWidget(self.z_spin, 3, 1, 1, 2)
 
         layout.addWidget(adjust_group)
 
@@ -2038,13 +2047,41 @@ class OrientationPanel(QWidget):
 
         Refreshes the info label, the apply-to-group checkbox, and reloads
         the orientation spinboxes / preset selection from the first fixture.
-        Used by Stage tab's persistent inline panel.
+        When ``fixtures`` is empty (typical for the Stage tab when nothing
+        is selected on the 2D view), every input is disabled so values
+        can't be changed accidentally and the panel reads "No fixture
+        selected".
         """
         self.fixtures = fixtures
         self.info_label.setText(self._format_info_text(fixtures))
         self._refresh_apply_to_group(fixtures)
+        self._set_inputs_enabled(bool(fixtures))
         if fixtures:
             self._load_initial_values()
+
+    def _set_inputs_enabled(self, enabled: bool) -> None:
+        """Toggle interactivity for every editing surface on the panel.
+
+        The apply-to-group checkbox has its own enable rule (only when all
+        selected fixtures share a group); ``_refresh_apply_to_group`` runs
+        after this and may override the disabled state to keep that rule
+        intact.
+        """
+        for spin in (self.yaw_spin, self.pitch_spin, self.roll_spin, self.z_spin):
+            spin.setEnabled(enabled)
+        for btn in (self.yaw_90_btn, self.pitch_90_btn, self.roll_90_btn):
+            btn.setEnabled(enabled)
+        for btn in self.preset_buttons.values():
+            btn.setEnabled(enabled)
+        if hasattr(self, "preview_widget") and self.preview_widget is not None:
+            # Disabling the QOpenGLWidget greys it out and stops mouse interaction.
+            self.preview_widget.setEnabled(enabled)
+        if not enabled:
+            # When we lose the binding, also clear any apply-to-group state
+            # so reselecting a single-group selection re-enables the box
+            # without carrying a stale checked state from elsewhere.
+            self.apply_to_group_checkbox.setChecked(False)
+            self.apply_to_group_checkbox.setEnabled(False)
 
     def _connect_signals(self):
         """Connect UI signals."""
