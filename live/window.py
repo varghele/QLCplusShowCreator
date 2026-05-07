@@ -104,6 +104,7 @@ class LiveModeWindow(QMainWindow):
 
         # Energy fader
         self._energy_fader = EnergySensitivityFader()
+        self._energy_fader.sensitivity_changed.connect(self._on_energy_sensitivity_changed)
         left_layout.addWidget(self._energy_fader)
 
         # BPM display
@@ -531,6 +532,10 @@ class LiveModeWindow(QMainWindow):
                 self._engine.set_color_override(None)
             else:
                 self._engine.set_color_override((r, g, b))
+
+    def _on_energy_sensitivity_changed(self, value: float):
+        if self._engine:
+            self._engine.set_energy_sensitivity(value)
 
     def _on_speed_changed(self, value):
         if value == 0:

@@ -32,38 +32,75 @@ class LiveFeatureFrame:
 
 
 class _EMANormalizer:
-    """Exponential moving average normalizer for live signal scaling.
+    """Envelope-follower normalizer for live signal scaling.
 
-    Tracks running min/max with decay so features adapt to the
-    dynamic range of the incoming audio over ~3 seconds.
+    Tracks running peak (max) and trough (min) with fast attack on the
+    extremes and slow decay back toward the centre, so the normalisation
+    range represents the actual dynamic range of recent audio rather than
+    collapsing to a moving average.
     """
 
-    def __init__(self, decay_seconds: float = 3.0, update_rate_hz: float = 86.0):
-        alpha = 1.0 - np.exp(-1.0 / (decay_seconds * update_rate_hz))
-        self._alpha = alpha
+    def __init__(self, decay_seconds: float = 15.0, update_rate_hz: float = 86.0):
+        # Slow decay alpha: how fast running_max drifts down (or running_min up)
+        # toward the value when the value is *not* a new extreme.
+        self._alpha_decay = 1.0 - np.exp(-1.0 / (decay_seconds * update_rate_hz))
+        # Fast attack alpha: how fast extremes are captured. Short time
+        # constant (~150 ms) so peaks are followed without latching onto noise.
+        self._alpha_attack = 1.0 - np.exp(-1.0 / (0.15 * update_rate_hz))
         self._running_min = None
         self._running_max = None
 
     def normalize(self, value: float) -> float:
         if self._running_min is None:
             self._running_min = value
-            self._running_max = value + 1e-10
+            self._running_max = value + 1e-3
             return 0.5
 
-        self._running_min += self._alpha * (value - self._running_min)
-        self._running_max += self._alpha * (value - self._running_max)
+        # Max: fast attack on new peaks, slow decay back down.
+        if value > self._running_max:
+            self._running_max += self._alpha_attack * (value - self._running_max)
+        else:
+            self._running_max += self._alpha_decay * (value - self._running_max)
 
-        # Ensure min < max
-        if self._running_max <= self._running_min:
-            self._running_max = self._running_min + 1e-10
+        # Min: fast attack on new troughs, slow drift back up.
+        if value < self._running_min:
+            self._running_min += self._alpha_attack * (value - self._running_min)
+        else:
+            self._running_min += self._alpha_decay * (value - self._running_min)
 
-        normalized = (value - self._running_min) / (self._running_max - self._running_min)
-        return float(np.clip(normalized, 0.0, 1.0))
+        span = self._running_max - self._running_min
+        if span < 1e-6:
+            return 0.5  # No useful range yet — keep meters quiet.
+
+        return float(np.clip((value - self._running_min) / span, 0.0, 1.0))
 
     def set_range(self, min_val: float, max_val: float):
         """Pre-set normalization range (e.g. from offline analysis)."""
         self._running_min = min_val
         self._running_max = max_val
+
+
+class _OutputSmoother:
+    """Single-pole low-pass filter on the normalised metric output.
+
+    Decouples the visual + decision-making smoothness from the underlying
+    analysis frame rate. Without this, per-frame fluctuations dominate the
+    readout even when the normaliser range is stable.
+    """
+
+    def __init__(self, time_constant_seconds: float = 0.6, update_rate_hz: float = 86.0):
+        self._alpha = 1.0 - np.exp(-1.0 / (time_constant_seconds * update_rate_hz))
+        self._state: Optional[float] = None
+
+    def smooth(self, value: float) -> float:
+        if self._state is None:
+            self._state = value
+        else:
+            self._state += self._alpha * (value - self._state)
+        return float(self._state)
+
+    def reset(self):
+        self._state = None
 
 
 class RealtimeSpectralAnalyzer:
@@ -108,15 +145,28 @@ class RealtimeSpectralAnalyzer:
         self._flux_ema = 0.0
         self._flux_ema_alpha = 0.1
 
-        # Normalizers (one per metric)
+        # Normalizers (one per metric). Decay time governs how long peaks
+        # and troughs influence the dynamic-range estimate — long enough to
+        # represent a song section, not just the last second.
         update_hz = self._analysis_sr / hop_length
-        self._norm_flux = _EMANormalizer(decay_seconds=3.0, update_rate_hz=update_hz)
-        self._norm_transient = _EMANormalizer(decay_seconds=3.0, update_rate_hz=update_hz)
-        self._norm_richness = _EMANormalizer(decay_seconds=3.0, update_rate_hz=update_hz)
-        self._norm_vocal = _EMANormalizer(decay_seconds=3.0, update_rate_hz=update_hz)
-        self._norm_centroid = _EMANormalizer(decay_seconds=3.0, update_rate_hz=update_hz)
-        self._norm_rms = _EMANormalizer(decay_seconds=3.0, update_rate_hz=update_hz)
-        self._norm_contrast = _EMANormalizer(decay_seconds=3.0, update_rate_hz=update_hz)
+        self._norm_flux = _EMANormalizer(decay_seconds=15.0, update_rate_hz=update_hz)
+        self._norm_transient = _EMANormalizer(decay_seconds=15.0, update_rate_hz=update_hz)
+        self._norm_richness = _EMANormalizer(decay_seconds=15.0, update_rate_hz=update_hz)
+        self._norm_vocal = _EMANormalizer(decay_seconds=15.0, update_rate_hz=update_hz)
+        self._norm_centroid = _EMANormalizer(decay_seconds=15.0, update_rate_hz=update_hz)
+        self._norm_rms = _EMANormalizer(decay_seconds=15.0, update_rate_hz=update_hz)
+        self._norm_contrast = _EMANormalizer(decay_seconds=15.0, update_rate_hz=update_hz)
+
+        # Output smoothers — applied after normalisation so the emitted
+        # metrics have gradual curves rather than per-frame jitter.
+        smooth_tc = 0.6
+        self._smooth_flux = _OutputSmoother(time_constant_seconds=smooth_tc, update_rate_hz=update_hz)
+        self._smooth_transient = _OutputSmoother(time_constant_seconds=smooth_tc, update_rate_hz=update_hz)
+        self._smooth_richness = _OutputSmoother(time_constant_seconds=smooth_tc, update_rate_hz=update_hz)
+        self._smooth_vocal = _OutputSmoother(time_constant_seconds=smooth_tc, update_rate_hz=update_hz)
+        self._smooth_centroid = _OutputSmoother(time_constant_seconds=smooth_tc, update_rate_hz=update_hz)
+        self._smooth_rms = _OutputSmoother(time_constant_seconds=smooth_tc, update_rate_hz=update_hz)
+        self._smooth_contrast = _OutputSmoother(time_constant_seconds=smooth_tc, update_rate_hz=update_hz)
 
         # Spectral contrast band edges (7 octave bands)
         self._contrast_bands = self._compute_contrast_band_edges()
@@ -205,6 +255,13 @@ class RealtimeSpectralAnalyzer:
         self._mfcc_history[:] = 0
         self._mfcc_write_idx = 0
         self._mfcc_count = 0
+        self._smooth_flux.reset()
+        self._smooth_transient.reset()
+        self._smooth_richness.reset()
+        self._smooth_vocal.reset()
+        self._smooth_centroid.reset()
+        self._smooth_rms.reset()
+        self._smooth_contrast.reset()
 
     def _processing_loop(self):
         """Main analysis loop — runs on dedicated thread."""
@@ -306,17 +363,18 @@ class RealtimeSpectralAnalyzer:
         # 7. Vocal presence proxy
         raw_vocal = self._compute_vocal_proxy(magnitude, power)
 
-        # Normalize all metrics
+        # Normalize then smooth each metric so the emitted values have
+        # gradual curves rather than per-frame binary swings.
         timestamp = time.monotonic() - self._start_time
         return LiveFeatureFrame(
             timestamp=timestamp,
-            flux=self._norm_flux.normalize(raw_flux),
-            transient=self._norm_transient.normalize(raw_transient),
-            richness=self._norm_richness.normalize(raw_richness),
-            vocal=self._norm_vocal.normalize(raw_vocal),
-            centroid=self._norm_centroid.normalize(raw_centroid),
-            rms=self._norm_rms.normalize(raw_rms),
-            contrast=self._norm_contrast.normalize(raw_contrast),
+            flux=self._smooth_flux.smooth(self._norm_flux.normalize(raw_flux)),
+            transient=self._smooth_transient.smooth(self._norm_transient.normalize(raw_transient)),
+            richness=self._smooth_richness.smooth(self._norm_richness.normalize(raw_richness)),
+            vocal=self._smooth_vocal.smooth(self._norm_vocal.normalize(raw_vocal)),
+            centroid=self._smooth_centroid.smooth(self._norm_centroid.normalize(raw_centroid)),
+            rms=self._smooth_rms.smooth(self._norm_rms.normalize(raw_rms)),
+            contrast=self._smooth_contrast.smooth(self._norm_contrast.normalize(raw_contrast)),
         )
 
     def _compute_spectral_contrast(self, power: np.ndarray) -> float:

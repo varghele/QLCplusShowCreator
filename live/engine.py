@@ -82,7 +82,6 @@ class LiveShowEngine:
         self._energy_sensitivity: float = 0.7
         self._color_override: Optional[Tuple[int, int, int]] = None
         self._group_submasters: Dict[str, float] = {g: 1.0 for g in self._group_names}
-        self._heavy_threshold: float = 0.95
         self._group_constraints: Dict[str, Optional[Set[str]]] = {g: None for g in self._group_names}
 
         # Movement state
@@ -101,9 +100,6 @@ class LiveShowEngine:
         # Callbacks for UI updates
         self._on_riffs_updated: Optional[Callable[[Dict[str, Tuple[str, str]]], None]] = None
         self._on_state_changed: Optional[Callable[[], None]] = None
-
-        # Last heavy interrupt time (prevent rapid re-triggers)
-        self._last_heavy_time: float = 0.0
 
     # ── Public setters (called from Qt main thread) ──
 
@@ -131,10 +127,6 @@ class LiveShowEngine:
         with self._lock:
             if group_name in self._group_submasters:
                 self._group_submasters[group_name] = max(0.0, min(1.0, value))
-
-    def set_heavy_threshold(self, value: float):
-        with self._lock:
-            self._heavy_threshold = max(0.0, min(1.0, value))
 
     def set_group_constraints(self, group_name: str, allowed: Optional[Set[str]]):
         """Set allowed rudiments for a group. None or empty = all allowed."""
@@ -196,14 +188,6 @@ class LiveShowEngine:
         """Append a feature frame to the sliding window."""
         with self._lock:
             self._window.append(frame)
-
-            # Check heavy interrupt (debounce at least 4 seconds to avoid
-            # rapid re-triggering from self-normalizing EMA signals)
-            if (self._running
-                    and not self._cycle.is_fill
-                    and frame.rms > self._heavy_threshold
-                    and (time.monotonic() - self._last_heavy_time) > 4.0):
-                self._trigger_heavy_interrupt()
 
     # ── Engine tick (called from DMX thread at 30Hz) ──
 
@@ -291,23 +275,6 @@ class LiveShowEngine:
             self._create_all_blocks(bar_start, bar_end)
 
     # ── Internal methods ──
-
-    def _trigger_heavy_interrupt(self):
-        """Handle heavy energy spike — immediate fill then new riff."""
-        self._last_heavy_time = time.monotonic()
-        # Switch to fill bar
-        self._end_all_blocks()
-        self._cycle.is_fill = True
-        self._cycle.bar_index = self._groove_bars
-
-        beat_duration = 60.0 / self._bpm
-        bar_duration = 4.0 * beat_duration
-        now = self._engine_time
-        self._cycle.cycle_start_time = now - self._groove_bars * bar_duration
-
-        bar_start = now
-        bar_end = now + bar_duration
-        self._create_all_blocks(bar_start, bar_end)
 
     def _start_new_cycle(self):
         """Select new riffs and start a fresh groove+fill cycle."""
