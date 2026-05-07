@@ -119,6 +119,16 @@ class ShowsTab(BaseTab):
         self._selection_extend = False
         self._selection_source_timeline = None
         self._selection_overlay = None
+        # Tracks which button initiated the marquee. Right-button finalisation
+        # shows a context menu with bulk-delete; left-button just selects.
+        self._selection_button = Qt.MouseButton.LeftButton
+        # For right-button marquee: defer overlay start until drag threshold met,
+        # so a plain right-click still falls through to the native context menu.
+        self._right_press_pending = False
+        self._right_press_pos = QPoint()
+        self._right_press_timeline = None
+        self._suppress_next_context_menu = False
+        self._marquee_drag_threshold_px = 6
 
         super().__init__(config, parent)
 
@@ -1598,18 +1608,42 @@ class ShowsTab(BaseTab):
         if event.type() == QEvent.Type.MouseButtonPress:
             if event.button() == Qt.MouseButton.LeftButton:
                 pos = event.position().toPoint()
-                # Map position to timeline widget coordinates if needed
                 if obj is not timeline_widget:
                     pos = timeline_widget.mapFrom(obj, pos)
-                # Check if click is on empty space (not on a block widget)
                 if self._is_click_on_empty_space_in_timeline(timeline_widget, pos):
+                    self._selection_button = Qt.MouseButton.LeftButton
                     self._start_rubber_band_selection(timeline_widget, pos, event)
-                    return True  # Consume event to prevent playhead movement
+                    return True  # Consume to prevent playhead movement
+            elif event.button() == Qt.MouseButton.RightButton:
+                pos = event.position().toPoint()
+                if obj is not timeline_widget:
+                    pos = timeline_widget.mapFrom(obj, pos)
+                # Defer marquee start — a plain right-click should still open
+                # the native Paste context menu. Track the press; activate only
+                # if the user actually drags.
+                if self._is_click_on_empty_space_in_timeline(timeline_widget, pos):
+                    self._right_press_pending = True
+                    self._right_press_pos = pos
+                    self._right_press_timeline = timeline_widget
+                # Don't consume — let contextMenuEvent fire later if no drag.
 
         elif event.type() == QEvent.Type.MouseMove:
+            # Right-button drag: lazily start the marquee once threshold is met.
+            if self._right_press_pending and (event.buttons() & Qt.MouseButton.RightButton):
+                pos = event.position().toPoint()
+                if obj is not self._right_press_timeline:
+                    pos = self._right_press_timeline.mapFromGlobal(obj.mapToGlobal(pos))
+                if (pos - self._right_press_pos).manhattanLength() >= self._marquee_drag_threshold_px:
+                    self._right_press_pending = False
+                    self._selection_button = Qt.MouseButton.RightButton
+                    self._start_rubber_band_selection(
+                        self._right_press_timeline, self._right_press_pos, event
+                    )
+                    self._update_rubber_band_selection(self._selection_source_timeline, pos)
+                    return True
+
             if self._is_selecting:
                 pos = event.position().toPoint()
-                # Map position to source timeline widget coordinates
                 if obj is not self._selection_source_timeline:
                     pos = self._selection_source_timeline.mapFromGlobal(obj.mapToGlobal(pos))
                 self._update_rubber_band_selection(self._selection_source_timeline, pos)
@@ -1618,6 +1652,21 @@ class ShowsTab(BaseTab):
         elif event.type() == QEvent.Type.MouseButtonRelease:
             if event.button() == Qt.MouseButton.LeftButton and self._is_selecting:
                 self._finish_rubber_band_selection(event)
+                return True
+            if event.button() == Qt.MouseButton.RightButton:
+                if self._is_selecting and self._selection_button == Qt.MouseButton.RightButton:
+                    # Drag-marquee was active. Finalise and show bulk-delete menu.
+                    self._finish_rubber_band_selection(event)
+                    self._suppress_next_context_menu = True
+                    self._show_marquee_context_menu(event.globalPosition().toPoint())
+                    return True
+                # No drag occurred — clear the pending state and let the
+                # native Paste contextMenuEvent fire normally.
+                self._right_press_pending = False
+
+        elif event.type() == QEvent.Type.ContextMenu:
+            if self._suppress_next_context_menu:
+                self._suppress_next_context_menu = False
                 return True
 
         return super().eventFilter(obj, event)
@@ -1911,6 +1960,29 @@ class ShowsTab(BaseTab):
                     target_lane.create_light_block_widget(new_block)
                     print("Pasted 1 block")
                     self.save_to_config()
+
+    def _show_marquee_context_menu(self, global_pos: QPoint):
+        """Show the bulk-action menu after a right-button marquee finalises.
+
+        Currently offers delete-N for the marquee selection. Cancel just clears.
+        """
+        from PyQt6.QtWidgets import QMenu
+
+        selected = self.selection_manager.get_selected_blocks()
+        count = len(selected)
+
+        menu = QMenu(self)
+        if count == 0:
+            empty = menu.addAction("No effects in selection")
+            empty.setEnabled(False)
+        else:
+            label = "Delete Effect" if count == 1 else f"Delete {count} Effects"
+            delete = menu.addAction(label)
+            delete.triggered.connect(self._delete_selected_blocks)
+            menu.addSeparator()
+            cancel = menu.addAction("Cancel")
+            cancel.triggered.connect(self.selection_manager.clear_selection)
+        menu.exec(global_pos)
 
     def _delete_selected_blocks(self):
         """Delete all selected blocks."""
