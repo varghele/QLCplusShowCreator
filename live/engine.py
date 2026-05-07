@@ -316,7 +316,7 @@ class LiveShowEngine:
         transient_vals = [f.transient for f in frames]
         richness_vals = [f.richness for f in frames]
         vocal_vals = [f.vocal for f in frames]
-        centroid_vals = [f.centroid for f in frames]
+        centroid_hz_vals = [f.centroid_hz for f in frames]
         rms_vals = [f.rms for f in frames]
         contrast_vals = [f.contrast for f in frames]
 
@@ -337,7 +337,7 @@ class LiveShowEngine:
             transient_sharpness=float(np.mean(transient_vals)),
             spectral_richness=float(np.mean(richness_vals)),
             vocal_presence=float(np.mean(vocal_vals)),
-            spectral_centroid_avg=float(np.mean(centroid_vals)) * 8000,  # denormalize from 0-1 to Hz-ish
+            spectral_centroid_avg=float(np.mean(centroid_hz_vals)),  # real Hz, matches offline pipeline
             rms_energy=float(np.mean(rms_vals)),
             spectral_contrast_avg=float(np.mean(contrast_vals)),
         )

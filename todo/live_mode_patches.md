@@ -64,25 +64,21 @@ update logic in `_update_ui`.
 
 ---
 
-## 5. Centroid "denormalization" in `_build_window_profile` is fake Hz
+## 5. Centroid "denormalization" in `_build_window_profile` was fake Hz — DONE
 
-**Where:** `live/engine.py:373` — `spectral_centroid_avg=float(np.mean(centroid_vals)) * 8000`.
+**Symptom:** Live shows trended toward a bluish hue regardless of music.
 
-**Problem:** The `centroid` field on `LiveFeatureFrame` is already EMA-normalized
-to 0-1 (see `realtime_spectral.py:317`). Multiplying by 8000 gives a synthetic
-0-8000 number that won't behave like the offline pipeline's true Hz centroid.
-Downstream consumers (auto-color, gobo/prism thresholds) end up reading a
-distribution-rank, not a real frequency.
+**Root cause:** Engine multiplied the *normalized rank* of centroid by 8000.
+The envelope-follower normalizer maps centroid into a 0-1 rank that converges
+around 0.5 over a 45 s window for typical signals → `spectral_centroid_avg`
+≈ 4000 Hz → `hue = 0.5 * 0.8 = 0.4` → cyan/blue, every cycle.
 
-**Proposed fix (two options):**
-- **(a)** Pipe the *raw* centroid in Hz alongside the normalized one. Add a
-  `centroid_hz` field to `LiveFeatureFrame`, populate from `raw_centroid` before
-  normalization, and use that in `_build_window_profile`.
-- **(b)** Accept that live mode operates on normalized signals and rewrite the
-  auto-color path to take a 0-1 hue input directly. Cleaner conceptually, but
-  diverges from the `SectionAnalysis` shape the autogen matchers expect.
+**Fix:** Added `centroid_hz: float` to `LiveFeatureFrame` (raw Hz, unnormalized,
+unsmoothed). `_build_window_profile` now uses `mean(centroid_hz_vals)` directly
+for `spectral_centroid_avg`, matching the offline pipeline's units.
 
-(a) is the smaller change and keeps live mode aligned with offline behavior.
+The normalized `frame.centroid` is unchanged — UI meter and metrics chart still
+display the rank.
 
 ---
 

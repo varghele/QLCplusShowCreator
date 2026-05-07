@@ -18,17 +18,21 @@ from .ring_buffer import AudioRingBuffer
 class LiveFeatureFrame:
     """Per-frame features from real-time analysis.
 
-    All metric values are normalized to 0-1 range using exponential
-    moving average normalization (~3s decay).
+    Most metric values are normalized to 0-1 via the envelope-follower
+    normalizer + output smoother. `centroid_hz` is the unnormalized
+    raw spectral centroid in Hz, kept alongside so downstream code that
+    needs an absolute frequency (e.g. live auto-color hue mapping)
+    doesn't have to invert a normalized rank.
     """
     timestamp: float    # seconds since analysis start
     flux: float         # spectral flux (onset strength)
     transient: float    # transient sharpness (peakiness)
     richness: float     # spectral richness (bandwidth + flatness)
     vocal: float        # vocal presence proxy (band energy + MFCC delta)
-    centroid: float     # spectral centroid (normalized)
+    centroid: float     # spectral centroid (normalized 0-1, for UI display)
     rms: float          # RMS energy
     contrast: float     # spectral contrast
+    centroid_hz: float = 0.0  # spectral centroid in Hz (unnormalized)
 
 
 class _EMANormalizer:
@@ -324,6 +328,7 @@ class RealtimeSpectralAnalyzer:
                 timestamp=time.monotonic() - self._start_time,
                 flux=0.0, transient=0.0, richness=0.0,
                 vocal=0.0, centroid=0.0, rms=0.0, contrast=0.0,
+                centroid_hz=0.0,
             )
 
         # 1. Spectral flux
@@ -364,7 +369,9 @@ class RealtimeSpectralAnalyzer:
         raw_vocal = self._compute_vocal_proxy(magnitude, power)
 
         # Normalize then smooth each metric so the emitted values have
-        # gradual curves rather than per-frame binary swings.
+        # gradual curves rather than per-frame binary swings. centroid_hz
+        # is the unnormalized raw centroid in Hz — consumers that need
+        # an absolute frequency (live auto-color) read this directly.
         timestamp = time.monotonic() - self._start_time
         return LiveFeatureFrame(
             timestamp=timestamp,
@@ -375,6 +382,7 @@ class RealtimeSpectralAnalyzer:
             centroid=self._smooth_centroid.smooth(self._norm_centroid.normalize(raw_centroid)),
             rms=self._smooth_rms.smooth(self._norm_rms.normalize(raw_rms)),
             contrast=self._smooth_contrast.smooth(self._norm_contrast.normalize(raw_contrast)),
+            centroid_hz=float(raw_centroid),
         )
 
     def _compute_spectral_contrast(self, power: np.ndarray) -> float:
