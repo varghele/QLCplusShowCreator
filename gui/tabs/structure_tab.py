@@ -205,41 +205,15 @@ class StructureTab(BaseTab):
         # Show Structure (table view)
         structure_header = QHBoxLayout()
         structure_label = QLabel("Structure:")
-        structure_label.setStyleSheet("font-weight: bold; font-size: 10px; color: #888;")
+        structure_label.setStyleSheet("font-weight: bold; font-size: 10px;")
         structure_header.addWidget(structure_label)
 
         self.add_part_btn = QPushButton("+ Add Part")
-        self.add_part_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 3px;
-                padding: 4px 8px;
-                font-size: 10px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-            }
-        """)
+        self.add_part_btn.setProperty("role", "success")
         structure_header.addWidget(self.add_part_btn)
 
         self.delete_part_btn = QPushButton("- Delete Part")
-        self.delete_part_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 3px;
-                padding: 4px 8px;
-                font-size: 10px;
-            }
-            QPushButton:hover {
-                background-color: #EF5350;
-            }
-        """)
+        self.delete_part_btn.setProperty("role", "destructive")
         structure_header.addWidget(self.delete_part_btn)
 
         structure_header.addStretch()
@@ -268,29 +242,11 @@ class StructureTab(BaseTab):
         self.structure_table.setColumnWidth(5, 100)  # Transition
         self.structure_table.setColumnWidth(6, 100)  # Color
 
-        self.structure_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.structure_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.structure_table.setAlternatingRowColors(True)
+        # Modern table styling — alternating rows, no grid, themed header.
+        from gui.widgets.modern_table import apply_modern_table_style
+        apply_modern_table_style(self.structure_table)
         self.structure_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.structure_table.customContextMenuRequested.connect(self._show_context_menu)
-        self.structure_table.setStyleSheet("""
-            QTableWidget {
-                background-color: #2a2a2a;
-                alternate-background-color: #333333;
-                color: white;
-                gridline-color: #444444;
-            }
-            QTableWidget::item:selected {
-                background-color: #0078D7;
-            }
-            QHeaderView::section {
-                background-color: #1a1a1a;
-                color: white;
-                padding: 5px;
-                border: 1px solid #444444;
-                font-weight: bold;
-            }
-        """)
         self.structure_table.setMinimumHeight(200)
         # Remove max height to allow table to expand like lanes scroll in Shows tab
         main_layout.addWidget(self.structure_table, 1)  # Takes remaining space
@@ -325,53 +281,16 @@ class StructureTab(BaseTab):
 
         # New show button
         self.new_show_btn = QPushButton("+ New")
-        self.new_show_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-            }
-        """)
+        self.new_show_btn.setProperty("role", "success")
         toolbar.addWidget(self.new_show_btn)
 
-        # Rename show button
+        # Rename show button (default neutral styling — non-destructive secondary action)
         self.rename_show_btn = QPushButton("Rename")
-        self.rename_show_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FF9800;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #FFB74D;
-            }
-        """)
         toolbar.addWidget(self.rename_show_btn)
 
         # Delete show button
         self.delete_show_btn = QPushButton("Delete Show")
-        self.delete_show_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #EF5350;
-            }
-        """)
+        self.delete_show_btn.setProperty("role", "destructive")
         toolbar.addWidget(self.delete_show_btn)
 
         toolbar.addSpacing(20)
@@ -408,21 +327,9 @@ class StructureTab(BaseTab):
 
         toolbar.addSpacing(20)
 
-        # Set directory button
+        # Set directory button (primary action for the show toolbar)
         self.set_directory_btn = QPushButton("Set Show Directory")
-        self.set_directory_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #9C27B0;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #AB47BC;
-            }
-        """)
+        self.set_directory_btn.setProperty("role", "primary")
         toolbar.addWidget(self.set_directory_btn)
 
         toolbar.addStretch()
@@ -430,38 +337,21 @@ class StructureTab(BaseTab):
         return toolbar
 
     def _create_pause_show_section(self):
-        """Create the Pause Show configuration section."""
+        """Create the Pause Show configuration section. Box styling comes
+        from the active theme's QGroupBox rules."""
         group_box = QGroupBox("Pause Show")
-        group_box.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                font-size: 10px;
-                color: #888;
-                border: 1px solid #444;
-                border-radius: 4px;
-                margin-top: 6px;
-                padding-top: 14px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 4px;
-            }
-        """)
 
         layout = QHBoxLayout()
         layout.setSpacing(10)
 
         # Enable checkbox
         self.pause_enable_cb = QCheckBox("Enable")
-        self.pause_enable_cb.setStyleSheet("color: white;")
         layout.addWidget(self.pause_enable_cb)
 
         layout.addSpacing(10)
 
         # Color picker
         color_label = QLabel("Color:")
-        color_label.setStyleSheet("color: #ccc;")
         layout.addWidget(color_label)
 
         self.pause_color_btn = ColorButton("#0000FF")
@@ -473,7 +363,6 @@ class StructureTab(BaseTab):
 
         # MIDI trigger device
         trigger_label = QLabel("Trigger:")
-        trigger_label.setStyleSheet("color: #ccc;")
         layout.addWidget(trigger_label)
 
         self.pause_trigger_device_combo = QComboBox()
@@ -487,7 +376,6 @@ class StructureTab(BaseTab):
 
         # MIDI channel
         ch_label = QLabel("Ch:")
-        ch_label.setStyleSheet("color: #ccc;")
         layout.addWidget(ch_label)
 
         self.pause_trigger_channel_spin = QSpinBox()
@@ -580,54 +468,22 @@ class StructureTab(BaseTab):
         controls = QHBoxLayout()
         controls.setSpacing(10)
 
-        # Playback buttons
+        # Playback buttons (transport — colors from active theme via role props).
         self.play_btn = QPushButton("Play")
         self.play_btn.setFixedWidth(70)
-        self.play_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-            }
-        """)
+        self.play_btn.setProperty("role", "success")
         controls.addWidget(self.play_btn)
 
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.setFixedWidth(70)
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: #EF5350;
-            }
-        """)
+        self.stop_btn.setProperty("role", "destructive")
         controls.addWidget(self.stop_btn)
 
         controls.addSpacing(20)
 
-        # Time display
+        # Time display — styled by `#TimeReadout` rule in the active theme.
         self.time_label = QLabel("00:00.00")
-        self.time_label.setStyleSheet("""
-            font-family: monospace;
-            font-size: 16px;
-            font-weight: bold;
-            padding: 4px 8px;
-            background-color: #333;
-            color: #0f0;
-            border-radius: 4px;
-        """)
+        self.time_label.setObjectName("TimeReadout")
         self.time_label.setFixedWidth(100)
         controls.addWidget(self.time_label)
 
@@ -641,7 +497,7 @@ class StructureTab(BaseTab):
 
         # Total time display
         self.total_time_label = QLabel("/ 00:00")
-        self.total_time_label.setStyleSheet("font-family: monospace; color: #666;")
+        self.total_time_label.setObjectName("TimeReadoutSecondary")
         controls.addWidget(self.total_time_label)
 
         return controls
@@ -751,7 +607,6 @@ class StructureTab(BaseTab):
             bpm_spinbox.setDecimals(1)
             bpm_spinbox.setSingleStep(1.0)  # Scroll/arrow increment by 1 BPM
             bpm_spinbox.setValue(part.bpm)
-            bpm_spinbox.setStyleSheet("QDoubleSpinBox { background-color: #2a2a2a; color: white; border: 1px solid #444; }")
             bpm_spinbox.valueChanged.connect(lambda value, r=row: self._on_bpm_changed(r, value))
             self.structure_table.setCellWidget(row, 1, bpm_spinbox)
 
@@ -764,7 +619,6 @@ class StructureTab(BaseTab):
             bars_spinbox = QSpinBox()
             bars_spinbox.setRange(1, 9999)
             bars_spinbox.setValue(part.num_bars)
-            bars_spinbox.setStyleSheet("QSpinBox { background-color: #2a2a2a; color: white; border: 1px solid #444; }")
             bars_spinbox.valueChanged.connect(lambda value, r=row: self._on_bars_changed(r, value))
             self.structure_table.setCellWidget(row, 3, bars_spinbox)
 
@@ -778,7 +632,6 @@ class StructureTab(BaseTab):
             trans_combo = QComboBox()
             trans_combo.addItems(["instant", "gradual"])
             trans_combo.setCurrentText(part.transition)
-            trans_combo.setStyleSheet("QComboBox { background-color: #2a2a2a; color: white; border: 1px solid #444; }")
             trans_combo.currentTextChanged.connect(lambda text, r=row: self._on_transition_changed(r, text))
             self.structure_table.setCellWidget(row, 5, trans_combo)
 

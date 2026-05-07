@@ -193,55 +193,22 @@ class ShowsTab(BaseTab):
 
         # Add lane button
         self.add_lane_btn = QPushButton("+ Add Light Lane")
-        self.add_lane_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-            }
-        """)
+        self.add_lane_btn.setProperty("role", "success")
         toolbar.addWidget(self.add_lane_btn)
 
         toolbar.addSpacing(10)
 
         # Auto-generate button
         self.autogen_btn = QPushButton("Auto-Generate")
-        self.autogen_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #9C27B0;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #AB47BC;
-            }
-            QPushButton:disabled {
-                background-color: #666;
-            }
-        """)
+        self.autogen_btn.setProperty("role", "primary")
         self.autogen_btn.setToolTip("Automatically generate light show from audio analysis")
         toolbar.addWidget(self.autogen_btn)
 
-        # Inspector toggle
+        # Inspector toggle (checkable — uses default theme :checked styling)
         self.inspector_btn = QPushButton("Inspector")
         self.inspector_btn.setCheckable(True)
         self.inspector_btn.setEnabled(False)
         self.inspector_btn.setToolTip("Show generation decision inspector (requires auto-generated show)")
-        self.inspector_btn.setStyleSheet("""
-            QPushButton { background-color: #2a6496; color: white; padding: 4px 10px;
-                          border-radius: 3px; font-weight: bold; }
-            QPushButton:checked { background-color: #1a8cff; }
-            QPushButton:disabled { background-color: #666; }
-        """)
         toolbar.addWidget(self.inspector_btn)
 
         toolbar.addSpacing(20)
@@ -264,19 +231,7 @@ class ShowsTab(BaseTab):
 
         # Save button
         self.save_btn = QPushButton("Save")
-        self.save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2196F3;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 16px;
-            }
-            QPushButton:hover {
-                background-color: #42A5F5;
-            }
-        """)
+        self.save_btn.setProperty("role", "primary")
         toolbar.addWidget(self.save_btn)
 
         return toolbar
@@ -286,54 +241,22 @@ class ShowsTab(BaseTab):
         controls = QHBoxLayout()
         controls.setSpacing(10)
 
-        # Playback buttons
+        # Playback buttons (transport — colors from active theme via role props).
         self.play_btn = QPushButton("Play")
         self.play_btn.setFixedWidth(70)
-        self.play_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-            }
-        """)
+        self.play_btn.setProperty("role", "success")
         controls.addWidget(self.play_btn)
 
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.setFixedWidth(70)
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: #EF5350;
-            }
-        """)
+        self.stop_btn.setProperty("role", "destructive")
         controls.addWidget(self.stop_btn)
 
         controls.addSpacing(20)
 
-        # Time display
+        # Time display — styled by `#TimeReadout` rule in the active theme.
         self.time_label = QLabel("00:00.00")
-        self.time_label.setStyleSheet("""
-            font-family: monospace;
-            font-size: 16px;
-            font-weight: bold;
-            padding: 4px 8px;
-            background-color: #333;
-            color: #0f0;
-            border-radius: 4px;
-        """)
+        self.time_label.setObjectName("TimeReadout")
         self.time_label.setFixedWidth(100)
         controls.addWidget(self.time_label)
 
@@ -347,7 +270,7 @@ class ShowsTab(BaseTab):
 
         # Total time display
         self.total_time_label = QLabel("/ 00:00")
-        self.total_time_label.setStyleSheet("font-family: monospace; color: #666;")
+        self.total_time_label.setObjectName("TimeReadoutSecondary")
         controls.addWidget(self.total_time_label)
 
         return controls

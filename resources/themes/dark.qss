@@ -335,3 +335,40 @@ QPushButton[role="status-pill"]:hover { background-color: #444; }
 QPushButton[role="status-pill"][status="on"]     { color: #4CAF50; border-color: #4CAF50; }
 QPushButton[role="status-pill"][status="active"] { color: #4CAF50; border-color: #4CAF50; }
 QPushButton[role="status-pill"][status="ready"]  { color: #2196F3; border-color: #2196F3; }
+
+/* ── Playback time readout (Shows + Structure tabs) ────────────────── */
+QLabel#TimeReadout {
+    font-family: monospace;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 4px 8px;
+    background-color: #0d1f0d;
+    color: #4CAF50;
+    border: 1px solid #2a4a2a;
+    border-radius: 4px;
+}
+QLabel#TimeReadoutSecondary {
+    font-family: monospace;
+    color: #6a6a6a;
+}
+
+/* ── Audio + light lanes (subtle role-based tint) ──────────────────── */
+AudioLaneWidget {
+    background-color: #1a2a3a;
+    border: 1px solid #2d4060;
+    border-radius: 4px;
+}
+LightLaneWidget {
+    background-color: #2a2a2a;
+    border: 1px solid #3d3d3d;
+    border-radius: 4px;
+}
+
+QLabel#LightLaneTargets {
+    background-color: #2d2d2d;
+    color: #c0c0c0;
+    border: 1px solid #4a4a4a;
+    border-radius: 3px;
+    padding: 2px 6px;
+}
+
