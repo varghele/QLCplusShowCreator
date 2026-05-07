@@ -1845,12 +1845,13 @@ class OrientationPreviewWidget(QOpenGLWidget):
             self.ctx = None
 
 
-class OrientationDialog(QDialog):
-    """
-    Dialog for setting fixture orientation.
+class OrientationPanel(QWidget):
+    """Embeddable orientation editor — preview + presets + fine adjustment.
 
-    Provides a 3D preview with gimbal rings, preset buttons,
-    and fine-tuning controls for yaw, pitch, roll, and Z-height.
+    Shared by the legacy ``OrientationDialog`` (which wraps it with Cancel/
+    Apply buttons) and the Stage tab's persistent inline panel (which uses
+    it directly and writes through on accept). Calling code can re-bind the
+    panel to a different fixture selection via :meth:`set_fixtures`.
     """
 
     # Mounting preset definitions
@@ -1878,10 +1879,10 @@ class OrientationDialog(QDialog):
 
     def __init__(self, fixtures: List, config=None, parent=None):
         """
-        Initialize orientation dialog.
-
         Args:
-            fixtures: List of FixtureItem objects to configure
+            fixtures: List of FixtureItem objects to configure (may be empty
+                      when constructed by an inline embedder; call
+                      :meth:`set_fixtures` later).
             config: Configuration object for group lookups
             parent: Parent widget
         """
@@ -1889,25 +1890,21 @@ class OrientationDialog(QDialog):
         self.fixtures = fixtures
         self.config = config
 
-        self.setWindowTitle("Set Orientation")
-        self.setMinimumSize(500, 550)
-
         self._setup_ui()
         self._connect_signals()
-        self._load_initial_values()
+        if fixtures:
+            self._load_initial_values()
 
     def _setup_ui(self):
-        """Set up the dialog UI."""
+        """Set up the panel UI."""
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        # Info label
-        if len(self.fixtures) == 1:
-            info_text = f"Fixture: {self.fixtures[0].fixture_name}"
-        else:
-            info_text = f"Editing {len(self.fixtures)} fixtures"
-        info_label = QLabel(info_text)
-        info_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        layout.addWidget(info_label)
+        # Info label — kept as an instance attribute so set_fixtures can
+        # update it when the embedder re-binds the panel to a new selection.
+        self.info_label = QLabel(self._format_info_text(self.fixtures))
+        self.info_label.setStyleSheet("font-weight: bold; font-size: 12px;")
+        layout.addWidget(self.info_label)
 
         # 3D Preview
         preview_group = QGroupBox("3D Preview")
@@ -2003,27 +2000,43 @@ class OrientationDialog(QDialog):
         self.apply_to_group_checkbox.setToolTip(
             "If checked, also updates the group's default orientation"
         )
-        # Only enable if all fixtures are in the same group
-        groups = set(f.group for f in self.fixtures if hasattr(f, 'group') and f.group)
-        self.apply_to_group_checkbox.setEnabled(len(groups) == 1)
-        if len(groups) == 1:
-            self.apply_to_group_checkbox.setText(f"Apply to group default ({list(groups)[0]})")
+        self._refresh_apply_to_group(self.fixtures)
         layout.addWidget(self.apply_to_group_checkbox)
 
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
+    @staticmethod
+    def _format_info_text(fixtures: list) -> str:
+        if not fixtures:
+            return "No fixture selected"
+        if len(fixtures) == 1:
+            return f"Fixture: {fixtures[0].fixture_name}"
+        return f"Editing {len(fixtures)} fixtures"
 
-        self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(self.cancel_btn)
+    def _refresh_apply_to_group(self, fixtures: list) -> None:
+        """Enable the apply-to-group checkbox only when every selected
+        fixture belongs to the same group. Updates the label accordingly."""
+        groups = set(f.group for f in fixtures if hasattr(f, 'group') and f.group)
+        if len(groups) == 1:
+            self.apply_to_group_checkbox.setEnabled(True)
+            self.apply_to_group_checkbox.setText(
+                f"Apply to group default ({next(iter(groups))})"
+            )
+        else:
+            self.apply_to_group_checkbox.setEnabled(False)
+            self.apply_to_group_checkbox.setChecked(False)
+            self.apply_to_group_checkbox.setText("Apply to group default")
 
-        self.apply_btn = QPushButton("Apply")
-        self.apply_btn.setDefault(True)
-        self.apply_btn.clicked.connect(self.accept)
-        button_layout.addWidget(self.apply_btn)
+    def set_fixtures(self, fixtures: list) -> None:
+        """Re-bind the panel to a new selection without rebuilding widgets.
 
-        layout.addLayout(button_layout)
+        Refreshes the info label, the apply-to-group checkbox, and reloads
+        the orientation spinboxes / preset selection from the first fixture.
+        Used by Stage tab's persistent inline panel.
+        """
+        self.fixtures = fixtures
+        self.info_label.setText(self._format_info_text(fixtures))
+        self._refresh_apply_to_group(fixtures)
+        if fixtures:
+            self._load_initial_values()
 
     def _connect_signals(self):
         """Connect UI signals."""
@@ -2215,7 +2228,65 @@ class OrientationDialog(QDialog):
             'apply_to_group': self.apply_to_group_checkbox.isChecked()
         }
 
+    def cleanup(self) -> None:
+        """Release GL resources owned by the preview widget. Called by the
+        wrapping dialog on close, or by the inline embedder on tab cleanup."""
+        if hasattr(self, "preview_widget") and self.preview_widget is not None:
+            self.preview_widget.cleanup()
+
+
+class OrientationDialog(QDialog):
+    """Modal wrapper around :class:`OrientationPanel`.
+
+    Adds Cancel / Apply buttons and standard QDialog accept/reject flow so
+    existing call sites (``stage_tab._open_orientation_dialog``) keep working
+    unchanged. Forwards ``get_selected_mounting`` / ``get_orientation_values``
+    to the embedded panel.
+    """
+
+    # Re-export presets for any caller still reading them off the dialog.
+    PRESETS = OrientationPanel.PRESETS
+    PRESET_VALUES = OrientationPanel.PRESET_VALUES
+
+    def __init__(self, fixtures: List, config=None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Set Orientation")
+        self.setMinimumSize(500, 550)
+
+        layout = QVBoxLayout(self)
+        self.panel = OrientationPanel(fixtures, config, self)
+        layout.addWidget(self.panel, stretch=1)
+
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(self.cancel_btn)
+
+        self.apply_btn = QPushButton("Apply")
+        self.apply_btn.setDefault(True)
+        self.apply_btn.clicked.connect(self.accept)
+        button_layout.addWidget(self.apply_btn)
+
+        layout.addLayout(button_layout)
+
+    # ── Pass-throughs that preserve the dialog's existing public API ──
+
+    def get_selected_mounting(self) -> str:
+        return self.panel.get_selected_mounting()
+
+    def get_orientation_values(self) -> dict:
+        return self.panel.get_orientation_values()
+
+    @property
+    def fixtures(self):
+        return self.panel.fixtures
+
+    @property
+    def preview_widget(self):
+        return self.panel.preview_widget
+
     def closeEvent(self, event):
-        """Handle dialog close."""
-        self.preview_widget.cleanup()
+        self.panel.cleanup()
         super().closeEvent(event)
