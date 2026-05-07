@@ -13,7 +13,8 @@ from config.models import Configuration, Show, ShowPart, TimelineData, LightBloc
 from timeline.song_structure import SongStructure
 from timeline.light_lane import LightLane
 from utils.fixture_utils import load_fixture_definitions_from_qlc, get_cached_fixture_definitions
-from timeline_ui import (MasterTimelineContainer, LightLaneWidget, AudioLaneWidget)
+from timeline_ui import (MasterTimelineContainer, LightLaneWidget, AudioLaneWidget,
+                         TimelineGrid)
 from timeline_ui.selection_manager import SelectionManager
 from timeline_ui.selection_overlay import SelectionOverlay
 from timeline_ui.effect_clipboard import (copy_multiple_effects, paste_multiple_effects,
@@ -142,30 +143,16 @@ class ShowsTab(BaseTab):
         toolbar = self._create_toolbar()
         main_layout.addLayout(toolbar)
 
-        # Master timeline
+        # Master + audio + light lanes share a single horizontal scrollbar
+        # and a single column boundary inside TimelineGrid. We still keep
+        # references to the lane widgets themselves so signals/methods on
+        # them keep working — TimelineGrid just owns their visual layout.
         self.master_timeline = MasterTimelineContainer()
-        main_layout.addWidget(self.master_timeline)
-
-        # Audio lane
         self.audio_lane = AudioLaneWidget()
-        main_layout.addWidget(self.audio_lane)
-
-        # Light lanes scroll area
-        self.lanes_scroll = QScrollArea()
-        self.lanes_scroll.setWidgetResizable(True)
-        self.lanes_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.lanes_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.lanes_scroll.setMinimumHeight(200)
-
-        # Container for light lanes
-        self.lanes_container = QWidget()
-        self.lanes_layout = QVBoxLayout(self.lanes_container)
-        self.lanes_layout.setContentsMargins(0, 0, 0, 0)
-        self.lanes_layout.setSpacing(4)
-        self.lanes_layout.addStretch()  # Push lanes to top
-
-        self.lanes_scroll.setWidget(self.lanes_container)
-        main_layout.addWidget(self.lanes_scroll, 1)  # Takes remaining space
+        self.timeline_grid = TimelineGrid()
+        self.timeline_grid.set_master(self.master_timeline)
+        self.timeline_grid.set_audio_lane(self.audio_lane)
+        main_layout.addWidget(self.timeline_grid, 1)
 
         # Create selection overlay for rubber-band selection (parented to self for proper stacking)
         self._selection_overlay = SelectionOverlay(self)
@@ -292,16 +279,12 @@ class ShowsTab(BaseTab):
         self.position_slider.sliderReleased.connect(self._on_position_slider_released)
         self.position_slider.valueChanged.connect(self._on_position_slider_changed)
 
-        # Master timeline sync
-        self.master_timeline.scroll_position_changed.connect(self._sync_scroll)
-        self.master_timeline.playhead_moved.connect(self._on_playhead_moved)
-        self.master_timeline.zoom_changed.connect(self._on_external_zoom_changed)
-
-        # Audio lane sync
-        self.audio_lane.scroll_position_changed.connect(self._sync_scroll)
-        self.audio_lane.zoom_changed.connect(self._on_external_zoom_changed)
-        self.audio_lane.playhead_moved.connect(self._on_playhead_moved)
-        self.audio_lane.audio_file_changed.connect(self._on_audio_file_loaded)
+        # TimelineGrid is the single source of truth for playhead/zoom/audio
+        # signals — its internals route from whichever lane originated the
+        # change. No more cross-wiring between separate scroll areas.
+        self.timeline_grid.playhead_moved.connect(self._on_playhead_moved)
+        self.timeline_grid.zoom_changed.connect(self._on_external_zoom_changed)
+        self.timeline_grid.audio_file_changed.connect(self._on_audio_file_loaded)
 
         # Keyboard shortcuts for selection operations
         self._setup_selection_shortcuts()
@@ -539,13 +522,12 @@ class ShowsTab(BaseTab):
         for lane_widget in self.lane_widgets:
             try:
                 lane_widget.remove_requested.disconnect()
-                lane_widget.scroll_position_changed.disconnect()
                 lane_widget.zoom_changed.disconnect()
                 lane_widget.playhead_moved.disconnect()
                 lane_widget.block_edited.disconnect()
             except (TypeError, RuntimeError):
                 pass  # Signal already disconnected or widget deleted
-            self.lanes_layout.removeWidget(lane_widget)
+            self.timeline_grid.remove_light_lane(lane_widget)
             lane_widget.deleteLater()
         self.lane_widgets.clear()
 
@@ -557,27 +539,22 @@ class ShowsTab(BaseTab):
         lane_widget = LightLaneWidget(lane, fixture_groups, self, config=self.config)
         lane_widget.set_song_structure(self.song_structure)
         lane_widget.set_zoom_factor(self.zoom_slider.value() / 100.0)
-        # Sync playhead position with existing lanes
         lane_widget.set_playhead_position(self.playhead_position)
-        # Sync scroll position with master timeline
-        master_scroll_pos = self.master_timeline.timeline_scroll.horizontalScrollBar().value()
-        lane_widget.sync_scroll_position(master_scroll_pos)
 
-        # Connect signals
+        # Connect signals — TimelineGrid handles horizontal scroll sync, so
+        # the per-lane scroll_position_changed wiring is gone.
         lane_widget.remove_requested.connect(self._remove_lane_widget)
-        lane_widget.scroll_position_changed.connect(self._sync_scroll)
         lane_widget.zoom_changed.connect(self._on_external_zoom_changed)
         lane_widget.playhead_moved.connect(self._on_playhead_moved)
         lane_widget.block_edited.connect(self.save_to_config)  # Auto-save on effect edit
 
-        # Install event filter on timeline widget for rubber-band selection
+        # Install event filter on timeline widget for rubber-band selection.
         lane_widget.timeline_widget.installEventFilter(self)
         lane_widget.timeline_widget.setMouseTracking(True)
-        # Also install on the scroll area viewport in case events go there
-        lane_widget.timeline_scroll.viewport().installEventFilter(self)
 
-        # Insert before the stretch
-        self.lanes_layout.insertWidget(len(self.lane_widgets), lane_widget)
+        # Hand the lane's pieces over to the grid; this also re-parents header
+        # and stripe and inserts a new aligned row.
+        self.timeline_grid.add_light_lane(lane_widget)
         self.lane_widgets.append(lane_widget)
 
     def _add_new_lane(self):
@@ -761,11 +738,10 @@ class ShowsTab(BaseTab):
         """Remove a lane widget."""
         if lane_widget in self.lane_widgets:
             lane_widget.remove_requested.disconnect()
-            lane_widget.scroll_position_changed.disconnect()
             lane_widget.zoom_changed.disconnect()
             lane_widget.playhead_moved.disconnect()
             lane_widget.block_edited.disconnect()
-            self.lanes_layout.removeWidget(lane_widget)
+            self.timeline_grid.remove_light_lane(lane_widget)
             self.lane_widgets.remove(lane_widget)
             lane_widget.deleteLater()
 
@@ -833,24 +809,7 @@ class ShowsTab(BaseTab):
             lane_data = lane_widget.lane.to_data_model()
             show.timeline_data.lanes.append(lane_data)
 
-    # === Scroll/Zoom Synchronization ===
-
-    def _sync_scroll(self, position: int):
-        """Synchronize scroll position across all lanes."""
-        sender = self.sender()
-
-        # Sync master timeline
-        if sender != self.master_timeline:
-            self.master_timeline.sync_scroll_position(position)
-
-        # Sync audio lane
-        if sender != self.audio_lane:
-            self.audio_lane.sync_scroll_position(position)
-
-        # Sync all light lanes
-        for lane in self.lane_widgets:
-            if sender != lane:
-                lane.sync_scroll_position(position)
+    # === Zoom Synchronization (horizontal scroll is owned by TimelineGrid) ===
 
     def _on_zoom_changed(self, value: int):
         """Handle zoom slider change."""
@@ -1643,8 +1602,8 @@ class ShowsTab(BaseTab):
         global_pos = timeline_widget.mapToGlobal(pos)
         self._selection_start_global = global_pos
 
-        # Position and show the overlay over the lanes scroll area
-        scroll_rect = self.lanes_scroll.geometry()
+        # Position the overlay over the timeline grid (covers stripes + headers).
+        scroll_rect = self.timeline_grid.geometry()
         self._selection_overlay.setGeometry(scroll_rect)
         self._selection_overlay.show()
         self._selection_overlay.raise_()
@@ -1789,19 +1748,14 @@ class ShowsTab(BaseTab):
     def _get_lane_rect_in_overlay(self, lane_widget) -> QRect:
         """Get a lane widget's rectangle in overlay coordinates.
 
-        Uses the full lane widget bounds for accurate Y-overlap detection.
-
-        Args:
-            lane_widget: LightLaneWidget instance
-
-        Returns:
-            QRect of lane widget in overlay coordinates
+        Inside TimelineGrid the LightLaneWidget itself is a hollow logical
+        container — its visual geometry now lives on its timeline widget.
+        Use the timeline widget's bounds for Y-overlap detection.
         """
-        # Get lane widget's global position
-        global_top_left = lane_widget.mapToGlobal(QPoint(0, 0))
-        global_bottom_right = lane_widget.mapToGlobal(QPoint(lane_widget.width(), lane_widget.height()))
+        timeline = lane_widget.timeline_widget
+        global_top_left = timeline.mapToGlobal(QPoint(0, 0))
+        global_bottom_right = timeline.mapToGlobal(QPoint(timeline.width(), timeline.height()))
 
-        # Convert to overlay coordinates
         overlay_top_left = self._selection_overlay.mapFromGlobal(global_top_left)
         overlay_bottom_right = self._selection_overlay.mapFromGlobal(global_bottom_right)
 

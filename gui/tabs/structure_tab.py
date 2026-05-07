@@ -15,7 +15,7 @@ from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont, QAction
 import shutil
 from config.models import Configuration, Show, ShowPart, TimelineData, MidiInputDevice, PauseShowConfig
 from timeline.song_structure import SongStructure
-from timeline_ui import AudioLaneWidget, MasterTimelineContainer
+from timeline_ui import AudioLaneWidget, MasterTimelineContainer, TimelineGrid
 from .base_tab import BaseTab
 
 
@@ -190,17 +190,21 @@ class StructureTab(BaseTab):
         toolbar = self._create_toolbar()
         main_layout.addLayout(toolbar)
 
-        # Master timeline (very top - shows song structure)
+        # Master + audio share a single horizontal scrollbar inside
+        # TimelineGrid. Lane references stay so signal/method dispatch works.
         self.master_timeline = MasterTimelineContainer()
-        main_layout.addWidget(self.master_timeline)
-
-        # Audio lane
         self.audio_lane = AudioLaneWidget()
-        self.audio_lane.setSizePolicy(
+        self.timeline_grid = TimelineGrid()
+        self.timeline_grid.set_master(self.master_timeline)
+        self.timeline_grid.set_audio_lane(self.audio_lane)
+        self.timeline_grid.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed
         )
-        main_layout.addWidget(self.audio_lane)
+        # Cap the grid height so the structure table below still gets space.
+        self.timeline_grid.setMinimumHeight(180)
+        self.timeline_grid.setMaximumHeight(220)
+        main_layout.addWidget(self.timeline_grid)
 
         # Show Structure (table view)
         structure_header = QHBoxLayout()
@@ -529,36 +533,14 @@ class StructureTab(BaseTab):
         self.position_slider.sliderReleased.connect(self._on_position_slider_released)
         self.position_slider.valueChanged.connect(self._on_position_slider_changed)
 
-        # Master timeline
-        self.master_timeline.scroll_position_changed.connect(self._sync_scroll)
-        self.master_timeline.playhead_moved.connect(self._on_playhead_moved)
-        self.master_timeline.zoom_changed.connect(self._sync_zoom)
-
-        # Audio lane
-        self.audio_lane.audio_file_changed.connect(self._on_audio_file_loaded)
-        self.audio_lane.scroll_position_changed.connect(self._sync_scroll)
-        self.audio_lane.playhead_moved.connect(self._on_playhead_moved)
-        self.audio_lane.zoom_changed.connect(self._sync_zoom)
-
-    def _sync_scroll(self, position: int):
-        """Synchronize scroll position across timelines."""
-        sender = self.sender()
-
-        # Sync master timeline
-        if sender != self.master_timeline:
-            self.master_timeline.sync_scroll_position(position)
-
-        # Sync audio lane
-        if sender != self.audio_lane:
-            self.audio_lane.sync_scroll_position(position)
+        # TimelineGrid is the single source of truth for playhead/zoom/audio.
+        self.timeline_grid.playhead_moved.connect(self._on_playhead_moved)
+        self.timeline_grid.zoom_changed.connect(self._sync_zoom)
+        self.timeline_grid.audio_file_changed.connect(self._on_audio_file_loaded)
 
     def _sync_zoom(self, zoom_factor: float):
-        """Synchronize zoom level across all timeline views."""
-        sender = self.sender()
-
-        # Sync master timeline
-        if sender != self.master_timeline:
-            self.master_timeline.set_zoom_factor(zoom_factor)
+        """Apply zoom to every stripe via the grid."""
+        self.timeline_grid.set_zoom_factor(zoom_factor)
 
     def _on_playhead_moved(self, position: float):
         """Handle playhead position change from timeline click."""

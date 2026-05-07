@@ -99,11 +99,12 @@ class AudioLaneWidget(QFrame):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Lane controls section (left side)
-        controls_widget = self.create_controls_widget()
-        main_layout.addWidget(controls_widget)
+        # Build the two pieces — controls on the left, timeline on the right.
+        # When this widget is embedded in TimelineGrid, detach_pieces() will
+        # tear this layout down and hand both children to the grid.
+        self.controls_widget = self.create_controls_widget()
+        main_layout.addWidget(self.controls_widget)
 
-        # Timeline section (right side) - scrollable
         self.timeline_scroll = QScrollArea()
         self.timeline_widget = AudioTimelineWidget()
         self.timeline_widget.zoom_changed.connect(self.zoom_changed.emit)
@@ -122,6 +123,20 @@ class AudioLaneWidget(QFrame):
             self._on_scroll_changed)
 
         main_layout.addWidget(self.timeline_scroll, 1)
+
+    def detach_pieces(self):
+        """Return (header_widget, stripe_widget) for embedding in TimelineGrid.
+
+        After this call ``self`` no longer renders its own UI — the inner
+        scrollarea is gone and ``controls_widget`` / ``timeline_widget`` are
+        free to be re-parented. Signals on ``self`` keep working because
+        they're wired to the timeline widget directly.
+        """
+        if hasattr(self, "timeline_scroll") and self.timeline_scroll is not None:
+            self.timeline_scroll.takeWidget()
+            self.timeline_scroll.setParent(None)
+            self.timeline_scroll = None
+        return self.controls_widget, self.timeline_widget
 
     def create_controls_widget(self):
         """Create the lane controls section. All visuals come from the

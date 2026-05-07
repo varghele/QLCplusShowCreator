@@ -65,9 +65,11 @@ class LightLaneWidget(QFrame):
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
 
-        # Lane controls section (left side)
-        controls_widget = self.create_controls_widget()
-        main_layout.addWidget(controls_widget)
+        # Build the two pieces — controls on the left, timeline on the right.
+        # When this widget is embedded in TimelineGrid, detach_pieces() tears
+        # this layout down and hands both children over.
+        self.controls_widget = self.create_controls_widget()
+        main_layout.addWidget(self.controls_widget)
 
         # Timeline section (right side) - scrollable
         self.timeline_scroll = QScrollArea()
@@ -102,6 +104,21 @@ class LightLaneWidget(QFrame):
             self.scroll_position_changed.emit)
 
         main_layout.addWidget(self.timeline_scroll, 1)
+
+    def detach_pieces(self):
+        """Return (header_widget, stripe_widget) for embedding in TimelineGrid.
+
+        After this call ``self`` no longer renders its own UI — the inner
+        scrollarea is gone and ``controls_widget`` / ``timeline_widget`` are
+        free to be re-parented. The lane's logic (block widgets, signals,
+        riff drop, paste, undo) keeps working because it lives on the
+        timeline widget and on ``self`` itself.
+        """
+        if hasattr(self, "timeline_scroll") and self.timeline_scroll is not None:
+            self.timeline_scroll.takeWidget()
+            self.timeline_scroll.setParent(None)
+            self.timeline_scroll = None
+        return self.controls_widget, self.timeline_widget
 
     def create_controls_widget(self):
         """Create the lane controls section."""

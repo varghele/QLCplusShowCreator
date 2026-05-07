@@ -302,3 +302,37 @@ class MasterTimelineContainer(QWidget):
         self.timeline_widget.zoom_factor = zoom_factor
         self.timeline_widget.update_timeline_width()
         self.timeline_widget.update()
+
+    def detach_pieces(self):
+        """Return (header_widget, stripe_widget) for embedding in TimelineGrid.
+
+        After this call, ``self`` no longer renders its own UI; the inner
+        scrollarea is dismantled and the master timeline widget is left
+        free to be parented elsewhere. Signals on ``self`` remain wired
+        (they pass through ``timeline_widget``), so callers can keep using
+        ``self.set_playhead_position``, ``self.playhead_moved``, etc.
+        """
+        # Build a header widget mirroring the original top row (label + info).
+        from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel
+        header = QWidget()
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(8, 4, 8, 4)
+        header_layout.setSpacing(8)
+        master_label = QLabel("Master Timeline")
+        master_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+        header_layout.addWidget(master_label)
+        header_layout.addStretch()
+        # Carry the existing info widget over so its update_info_display calls
+        # keep working (it's connected to playhead_moved).
+        if hasattr(self, "info_widget") and self.info_widget is not None:
+            self.info_widget.setParent(header)
+            self.info_widget.setStyleSheet("font-size: 10px; font-weight: bold;")
+            header_layout.addWidget(self.info_widget)
+
+        # Detach the timeline from the scrollarea so TimelineGrid can take it.
+        if hasattr(self, "timeline_scroll") and self.timeline_scroll is not None:
+            self.timeline_scroll.takeWidget()
+            self.timeline_scroll.setParent(None)
+            self.timeline_scroll = None
+
+        return header, self.timeline_widget
