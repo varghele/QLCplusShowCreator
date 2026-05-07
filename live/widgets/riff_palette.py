@@ -199,3 +199,35 @@ class GroupRiffConstraintPanel(QWidget):
             label = self._active_labels.get(group_name)
             if label:
                 label.setText(riff_name)
+
+    def set_constraint(self, group_name: str, allowed: Optional[Set[str]]) -> None:
+        """Programmatically restore a group's checked rudiments.
+
+        None or empty = AUTO (all unchecked). Updates the menu, button label,
+        and mode badge to match — same logic as a user clicking checkboxes.
+        """
+        menu = self._menus.get(group_name)
+        if menu is None:
+            return
+
+        target = allowed or set()
+        for name, cb in menu._checkboxes.items():
+            cb.blockSignals(True)
+            cb.setChecked(name in target)
+            cb.blockSignals(False)
+        # Re-run the same UI-state logic that handles user-driven changes.
+        self._on_selection_changed(group_name)
+
+    def get_constraints(self) -> Dict[str, Set[str]]:
+        """Return current per-group selections (only groups with non-AUTO state).
+
+        AUTO means either nothing is checked or all are checked — those are
+        excluded from the result so callers can persist only meaningful state.
+        """
+        result: Dict[str, Set[str]] = {}
+        total = len(self._rudiment_names)
+        for g, menu in self._menus.items():
+            selected = menu.get_selected()
+            if 0 < len(selected) < total:
+                result[g] = selected
+        return result

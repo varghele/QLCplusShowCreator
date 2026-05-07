@@ -42,3 +42,11 @@ class EnergySensitivityFader(QWidget):
 
     def value(self) -> float:
         return self._slider.value() / 100.0
+
+    def set_value(self, value: float) -> None:
+        """Set the slider position (0.0-1.0) without emitting signals."""
+        clamped = max(0, min(100, int(round(value * 100))))
+        self._slider.blockSignals(True)
+        self._slider.setValue(clamped)
+        self._slider.blockSignals(False)
+        self._value_label.setText(f"{clamped}%")

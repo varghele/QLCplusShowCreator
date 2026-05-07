@@ -86,29 +86,28 @@ distribution-rank, not a real frequency.
 
 ---
 
-## 6. ArtNet target IP defaults are hardcoded with no persistence
+## 6 + 7 + 9. Session persistence + visualiser-mirror toggle — DONE
 
-**Where:** `live/window.py:248` (`192.168.1.151`), `live/dmx_output.py:23` (same default).
+New module `live/settings.py` — `LiveModeSettings` dataclass + load/save against
+`~/.qlcautoshow/live_mode_settings.json` (matches the convention already used
+by `audio/waveform_analyzer.py`). Load on window construction, save on
+`closeEvent`. Persists: target IP, universe map, input device (by name),
+mirror-to-visualiser toggle, BPM, groove bars, energy sensitivity, target
+plane, max movement speed, color override (active + hue + saturation),
+per-group constraints, per-group submasters.
 
-**Problem:** Every session you re-type the venue IP. Universe mapping resets too.
+Added "Mirror to visualiser broadcast" checkbox in the ArtNet panel — wired
+to `LiveDMXController.set_mirror_to_visualizer()` both at controller construction
+and live during a running session. Default still on.
 
-**Proposed fix:** Persist Live Mode settings to a small JSON in the user config
-dir (or extend `Configuration`). Save: target IP, universe map, last input
-device name, default plane, BPM, groove bars, energy sensitivity. Load on window
-construction.
+The IP field's `editingFinished` signal now calls `set_target_ip()` on the
+running controller so edits apply without stop/start.
 
----
-
-## 7. Visualizer broadcast is on by default with no UI toggle
-
-**Where:** `live/dmx_output.py:38` — `_mirror_to_visualizer = True` and a second
-`ArtNetSender` to `255.255.255.255`.
-
-**Problem:** Means every running Live Mode broadcasts to the LAN, which is
-useful for debugging but undesirable on shared networks at venues.
-
-**Proposed fix:** Checkbox under ArtNet Output ("Mirror to visualizer broadcast",
-default on for now). Wire to `LiveDMXController.set_mirror_to_visualizer()`.
+Public widget setters added so window.py doesn't poke privates:
+`HSVColorWheel.set_state`/`get_hue_saturation`,
+`GroupRiffConstraintPanel.set_constraint`/`get_constraints`,
+`EnergySensitivityFader.set_value`,
+`GroupSubmasterPanel.get_values`.
 
 ---
 
@@ -118,30 +117,12 @@ default on for now). Wire to `LiveDMXController.set_mirror_to_visualizer()`.
 which runs `match_rudiments_to_section` + `select_rudiments_per_group`. Both
 called from `tick()` on the DMX thread, with `_lock` held.
 
-**Problem:** Matcher scoring isn't free; bar-boundary lock-hold can stall both
-the analysis-thread heavy-interrupt check and the UI's property reads. With many
-groups and tight BPMs this could occasionally dent DMX timing.
+**Problem:** Matcher scoring isn't free; bar-boundary lock-hold can stall the
+UI's property reads and the analysis thread's `on_feature_frame` append. With
+many groups and tight BPMs this could occasionally dent DMX timing.
 
 **Proposed fix:** Either (a) precompute the next cycle's selection on the
 analysis thread between bars and hand the result over via a queue, or (b)
 release `_lock` around the matcher call (snapshot the inputs, call matcher
 unlocked, re-acquire to assign results). (b) is the smaller refactor.
 
----
-
-## 9. No save/load of Live Mode session
-
-Bundled with #6 but worth calling out: BPM, groove bars, energy slider, color
-override state, per-group constraints, target plane, max movement speed — all
-reset every time the window opens. Save/load these alongside ArtNet config.
-
----
-
-## 10. No section-transition handling
-
-The engine just runs the same groove+fill cycle until you tell it otherwise.
-There's no notion of "the song just changed sections" the way the offline
-pipeline has. Auto-detection of song-section changes (via a longer-window
-metric drift) would let the engine re-roll riffs without operator input.
-
-Probably bigger than a patch — flagging for later.

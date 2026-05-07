@@ -68,6 +68,28 @@ class HSVColorWheel(QWidget):
         c = QColor.fromHsvF(self._hue / 360.0, self._saturation, 1.0)
         return (c.red(), c.green(), c.blue())
 
+    def get_hue_saturation(self) -> tuple:
+        """Get current (hue 0-360, saturation 0-1)."""
+        return (self._hue, self._saturation)
+
+    def set_state(self, override_active: bool, hue: float, saturation: float) -> None:
+        """Restore wheel state without emitting signals."""
+        self._hue = max(0.0, min(360.0, hue))
+        self._saturation = max(0.0, min(1.0, saturation))
+        self._wheel_widget._selector_hue = self._hue
+        self._wheel_widget._selector_sat = self._saturation
+        self._wheel_widget.update()
+        self._update_swatch()
+
+        # Toggle buttons silently to match override_active.
+        self._override_btn.blockSignals(True)
+        self._auto_btn.blockSignals(True)
+        self._override_btn.setChecked(override_active)
+        self._auto_btn.setChecked(not override_active)
+        self._override_btn.blockSignals(False)
+        self._auto_btn.blockSignals(False)
+        self._override_active = override_active
+
     def _on_position_selected(self, hue: float, saturation: float):
         self._hue = hue
         self._saturation = saturation

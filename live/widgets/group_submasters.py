@@ -67,3 +67,7 @@ class GroupSubmasterPanel(QWidget):
             slider.blockSignals(True)
             slider.setValue(int(value * 100))
             slider.blockSignals(False)
+
+    def get_values(self) -> dict:
+        """Return current submaster values as {group_name: 0-100 int}."""
+        return {name: slider.value() for name, slider in self._sliders.items()}

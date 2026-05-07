@@ -28,6 +28,7 @@ from live.widgets.group_submasters import GroupSubmasterPanel
 from live.widgets.energy_fader import EnergySensitivityFader
 from live.widgets.riff_palette import GroupRiffConstraintPanel
 from live.widgets.metrics_tracker import LiveMetricsTracker
+from live import settings as live_settings
 from autogen.spatial import ensure_default_spots, compute_stage_planes
 from config.models import StagePlane
 
@@ -43,6 +44,10 @@ class LiveModeWindow(QMainWindow):
         self.setWindowTitle("Live Mode")
         self.setMinimumSize(900, 600)
         self.resize(1100, 700)
+
+        # Persisted session state — loaded before _setup_ui so widgets can be
+        # initialised with saved values rather than overwriting them afterward.
+        self._settings = live_settings.load()
 
         # Components (created on start)
         self._device_manager = DeviceManager()
@@ -104,6 +109,7 @@ class LiveModeWindow(QMainWindow):
 
         # Energy fader
         self._energy_fader = EnergySensitivityFader()
+        self._energy_fader.set_value(self._settings.energy_sensitivity / 100.0)
         self._energy_fader.sensitivity_changed.connect(self._on_energy_sensitivity_changed)
         left_layout.addWidget(self._energy_fader)
 
@@ -158,7 +164,7 @@ class LiveModeWindow(QMainWindow):
 
         self._bpm_spinbox = QSpinBox()
         self._bpm_spinbox.setRange(30, 300)
-        self._bpm_spinbox.setValue(120)
+        self._bpm_spinbox.setValue(self._settings.bpm)
         self._bpm_spinbox.setSuffix(" BPM")
         self._bpm_spinbox.valueChanged.connect(self._on_bpm_spinbox_changed)
         bpm_layout.addWidget(self._bpm_spinbox)
@@ -169,7 +175,7 @@ class LiveModeWindow(QMainWindow):
         bpm_layout.addWidget(groove_label)
         self._groove_bars_spinbox = QSpinBox()
         self._groove_bars_spinbox.setRange(1, 16)
-        self._groove_bars_spinbox.setValue(3)
+        self._groove_bars_spinbox.setValue(self._settings.groove_bars)
         self._groove_bars_spinbox.valueChanged.connect(self._on_groove_bars_changed)
         bpm_layout.addWidget(self._groove_bars_spinbox)
 
@@ -179,6 +185,9 @@ class LiveModeWindow(QMainWindow):
         # Per-group riff constraints
         group_names = list(self.config.groups.keys())
         self._riff_constraints = GroupRiffConstraintPanel(group_names)
+        for g, allowed in self._settings.group_constraints.items():
+            if g in group_names:
+                self._riff_constraints.set_constraint(g, set(allowed))
         self._riff_constraints.constraints_changed.connect(self._on_constraints_changed)
         center_layout.addWidget(self._riff_constraints)
 
@@ -210,9 +219,12 @@ class LiveModeWindow(QMainWindow):
         speed_label.setFixedWidth(65)
         self._speed_slider = QSlider(Qt.Orientation.Horizontal)
         self._speed_slider.setRange(0, 360)
-        self._speed_slider.setValue(0)
+        self._speed_slider.setValue(self._settings.max_movement_speed)
         self._speed_slider.setFixedHeight(20)
-        self._speed_value_label = QLabel("OFF")
+        self._speed_value_label = QLabel(
+            "OFF" if self._settings.max_movement_speed == 0
+            else f"{self._settings.max_movement_speed}°/s"
+        )
         self._speed_value_label.setFixedWidth(40)
         self._speed_value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self._speed_value_label.setStyleSheet("font-size: 10px;")
@@ -225,6 +237,11 @@ class LiveModeWindow(QMainWindow):
         # Color wheel
         center_layout.addSpacing(8)
         self._color_wheel = HSVColorWheel()
+        self._color_wheel.set_state(
+            self._settings.color_override_active,
+            self._settings.color_override_hue,
+            self._settings.color_override_saturation,
+        )
         self._color_wheel.color_changed.connect(self._on_color_changed)
         center_layout.addWidget(self._color_wheel)
 
@@ -246,8 +263,9 @@ class LiveModeWindow(QMainWindow):
 
         ip_row = QHBoxLayout()
         ip_row.addWidget(QLabel("Target IP:"))
-        self._ip_input = QLineEdit("192.168.1.151")
+        self._ip_input = QLineEdit(self._settings.target_ip)
         self._ip_input.setPlaceholderText("192.168.1.151")
+        self._ip_input.editingFinished.connect(self._on_ip_changed)
         ip_row.addWidget(self._ip_input)
         artnet_layout.addLayout(ip_row)
 
@@ -257,6 +275,13 @@ class LiveModeWindow(QMainWindow):
         self._universe_table.setFixedHeight(80)
         self._populate_universe_table()
         artnet_layout.addWidget(self._universe_table)
+
+        # Mirror to visualiser broadcast (255.255.255.255). Useful at home for
+        # the on-screen visualiser; turn off at venues to keep DMX off the LAN.
+        self._mirror_checkbox = QCheckBox("Mirror to visualiser broadcast")
+        self._mirror_checkbox.setChecked(self._settings.mirror_to_visualizer)
+        self._mirror_checkbox.toggled.connect(self._on_mirror_toggled)
+        artnet_layout.addWidget(self._mirror_checkbox)
 
         right_layout.addWidget(artnet_group)
 
@@ -280,6 +305,9 @@ class LiveModeWindow(QMainWindow):
         # Group submasters
         group_names = list(self.config.groups.keys())
         self._submasters = GroupSubmasterPanel(group_names)
+        for g, val in self._settings.group_submasters.items():
+            if g in group_names:
+                self._submasters.set_value(g, val / 100.0)
         self._submasters.submaster_changed.connect(self._on_submaster_changed)
         right_layout.addWidget(self._submasters)
 
@@ -317,7 +345,16 @@ class LiveModeWindow(QMainWindow):
             self._input_device_combo.addItem(
                 f"{device.name} ({device.host_api})", device.index
             )
-        # Select default
+
+        # Restore previously-used device by name (indices change across reboots).
+        saved_name = self._settings.input_device_name
+        if saved_name:
+            for i, device in enumerate(devices):
+                if device.name == saved_name:
+                    self._input_device_combo.setCurrentIndex(i)
+                    return
+
+        # Fall back to system default.
         default = self._device_manager.get_default_input_device()
         if default:
             for i in range(self._input_device_combo.count()):
@@ -335,20 +372,26 @@ class LiveModeWindow(QMainWindow):
         for plane in planes:
             self._plane_combo.addItem(plane.name)
 
-        # Default to Front (audience-facing)
-        front_idx = self._plane_combo.findText("Front")
-        if front_idx >= 0:
-            self._plane_combo.setCurrentIndex(front_idx)
+        # Restore saved plane if it still exists; else fall back to Front.
+        saved = self._settings.target_plane_name
+        idx = self._plane_combo.findText(saved) if saved else -1
+        if idx < 0:
+            idx = self._plane_combo.findText("Front")
+        if idx >= 0:
+            self._plane_combo.setCurrentIndex(idx)
 
     def _populate_universe_table(self):
-        """Fill universe mapping table from config."""
+        """Fill universe mapping table from config, using saved mapping when present."""
         universes = list(self.config.universes.keys())
+        saved = self._settings.universe_mapping
         self._universe_table.setRowCount(len(universes))
         for row, uid in enumerate(universes):
             uid_int = int(uid)
             config_item = QTableWidgetItem(str(uid_int))
             config_item.setFlags(config_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            artnet_item = QTableWidgetItem(str(uid_int - 1))  # 1-based → 0-based default
+            # Saved value if present, otherwise 1-based → 0-based default.
+            artnet_uid = saved.get(uid_int, uid_int - 1)
+            artnet_item = QTableWidgetItem(str(artnet_uid))
             self._universe_table.setItem(row, 0, config_item)
             self._universe_table.setItem(row, 1, artnet_item)
 
@@ -403,6 +446,7 @@ class LiveModeWindow(QMainWindow):
                 self.config, self.fixture_definitions, target_ip=target_ip,
             )
             self._dmx_controller.set_universe_mapping(self._get_universe_mapping())
+            self._dmx_controller.set_mirror_to_visualizer(self._mirror_checkbox.isChecked())
             self._dmx_controller.set_engine(self._engine)
             # Pass stage planes to DMX manager for world-space movement
             self._dmx_controller.dmx_manager.set_stage_planes(self._stage_planes)
@@ -537,6 +581,15 @@ class LiveModeWindow(QMainWindow):
         if self._engine:
             self._engine.set_energy_sensitivity(value)
 
+    def _on_ip_changed(self):
+        """Apply target IP edits live without requiring stop/start."""
+        if self._dmx_controller:
+            self._dmx_controller.set_target_ip(self._ip_input.text().strip() or "192.168.1.151")
+
+    def _on_mirror_toggled(self, checked: bool):
+        if self._dmx_controller:
+            self._dmx_controller.set_mirror_to_visualizer(checked)
+
     def _on_speed_changed(self, value):
         if value == 0:
             self._speed_value_label.setText("OFF")
@@ -610,6 +663,53 @@ class LiveModeWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Ensure cleanup on window close."""
+        try:
+            self._save_settings()
+        except Exception as e:
+            print(f"Error saving Live Mode settings: {e}")
         self._cleanup()
         self._device_manager.cleanup()
         super().closeEvent(event)
+
+    def _save_settings(self):
+        """Snapshot the UI state and write to disk."""
+        # Color wheel state
+        hue, sat = self._color_wheel.get_hue_saturation()
+        override_active = self._color_wheel.is_override_active()
+
+        # Group constraints — only non-AUTO entries are returned.
+        constraints = {
+            g: sorted(allowed)
+            for g, allowed in self._riff_constraints.get_constraints().items()
+        }
+        submasters = self._submasters.get_values()
+
+        # Selected input device name (rather than index, which is unstable)
+        device_name = None
+        idx = self._input_device_combo.currentIndex()
+        if idx >= 0:
+            label = self._input_device_combo.itemText(idx)
+            # Strip the " (host_api)" suffix that _populate_devices added.
+            paren = label.rfind(" (")
+            device_name = label[:paren] if paren > 0 else label
+
+        plane_text = self._plane_combo.currentText()
+        target_plane = plane_text if plane_text != "None (manual)" else ""
+
+        self._settings = live_settings.LiveModeSettings(
+            target_ip=self._ip_input.text().strip() or "192.168.1.151",
+            universe_mapping=self._get_universe_mapping(),
+            mirror_to_visualizer=self._mirror_checkbox.isChecked(),
+            input_device_name=device_name,
+            bpm=self._bpm_spinbox.value(),
+            groove_bars=self._groove_bars_spinbox.value(),
+            energy_sensitivity=int(round(self._energy_fader.value() * 100)),
+            target_plane_name=target_plane,
+            max_movement_speed=self._speed_slider.value(),
+            color_override_active=override_active,
+            color_override_hue=hue,
+            color_override_saturation=sat,
+            group_constraints=constraints,
+            group_submasters=submasters,
+        )
+        live_settings.save(self._settings)
