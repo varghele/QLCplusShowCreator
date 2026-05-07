@@ -187,9 +187,7 @@ QListView {
     gridline-color: transparent;
     border: 1px solid #3a3a3a;
     border-radius: 4px;
-    /* Translucent selection so per-row group colors stay readable through
-       the highlight. selection-color stays solid for legibility. */
-    selection-background-color: rgba(33, 150, 243, 70);
+    selection-background-color: #094771;
     selection-color: #ffffff;
 }
 /* No QTableView::item rule. Adding one — even just padding — makes

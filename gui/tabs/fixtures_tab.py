@@ -166,6 +166,15 @@ class FixturesTab(BaseTab):
         # Visuals come from the active theme stylesheet.
         from gui.widgets.modern_table import apply_modern_table_style
         apply_modern_table_style(self.table)
+        # Selection delegate — paints selection as a border instead of a
+        # blue fill, so per-row group tints (Manufacturer / Model / Channels
+        # / Name) stay readable when the row is selected. Qt's default
+        # delegate would otherwise overpaint the tint with an opaque
+        # selection rectangle (selection-background-color rgba alpha is
+        # silently rendered solid by Qt's QSS engine).
+        from gui.widgets.group_row_delegate import GroupRowDelegate
+        self._group_row_delegate = GroupRowDelegate(self.table)
+        self.table.setItemDelegate(self._group_row_delegate)
         self.table.setSortingEnabled(True)
         self.table.horizontalHeader().setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
 
