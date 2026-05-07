@@ -266,8 +266,18 @@ class FixturesTab(BaseTab):
                 if index >= 0:
                     mode_combo.setCurrentIndex(index)
                     channels = fixture.available_modes[index].channels
-                    channels_item = QtWidgets.QTableWidgetItem(str(channels))
-                    self.table.setItem(row, 4, channels_item)
+                else:
+                    # current_mode doesn't exactly match any available_modes
+                    # entry — fall back to the first mode rather than leaving
+                    # the cell empty. This path triggered the "channels lost
+                    # on duplicate" bug whenever stored current_mode drifted
+                    # out of sync with available_modes (e.g. saved + reloaded
+                    # configs, or any path that mutates one without the other).
+                    channels = fixture.available_modes[0].channels
+                # Always set the channels item; never leave it empty when the
+                # fixture has any modes at all.
+                channels_item = QtWidgets.QTableWidgetItem(str(channels))
+                self.table.setItem(row, 4, channels_item)
 
                 # Create closure for mode change handler
                 def create_mode_handler(current_row, modes):
