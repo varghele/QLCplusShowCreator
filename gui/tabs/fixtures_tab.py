@@ -153,14 +153,14 @@ class FixturesTab(BaseTab):
         )
 
         # Set initial column widths (these are now resizable)
-        self.table.setColumnWidth(0, 70)   # Universe
-        self.table.setColumnWidth(1, 70)   # Address
+        self.table.setColumnWidth(0, 80)   # Universe
+        self.table.setColumnWidth(1, 80)   # Address
         self.table.setColumnWidth(2, 180)  # Manufacturer
         self.table.setColumnWidth(3, 180)  # Model
-        self.table.setColumnWidth(4, 70)   # Channels
-        self.table.setColumnWidth(5, 140)  # Mode
+        self.table.setColumnWidth(4, 80)   # Channels
+        self.table.setColumnWidth(5, 170)  # Mode (wider — values like "14-Channel" + dropdown arrow)
         self.table.setColumnWidth(6, 140)  # Name
-        self.table.setColumnWidth(7, 140)  # Group
+        self.table.setColumnWidth(7, 190)  # Group (wider — editable combo + dropdown arrow + group name)
 
         # Modern table styling — alternating rows, no grid, padded headers.
         # Visuals come from the active theme stylesheet.
@@ -241,13 +241,12 @@ class FixturesTab(BaseTab):
             address_spin.valueChanged.connect(self.save_to_config)
             self.table.setCellWidget(row, 1, address_spin)
 
-            # Manufacturer and Model
+            # Manufacturer and Model — no inline background; theme + the
+            # group-tint logic in _update_row_colors set it.
             manufacturer_item = QtWidgets.QTableWidgetItem(fixture.manufacturer)
-            manufacturer_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
             self.table.setItem(row, 2, manufacturer_item)
 
             model_item = QtWidgets.QTableWidgetItem(fixture.model)
-            model_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
             self.table.setItem(row, 3, model_item)
 
             # Mode combo box
@@ -268,7 +267,6 @@ class FixturesTab(BaseTab):
                     mode_combo.setCurrentIndex(index)
                     channels = fixture.available_modes[index].channels
                     channels_item = QtWidgets.QTableWidgetItem(str(channels))
-                    channels_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
                     self.table.setItem(row, 4, channels_item)
 
                 # Create closure for mode change handler
@@ -277,7 +275,6 @@ class FixturesTab(BaseTab):
                         if 0 <= index < len(modes):
                             channels = modes[index].channels
                             channels_item = QtWidgets.QTableWidgetItem(str(channels))
-                            channels_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
                             self.table.setItem(current_row, 4, channels_item)
                             self.config.fixtures[current_row].current_mode = modes[index].name
                             self._update_row_colors()
@@ -293,14 +290,12 @@ class FixturesTab(BaseTab):
             else:
                 mode_combo.addItem(fixture.current_mode)
                 channels_item = QtWidgets.QTableWidgetItem("0")
-                channels_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
                 self.table.setItem(row, 4, channels_item)
 
             self.table.setCellWidget(row, 5, mode_combo)
 
-            # Name
+            # Name — theme + group-tint handle background.
             name_item = QtWidgets.QTableWidgetItem(fixture.name)
-            name_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
             self.table.setItem(row, 6, name_item)
 
             # Group combo box
@@ -589,32 +584,50 @@ class FixturesTab(BaseTab):
 
                         color = self.group_colors[group_name]
 
-                        # Apply color to all cells in row
+                        # Mid-alpha overlay so the same hue cue works in both
+                        # themes. Cell widgets need their own rgba bg via
+                        # setStyleSheet because Qt's setCellWidget makes the
+                        # widget *replace* the cell's display — the item's
+                        # painted background never shows under widget cells.
+                        # Per-widget stylesheets merge with the global theme
+                        # rule (only background-color is overridden) so the
+                        # widget keeps its theme border / text / padding.
+                        tint = QtGui.QColor(color)
+                        tint.setAlpha(140)
+                        rgba = (
+                            f"background-color: rgba({color.red()}, "
+                            f"{color.green()}, {color.blue()}, 140);"
+                        )
+
                         for col in range(self.table.columnCount()):
                             item = self.table.item(row, col)
-                            if not item and not self.table.cellWidget(row, col):
-                                self.table.setItem(row, col, QtWidgets.QTableWidgetItem(""))
-
-                            if item:
-                                item.setBackground(color)
+                            if item is None:
+                                item = QtWidgets.QTableWidgetItem("")
+                                self.table.setItem(row, col, item)
+                            item.setBackground(tint)
 
                             cell_widget = self.table.cellWidget(row, col)
-                            if cell_widget:
-                                cell_widget.setStyleSheet(f"background-color: {color.name()};")
+                            if cell_widget is not None:
+                                cell_widget.setStyleSheet(rgba)
 
-                        # Update group color in configuration
+                        # Persist the full-opacity group color in config
+                        # (alpha is for the on-screen overlay only).
                         if group_name in self.config.groups:
                             self.config.groups[group_name].color = color.name()
                     else:
-                        # Reset color to white if no group
-                        white_color = QtGui.QColor(255, 255, 255)
+                        # Ungrouped row — clear any tint and per-widget
+                        # overrides; theme defaults apply.
+                        empty_brush = QtGui.QBrush()
                         for col in range(self.table.columnCount()):
                             item = self.table.item(row, col)
-                            if item:
-                                item.setBackground(white_color)
+                            if item is None:
+                                item = QtWidgets.QTableWidgetItem("")
+                                self.table.setItem(row, col, item)
+                            item.setBackground(empty_brush)
+
                             cell_widget = self.table.cellWidget(row, col)
-                            if cell_widget:
-                                cell_widget.setStyleSheet("background-color: white;")
+                            if cell_widget is not None:
+                                cell_widget.setStyleSheet("")
         finally:
             pass  # setUpdatesEnabled removed to avoid Qt stack overflow
 

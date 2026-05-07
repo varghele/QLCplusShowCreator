@@ -183,6 +183,27 @@ QHeaderView::section {
 }
 QHeaderView::section:hover { background-color: #e8e8e8; }
 
+/* Cell-widget editors set via setCellWidget on a table. Transparent
+   background lets the row's QTableWidgetItem tint show through.
+   Tight padding so text isn't squeezed by the QComboBox dropdown arrow
+   and QSpinBox up/down buttons. */
+QTableView QSpinBox,
+QTableView QDoubleSpinBox,
+QTableView QComboBox,
+QTableView QLineEdit {
+    background-color: transparent;
+    color: #222222;
+    border: 1px solid #cccccc;
+    border-radius: 3px;
+    padding: 1px 4px;
+}
+QTableView QSpinBox:focus,
+QTableView QDoubleSpinBox:focus,
+QTableView QComboBox:focus,
+QTableView QLineEdit:focus {
+    border-color: #2196F3;
+}
+
 /* ── Group box ─────────────────────────────────────────────────────── */
 QGroupBox {
     background-color: #fafafa;

@@ -209,6 +209,29 @@ QHeaderView::section:hover {
     background-color: #3a3a3a;
 }
 
+/* Cell-widget editors (QSpinBox / QDoubleSpinBox / QComboBox / QLineEdit set
+   via setCellWidget on a table). Transparent background lets the row's
+   QTableWidgetItem tint show through, so per-row group coloring still
+   reads while the editor itself stays theme-consistent. Tight padding
+   (1px 4px) leaves room for actual text — the table cell already adds
+   its own visual breathing room. */
+QTableView QSpinBox,
+QTableView QDoubleSpinBox,
+QTableView QComboBox,
+QTableView QLineEdit {
+    background-color: transparent;
+    color: #e0e0e0;
+    border: 1px solid #4a4a4a;
+    border-radius: 3px;
+    padding: 1px 4px;
+}
+QTableView QSpinBox:focus,
+QTableView QDoubleSpinBox:focus,
+QTableView QComboBox:focus,
+QTableView QLineEdit:focus {
+    border-color: #2196F3;
+}
+
 /* ── Group box ─────────────────────────────────────────────────────── */
 QGroupBox {
     background-color: #252526;
