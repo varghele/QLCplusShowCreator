@@ -583,51 +583,39 @@ class FixturesTab(BaseTab):
                                     self.color_index += 1
 
                         color = self.group_colors[group_name]
+                        # Group pastels are all light; readable text on them
+                        # is dark. Compute luminance per-color so this still
+                        # works if the user picks a darker custom color
+                        # later — fallback to white text on dark colors.
+                        luminance = (
+                            0.299 * color.red()
+                            + 0.587 * color.green()
+                            + 0.114 * color.blue()
+                        ) / 255.0
+                        fg = QtGui.QColor(0, 0, 0) if luminance > 0.5 else QtGui.QColor(255, 255, 255)
 
-                        # Mid-alpha overlay so the same hue cue works in both
-                        # themes. Cell widgets need their own rgba bg via
-                        # setStyleSheet because Qt's setCellWidget makes the
-                        # widget *replace* the cell's display — the item's
-                        # painted background never shows under widget cells.
-                        # Per-widget stylesheets merge with the global theme
-                        # rule (only background-color is overridden) so the
-                        # widget keeps its theme border / text / padding.
-                        tint = QtGui.QColor(color)
-                        tint.setAlpha(140)
-                        rgba = (
-                            f"background-color: rgba({color.red()}, "
-                            f"{color.green()}, {color.blue()}, 140);"
-                        )
-
-                        for col in range(self.table.columnCount()):
+                        # All four text cells get the same hue. Widget cells
+                        # (Universe / Address / Mode / Group / Role) stay
+                        # theme-styled — coloring them requires a different
+                        # mechanism (likely a custom delegate) and isn't
+                        # blocked here.
+                        for col in (2, 3, 4, 6):  # Manufacturer, Model, Channels, Name
                             item = self.table.item(row, col)
-                            if item is None:
-                                item = QtWidgets.QTableWidgetItem("")
-                                self.table.setItem(row, col, item)
-                            item.setBackground(tint)
+                            if item is not None:
+                                item.setBackground(color)
+                                item.setForeground(fg)
 
-                            cell_widget = self.table.cellWidget(row, col)
-                            if cell_widget is not None:
-                                cell_widget.setStyleSheet(rgba)
-
-                        # Persist the full-opacity group color in config
-                        # (alpha is for the on-screen overlay only).
                         if group_name in self.config.groups:
                             self.config.groups[group_name].color = color.name()
                     else:
-                        # Ungrouped row — clear any tint and per-widget
-                        # overrides; theme defaults apply.
+                        # Ungrouped — clear background AND foreground on the
+                        # text cells so theme defaults apply on both.
                         empty_brush = QtGui.QBrush()
-                        for col in range(self.table.columnCount()):
+                        for col in (2, 3, 4, 6):
                             item = self.table.item(row, col)
-                            if item is None:
-                                item = QtWidgets.QTableWidgetItem("")
-                                self.table.setItem(row, col, item)
-                            item.setBackground(empty_brush)
-
-                            cell_widget = self.table.cellWidget(row, col)
-                            if cell_widget is not None:
-                                cell_widget.setStyleSheet("")
+                            if item is not None:
+                                item.setBackground(empty_brush)
+                                item.setForeground(empty_brush)
         finally:
             pass  # setUpdatesEnabled removed to avoid Qt stack overflow
 

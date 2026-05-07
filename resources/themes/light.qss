@@ -169,9 +169,9 @@ QListView {
     selection-background-color: #e3f2fd;
     selection-color: #1565C0;
 }
-QTableView::item,
-QTreeView::item,
-QListView::item { padding: 6px 10px; border: none; }
+/* No QTableView::item rule — see dark.qss for rationale (it would block
+   QTableWidgetItem.setBackground from rendering). Padding handled via
+   apply_modern_table_style. */
 QHeaderView::section {
     background-color: #f0f0f0;
     color: #555555;
@@ -183,15 +183,15 @@ QHeaderView::section {
 }
 QHeaderView::section:hover { background-color: #e8e8e8; }
 
-/* Cell-widget editors set via setCellWidget on a table. Transparent
-   background lets the row's QTableWidgetItem tint show through.
-   Tight padding so text isn't squeezed by the QComboBox dropdown arrow
-   and QSpinBox up/down buttons. */
+/* Cell-widget editors set via setCellWidget on a table. Tight padding
+   so text isn't squeezed by the QComboBox dropdown arrow and QSpinBox
+   up/down buttons. Editors carry solid theme bg so they read as normal
+   input fields against any row coloring. */
 QTableView QSpinBox,
 QTableView QDoubleSpinBox,
 QTableView QComboBox,
 QTableView QLineEdit {
-    background-color: transparent;
+    background-color: #ffffff;
     color: #222222;
     border: 1px solid #cccccc;
     border-radius: 3px;

@@ -190,12 +190,10 @@ QListView {
     selection-background-color: #094771;
     selection-color: #ffffff;
 }
-QTableView::item,
-QTreeView::item,
-QListView::item {
-    padding: 6px 10px;
-    border: none;
-}
+/* No QTableView::item rule. Adding one — even just padding — makes
+   Qt's stylesheet engine take over item rendering and silently ignore
+   QTableWidgetItem.setBackground(). Row height and item spacing are
+   controlled instead via apply_modern_table_style + setDefaultSectionSize. */
 QHeaderView::section {
     background-color: #2d2d2d;
     color: #c0c0c0;
@@ -209,17 +207,15 @@ QHeaderView::section:hover {
     background-color: #3a3a3a;
 }
 
-/* Cell-widget editors (QSpinBox / QDoubleSpinBox / QComboBox / QLineEdit set
-   via setCellWidget on a table). Transparent background lets the row's
-   QTableWidgetItem tint show through, so per-row group coloring still
-   reads while the editor itself stays theme-consistent. Tight padding
-   (1px 4px) leaves room for actual text — the table cell already adds
-   its own visual breathing room. */
+/* Cell-widget editors (QSpinBox / QDoubleSpinBox / QComboBox / QLineEdit
+   set via setCellWidget on a table). Tight padding (1px 4px) leaves
+   room for actual text — the table cell already adds its own breathing
+   room. Editors inherit table cell background by default. */
 QTableView QSpinBox,
 QTableView QDoubleSpinBox,
 QTableView QComboBox,
 QTableView QLineEdit {
-    background-color: transparent;
+    background-color: #2d2d2d;
     color: #e0e0e0;
     border: 1px solid #4a4a4a;
     border-radius: 3px;
