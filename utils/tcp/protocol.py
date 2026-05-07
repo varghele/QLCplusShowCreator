@@ -641,15 +641,11 @@ class VisualizerProtocol:
         return json.dumps(message) + "\n"
 
     @staticmethod
-    def create_fixtures_message(config: Configuration) -> str:
-        """
-        Create fixtures list message with full metadata for visualizer.
-
-        Args:
-            config: Configuration with fixtures
-
-        Returns:
-            JSON string with newline delimiter
+    def build_fixtures_payload(config: Configuration) -> list:
+        """Build the list-of-dicts payload that the visualizer's fixture
+        manager expects. Used by both :meth:`create_fixtures_message` (which
+        wraps it for TCP) and the in-process embedded visualizer (which
+        consumes it directly to skip the JSON round-trip).
         """
         fixtures_data = []
 
@@ -701,9 +697,22 @@ class VisualizerProtocol:
             }
             fixtures_data.append(fixture_info)
 
+        return fixtures_data
+
+    @staticmethod
+    def create_fixtures_message(config: Configuration) -> str:
+        """
+        Create fixtures list message with full metadata for visualizer.
+
+        Args:
+            config: Configuration with fixtures
+
+        Returns:
+            JSON string with newline delimiter
+        """
         message = {
             "type": MessageType.FIXTURES.value,
-            "fixtures": fixtures_data
+            "fixtures": VisualizerProtocol.build_fixtures_payload(config),
         }
         return json.dumps(message) + "\n"
 

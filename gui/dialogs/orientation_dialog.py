@@ -1852,7 +1852,15 @@ class OrientationPanel(QWidget):
     Apply buttons) and the Stage tab's persistent inline panel (which uses
     it directly and writes through on accept). Calling code can re-bind the
     panel to a different fixture selection via :meth:`set_fixtures`.
+
+    Emits :attr:`values_changed` whenever the user changes any orientation
+    value via spinbox edits, gimbal drag, or preset clicks. Inline embedders
+    (Stage tab) listen on this signal to push the new values back to the
+    selected fixtures live; the modal dialog ignores it and writes back on
+    Apply only.
     """
+
+    values_changed = pyqtSignal()
 
     # Mounting preset definitions
     PRESETS = {
@@ -2043,6 +2051,9 @@ class OrientationPanel(QWidget):
         self.yaw_spin.valueChanged.connect(self._on_values_changed)
         self.pitch_spin.valueChanged.connect(self._on_values_changed)
         self.roll_spin.valueChanged.connect(self._on_values_changed)
+        # Z-height edits don't reshape the gimbal, but inline embedders need
+        # to know when the value changed so they can write it back.
+        self.z_spin.valueChanged.connect(lambda _v: self.values_changed.emit())
 
         # Connect preview widget's ring drag signal to update spin boxes
         self.preview_widget.orientation_changed.connect(self._on_preview_orientation_changed)
@@ -2065,6 +2076,8 @@ class OrientationPanel(QWidget):
         # Check if values match a preset and update selection
         matched_preset = self._find_matching_preset(yaw, pitch, roll)
         self._update_preset_selection(matched_preset)
+
+        self.values_changed.emit()
 
     def _load_initial_values(self):
         """Load initial values from the first fixture."""
@@ -2156,6 +2169,8 @@ class OrientationPanel(QWidget):
         # Update preview with absolute values
         self.preview_widget.set_orientation(preset_id, yaw, pitch, roll)
 
+        self.values_changed.emit()
+
     def _update_preset_selection(self, preset_id: str):
         """Update preset button checked states."""
         for pid, btn in self.preset_buttons.items():
@@ -2173,6 +2188,8 @@ class OrientationPanel(QWidget):
 
         # Update preview with absolute values
         self.preview_widget.set_orientation(matched_preset, yaw, pitch, roll)
+
+        self.values_changed.emit()
 
     def _find_matching_preset(self, yaw: float, pitch: float, roll: float) -> str:
         """Find which preset matches the given values, or 'custom' if none match."""

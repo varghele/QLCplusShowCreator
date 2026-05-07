@@ -5,12 +5,13 @@ import sys
 import os
 
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import Qt, QTimer, QSettings
 from config.models import Configuration
 from .base_tab import BaseTab
 from gui.StageView import StageView
 from gui.stage_items import FixtureItem
-from gui.dialogs.orientation_dialog import OrientationDialog
+from gui.dialogs.orientation_dialog import OrientationDialog, OrientationPanel
+from gui.widgets.embedded_visualizer import EmbeddedVisualizer
 
 
 class StageTab(BaseTab):
@@ -157,18 +158,54 @@ class StageTab(BaseTab):
         control_layout.addWidget(visualizer_group)
         control_layout.addStretch()
 
-        # Create stage view area (right side)
-        stage_view_container = QtWidgets.QWidget()
-        stage_view_layout = QtWidgets.QVBoxLayout(stage_view_container)
-
-        # Initialize StageView with configuration
+        # Initialize StageView with configuration (the 2D top-down).
         self.stage_view = StageView(self)
         self.stage_view.set_config(self.config)
-        stage_view_layout.addWidget(self.stage_view)
 
-        # Add both panels to main layout
+        # Right pane stacks the embedded 3D preview over a persistent
+        # OrientationPanel (driven from the right-click Set Orientation flow).
+        self.embedded_visualizer = EmbeddedVisualizer(self)
+        self.embedded_visualizer.set_pop_out_callback(self._launch_visualizer)
+        self.embedded_visualizer.set_config(self.config)
+        self.embedded_visualizer.set_preview_mode("build")
+
+        # Persistent inline orientation editor — re-bound by the right-click
+        # "Set Orientation" flow on selection. Live-edits write through to
+        # the bound fixtures via the values_changed hook below.
+        self.orientation_panel = OrientationPanel([], self.config, self)
+        self.orientation_panel.values_changed.connect(self._on_inline_orientation_changed)
+
+        right_splitter = QtWidgets.QSplitter(Qt.Orientation.Vertical)
+        right_splitter.addWidget(self.embedded_visualizer)
+        right_splitter.addWidget(self.orientation_panel)
+        right_splitter.setStretchFactor(0, 6)
+        right_splitter.setStretchFactor(1, 4)
+        self._right_splitter = right_splitter
+
+        main_splitter = QtWidgets.QSplitter(Qt.Orientation.Horizontal)
+        main_splitter.addWidget(self.stage_view)
+        main_splitter.addWidget(right_splitter)
+        main_splitter.setStretchFactor(0, 2)
+        main_splitter.setStretchFactor(1, 1)
+        self._main_splitter = main_splitter
+
+        # Restore persisted splitter sizes if we have them.
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+        main_state = settings.value("stage/main_splitter")
+        if main_state is not None:
+            try:
+                main_splitter.restoreState(main_state)
+            except Exception:
+                pass
+        right_state = settings.value("stage/right_splitter")
+        if right_state is not None:
+            try:
+                right_splitter.restoreState(right_state)
+            except Exception:
+                pass
+
         main_layout.addWidget(control_panel)
-        main_layout.addWidget(stage_view_container, stretch=1)
+        main_layout.addWidget(main_splitter, stretch=1)
 
     def connect_signals(self):
         """Connect widget signals to handlers"""
@@ -187,7 +224,9 @@ class StageTab(BaseTab):
         )
 
         # Connect fixture changes to TCP update (for live visualizer sync)
+        # AND to the embedded visualizer so its 3D preview tracks the 2D edits.
         self.stage_view.fixtures_changed.connect(self._notify_tcp_update)
+        self.stage_view.fixtures_changed.connect(self._refresh_embedded_visualizer)
 
         # Spot/mark controls
         self.add_spot_btn.clicked.connect(lambda: self.stage_view.add_spot())
@@ -222,6 +261,8 @@ class StageTab(BaseTab):
             self.stage_width.blockSignals(False)
             self.stage_height.blockSignals(False)
             self.grid_size.blockSignals(False)
+
+        self._refresh_embedded_visualizer()
 
     def save_to_config(self):
         """Save fixture positions and spots back to configuration"""
@@ -420,6 +461,11 @@ class StageTab(BaseTab):
         self._tab_active = True
         # Send current state to visualizer when tab becomes active
         self._notify_tcp_update()
+        # Embedded preview defaults to build mode (full-on lighting) on the
+        # Stage tab — playback lives in the Shows tab.
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer is not None:
+            self.embedded_visualizer.set_preview_mode("build")
+            self._refresh_embedded_visualizer()
 
     def on_tab_deactivated(self):
         """Called when switching away from stage tab."""
@@ -427,6 +473,16 @@ class StageTab(BaseTab):
         # Stop any pending updates
         self._tcp_update_timer.stop()
         self._tcp_update_pending = False
+        self._save_splitter_state()
+
+    def _save_splitter_state(self) -> None:
+        """Persist the main + right splitter sizes via QSettings so the
+        Stage tab opens with the same proportions next session."""
+        if not hasattr(self, "_main_splitter") or not hasattr(self, "_right_splitter"):
+            return
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+        settings.setValue("stage/main_splitter", self._main_splitter.saveState())
+        settings.setValue("stage/right_splitter", self._right_splitter.saveState())
 
     def _notify_tcp_update(self):
         """Notify TCP server about configuration changes (throttled for live updates)."""
@@ -482,98 +538,109 @@ class StageTab(BaseTab):
         self.stage_view.viewport().update()
 
     def _on_set_orientation_requested(self, fixture_items: list):
-        """Handle request to set orientation for selected fixtures."""
+        """Handle right-click "Set Orientation" — re-bind the inline panel.
+
+        Replaces the legacy modal flow. The persistent OrientationPanel in
+        the right-side splitter rebinds to the selected fixtures and live-
+        edits write through via :meth:`_on_inline_orientation_changed`.
+        """
         if not fixture_items:
             return
+        self._inline_orientation_fixtures = list(fixture_items)
+        self.orientation_panel.set_fixtures(self._inline_orientation_fixtures)
 
-        # Store fixture items for deferred dialog opening
-        self._pending_orientation_fixtures = fixture_items
-
-        # Defer dialog opening to next event loop iteration to avoid context menu issues
-        QTimer.singleShot(0, self._open_orientation_dialog)
+    def _on_inline_orientation_changed(self):
+        """Slot fired by OrientationPanel.values_changed — push edits live
+        to the currently-bound fixtures, the config, and any group default."""
+        fixture_items = getattr(self, "_inline_orientation_fixtures", None)
+        if not fixture_items:
+            return
+        values = self.orientation_panel.get_orientation_values()
+        self._apply_orientation_to_fixtures(fixture_items, values)
 
     def _open_orientation_dialog(self):
-        """Open the orientation dialog (deferred from context menu)."""
+        """Modal-dialog fallback. No longer wired to the right-click flow,
+        but kept for any future multi-edit-confirm path that wants Apply/
+        Cancel semantics."""
         fixture_items = getattr(self, '_pending_orientation_fixtures', None)
         if not fixture_items:
             return
 
         self._pending_orientation_fixtures = None
 
-        # Open orientation dialog
         dialog = OrientationDialog(fixture_items, self.config, self)
-
         if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-            # Get values from dialog
-            values = dialog.get_orientation_values()
+            self._apply_orientation_to_fixtures(fixture_items, dialog.get_orientation_values())
 
-            # Apply to all selected fixture items
-            for fixture_item in fixture_items:
-                fixture_item.mounting = values['mounting']
-                fixture_item.rotation_angle = values['yaw']  # yaw maps to rotation_angle
-                fixture_item.pitch = values['pitch']
-                fixture_item.roll = values['roll']
-                fixture_item.z_height = values['z_height']
-                fixture_item.orientation_uses_group_default = False  # User set custom orientation
-                fixture_item.z_uses_group_default = False  # User set custom Z height
-                fixture_item.update()
+    def _apply_orientation_to_fixtures(self, fixture_items: list, values: dict) -> None:
+        """Write a values dict (mounting, yaw, pitch, roll, z_height,
+        apply_to_group) back to the fixture items, the config, and group
+        defaults if requested. Shared by the inline panel and the modal."""
+        for fixture_item in fixture_items:
+            fixture_item.mounting = values['mounting']
+            fixture_item.rotation_angle = values['yaw']  # yaw maps to rotation_angle
+            fixture_item.pitch = values['pitch']
+            fixture_item.roll = values['roll']
+            fixture_item.z_height = values['z_height']
+            fixture_item.orientation_uses_group_default = False
+            fixture_item.z_uses_group_default = False
+            fixture_item.update()
 
-                # Update the config fixture
-                if self.config:
-                    config_fixture = next(
-                        (f for f in self.config.fixtures if f.name == fixture_item.fixture_name),
-                        None
-                    )
-                    if config_fixture:
-                        config_fixture.mounting = values['mounting']
-                        config_fixture.yaw = values['yaw']
-                        config_fixture.pitch = values['pitch']
-                        config_fixture.roll = values['roll']
-                        config_fixture.z = values['z_height']
-                        config_fixture.orientation_uses_group_default = False
-                        config_fixture.z_uses_group_default = False
+            if self.config:
+                config_fixture = next(
+                    (f for f in self.config.fixtures if f.name == fixture_item.fixture_name),
+                    None
+                )
+                if config_fixture:
+                    config_fixture.mounting = values['mounting']
+                    config_fixture.yaw = values['yaw']
+                    config_fixture.pitch = values['pitch']
+                    config_fixture.roll = values['roll']
+                    config_fixture.z = values['z_height']
+                    config_fixture.orientation_uses_group_default = False
+                    config_fixture.z_uses_group_default = False
 
-            # Apply to group default if checkbox was checked
-            if values['apply_to_group'] and self.config:
-                groups = set(f.group for f in fixture_items if hasattr(f, 'group') and f.group)
-                selected_fixture_names = {f.fixture_name for f in fixture_items}
+        if values.get('apply_to_group') and self.config:
+            groups = set(f.group for f in fixture_items if hasattr(f, 'group') and f.group)
+            selected_fixture_names = {f.fixture_name for f in fixture_items}
 
-                for group_name in groups:
-                    if group_name in self.config.groups:
-                        group = self.config.groups[group_name]
-                        group.default_mounting = values['mounting']
-                        group.default_yaw = values['yaw']
-                        group.default_pitch = values['pitch']
-                        group.default_roll = values['roll']
-                        group.default_z_height = values['z_height']
+            for group_name in groups:
+                if group_name in self.config.groups:
+                    group = self.config.groups[group_name]
+                    group.default_mounting = values['mounting']
+                    group.default_yaw = values['yaw']
+                    group.default_pitch = values['pitch']
+                    group.default_roll = values['roll']
+                    group.default_z_height = values['z_height']
 
-                        # Update all OTHER fixtures in the group that use group defaults
-                        for config_fixture in self.config.fixtures:
-                            if (config_fixture.group == group_name and
-                                    config_fixture.name not in selected_fixture_names):
-                                # Update orientation if fixture uses group defaults for orientation
+                    for config_fixture in self.config.fixtures:
+                        if (config_fixture.group == group_name and
+                                config_fixture.name not in selected_fixture_names):
+                            if config_fixture.orientation_uses_group_default:
+                                config_fixture.mounting = values['mounting']
+                                config_fixture.yaw = values['yaw']
+                                config_fixture.pitch = values['pitch']
+                                config_fixture.roll = values['roll']
+                            if config_fixture.z_uses_group_default:
+                                config_fixture.z = values['z_height']
+
+                            if config_fixture.name in self.stage_view.fixtures:
+                                stage_item = self.stage_view.fixtures[config_fixture.name]
                                 if config_fixture.orientation_uses_group_default:
-                                    config_fixture.mounting = values['mounting']
-                                    config_fixture.yaw = values['yaw']
-                                    config_fixture.pitch = values['pitch']
-                                    config_fixture.roll = values['roll']
-
-                                # Update z if fixture uses group defaults for z
+                                    stage_item.mounting = values['mounting']
+                                    stage_item.rotation_angle = values['yaw']
+                                    stage_item.pitch = values['pitch']
+                                    stage_item.roll = values['roll']
                                 if config_fixture.z_uses_group_default:
-                                    config_fixture.z = values['z_height']
+                                    stage_item.z_height = values['z_height']
+                                stage_item.update()
 
-                                # Update the corresponding stage view item
-                                if config_fixture.name in self.stage_view.fixtures:
-                                    stage_item = self.stage_view.fixtures[config_fixture.name]
-                                    if config_fixture.orientation_uses_group_default:
-                                        stage_item.mounting = values['mounting']
-                                        stage_item.rotation_angle = values['yaw']
-                                        stage_item.pitch = values['pitch']
-                                        stage_item.roll = values['roll']
-                                    if config_fixture.z_uses_group_default:
-                                        stage_item.z_height = values['z_height']
-                                    stage_item.update()
+        self.stage_view.save_positions_to_config()
+        self._notify_tcp_update()
+        self._refresh_embedded_visualizer()
 
-            # Save changes and notify
-            self.stage_view.save_positions_to_config()
-            self._notify_tcp_update()
+    def _refresh_embedded_visualizer(self) -> None:
+        """Push the latest config to the embedded 3D preview. Cheap to call
+        repeatedly — RenderEngine batches GL state internally."""
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer is not None:
+            self.embedded_visualizer.set_config(self.config)
