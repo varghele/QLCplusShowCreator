@@ -187,7 +187,8 @@ class FixturesTab(BaseTab):
         self._group_row_delegate = GroupRowDelegate(self.table)
         self.table.setItemDelegate(self._group_row_delegate)
         self.table.setSortingEnabled(True)
-        self.table.horizontalHeader().setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
+        # Header alignment now comes from apply_modern_table_style so
+        # every table in the app reads the same.
 
     def connect_signals(self):
         """Connect widget signals to handlers"""

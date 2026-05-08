@@ -8,6 +8,7 @@ sensible row height — so every table in the app feels the same regardless of
 the calling tab.
 """
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QAbstractItemView, QHeaderView, QTableView, QTableWidget,
 )
@@ -48,6 +49,17 @@ def apply_modern_table_style(
     if hh is not None:
         hh.setFixedHeight(header_height)
         hh.setHighlightSections(False)
+        # Left-align header labels so the QSS ``QHeaderView::section
+        # { padding: 8px 10px; }`` rule reads identically across
+        # tables. Qt's default alignment is centred, which made
+        # FixturesTab's headers (which set AlignLeft explicitly) read
+        # as having different padding from ConfigurationTab's
+        # (centred) — same QSS, same pixels, but the text sat in a
+        # different position inside the section. Centralising it
+        # here means every table in the app gets the same look.
+        hh.setDefaultAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
 
     if select_rows:
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
