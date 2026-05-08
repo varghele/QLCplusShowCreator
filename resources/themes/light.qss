@@ -401,3 +401,32 @@ QLabel#LightLaneTargets {
     padding: 2px 6px;
 }
 
+/* ── Live tab (real-time audio-reactive lighting) ─────────────────── */
+QFrame#LiveStatusFrame {
+    background-color: #f0f0f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 8px;
+}
+QLabel#LiveStatusRiff {
+    color: #222222;
+    font-size: 14px;
+    font-weight: bold;
+}
+QLabel#LiveStatusBarCounter {
+    color: #555555;
+    font-size: 12px;
+}
+QLabel#LiveStatusPhase {
+    font-size: 12px;
+    font-weight: bold;
+}
+QLabel#LiveStatusPhase[phase="stopped"] { color: #c62828; }
+QLabel#LiveStatusPhase[phase="running"] { color: #2E7D32; }
+QLabel#LiveStatusPhase[phase="groove"]  { color: #2E7D32; }
+QLabel#LiveStatusPhase[phase="fill"]    { color: #ef6c00; }
+
+QLabel#LiveBpmDisplay {
+    color: #222222;
+}
+

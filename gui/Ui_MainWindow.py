@@ -106,12 +106,18 @@ class Ui_MainWindow(object):
         # Structure Tab (UI created by StructureTab)
         self.tab_structure = QtWidgets.QWidget()
 
+        # Live Tab (UI created by LiveTab) — real-time audio-reactive
+        # lighting; was a separate QMainWindow until UI_MODERNIZATION_PLAN
+        # step 9 folded it in as the sixth tab.
+        self.tab_live = QtWidgets.QWidget()
+
         # Add tabs to widget
         self.tabWidget.addTab(self.tab_config, "Configuration")
         self.tabWidget.addTab(self.tab, "Fixtures")
         self.tabWidget.addTab(self.tab_stage, "Stage")
         self.tabWidget.addTab(self.tab_structure, "Structure")
         self.tabWidget.addTab(self.tab_2, "Shows")
+        self.tabWidget.addTab(self.tab_live, "Live")
 
         self.horizontalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
@@ -131,6 +137,7 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_stage), _translate("MainWindow", "Stage"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_structure), _translate("MainWindow", "Structure"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Shows"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_live), _translate("MainWindow", "Live"))
         # Toolbar actions
         self.saveAction.setText(_translate("MainWindow", "Save Configuration"))
         self.loadAction.setText(_translate("MainWindow", "Load Configuration"))
