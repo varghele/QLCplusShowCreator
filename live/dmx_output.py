@@ -8,7 +8,7 @@ target IP and universe mapping for venue-specific setups.
 
 import time
 import threading
-from typing import Optional, Dict
+from typing import Optional, Dict, Callable
 
 from utils.artnet.dmx_manager import DMXManager
 from utils.artnet.sender import ArtNetSender
@@ -20,12 +20,19 @@ class LiveDMXController:
     """Manages DMX output for live mode on a dedicated 30Hz thread."""
 
     def __init__(self, config: Configuration, fixture_definitions: dict,
-                 target_ip: str = "192.168.1.151"):
+                 target_ip: str = "192.168.1.151",
+                 local_dmx_callback: Optional[Callable[[int, bytes], None]] = None):
         """
         Args:
             config: Fixture configuration from the main app
             fixture_definitions: QLC+ fixture definition dicts
             target_ip: ArtNet target IP address
+            local_dmx_callback: Optional ``(universe, dmx_bytes)`` hook
+                invoked once per universe per frame, after the ArtNet
+                packet is sent. Used by the embedded visualizer in the
+                Live tab to mirror what's going on the wire without a
+                TCP/ArtNet round-trip. Standalone visualizer keeps
+                receiving DMX over the wire as before — this is additive.
         """
         self.config = config
 
@@ -36,6 +43,9 @@ class LiveDMXController:
         # Second sender for visualizer (always broadcast)
         self._visualizer_sender = ArtNetSender(target_ip="255.255.255.255")
         self._mirror_to_visualizer = True
+
+        # Local in-process visualizer hook (see __init__ docstring).
+        self._local_dmx_callback = local_dmx_callback
 
         # Universe mapping: {config_universe_id: artnet_universe_number}
         # Default: identity mapping (config universe 1 → artnet 0, etc.)
@@ -64,6 +74,12 @@ class LiveDMXController:
     def set_mirror_to_visualizer(self, enabled: bool):
         """Enable/disable mirroring DMX to broadcast for the visualizer."""
         self._mirror_to_visualizer = enabled
+
+    def set_local_dmx_callback(
+        self, callback: Optional[Callable[[int, bytes], None]]
+    ) -> None:
+        """Update or clear the embedded-visualizer DMX hook after init."""
+        self._local_dmx_callback = callback
 
     def set_universe_mapping(self, mapping: Dict[int, int]):
         """Set universe mapping.
@@ -141,6 +157,18 @@ class LiveDMXController:
                 # Mirror to broadcast for visualizer
                 if self._mirror_to_visualizer:
                     self._visualizer_sender.send_dmx(artnet_uid, dmx_data)
+
+                # Forward the same frame to the in-process visualizer if
+                # one is wired up. Wrap in try/except so a misbehaving
+                # callback can't kill the DMX thread mid-show. Pass the
+                # 1-based config universe id to match what the embedded
+                # visualizer keys off (build_fixtures_payload uses
+                # fixture.universe directly, also 1-based).
+                if self._local_dmx_callback is not None:
+                    try:
+                        self._local_dmx_callback(config_uid, bytes(dmx_data))
+                    except Exception as cb_err:
+                        print(f"Live local_dmx_callback raised: {cb_err}")
             except Exception as e:
                 print(f"Error sending universe {config_uid}→{artnet_uid}: {e}")
 

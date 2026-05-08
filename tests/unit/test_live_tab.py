@@ -153,6 +153,103 @@ def test_universe_table_layout(qapp, sample_configuration):
         tab.deleteLater()
 
 
+def test_force_groove_is_gone():
+    """Removed alongside the GROOVE NOW button — engine grooves
+    continuously, no programmatic restart needed."""
+    from config.models import Configuration
+    from live.engine import LiveShowEngine
+
+    engine = LiveShowEngine(Configuration(), fixture_definitions={})
+    assert not hasattr(engine, "force_groove")
+
+
+def test_live_tab_embeds_visualizer(qapp, sample_configuration):
+    """LiveTab should expose an EmbeddedVisualizer and host it inside a
+    vertical splitter on the right side, defaulting to build mode."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QSplitter
+    from gui.theme_manager import ThemeManager
+    from gui.tabs import LiveTab
+    from gui.widgets.embedded_visualizer import EmbeddedVisualizer
+
+    ThemeManager().apply(qapp, "dark")
+    tab = LiveTab(sample_configuration, parent=None)
+    try:
+        assert isinstance(tab.embedded_visualizer, EmbeddedVisualizer)
+        assert tab.embedded_visualizer.preview_mode() == "build"
+
+        # The right pane is a vertical splitter with vis on top.
+        assert isinstance(tab._right_splitter, QSplitter)
+        assert tab._right_splitter.orientation() == Qt.Orientation.Vertical
+        assert tab._right_splitter.widget(0) is tab.embedded_visualizer
+
+        # Splitter is fixed at 520 px wide so the visualizer reads as
+        # ~16:9 at the default ~290-px height.
+        assert tab._right_splitter.minimumWidth() == 520
+        assert tab._right_splitter.maximumWidth() == 520
+    finally:
+        tab.cleanup()
+        tab.deleteLater()
+
+
+def test_live_dmx_callback_fires_per_universe():
+    """LiveDMXController.local_dmx_callback should fire once per
+    configured universe with the 1-based config universe id and a
+    512-byte buffer. Misbehaving callbacks must not break the wire send."""
+    from unittest.mock import MagicMock
+
+    from config.models import (Configuration, Fixture, FixtureMode,
+                               FixtureGroup, Universe)
+    from live.dmx_output import LiveDMXController
+
+    fixtures = [
+        Fixture(universe=1, address=1, manufacturer="M", model="A",
+                name="A1", group="G", current_mode="m",
+                available_modes=[FixtureMode(name="m", channels=4)],
+                type="PAR"),
+        Fixture(universe=2, address=1, manufacturer="M", model="B",
+                name="B1", group="G", current_mode="m",
+                available_modes=[FixtureMode(name="m", channels=4)],
+                type="PAR"),
+    ]
+    config = Configuration(
+        fixtures=fixtures,
+        groups={"G": FixtureGroup(name="G", fixtures=fixtures)},
+        universes={1: Universe(id=1, name="U1", output={}),
+                   2: Universe(id=2, name="U2", output={})},
+    )
+
+    received: list[tuple[int, bytes]] = []
+    controller = LiveDMXController(
+        config, fixture_definitions={},
+        local_dmx_callback=lambda u, b: received.append((u, b)),
+    )
+    # Mock the senders so no UDP socket is actually opened.
+    controller.artnet_sender = MagicMock()
+    controller._visualizer_sender = MagicMock()
+
+    controller._send_all_universes()
+    seen_universes = sorted(u for u, _ in received)
+    assert seen_universes == [1, 2]
+    for _, payload in received:
+        assert isinstance(payload, bytes)
+        assert len(payload) == 512
+
+    # Misbehaving callback shouldn't break the send loop.
+    bad_controller = LiveDMXController(
+        config, fixture_definitions={},
+        local_dmx_callback=lambda u, b: (_ for _ in ()).throw(
+            RuntimeError("boom")
+        ),
+    )
+    bad_controller.artnet_sender = MagicMock()
+    bad_controller._visualizer_sender = MagicMock()
+    # Must not raise.
+    bad_controller._send_all_universes()
+    # Wire send still happened for both universes.
+    assert bad_controller.artnet_sender.send_dmx.call_count == 2
+
+
 def test_engine_does_not_auto_fill():
     """The engine grooves continuously; ``is_fill`` is only set by
     ``force_fill`` and clears on the next bar boundary. Catches a

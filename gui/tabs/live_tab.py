@@ -30,6 +30,7 @@ from audio.device_manager import DeviceManager
 from audio.live_input import LiveAudioInput
 from audio.realtime_spectral import RealtimeSpectralAnalyzer, LiveFeatureFrame
 from audio.live_feature_bridge import LiveFeatureBridge
+from gui.widgets.embedded_visualizer import EmbeddedVisualizer
 from live.engine import LiveShowEngine
 from live.dmx_output import LiveDMXController
 from live.bpm_detector import TapBPM, AutoBPMDetector
@@ -204,22 +205,15 @@ class LiveTab(BaseTab):
         center_layout.addWidget(QWidget())  # placeholder, replaced below
         self._center_layout = center_layout
 
-        # GROOVE NOW / FILL NOW big buttons — themed via role properties.
-        groove_fill_row = QHBoxLayout()
-        self._groove_btn = QPushButton("GROOVE NOW")
-        self._groove_btn.setFixedHeight(50)
-        self._groove_btn.setProperty("role", "success")
-        self._groove_btn.setStyleSheet("font-size: 16px;")
-        self._groove_btn.clicked.connect(self._on_groove_now)
-        groove_fill_row.addWidget(self._groove_btn)
-
+        # FILL NOW — manual one-shot fill bar. The engine grooves
+        # continuously now, so a "groove now" button is redundant —
+        # we're always in groove unless the user punches a fill.
         self._fill_btn = QPushButton("FILL NOW")
         self._fill_btn.setFixedHeight(50)
         self._fill_btn.setProperty("role", "destructive")
         self._fill_btn.setStyleSheet("font-size: 16px;")
         self._fill_btn.clicked.connect(self._on_fill_now)
-        groove_fill_row.addWidget(self._fill_btn)
-        center_layout.addLayout(groove_fill_row)
+        center_layout.addWidget(self._fill_btn)
 
         # Movement speed limiter
         speed_row = QHBoxLayout()
@@ -261,7 +255,25 @@ class LiveTab(BaseTab):
         center_layout.addStretch()
         splitter.addWidget(center_panel)
 
-        # ── Right panel: ArtNet + input + plane + submasters + START/STOP ──
+        # ── Right pane: embedded 3D preview on top, controls below ──
+        # Vertical splitter so the user can drag the visualizer height
+        # to taste; default ~290 px gives a roughly 16:9 preview at the
+        # 520-px column width. Persistence via QSettings under
+        # `live/right_splitter`.
+        self._right_splitter = QSplitter(Qt.Orientation.Vertical)
+
+        # Embedded visualizer. Build mode at construction so all fixtures
+        # light up before the user hits START; preview flips to "live"
+        # in _on_start (DMX from LiveDMXController feeds it via the
+        # local_dmx_callback hook) and back to "build" in _on_stop.
+        self.embedded_visualizer = EmbeddedVisualizer(self)
+        self.embedded_visualizer.set_pop_out_callback(self._launch_visualizer)
+        self.embedded_visualizer.set_config(self.config)
+        self.embedded_visualizer.set_preview_mode("build")
+        self._right_splitter.addWidget(self.embedded_visualizer)
+
+        # Existing right panel content (ArtNet + input + plane +
+        # submasters + START/STOP) goes below the visualizer.
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(4, 4, 4, 4)
@@ -347,8 +359,21 @@ class LiveTab(BaseTab):
         btn_row.addWidget(self._stop_btn)
         right_layout.addLayout(btn_row)
 
-        right_panel.setFixedWidth(220)
-        splitter.addWidget(right_panel)
+        # right_panel now lives below the visualizer in the right
+        # splitter; the splitter as a whole replaces the old fixed-width
+        # right column. Bumped 220 → 520 px so the visualizer reads as a
+        # wide preview (≈ 520 × 290 ≈ 16:9) rather than a thin column.
+        self._right_splitter.addWidget(right_panel)
+        self._right_splitter.setStretchFactor(0, 0)
+        self._right_splitter.setStretchFactor(1, 1)
+        self._right_splitter.setCollapsible(0, True)
+        self._right_splitter.setCollapsible(1, False)
+        self._right_splitter_default_sizes = [290, 600]
+        self._restore_right_splitter_state()
+        self._right_splitter.splitterMoved.connect(self._save_right_splitter_state)
+        self._right_splitter.setMinimumWidth(520)
+        self._right_splitter.setMaximumWidth(520)
+        splitter.addWidget(self._right_splitter)
 
         # Now that both placeholders are in their layouts, fill them in
         # for the first time. Subsequent calls go through
@@ -460,6 +485,53 @@ class LiveTab(BaseTab):
         # empty even though config.groups is now populated).
         if hasattr(self, "_center_layout"):
             self._rebuild_group_panels()
+        # And refresh the embedded visualizer's fixture set so reloaded
+        # fixtures appear in the 3D preview.
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer:
+            self.embedded_visualizer.set_config(self.config)
+
+    # ── Embedded visualizer plumbing ──────────────────────────────────
+
+    def _launch_visualizer(self):
+        """Pop-out callback for the embedded visualizer. Delegates to
+        the Stage tab's standalone-visualizer launcher so QLC+ interop /
+        TCP / ArtNet to the standalone view stays the same."""
+        main_window = self.window()
+        stage_tab = getattr(main_window, "stage_tab", None) if main_window else None
+        launcher = getattr(stage_tab, "_launch_visualizer", None) if stage_tab else None
+        if callable(launcher):
+            launcher()
+            return
+        # Fallback: minimal subprocess launch when Stage tab isn't
+        # reachable. Mirrors stage_tab._launch_visualizer's core flow.
+        import os
+        import subprocess
+        import sys
+        project_root = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        visualizer_path = os.path.join(project_root, "visualizer", "main.py")
+        if os.path.exists(visualizer_path):
+            subprocess.Popen([sys.executable, visualizer_path], cwd=project_root)
+
+    def _restore_right_splitter_state(self) -> None:
+        """Load the [visualizer | controls] split sizes from QSettings;
+        fall back to the ~16:9 default when no setting is present."""
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+        state = settings.value("live/right_splitter")
+        if state is not None:
+            try:
+                self._right_splitter.restoreState(state)
+                return
+            except Exception:
+                pass
+        self._right_splitter.setSizes(self._right_splitter_default_sizes)
+
+    def _save_right_splitter_state(self, *_args) -> None:
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+        settings.setValue("live/right_splitter", self._right_splitter.saveState())
 
     # ── Lazy fixture definitions ──────────────────────────────────────
 
@@ -584,8 +656,19 @@ class LiveTab(BaseTab):
             self._engine.set_target_plane(plane)
 
             target_ip = self._ip_input.text().strip() or "192.168.1.151"
+            # Forward each DMX frame to the embedded visualizer in-process
+            # so the right-pane preview mirrors what's being broadcast
+            # over ArtNet — no extra TCP/ArtNet round-trip. Wrap in a
+            # guard so a torn-down visualizer can't blow up the DMX
+            # thread mid-show.
+            def _feed_embedded(universe: int, dmx_bytes: bytes) -> None:
+                vis = getattr(self, "embedded_visualizer", None)
+                if vis is not None:
+                    vis.feed_dmx(universe, dmx_bytes)
+
             self._dmx_controller = LiveDMXController(
                 self.config, self.fixture_definitions, target_ip=target_ip,
+                local_dmx_callback=_feed_embedded,
             )
             self._dmx_controller.set_universe_mapping(self._get_universe_mapping())
             self._dmx_controller.set_mirror_to_visualizer(self._mirror_checkbox.isChecked())
@@ -602,6 +685,12 @@ class LiveTab(BaseTab):
             self._start_btn.setEnabled(False)
             self._stop_btn.setEnabled(True)
             self._set_phase("running")
+
+            # Flip the preview to "live" so feed_dmx frames drive it.
+            # In build mode the visualizer ignores DMX so the synthetic
+            # full-on lights would mask the show.
+            if self.embedded_visualizer is not None:
+                self.embedded_visualizer.set_preview_mode("live")
 
             print("Live Mode started")
 
@@ -622,6 +711,11 @@ class LiveTab(BaseTab):
         self._set_phase("stopped")
         self._status_riff.setText("Riff: ---")
         self._status_bar_counter.setText("Bar: -/-")
+
+        # Drop the embedded preview back to build mode so every fixture
+        # is visibly lit again instead of frozen on the last live frame.
+        if self.embedded_visualizer is not None:
+            self.embedded_visualizer.set_preview_mode("build")
 
         print("Live Mode stopped")
 
@@ -663,6 +757,15 @@ class LiveTab(BaseTab):
             self._device_manager.cleanup()
         except Exception:
             pass
+        # Stop the embedded visualizer's FPS timer; the GL surface gets
+        # torn down through Qt's normal child-deletion. Order matters:
+        # _cleanup above already stopped the DMX thread so feed_dmx
+        # can't be called once the engine is destroyed.
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer:
+            try:
+                self.embedded_visualizer.cleanup()
+            except Exception:
+                pass
 
     # ── Engine event handlers ─────────────────────────────────────────
 
@@ -690,10 +793,6 @@ class LiveTab(BaseTab):
     def _on_bpm_spinbox_changed(self, value):
         if self._engine:
             self._engine.set_bpm(float(value))
-
-    def _on_groove_now(self):
-        if self._engine:
-            self._engine.force_groove()
 
     def _on_fill_now(self):
         if self._engine:

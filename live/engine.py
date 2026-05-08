@@ -258,14 +258,6 @@ class LiveShowEngine:
                     except Exception:
                         pass
 
-    def force_groove(self):
-        """Immediately restart the groove cycle with new riff selection."""
-        with self._lock:
-            if not self._running:
-                return
-            self._end_all_blocks()
-            self._start_new_cycle()
-
     def force_fill(self):
         """Punch a one-shot fill on the current bar.
 
