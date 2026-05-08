@@ -55,6 +55,16 @@ class RenderEngine(QOpenGLWidget):
         self.stage_width = 10.0
         self.stage_height = 6.0  # depth
 
+        # Pending state captured before initializeGL fires. QOpenGLWidget
+        # only initialises GL the first time it is shown, so an embedded
+        # visualizer hosted on an inactive tab silently drops fixture /
+        # grid / DMX updates pushed at config-load time. We buffer them
+        # here and flush in initializeGL so the preview is correct the
+        # moment the user first activates the tab.
+        self._pending_grid_size: Optional[float] = None
+        self._pending_fixtures: Optional[list] = None
+        self._pending_dmx: dict[int, bytes] = {}
+
         # Mouse tracking
         self.setMouseTracking(True)
         self.last_mouse_pos = None
@@ -109,6 +119,9 @@ class RenderEngine(QOpenGLWidget):
 
             # Set camera to fit stage
             self.camera.set_stage_size(self.stage_width, self.stage_height)
+
+            # Flush any state pushed before this widget was first shown.
+            self._flush_pending_state()
 
             print(f"OpenGL initialized: {self.ctx.info['GL_RENDERER']}")
             print(f"  Stage size: {self.stage_width}m x {self.stage_height}m")
@@ -233,6 +246,8 @@ class RenderEngine(QOpenGLWidget):
             self.stage_renderer.set_grid_size(grid_size)
             self.doneCurrent()
             print(f"RenderEngine: Grid size updated to {grid_size}m")
+        else:
+            self._pending_grid_size = grid_size
 
     def update_fixtures(self, fixtures_data: list):
         """
@@ -245,6 +260,8 @@ class RenderEngine(QOpenGLWidget):
             self.makeCurrent()
             self.fixture_manager.update_fixtures(fixtures_data)
             self.doneCurrent()
+        else:
+            self._pending_fixtures = fixtures_data
 
     def update_dmx(self, universe: int, dmx_data: bytes):
         """
@@ -256,6 +273,25 @@ class RenderEngine(QOpenGLWidget):
         """
         if self.fixture_manager:
             self.fixture_manager.update_dmx(universe, dmx_data)
+        else:
+            self._pending_dmx[universe] = dmx_data
+
+    def _flush_pending_state(self):
+        """Apply state captured before initializeGL fired.
+
+        Split out so unit tests can exercise the flush against mock
+        renderers without needing a real OpenGL context.
+        """
+        if self._pending_grid_size is not None and self.stage_renderer:
+            self.stage_renderer.set_grid_size(self._pending_grid_size)
+            self._pending_grid_size = None
+        if self._pending_fixtures is not None and self.fixture_manager:
+            self.fixture_manager.update_fixtures(self._pending_fixtures)
+            self._pending_fixtures = None
+        if self.fixture_manager and self._pending_dmx:
+            for uni, dmx in self._pending_dmx.items():
+                self.fixture_manager.update_dmx(uni, dmx)
+            self._pending_dmx.clear()
 
     def reset_camera(self):
         """Reset camera to default position."""
