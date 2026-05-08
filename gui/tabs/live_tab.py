@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QLabel, QPushButton, QSpinBox, QCheckBox, QSlider,
     QLineEdit, QComboBox, QGroupBox, QTableWidget, QTableWidgetItem,
-    QProgressBar, QFrame,
+    QHeaderView, QProgressBar, QFrame,
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
@@ -185,26 +185,24 @@ class LiveTab(BaseTab):
         self._bpm_spinbox.valueChanged.connect(self._on_bpm_spinbox_changed)
         bpm_layout.addWidget(self._bpm_spinbox)
 
-        bpm_layout.addSpacing(20)
-
-        bpm_layout.addWidget(QLabel("Groove bars:"))
-        self._groove_bars_spinbox = QSpinBox()
-        self._groove_bars_spinbox.setRange(1, 16)
-        self._groove_bars_spinbox.setValue(self._settings.groove_bars)
-        self._groove_bars_spinbox.valueChanged.connect(self._on_groove_bars_changed)
-        bpm_layout.addWidget(self._groove_bars_spinbox)
+        # Groove-bars spinbox is intentionally absent. The engine no
+        # longer auto-fills at the end of a cycle — it grooves
+        # continuously and re-selects riffs every fixed _cycle_bars
+        # bars. Manual fills are still available via FILL NOW below.
 
         bpm_layout.addStretch()
         center_layout.addWidget(bpm_group)
 
-        # Per-group riff constraints
-        group_names = list(self.config.groups.keys())
-        self._riff_constraints = GroupRiffConstraintPanel(group_names)
-        for g, allowed in self._settings.group_constraints.items():
-            if g in group_names:
-                self._riff_constraints.set_constraint(g, set(allowed))
-        self._riff_constraints.constraints_changed.connect(self._on_constraints_changed)
-        center_layout.addWidget(self._riff_constraints)
+        # Per-group riff constraints. Built by _rebuild_group_panels so
+        # we can swap in a fresh instance whenever config.groups changes
+        # (the user loads a config file after MainWindow has already
+        # constructed this tab). Initial build happens at the end of
+        # setup_ui after both placeholders are in their respective
+        # layouts.
+        self._riff_constraints = None
+        self._riff_constraints_index = center_layout.count()
+        center_layout.addWidget(QWidget())  # placeholder, replaced below
+        self._center_layout = center_layout
 
         # GROOVE NOW / FILL NOW big buttons — themed via role properties.
         groove_fill_row = QHBoxLayout()
@@ -281,8 +279,20 @@ class LiveTab(BaseTab):
 
         artnet_layout.addWidget(QLabel("Universe Mapping:"))
         self._universe_table = QTableWidget(0, 2)
-        self._universe_table.setHorizontalHeaderLabels(["Config Univ", "ArtNet Univ"])
-        self._universe_table.setFixedHeight(80)
+        # Short labels — the right panel is only 220 px wide so the old
+        # "Config Univ" / "ArtNet Univ" headers got clipped to "Config…"
+        # in 100-px columns. Two-letter labels and a stretch resize mode
+        # let the columns split the available width evenly.
+        self._universe_table.setHorizontalHeaderLabels(["Config", "ArtNet"])
+        h_header = self._universe_table.horizontalHeader()
+        h_header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        # Drop the row-number column on the left — it eats ~20 px we
+        # can't spare and adds no information for a 2-column mapping.
+        self._universe_table.verticalHeader().setVisible(False)
+        # 120 px ≈ header + 3 rows, which covers the typical fixture
+        # universe count (most rigs use 1–3). Vertical scrollbar still
+        # appears for taller mappings.
+        self._universe_table.setFixedHeight(120)
         self._populate_universe_table()
         artnet_layout.addWidget(self._universe_table)
 
@@ -310,13 +320,14 @@ class LiveTab(BaseTab):
         plane_layout.addWidget(self._plane_combo)
         right_layout.addWidget(plane_group)
 
-        # Group submasters — per-group dimmer trim faders.
-        self._submasters = GroupSubmasterPanel(group_names)
-        for g, val in self._settings.group_submasters.items():
-            if g in group_names:
-                self._submasters.set_value(g, val / 100.0)
-        self._submasters.submaster_changed.connect(self._on_submaster_changed)
-        right_layout.addWidget(self._submasters)
+        # Group submasters — per-group dimmer trim faders. Same
+        # placeholder dance as _riff_constraints: we'll fill it in via
+        # _rebuild_group_panels so the panel can refresh when
+        # config.groups changes after construction.
+        self._submasters = None
+        self._submasters_index = right_layout.count()
+        right_layout.addWidget(QWidget())  # placeholder, replaced below
+        self._right_layout = right_layout
 
         right_layout.addStretch()
 
@@ -339,6 +350,71 @@ class LiveTab(BaseTab):
         right_panel.setFixedWidth(220)
         splitter.addWidget(right_panel)
 
+        # Now that both placeholders are in their layouts, fill them in
+        # for the first time. Subsequent calls go through
+        # _rebuild_group_panels via update_from_config.
+        self._current_groups_fingerprint = None
+        self._rebuild_group_panels()
+
+    # ── Group-keyed panels (rebuild on config change) ─────────────────
+
+    def _rebuild_group_panels(self) -> None:
+        """Rebuild ``_riff_constraints`` and ``_submasters`` from the
+        current ``config.groups``.
+
+        Called from ``setup_ui`` (initial fill) and ``update_from_config``
+        (when the user loads a config file after construction). Skips
+        the rebuild if the group set hasn't changed.
+        """
+        group_names = list(self.config.groups.keys())
+        fingerprint = frozenset(group_names)
+        if fingerprint == self._current_groups_fingerprint:
+            return
+        self._current_groups_fingerprint = fingerprint
+
+        # Riff constraints panel — replace the placeholder/old widget.
+        new_constraints = GroupRiffConstraintPanel(group_names)
+        for g, allowed in self._settings.group_constraints.items():
+            if g in group_names:
+                new_constraints.set_constraint(g, set(allowed))
+        new_constraints.constraints_changed.connect(self._on_constraints_changed)
+        self._swap_layout_widget(
+            self._center_layout, self._riff_constraints_index,
+            self._riff_constraints, new_constraints,
+        )
+        self._riff_constraints = new_constraints
+
+        # Submasters panel — same swap.
+        new_submasters = GroupSubmasterPanel(group_names)
+        for g, val in self._settings.group_submasters.items():
+            if g in group_names:
+                new_submasters.set_value(g, val / 100.0)
+        new_submasters.submaster_changed.connect(self._on_submaster_changed)
+        self._swap_layout_widget(
+            self._right_layout, self._submasters_index,
+            self._submasters, new_submasters,
+        )
+        self._submasters = new_submasters
+
+    @staticmethod
+    def _swap_layout_widget(layout, index, old_widget, new_widget):
+        """Replace the widget at ``index`` in ``layout`` with ``new_widget``.
+
+        Removes whatever was there (placeholder or previous instance)
+        and inserts the new widget at the same position so the rest of
+        the panel doesn't shift.
+        """
+        # Remove the old item — could be the initial placeholder QWidget
+        # or a previously-built group panel.
+        existing = layout.itemAt(index)
+        if existing is not None:
+            w = existing.widget()
+            layout.removeItem(existing)
+            if w is not None:
+                w.setParent(None)
+                w.deleteLater()
+        layout.insertWidget(index, new_widget)
+
     def on_tab_activated(self):
         # Lazy fixture-definitions load — first time the user opens the
         # tab, parse the QXF files for every (manufacturer, model) the
@@ -347,6 +423,11 @@ class LiveTab(BaseTab):
         if not self._fixtures_loaded:
             self._load_fixture_definitions()
             self._fixtures_loaded = True
+
+        # Pick up any config edits that happened while the tab was
+        # invisible — group submasters / riff constraints / movement
+        # plane all key off config.groups + stage geometry.
+        self.update_from_config()
 
         # If the engine is still running (e.g. the user peeked at another
         # tab during a gig), restart the UI tick so meters update again.
@@ -373,6 +454,12 @@ class LiveTab(BaseTab):
         # selection.
         if hasattr(self, "_plane_combo"):
             self._populate_plane_combo()
+        # Rebuild riff-constraints + submasters when the group set has
+        # changed (e.g. user loaded a config file after MainWindow had
+        # already constructed this tab — without this, the panel stays
+        # empty even though config.groups is now populated).
+        if hasattr(self, "_center_layout"):
+            self._rebuild_group_panels()
 
     # ── Lazy fixture definitions ──────────────────────────────────────
 
@@ -489,7 +576,6 @@ class LiveTab(BaseTab):
 
             self._engine = LiveShowEngine(self.config, self.fixture_definitions)
             self._engine.set_bpm(self._bpm_spinbox.value())
-            self._engine.set_groove_bars(self._groove_bars_spinbox.value())
             self._engine.set_energy_sensitivity(self._energy_fader.value())
             self._engine.set_on_riffs_updated(self._on_riffs_updated_from_engine)
             plane_text = self._plane_combo.currentText()
@@ -605,10 +691,6 @@ class LiveTab(BaseTab):
         if self._engine:
             self._engine.set_bpm(float(value))
 
-    def _on_groove_bars_changed(self, value):
-        if self._engine:
-            self._engine.set_groove_bars(value)
-
     def _on_groove_now(self):
         if self._engine:
             self._engine.force_groove()
@@ -682,7 +764,7 @@ class LiveTab(BaseTab):
 
         if self._engine and self._is_running:
             self._status_riff.setText(f"Riff: {self._engine.current_groove_name}")
-            total = self._engine.groove_bars + 1
+            total = self._engine.cycle_bars
             bar = self._engine.current_bar + 1
             self._status_bar_counter.setText(f"Bar: {bar}/{total}")
             phase = "fill" if self._engine.is_fill else "groove"
@@ -739,13 +821,16 @@ class LiveTab(BaseTab):
         plane_text = self._plane_combo.currentText()
         target_plane = plane_text if plane_text != "None (manual)" else ""
 
+        # `groove_bars` is a legacy field on LiveModeSettings — the engine
+        # no longer auto-fills, so we just preserve whatever was loaded
+        # (or the default) so old settings files round-trip cleanly.
         self._settings = live_settings.LiveModeSettings(
             target_ip=self._ip_input.text().strip() or "192.168.1.151",
             universe_mapping=self._get_universe_mapping(),
             mirror_to_visualizer=self._mirror_checkbox.isChecked(),
             input_device_name=device_name,
             bpm=self._bpm_spinbox.value(),
-            groove_bars=self._groove_bars_spinbox.value(),
+            groove_bars=self._settings.groove_bars,
             energy_sensitivity=int(round(self._energy_fader.value() * 100)),
             target_plane_name=target_plane,
             max_movement_speed=self._speed_slider.value(),

@@ -39,12 +39,20 @@ _VERY_LOW_SHAPES = ["linear_sweep"]
 
 @dataclass
 class LiveCycleState:
-    """Tracks where we are in the current groove+fill cycle."""
+    """Tracks where we are in the current groove cycle.
+
+    The engine grooves continuously: every ``_cycle_bars`` bars, fresh
+    riffs are selected from the audio profile. ``is_fill`` is no longer
+    set automatically — it's a transient one-shot toggled by
+    :meth:`LiveShowEngine.force_fill` and cleared on the next bar
+    boundary, so the user can punch a fill manually without the engine
+    auto-filling on its own.
+    """
     cycle_start_time: float = 0.0
-    bar_index: int = 0          # 0..groove_bars (last = fill)
-    is_fill: bool = False
+    bar_index: int = 0          # 0..cycle_bars-1
+    is_fill: bool = False       # transient: only set by force_fill()
     groove_rudiment: str = "static"
-    fill_rudiment: str = "stroke"
+    fill_rudiment: str = "stroke"  # selected for force_fill use
 
 
 class LiveShowEngine:
@@ -71,7 +79,11 @@ class LiveShowEngine:
 
         # Riff cycle state
         self._bpm: float = 120.0
-        self._groove_bars: int = 3
+        # Bars per riff-reselection cycle. Fixed at 4 — the previous
+        # auto-fill behaviour (groove for N bars, then a fill bar) is
+        # gone; the engine now grooves continuously and just picks new
+        # riffs every cycle. Fill is purely manual via force_fill().
+        self._cycle_bars: int = 4
         self._cycle = LiveCycleState()
         self._per_group_rudiments: Dict[str, Tuple[str, str]] = {}
         self._previous_rudiments: Dict[str, str] = {}
@@ -110,10 +122,6 @@ class LiveShowEngine:
     def set_bpm(self, bpm: float):
         with self._lock:
             self._bpm = max(30.0, min(300.0, bpm))
-
-    def set_groove_bars(self, bars: int):
-        with self._lock:
-            self._groove_bars = max(1, min(16, bars))
 
     def set_energy_sensitivity(self, value: float):
         with self._lock:
@@ -173,9 +181,10 @@ class LiveShowEngine:
             return self._cycle.groove_rudiment
 
     @property
-    def groove_bars(self) -> int:
+    def cycle_bars(self) -> int:
+        """Bars per riff-reselection cycle (fixed at 4)."""
         with self._lock:
-            return self._groove_bars
+            return self._cycle_bars
 
     @property
     def per_group_rudiments(self) -> Dict[str, Tuple[str, str]]:
@@ -217,13 +226,14 @@ class LiveShowEngine:
             self._engine_time = current_time
             beat_duration = 60.0 / self._bpm
             bar_duration = 4.0 * beat_duration
-            total_cycle_bars = self._groove_bars + 1  # groove + fill
 
             elapsed = current_time - self._cycle.cycle_start_time
             current_bar = int(elapsed / bar_duration)
 
-            if current_bar >= total_cycle_bars:
-                # Cycle complete → start new one
+            if current_bar >= self._cycle_bars:
+                # Cycle complete → re-select riffs and loop. There's no
+                # auto-fill bar at the end of the cycle anymore — the
+                # engine just keeps grooving.
                 self._end_all_blocks()
                 self._start_new_cycle()
                 return
@@ -231,7 +241,10 @@ class LiveShowEngine:
             if current_bar != self._cycle.bar_index:
                 # Bar boundary crossed
                 self._cycle.bar_index = current_bar
-                self._cycle.is_fill = (current_bar >= self._groove_bars)
+                # Clear any transient force_fill state — fill lasts one
+                # bar; once we cross into the next bar we go back to the
+                # groove rudiment.
+                self._cycle.is_fill = False
 
                 # End previous bar blocks and start new ones
                 self._end_all_blocks()
@@ -254,7 +267,14 @@ class LiveShowEngine:
             self._start_new_cycle()
 
     def force_fill(self):
-        """Immediately transition to fill bar, then start new cycle."""
+        """Punch a one-shot fill on the current bar.
+
+        Sets ``is_fill`` so :meth:`_create_all_blocks` uses the fill
+        rudiment for the current bar; ``tick`` clears the flag on the
+        next bar boundary so we return to grooving without any cycle
+        manipulation. The fill is purely a manual override now —
+        nothing in the engine triggers it automatically.
+        """
         with self._lock:
             if not self._running:
                 return
@@ -264,14 +284,11 @@ class LiveShowEngine:
 
             self._end_all_blocks()
             self._cycle.is_fill = True
-            self._cycle.bar_index = self._groove_bars
 
-            # Set cycle_start_time so the fill bar ends after one bar from now
-            now = self._engine_time
-            self._cycle.cycle_start_time = now - self._groove_bars * bar_duration
-
-            bar_start = now
-            bar_end = now + bar_duration
+            # Recreate the current bar's blocks using the fill rudiment.
+            bar_start = (self._cycle.cycle_start_time
+                         + self._cycle.bar_index * bar_duration)
+            bar_end = bar_start + bar_duration
             self._create_all_blocks(bar_start, bar_end)
 
     # ── Internal methods ──
