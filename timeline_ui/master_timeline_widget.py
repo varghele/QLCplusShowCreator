@@ -327,6 +327,12 @@ class MasterTimelineContainer(QWidget):
         # Build a header widget mirroring the original top row (label + info).
         from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel
         header = QWidget()
+        # Object-name + WA_StyledBackground so the active theme's
+        # `QWidget#MasterTimelineHeader` rule actually paints the bg.
+        # Without these the header inherits the QScrollArea viewport's
+        # default light-gray bg in both themes.
+        header.setObjectName("MasterTimelineHeader")
+        header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         header_layout = QHBoxLayout(header)
         header_layout.setContentsMargins(8, 4, 8, 4)
         header_layout.setSpacing(8)

@@ -123,6 +123,11 @@ class LightLaneWidget(QFrame):
     def create_controls_widget(self):
         """Create the lane controls section."""
         widget = QWidget()
+        # Object-name + WA_StyledBackground so the theme's
+        # `QWidget#LightLaneHeader` rule paints the bg after the
+        # controls widget is detached and re-parented into TimelineGrid.
+        widget.setObjectName("LightLaneHeader")
+        widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         widget.setFixedWidth(320)
         layout = QVBoxLayout(widget)
         layout.setSpacing(4)

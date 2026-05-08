@@ -371,6 +371,45 @@ QLabel#TimeReadoutSecondary {
     color: #6a6a6a;
 }
 
+/* ── Timeline grid (TimelineGrid in shows + structure tabs) ────────── */
+/* The QScrollArea viewport defaults to a solid light-gray bg that fights
+   the dark theme. Make all generic QScrollAreas transparent so the
+   theme bg shows through; tables/text-edits extend QAbstractScrollArea
+   (not QScrollArea) and aren't affected. */
+QScrollArea {
+    background: transparent;
+    border: none;
+}
+QScrollArea > QWidget > QWidget {
+    background-color: transparent;
+}
+
+/* Inner widgets that hold the row headers and stripes. Override the
+   transparent default above so they paint the theme's window bg in any
+   gaps between rows. */
+QWidget#TimelineHeadersInner,
+QWidget#TimelineStripesInner {
+    background-color: #1e1e1e;
+}
+
+/* Per-row headers. WA_StyledBackground is set on each in code so these
+   rules actually paint. */
+QWidget#MasterTimelineHeader {
+    background-color: #252526;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+}
+QWidget#AudioLaneHeader {
+    background-color: #1a2a3a;
+    border: 1px solid #2d4060;
+    border-radius: 4px;
+}
+QWidget#LightLaneHeader {
+    background-color: #2a2a2a;
+    border: 1px solid #3d3d3d;
+    border-radius: 4px;
+}
+
 /* ── Timeline ruler + lane stripes ─────────────────────────────────── */
 /* Order matters: Qt QSS treats class selectors as equal specificity, so the
    later rule wins for any widget that matches both. Put the BASE class

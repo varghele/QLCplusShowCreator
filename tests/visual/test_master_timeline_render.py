@@ -167,6 +167,48 @@ def test_audio_header_is_not_squished_when_embedded(qapp):
         grid.deleteLater()
 
 
+@pytest.mark.parametrize(
+    "theme,expected_header_bg",
+    [("dark", (0x25, 0x25, 0x26)), ("light", (0xFA, 0xFA, 0xFA))],
+)
+def test_master_header_bg_matches_theme(qapp, theme, expected_header_bg):
+    """The master timeline header (label + time/BPM/zoom info) must paint
+    the theme's panel color, not the QScrollArea viewport's default
+    light-gray. Catches regressions where the header lacks objectName /
+    WA_StyledBackground or the QSS rule is missing."""
+    from gui.theme_manager import ThemeManager
+    from timeline_ui.master_timeline_widget import MasterTimelineContainer
+    from timeline_ui.timeline_grid import TimelineGrid
+
+    ThemeManager().apply(qapp, theme)
+    master = MasterTimelineContainer()
+    grid = TimelineGrid()
+    try:
+        grid.set_master(master)
+        grid.resize(1200, 200)
+        grid.show()
+        for _ in range(5):
+            qapp.processEvents()
+
+        header = grid._headers_layout.itemAt(0).widget()
+        assert header is not None
+        assert header.objectName() == "MasterTimelineHeader", (
+            f"Expected objectName 'MasterTimelineHeader', "
+            f"got {header.objectName()!r}"
+        )
+        histogram = _color_histogram(header.grab().toImage(), step=2)
+        dominant_color, dominant_count = histogram.most_common(1)[0]
+        assert dominant_color == expected_header_bg, (
+            f"{theme} theme master-header dominant color "
+            f"{dominant_color} (count={dominant_count}) doesn't match "
+            f"expected {expected_header_bg}. Top 3 colors: "
+            f"{histogram.most_common(3)}"
+        )
+    finally:
+        grid.hide()
+        grid.deleteLater()
+
+
 def test_compact_button_padding_takes_effect(qapp):
     """The lane-control M / S / × buttons set density=compact so the
     QSS rule QPushButton[density="compact"] tightens their padding.

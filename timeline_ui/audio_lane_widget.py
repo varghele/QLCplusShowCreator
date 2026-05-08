@@ -142,6 +142,11 @@ class AudioLaneWidget(QFrame):
         """Create the lane controls section. All visuals come from the
         active theme — only structural styling stays inline."""
         widget = QWidget()
+        # Object-name + WA_StyledBackground so the theme's
+        # `QWidget#AudioLaneHeader` rule paints the bg after the
+        # controls widget is detached and re-parented into TimelineGrid.
+        widget.setObjectName("AudioLaneHeader")
+        widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         widget.setFixedWidth(320)
         layout = QVBoxLayout(widget)
         layout.setSpacing(4)

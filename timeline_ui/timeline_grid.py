@@ -78,6 +78,12 @@ class TimelineGrid(QWidget):
         self.headers_scroll.setFixedWidth(_HEADER_COLUMN_WIDTH)
 
         self._headers_inner = QWidget()
+        # Object-name + WA_StyledBackground so the theme's
+        # `QWidget#TimelineHeadersInner` rule paints the bg. Without
+        # these the QScrollArea viewport's default white bg shows
+        # through any gap between header rows in both themes.
+        self._headers_inner.setObjectName("TimelineHeadersInner")
+        self._headers_inner.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._headers_layout = QVBoxLayout(self._headers_inner)
         self._headers_layout.setContentsMargins(0, 0, 0, 0)
         self._headers_layout.setSpacing(2)
@@ -99,6 +105,8 @@ class TimelineGrid(QWidget):
         self.stripes_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         self._stripes_inner = QWidget()
+        self._stripes_inner.setObjectName("TimelineStripesInner")
+        self._stripes_inner.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._stripes_layout = QVBoxLayout(self._stripes_inner)
         self._stripes_layout.setContentsMargins(0, 0, 0, 0)
         self._stripes_layout.setSpacing(2)
