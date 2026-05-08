@@ -124,8 +124,13 @@ class FixturesTab(BaseTab):
         self.label.setFont(QFont("", 14, QFont.Weight.Bold))
         main_layout.addWidget(self.label)
 
-        # Fixtures table
-        self.table = QtWidgets.QTableWidget()
+        # Fixtures table — RowOutlineTableWidget paints a continuous
+        # selection outline around the entire row, including across cells
+        # that host widgets via setCellWidget (Universe spin, Address spin,
+        # Mode/Group/Role combos). See gui/widgets/row_outline_table.py and
+        # docs/qt-gotchas.md for why a per-cell delegate can't do this.
+        from gui.widgets.row_outline_table import RowOutlineTableWidget
+        self.table = RowOutlineTableWidget()
 
         # Setup table structure
         self._setup_table()
@@ -166,12 +171,10 @@ class FixturesTab(BaseTab):
         # Visuals come from the active theme stylesheet.
         from gui.widgets.modern_table import apply_modern_table_style
         apply_modern_table_style(self.table)
-        # Selection delegate — paints selection as a border instead of a
-        # blue fill, so per-row group tints (Manufacturer / Model / Channels
-        # / Name) stay readable when the row is selected. Qt's default
-        # delegate would otherwise overpaint the tint with an opaque
-        # selection rectangle (selection-background-color rgba alpha is
-        # silently rendered solid by Qt's QSS engine).
+        # Selection delegate — strips State_Selected before super().paint
+        # so Qt doesn't fill the cell with the opaque selection brush and
+        # cover the per-row group tint. The visible selection outline is
+        # drawn by RowOutlineTableWidget at the table (overlay) level.
         from gui.widgets.group_row_delegate import GroupRowDelegate
         self._group_row_delegate = GroupRowDelegate(self.table)
         self.table.setItemDelegate(self._group_row_delegate)

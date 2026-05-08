@@ -47,12 +47,20 @@ Qt's QSS engine accepts `rgba(...)` syntax but throws away the alpha channel bef
 
 ### Fix
 
-Use a custom `QStyledItemDelegate` that paints selection as a **border** instead of a fill. See `gui/widgets/group_row_delegate.py::GroupRowDelegate`. The delegate strips the `State_Selected` flag from the option before calling `super().paint(...)`, which preserves the cell's `BackgroundRole` brush, then overlays a 2 px border in the accent color.
+Two parts, both required:
 
-Apply to a table with:
+1. **`GroupRowDelegate`** strips `State_Selected` before calling `super().paint(...)` so Qt doesn't fill the cell with the opaque selection brush — the cell's `BackgroundRole` tint then survives. The delegate paints **no** border itself.
+2. **`RowOutlineTableWidget`** draws a single continuous outline around the entire selected row from a transparent overlay widget that sits on top of viewport children. Per-cell border painting can't span widget cells (see gotcha #3) — the overlay sidesteps that entirely.
+
+Apply both to a table with:
 
 ```python
+from gui.widgets.row_outline_table import RowOutlineTableWidget
+from gui.widgets.group_row_delegate import GroupRowDelegate
+
+self.table = RowOutlineTableWidget()
 self.table.setItemDelegate(GroupRowDelegate(self.table))
+self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
 ```
 
 ### Why not other approaches?
@@ -60,6 +68,7 @@ self.table.setItemDelegate(GroupRowDelegate(self.table))
 - **`setStyleSheet` with `QTableView::item:selected`** — would work, but adding any `QTableView::item` rule re-triggers gotcha #1.
 - **`QPalette.setBrush(Highlight, alpha-color)`** — Qt's palette also treats selection brushes as solid colors; same dead end.
 - **Keeping the rgba and accepting the solid fallback** — fully covers the tint, defeating the point.
+- **Per-cell border in the delegate** (the previous approach) — invisible on cells with `setCellWidget` (gotcha #3), so the row reads as bordered text cells with gaps.
 
 ---
 
@@ -95,9 +104,18 @@ Tried; doesn't work cleanly. `QSpinBox::up-button`, `QSpinBox::down-button`, `QC
 
 The unused `gui/widgets/tinted_table.py` and `gui/widgets/tinted_rows_table.py` are the experiments that didn't pan out. Don't delete them — they're a reference for the next attempt.
 
+#### Selection outline via a viewport overlay (current approach)
+
+For the *selection* outline specifically — separate from the per-row tint — `gui/widgets/row_outline_table.py::RowOutlineTableWidget` draws the outline from a transparent overlay widget that's a child of the viewport, raised above all cell-widget siblings. The overlay's `paintEvent` looks up `selectionModel().selectedIndexes()`, computes each row's `visualRect` from leftmost to rightmost visible column, and draws a single continuous `drawRect`. Because the overlay paints last (after viewport children), the outline survives across `setCellWidget` cells.
+
+Trade-offs of the overlay:
+- `setCellWidget` is overridden to call `_overlay.raise_()` after each insert — new cell widgets become viewport children stacked above existing siblings, so the overlay needs to be re-raised to stay on top.
+- `paintEvent` calls `_overlay.update()` so any viewport repaint (selection change, scroll, data change) re-renders the outline correctly.
+- The overlay is always sized to the viewport via `resizeEvent`.
+
 #### Replace `setCellWidget` with a `QStyledItemDelegate` (deferred)
 
-The proper Qt-native answer: the column gets a delegate whose `createEditor` returns the spinbox/combo only when the user starts editing; in display mode, `paint` renders the value as text and the cell's `BackgroundRole` paints normally. This unblocks both gotcha #2 (selection rendering) and the row-coloring problem in one shot.
+The proper Qt-native answer for the *tint* part: the column gets a delegate whose `createEditor` returns the spinbox/combo only when the user starts editing; in display mode, `paint` renders the value as text and the cell's `BackgroundRole` paints normally. With the overlay solution above, this is no longer required for selection rendering — only for getting tints across the full cell rect (currently they read as "fields colored").
 
 The Fixtures tab has 5 widget cells that would each need a delegate (Universe spin, Address spin, Mode combo, Group combo with "Add New…" magic item, Role combo). Significant refactor — not in the current rework's scope.
 
@@ -105,7 +123,8 @@ The Fixtures tab has 5 widget cells that would each need a delegate (Universe sp
 
 ## In-source landmarks
 
-- `gui/widgets/group_row_delegate.py` — selection-as-border delegate
+- `gui/widgets/group_row_delegate.py` — strips `State_Selected` so the row tint survives selection
+- `gui/widgets/row_outline_table.py` — overlay-based row-selection outline that spans widget cells
 - `gui/widgets/modern_table.py` — `apply_modern_table_style` (the right way to set table visuals without `QTableView::item`)
 - `resources/themes/{dark,light}.qss` — comments mark where the `::item` rule used to live
 - `gui/tabs/fixtures_tab.py::_update_row_colors` — concrete example of per-row tinting that works around all three gotchas at once

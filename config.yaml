@@ -1,0 +1,438 @@
+fixtures:
+- address: 1
+  available_modes:
+  - channels: 40
+    name: 40 Channels Mode
+  current_mode: 40 Channels Mode
+  direction: NONE
+  group: BARS
+  manufacturer: Varghele
+  model: LED BAR
+  name: B1
+  rotation: 0.0
+  type: BAR
+  universe: 1
+  x: 0.0
+  y: 0.0
+  z: 0.0
+- address: 81
+  available_modes:
+  - channels: 40
+    name: 40 Channels Mode
+  current_mode: 40 Channels Mode
+  direction: NONE
+  group: BARS
+  manufacturer: Varghele
+  model: LED BAR
+  name: B2
+  rotation: 0.0
+  type: BAR
+  universe: 1
+  x: 0.0
+  y: 0.0
+  z: 0.0
+- address: 161
+  available_modes:
+  - channels: 40
+    name: 40 Channels Mode
+  current_mode: 40 Channels Mode
+  direction: NONE
+  group: BARS
+  manufacturer: Varghele
+  model: LED BAR
+  name: B3
+  rotation: 0.0
+  type: BAR
+  universe: 1
+  x: 0.0
+  y: 0.0
+  z: 0.0
+- address: 241
+  available_modes:
+  - channels: 40
+    name: 40 Channels Mode
+  current_mode: 40 Channels Mode
+  direction: NONE
+  group: BARS
+  manufacturer: Varghele
+  model: LED BAR
+  name: B4
+  rotation: 0.0
+  type: BAR
+  universe: 1
+  x: 0.0
+  y: 0.0
+  z: 0.0
+- address: 1
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  direction: NONE
+  group: MH
+  manufacturer: Varytec
+  model: Hero Spot 60
+  name: M1
+  rotation: 0.0
+  type: MH
+  universe: 3
+  x: 0.0
+  y: 0.0
+  z: 0.0
+- address: 15
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  direction: NONE
+  group: MH
+  manufacturer: Varytec
+  model: Hero Spot 60
+  name: M2
+  rotation: 0.0
+  type: MH
+  universe: 3
+  x: 0.0
+  y: 0.0
+  z: 0.0
+- address: 1
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  direction: NONE
+  group: MH
+  manufacturer: Varytec
+  model: Hero Spot 60
+  name: M3
+  rotation: 0.0
+  type: MH
+  universe: 4
+  x: 0.0
+  y: 0.0
+  z: 0.0
+- address: 15
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  direction: NONE
+  group: MH
+  manufacturer: Varytec
+  model: Hero Spot 60
+  name: M4
+  rotation: 0.0
+  type: MH
+  universe: 4
+  x: 0.0
+  y: 0.0
+  z: 0.0
+- address: 35
+  available_modes:
+  - channels: 1
+    name: 1 Channel Mode
+  - channels: 2
+    name: 2 Channels Mode
+  - channels: 5
+    name: 5 Channels Mode
+  - channels: 10
+    name: 10 Channels Mode
+  current_mode: 10 Channels Mode
+  direction: NONE
+  group: SUN
+  manufacturer: Showtec
+  model: Sunstrip Active
+  name: S1
+  rotation: 0.0
+  type: PAR
+  universe: 3
+  x: 0.0
+  y: 0.0
+  z: 0.0
+- address: 35
+  available_modes:
+  - channels: 1
+    name: 1 Channel Mode
+  - channels: 2
+    name: 2 Channels Mode
+  - channels: 5
+    name: 5 Channels Mode
+  - channels: 10
+    name: 10 Channels Mode
+  current_mode: 10 Channels Mode
+  direction: NONE
+  group: SUN
+  manufacturer: Showtec
+  model: Sunstrip Active
+  name: S2
+  rotation: 0.0
+  type: PAR
+  universe: 4
+  x: 0.0
+  y: 0.0
+  z: 0.0
+- address: 50
+  available_modes:
+  - channels: 6
+    name: 6 Channel
+  - channels: 2
+    name: 2 Channel 1
+  - channels: 2
+    name: 2 Channel 2
+  - channels: 3
+    name: 3 Channel 1
+  - channels: 3
+    name: 3 Channel 2
+  - channels: 4
+    name: 4 Channel
+  - channels: 1
+    name: 1 Channel
+  current_mode: 6 Channel
+  direction: NONE
+  group: WASH
+  manufacturer: Stairville
+  model: Wild Wash Pro 648 RGB LED
+  name: W1
+  rotation: 0.0
+  type: WASH
+  universe: 3
+  x: 0.0
+  y: 0.0
+  z: 0.0
+groups:
+  BARS:
+    color: '#ffb6c1'
+    fixtures:
+    - address: 1
+      available_modes:
+      - channels: 40
+        name: 40 Channels Mode
+      current_mode: 40 Channels Mode
+      direction: NONE
+      group: BARS
+      manufacturer: Varghele
+      model: LED BAR
+      name: B1
+      rotation: 0.0
+      type: BAR
+      universe: 1
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    - address: 81
+      available_modes:
+      - channels: 40
+        name: 40 Channels Mode
+      current_mode: 40 Channels Mode
+      direction: NONE
+      group: BARS
+      manufacturer: Varghele
+      model: LED BAR
+      name: B2
+      rotation: 0.0
+      type: BAR
+      universe: 1
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    - address: 161
+      available_modes:
+      - channels: 40
+        name: 40 Channels Mode
+      current_mode: 40 Channels Mode
+      direction: NONE
+      group: BARS
+      manufacturer: Varghele
+      model: LED BAR
+      name: B3
+      rotation: 0.0
+      type: BAR
+      universe: 1
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    - address: 241
+      available_modes:
+      - channels: 40
+        name: 40 Channels Mode
+      current_mode: 40 Channels Mode
+      direction: NONE
+      group: BARS
+      manufacturer: Varghele
+      model: LED BAR
+      name: B4
+      rotation: 0.0
+      type: BAR
+      universe: 1
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    name: BARS
+  MH:
+    color: '#add8e6'
+    fixtures:
+    - address: 1
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      direction: NONE
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      name: M1
+      rotation: 0.0
+      type: MH
+      universe: 3
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    - address: 15
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      direction: NONE
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      name: M2
+      rotation: 0.0
+      type: MH
+      universe: 3
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    - address: 1
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      direction: NONE
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      name: M3
+      rotation: 0.0
+      type: MH
+      universe: 4
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    - address: 15
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      direction: NONE
+      group: MH
+      manufacturer: Varytec
+      model: Hero Spot 60
+      name: M4
+      rotation: 0.0
+      type: MH
+      universe: 4
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    name: MH
+  SUN:
+    color: '#90ee90'
+    fixtures:
+    - address: 35
+      available_modes:
+      - channels: 1
+        name: 1 Channel Mode
+      - channels: 2
+        name: 2 Channels Mode
+      - channels: 5
+        name: 5 Channels Mode
+      - channels: 10
+        name: 10 Channels Mode
+      current_mode: 10 Channels Mode
+      direction: NONE
+      group: SUN
+      manufacturer: Showtec
+      model: Sunstrip Active
+      name: S1
+      rotation: 0.0
+      type: PAR
+      universe: 3
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    - address: 35
+      available_modes:
+      - channels: 1
+        name: 1 Channel Mode
+      - channels: 2
+        name: 2 Channels Mode
+      - channels: 5
+        name: 5 Channels Mode
+      - channels: 10
+        name: 10 Channels Mode
+      current_mode: 10 Channels Mode
+      direction: NONE
+      group: SUN
+      manufacturer: Showtec
+      model: Sunstrip Active
+      name: S2
+      rotation: 0.0
+      type: PAR
+      universe: 4
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    name: SUN
+  WASH:
+    color: '#ffdab9'
+    fixtures:
+    - address: 50
+      available_modes:
+      - channels: 6
+        name: 6 Channel
+      - channels: 2
+        name: 2 Channel 1
+      - channels: 2
+        name: 2 Channel 2
+      - channels: 3
+        name: 3 Channel 1
+      - channels: 3
+        name: 3 Channel 2
+      - channels: 4
+        name: 4 Channel
+      - channels: 1
+        name: 1 Channel
+      current_mode: 6 Channel
+      direction: NONE
+      group: WASH
+      manufacturer: Stairville
+      model: Wild Wash Pro 648 RGB LED
+      name: W1
+      rotation: 0.0
+      type: WASH
+      universe: 3
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    name: WASH
+shows: {}
+spots: {}
+universes: {}
+workspace_path: C:/Users/varghele/PycharmProjects/QLCplusShowCreator/workspace_SBD_hr25.qxw
