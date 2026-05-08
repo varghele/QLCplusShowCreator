@@ -498,6 +498,40 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Use lightweight update for shows tab - only update lane group combos
         # instead of recreating all lanes (major performance improvement)
         self.shows_tab.update_fixture_groups_only()
+        # Live tab's embedded visualizer otherwise wouldn't see new
+        # fixtures until the user manually activates the tab — push the
+        # current config now so its 3D preview stays in sync.
+        self.on_visualizer_config_changed()
+
+    def on_visualizer_config_changed(self):
+        """Refresh every embedded 3D preview with the current config.
+
+        Stage / Shows / Live each own their own ``EmbeddedVisualizer``
+        and historically each tab refreshed only its own on its own
+        triggers — so changing stage dimensions in Stage tab left the
+        Shows/Live previews stale, and adding fixtures in Fixtures tab
+        left Live's preview stale, until the user manually activated
+        the affected tab.
+
+        This central push is called from any place that mutates the
+        config in a way the previews care about: stage dims, fixture
+        moves, fixture add/remove. ``EmbeddedVisualizer.set_config`` is
+        idempotent and cheap (RenderEngine batches GL state internally),
+        so calling it on every tab on every change is fine.
+        """
+        for tab_attr in ("stage_tab", "shows_tab", "live_tab"):
+            tab = getattr(self, tab_attr, None)
+            if tab is None:
+                continue
+            vis = getattr(tab, "embedded_visualizer", None)
+            if vis is None:
+                continue
+            try:
+                vis.set_config(self.config)
+            except Exception as e:
+                # Don't let one tab's visualizer failure block the
+                # others — log and keep going.
+                print(f"{tab_attr} embedded visualizer refresh failed: {e}")
 
     def on_show_selected(self, show_name: str, source_tab: str):
         """Coordinate show selection across tabs.

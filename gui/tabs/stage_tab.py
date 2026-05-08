@@ -66,9 +66,10 @@ class StageTab(BaseTab):
         dim_layout.addRow("Width (m):", self.stage_width)
         dim_layout.addRow("Depth (m):", self.stage_height)
 
-        # Update stage button
-        self.update_stage_btn = QtWidgets.QPushButton("Update Stage")
-        dim_layout.addRow(self.update_stage_btn)
+        # No "Update Stage" button — the spinboxes' valueChanged signal
+        # already drives _update_stage live, matching how the grid-size
+        # spinbox below works. The button used to fire the same handler
+        # and was redundant.
 
         # Grid controls group
         grid_group = QtWidgets.QGroupBox("Grid Settings")
@@ -209,10 +210,9 @@ class StageTab(BaseTab):
 
     def connect_signals(self):
         """Connect widget signals to handlers"""
-        # Stage dimension controls - auto-update on change
+        # Stage dimension controls - auto-update on change.
         self.stage_width.valueChanged.connect(self._update_stage)
         self.stage_height.valueChanged.connect(self._update_stage)
-        self.update_stage_btn.clicked.connect(self._update_stage)
 
         # Grid controls
         self.grid_toggle.stateChanged.connect(
@@ -224,9 +224,10 @@ class StageTab(BaseTab):
         )
 
         # Connect fixture changes to TCP update (for live visualizer sync)
-        # AND to the embedded visualizer so its 3D preview tracks the 2D edits.
+        # AND broadcast a refresh to every embedded visualizer (Stage,
+        # Shows, Live) so the 3D previews on other tabs follow 2D edits.
         self.stage_view.fixtures_changed.connect(self._notify_tcp_update)
-        self.stage_view.fixtures_changed.connect(self._refresh_embedded_visualizer)
+        self.stage_view.fixtures_changed.connect(self._broadcast_visualizer_refresh)
 
         # Spot/mark controls
         self.add_spot_btn.clicked.connect(lambda: self.stage_view.add_spot())
@@ -290,6 +291,14 @@ class StageTab(BaseTab):
 
             # Notify TCP server if running (for live visualizer updates)
             self._notify_tcp_update()
+
+        # Push the new dimensions to every embedded 3D preview (Stage's
+        # own + Shows + Live). Without this the Shows/Live previews
+        # stay stuck on the old stage size until the user manually
+        # activates them; even the Stage tab's own preview wouldn't
+        # repaint without an explicit refresh because updateStage on
+        # its own doesn't emit fixtures_changed.
+        self._broadcast_visualizer_refresh()
 
     def _update_grid_size(self, value: float):
         """Update grid size from spin box value"""
@@ -654,10 +663,27 @@ class StageTab(BaseTab):
 
         self.stage_view.save_positions_to_config()
         self._notify_tcp_update()
-        self._refresh_embedded_visualizer()
+        self._broadcast_visualizer_refresh()
 
     def _refresh_embedded_visualizer(self) -> None:
         """Push the latest config to the embedded 3D preview. Cheap to call
         repeatedly — RenderEngine batches GL state internally."""
         if hasattr(self, "embedded_visualizer") and self.embedded_visualizer is not None:
             self.embedded_visualizer.set_config(self.config)
+
+    def _broadcast_visualizer_refresh(self) -> None:
+        """Ask MainWindow to refresh every embedded visualizer (Stage,
+        Shows, Live). Used after stage edits / fixture moves so all
+        three 3D previews stay in sync — without it, only Stage tab's
+        preview tracks edits made on the 2D Stage view, and the Shows /
+        Live previews go stale until the user manually activates them.
+
+        Falls back to a local-only refresh if MainWindow doesn't expose
+        the central method (e.g. tab being driven from a test harness).
+        """
+        main_window = self.window()
+        broadcast = getattr(main_window, "on_visualizer_config_changed", None)
+        if callable(broadcast):
+            broadcast()
+        else:
+            self._refresh_embedded_visualizer()
