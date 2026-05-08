@@ -5,9 +5,10 @@ from math import sin, cos, radians, atan2, sqrt
 
 
 class FixtureItem(QGraphicsItem):
-    # Class-level settings for orientation display (controlled by stage_tab.py)
+    # Class-level toggle for orientation-axis overlay (controlled by
+    # stage_tab.py's "Show orientation axes" checkbox). When True every
+    # FixtureItem draws its XYZ axes on top of the fixture symbol.
     show_orientation_axes = False
-    show_all_axes = False
 
     def __init__(self, fixture_name, fixture_type, channel_color, parent=None):
         super().__init__(parent)
@@ -178,8 +179,10 @@ class FixtureItem(QGraphicsItem):
         painter.restore()  # Restore the original painter state
         painter.save()
 
-        # Draw orientation axes if enabled
-        if FixtureItem.show_orientation_axes and (FixtureItem.show_all_axes or self.isSelected()):
+        # Draw orientation axes if enabled (single class-level toggle
+        # — see show_orientation_axes for the rationale behind not
+        # gating on selection).
+        if FixtureItem.show_orientation_axes:
             self._draw_orientation_axes(painter)
 
         painter.restore()
@@ -202,12 +205,19 @@ class FixtureItem(QGraphicsItem):
         else:
             text_y_offset = self.size / 2
 
-        # Draw fixture name (regular font)
+        # Draw fixture name (regular font). Text colour comes from
+        # the parent StageView's ``fixtureTextColor`` qproperty, which
+        # the active QSS theme drives via
+        # ``StageView { qproperty-fixtureTextColor: #...; }`` —
+        # hardcoding black left the labels invisible on the dark-mode
+        # stage fill.
+        text_color = self._theme_text_color()
+
         font = painter.font()
         font.setPointSize(8)
         font.setBold(False)
         painter.setFont(font)
-        painter.setPen(Qt.GlobalColor.black)
+        painter.setPen(QPen(text_color))
 
         name_rect = QRectF(-text_width / 2, text_y_offset, text_width, 12)
         painter.drawText(name_rect, Qt.AlignmentFlag.AlignCenter, self.fixture_name)
@@ -384,6 +394,26 @@ class FixtureItem(QGraphicsItem):
         angle = atan2(-z3, x3) * 180.0 / 3.14159265359
 
         return angle
+
+    def _theme_text_color(self):
+        """Return the theme-driven label colour from the parent
+        StageView's ``fixtureTextColor`` qproperty.
+
+        Falls back to black if the item isn't yet attached to a scene
+        (e.g. during early construction or in unit tests). The active
+        QSS theme writes this property via the ``StageView { ... }``
+        rule, so adding a new theme is just a matter of adding the
+        right ``qproperty-fixtureTextColor`` line.
+        """
+        scene = self.scene()
+        if scene is not None:
+            views = scene.views()
+            if views:
+                view = views[0]
+                color = getattr(view, "fixtureTextColor", None)
+                if color is not None and color.isValid():
+                    return color
+        return QColor(0, 0, 0)
 
     def _draw_orientation_axes(self, painter):
         """Draw orientation coordinate axes for the fixture.

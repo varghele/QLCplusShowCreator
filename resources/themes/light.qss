@@ -393,6 +393,20 @@ QPushButton[density="compact"] {
     min-height: 0;
 }
 
+/* ── Stage view (Stage tab 2D plot) ──────────────────────────────────
+   See dark.qss for the rationale — StageView is custom-painted, so
+   colours come in via qproperty-* setters declared as pyqtProperty
+   on the class. Light theme keeps the original look. */
+StageView {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    qproperty-stageOutlineColor: #000000;
+    qproperty-stageFillColor: #f0f0f0;
+    qproperty-stageGridColor: #c8c8c8;
+    qproperty-stageLabelColor: #3c3c3c;
+    qproperty-fixtureTextColor: #000000;
+}
+
 QLabel#LightLaneTargets {
     background-color: #f5f5f5;
     color: #333333;

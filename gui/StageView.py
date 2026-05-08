@@ -1,6 +1,19 @@
 from PyQt6 import QtWidgets, QtGui, QtCore
+from PyQt6.QtCore import pyqtProperty
+from PyQt6.QtGui import QColor
 from gui.stage_items import FixtureItem, SpotItem
 from config.models import Spot
+
+
+# Fallback colours used only when QSS hasn't supplied a value yet (e.g.
+# the very first paint before the theme is applied). The active theme
+# overrides these via `qproperty-stageOutlineColor` and friends in the
+# theme stylesheets — see ``resources/themes/{dark,light}.qss``.
+_FALLBACK_OUTLINE = QColor(0, 0, 0)
+_FALLBACK_FILL = QColor(240, 240, 240)
+_FALLBACK_GRID = QColor(200, 200, 200)
+_FALLBACK_LABEL = QColor(60, 60, 60)
+_FALLBACK_FIXTURE_TEXT = QColor(0, 0, 0)
 
 
 class StageView(QtWidgets.QGraphicsView):
@@ -12,6 +25,16 @@ class StageView(QtWidgets.QGraphicsView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # Theme-driven colours — populated by Qt's stylesheet engine
+        # via ``qproperty-stageOutlineColor`` (etc.) rules in the
+        # active QSS theme. Initialised here to neutral defaults so a
+        # paint that races the first stylesheet apply still works.
+        self._stage_outline_color = QColor(_FALLBACK_OUTLINE)
+        self._stage_fill_color = QColor(_FALLBACK_FILL)
+        self._stage_grid_color = QColor(_FALLBACK_GRID)
+        self._stage_label_color = QColor(_FALLBACK_LABEL)
+        self._fixture_text_color = QColor(_FALLBACK_FIXTURE_TEXT)
+
         self.config = None  # Store configuration
         self.scene = QtWidgets.QGraphicsScene(self)
         self.setScene(self.scene)
@@ -52,6 +75,64 @@ class StageView(QtWidgets.QGraphicsView):
 
         # Initial update
         self.updateStage()
+
+    # ── Theme-driven colour properties ────────────────────────────────
+    # Each ``pyqtProperty(QColor, ...)`` is settable from QSS via
+    # ``qproperty-<name>`` so the theme files own these values. The
+    # setter triggers a viewport repaint and a fixture repaint so the
+    # plot updates immediately when the theme is swapped at runtime.
+
+    def _get_stage_outline_color(self):
+        return self._stage_outline_color
+
+    def _set_stage_outline_color(self, color):
+        self._stage_outline_color = QColor(color)
+        self._on_theme_color_changed()
+
+    stageOutlineColor = pyqtProperty(QColor, _get_stage_outline_color, _set_stage_outline_color)
+
+    def _get_stage_fill_color(self):
+        return self._stage_fill_color
+
+    def _set_stage_fill_color(self, color):
+        self._stage_fill_color = QColor(color)
+        self._on_theme_color_changed()
+
+    stageFillColor = pyqtProperty(QColor, _get_stage_fill_color, _set_stage_fill_color)
+
+    def _get_stage_grid_color(self):
+        return self._stage_grid_color
+
+    def _set_stage_grid_color(self, color):
+        self._stage_grid_color = QColor(color)
+        self._on_theme_color_changed()
+
+    stageGridColor = pyqtProperty(QColor, _get_stage_grid_color, _set_stage_grid_color)
+
+    def _get_stage_label_color(self):
+        return self._stage_label_color
+
+    def _set_stage_label_color(self, color):
+        self._stage_label_color = QColor(color)
+        self._on_theme_color_changed()
+
+    stageLabelColor = pyqtProperty(QColor, _get_stage_label_color, _set_stage_label_color)
+
+    def _get_fixture_text_color(self):
+        return self._fixture_text_color
+
+    def _set_fixture_text_color(self, color):
+        self._fixture_text_color = QColor(color)
+        self._on_theme_color_changed()
+
+    fixtureTextColor = pyqtProperty(QColor, _get_fixture_text_color, _set_fixture_text_color)
+
+    def _on_theme_color_changed(self):
+        """Repaint the chrome and every item when QSS pushes a new
+        colour. Called from each colour-property setter."""
+        self.viewport().update()
+        for item in self.scene.items():
+            item.update()
 
     def set_config(self, config):
         """Update the configuration and refresh the view"""
@@ -338,7 +419,14 @@ class StageView(QtWidgets.QGraphicsView):
         self.viewport().update()
 
     def drawBackground(self, painter, rect):
-        """Draw stage and grid with dimension labels"""
+        """Draw stage and grid with dimension labels.
+
+        Colours come from QSS via the ``stageOutlineColor`` /
+        ``stageFillColor`` / ``stageGridColor`` qproperties — see the
+        ``StageView { ... }`` block in each theme stylesheet. Centre
+        axes (red/blue) below stay hardcoded; they're "data" colours,
+        not theme chrome.
+        """
         super().drawBackground(painter, rect)
 
         # Convert stage dimensions to pixels and ensure they're integers
@@ -350,8 +438,8 @@ class StageView(QtWidgets.QGraphicsView):
         center_y_px = self.padding + depth_px / 2
 
         # Draw stage outline with padding
-        painter.setPen(QtGui.QPen(QtGui.QColor(0, 0, 0), 2))
-        painter.setBrush(QtGui.QBrush(QtGui.QColor(240, 240, 240)))
+        painter.setPen(QtGui.QPen(self._stage_outline_color, 2))
+        painter.setBrush(QtGui.QBrush(self._stage_fill_color))
         painter.drawRect(
             self.padding,
             self.padding,
@@ -363,8 +451,8 @@ class StageView(QtWidgets.QGraphicsView):
         if self.grid_visible:
             grid_size_px = int(self.grid_size_m * self.pixels_per_meter)
 
-            # Draw regular grid lines (light gray)
-            painter.setPen(QtGui.QPen(QtGui.QColor(200, 200, 200), 1))
+            # Draw regular grid lines (theme-aware secondary tone)
+            painter.setPen(QtGui.QPen(self._stage_grid_color, 1))
 
             # Draw vertical grid lines
             for x in range(self.padding, width_px + self.padding + 1, grid_size_px):
@@ -391,7 +479,7 @@ class StageView(QtWidgets.QGraphicsView):
         # Set up font for labels
         font = QtGui.QFont("Arial", 8)
         painter.setFont(font)
-        painter.setPen(QtGui.QPen(QtGui.QColor(60, 60, 60), 1))
+        painter.setPen(QtGui.QPen(self._stage_label_color, 1))
 
         # Calculate label interval (use 1m intervals, or 0.5m for small stages)
         label_interval_m = 1.0
@@ -474,6 +562,20 @@ class StageView(QtWidgets.QGraphicsView):
         """Handle window resize"""
         super().resizeEvent(event)
         self.updateStage()
+
+    def changeEvent(self, event):
+        """Repaint when the active QSS theme changes.
+
+        ``ThemeManager.apply`` re-polishes every widget after swapping
+        the stylesheet, which fires ``QEvent.StyleChange`` here. The
+        ``qproperty-*`` setters already nudge the viewport when QSS
+        pushes new colours, but theme switches that don't actually
+        change a colour (e.g. flipping back to the same theme) still
+        benefit from a defensive repaint — and it costs nothing.
+        """
+        super().changeEvent(event)
+        if event.type() == QtCore.QEvent.Type.StyleChange:
+            self._on_theme_color_changed()
 
     def mousePressEvent(self, event):
         """Handle mouse press for rubber band selection and context menu."""

@@ -455,6 +455,23 @@ QPushButton[density="compact"] {
     min-height: 0;
 }
 
+/* ── Stage view (Stage tab 2D plot) ──────────────────────────────────
+   StageView uses custom drawBackground rather than a stylesheet-painted
+   widget background, so colours are pushed in via qproperty-* setters
+   that the StageView class declares as pyqtProperty(QColor). Adding a
+   new theme means filling these in for the new theme — no Python edit
+   required. Centre red/blue axes inside the plot are "data" colours
+   and stay hardcoded. */
+StageView {
+    background-color: #1e1e1e;
+    border: 1px solid #3a3a3a;
+    qproperty-stageOutlineColor: #a0a0a0;
+    qproperty-stageFillColor: #2d2d2e;
+    qproperty-stageGridColor: #3a3a3a;
+    qproperty-stageLabelColor: #a0a0a0;
+    qproperty-fixtureTextColor: #e0e0e0;
+}
+
 QLabel#LightLaneTargets {
     background-color: #2d2d2d;
     color: #c0c0c0;

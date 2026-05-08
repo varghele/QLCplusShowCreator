@@ -104,15 +104,15 @@ class StageTab(BaseTab):
         orientation_group = QtWidgets.QGroupBox("Fixture Orientation")
         orientation_layout = QtWidgets.QVBoxLayout(orientation_group)
 
+        # Single checkbox — when on, every fixture draws its XYZ
+        # axes. The previous two-checkbox UX (selected-only by
+        # default, with a separate "Show all" toggle) was non-
+        # discoverable: checking only "Show orientation axes" with
+        # nothing selected made no visible change, so the user read
+        # the whole control as broken.
         self.show_axes_checkbox = QtWidgets.QCheckBox("Show orientation axes")
-        self.show_axes_checkbox.setToolTip("Show XYZ axes on fixtures when selected or hovered")
-
-        self.show_all_axes_checkbox = QtWidgets.QCheckBox("Show all axes")
-        self.show_all_axes_checkbox.setToolTip("Show axes on all fixtures (not just selected)")
-        self.show_all_axes_checkbox.setEnabled(False)  # Disabled until show_axes is checked
-
+        self.show_axes_checkbox.setToolTip("Show XYZ axes on every fixture")
         orientation_layout.addWidget(self.show_axes_checkbox)
-        orientation_layout.addWidget(self.show_all_axes_checkbox)
 
         # Plot stage group
         plot_group = QtWidgets.QGroupBox("Stage Plot")
@@ -236,9 +236,8 @@ class StageTab(BaseTab):
         # Visualizer controls
         self.launch_visualizer_btn.clicked.connect(self._launch_visualizer)
 
-        # Orientation display controls
+        # Orientation display control
         self.show_axes_checkbox.stateChanged.connect(self._on_show_axes_changed)
-        self.show_all_axes_checkbox.stateChanged.connect(self._on_show_all_axes_changed)
 
         # Orientation dialog trigger from right-click menu
         self.stage_view.set_orientation_requested.connect(self._on_set_orientation_requested)
@@ -532,24 +531,22 @@ class StageTab(BaseTab):
             print(f"Error notifying TCP server: {e}")
 
     def _on_show_axes_changed(self, state):
-        """Handle show orientation axes checkbox change."""
-        show_axes = bool(state)
-        FixtureItem.show_orientation_axes = show_axes
+        """Handle show orientation axes checkbox change.
 
-        # Enable/disable "show all" checkbox based on main checkbox
-        self.show_all_axes_checkbox.setEnabled(show_axes)
-        if not show_axes:
-            self.show_all_axes_checkbox.setChecked(False)
-
-        # Trigger redraw of all fixtures
-        self.stage_view.viewport().update()
-
-    def _on_show_all_axes_changed(self, state):
-        """Handle show all axes checkbox change."""
-        FixtureItem.show_all_axes = bool(state)
-
-        # Trigger redraw of all fixtures
-        self.stage_view.viewport().update()
+        Toggling a class-level attribute doesn't dirty any individual
+        QGraphicsItem, so ``viewport().update()`` alone wasn't
+        reliably getting the items to re-paint in the live app — each
+        item keeps its own bounding-rect-based dirty tracking and
+        treats itself as "still clean" when nothing about *itself*
+        changed. Calling ``item.update()`` on every fixture is the
+        canonical way to force a per-item repaint; ``scene.update()``
+        adds the viewport-level invalidation as defence in depth.
+        """
+        FixtureItem.show_orientation_axes = bool(state)
+        scene = self.stage_view.scene
+        for item in scene.items():
+            item.update()
+        scene.update()
 
     def _on_set_orientation_requested(self, fixture_items: list):
         """Handle right-click "Set Orientation" — re-bind the inline panel.
