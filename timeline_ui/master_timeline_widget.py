@@ -2,7 +2,8 @@
 # Master timeline widget showing song structure, playhead, and grid
 # Adapted from midimaker_and_show_structure/ui/master_timeline_widget.py
 
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QScrollArea
+from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
+                             QScrollArea, QStyle, QStyleOption)
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QRectF
 from PyQt6.QtGui import QPainter, QPen, QColor, QPolygon, QBrush
 from .timeline_widget import TimelineWidget
@@ -27,13 +28,8 @@ class MasterTimelineWidget(TimelineWidget):
 
         self.setMinimumHeight(40)
         self.setMinimumWidth(2000)
-        self.setStyleSheet("""
-            MasterTimelineWidget {
-                background-color: #e8e8e8;
-                border: 2px solid #bbb;
-                border-radius: 4px;
-            }
-        """)
+        # Background and border come from the active theme via the
+        # `MasterTimelineWidget` selector — no inline stylesheet here.
 
     def set_playhead_position(self, position: float):
         """Set playhead position and update display."""
@@ -65,6 +61,17 @@ class MasterTimelineWidget(TimelineWidget):
         """Draw the master timeline."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Render the QSS background/border for `MasterTimelineWidget` via
+        # the canonical Qt pattern. We can't call super().paintEvent here
+        # because TimelineWidget's paintEvent also draws grid/playhead and
+        # we'd double-paint. drawPrimitive(PE_Widget) just paints the QSS
+        # box decoration so the theme actually shows up.
+        opt = QStyleOption()
+        opt.initFrom(self)
+        self.style().drawPrimitive(
+            QStyle.PrimitiveElement.PE_Widget, opt, painter, self,
+        )
 
         width = self.width()
         height = self.height()
@@ -102,9 +109,13 @@ class MasterTimelineWidget(TimelineWidget):
                 painter.setPen(border_pen)
                 painter.drawRect(int(start_x), 0, int(end_x - start_x), height)
 
-                # Draw part name if there's enough space
+                # Draw part name if there's enough space. Use the part's
+                # color luminance to pick a contrasting text color so labels
+                # stay readable regardless of the chosen part color or
+                # active theme.
                 if end_x - start_x > 50:
-                    painter.setPen(QPen(QColor("#000000"), 1))
+                    label_color = QColor("#000000") if QColor(part.color).lightness() > 140 else QColor("#ffffff")
+                    painter.setPen(QPen(label_color, 1))
                     font = painter.font()
                     font.setPointSize(9)
                     font.setBold(True)
@@ -134,8 +145,9 @@ class MasterTimelineWidget(TimelineWidget):
                         hasattr(self.song_structure, 'parts') and self.song_structure.parts)
         if has_structure:
             try:
-                bar_pen = QPen(QColor("#666666"), 1)
-                beat_pen = QPen(QColor("#aaaaaa"), 1)
+                # Semi-transparent gray reads on both dark and light themes.
+                bar_pen = QPen(QColor(127, 127, 127, 200), 1)
+                beat_pen = QPen(QColor(127, 127, 127, 100), 1)
 
                 num_parts = len(self.song_structure.parts)
                 for part_idx, part in enumerate(self.song_structure.parts):

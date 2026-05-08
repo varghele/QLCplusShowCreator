@@ -86,9 +86,15 @@ class TimelineGrid(QWidget):
 
         # Right stripe column — horizontally scrolled (shared by every row)
         # and vertically scrolled by the outer container.
+        # widgetResizable MUST be True: the inner widget contains a
+        # QVBoxLayout that demands ≥2000 px width via the timeline rows'
+        # minimum widths, but Qt only honours the layout's sizeHint when
+        # the scrollarea is told to manage the inner widget's size. With
+        # widgetResizable=False, the inner widget's geometry stays QRect()
+        # (0×0) and every stripe renders invisibly inside it.
         self.stripes_scroll = QScrollArea()
         self.stripes_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.stripes_scroll.setWidgetResizable(False)
+        self.stripes_scroll.setWidgetResizable(True)
         self.stripes_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.stripes_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 

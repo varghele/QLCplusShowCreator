@@ -45,7 +45,12 @@ class TimelineWidget(QWidget):
 
         self.setMinimumHeight(60)
         self.update_timeline_width()
-        self.setStyleSheet("background-color: #f8f8f8; border: 1px solid #ddd;")
+        # Background and border come from the active theme via the
+        # `TimelineWidget` selector. No inline setStyleSheet here — it
+        # would override the theme. WA_StyledBackground is required for
+        # QSS background rules to render on plain QWidget subclasses;
+        # without it, super().paintEvent() leaves the widget transparent.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
     def update_timeline_width(self):
         """Update timeline width based on zoom level and song structure."""
@@ -226,9 +231,11 @@ class TimelineWidget(QWidget):
 
     def draw_song_structure_grid(self, painter, width, height):
         """Draw grid based on song structure."""
-        beat_pen = QPen(QColor("#cccccc"), 1)
-        bar_pen = QPen(QColor("#999999"), 2)
-        part_pen = QPen(QColor("#666666"), 3)
+        # Semi-transparent neutral gray reads on both dark and light themes
+        # without needing explicit theme detection.
+        beat_pen = QPen(QColor(127, 127, 127, 80), 1)
+        bar_pen = QPen(QColor(127, 127, 127, 160), 2)
+        part_pen = QPen(QColor(127, 127, 127, 220), 3)
 
         num_parts = len(self.song_structure.parts)
         for part_idx, part in enumerate(self.song_structure.parts):
@@ -257,8 +264,8 @@ class TimelineWidget(QWidget):
 
     def draw_basic_grid(self, painter, width, height):
         """Draw basic grid without song structure (time-based)."""
-        beat_pen = QPen(QColor("#cccccc"), 1)
-        bar_pen = QPen(QColor("#999999"), 2)
+        beat_pen = QPen(QColor(127, 127, 127, 80), 1)
+        bar_pen = QPen(QColor(127, 127, 127, 160), 2)
 
         seconds_per_beat = 60.0 / self.bpm
         beat_count = 0
@@ -311,7 +318,7 @@ class TimelineWidget(QWidget):
         if self.num_sublanes <= 1:
             return
 
-        separator_pen = QPen(QColor("#666666"), 1, Qt.PenStyle.DashLine)
+        separator_pen = QPen(QColor(127, 127, 127, 200), 1, Qt.PenStyle.DashLine)
         painter.setPen(separator_pen)
 
         for i in range(1, self.num_sublanes):

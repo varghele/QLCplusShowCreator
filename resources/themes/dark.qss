@@ -371,6 +371,26 @@ QLabel#TimeReadoutSecondary {
     color: #6a6a6a;
 }
 
+/* ── Timeline ruler + lane stripes ─────────────────────────────────── */
+/* Order matters: Qt QSS treats class selectors as equal specificity, so the
+   later rule wins for any widget that matches both. Put the BASE class
+   first and DERIVED classes after — otherwise MasterTimelineWidget
+   instances pick up the TimelineWidget rule and the more specific one is
+   silently dropped.
+   Background paints via PE_Widget in MasterTimelineWidget.paintEvent /
+   via WA_StyledBackground in TimelineWidget — without those, QSS bg
+   rules have no effect on these QWidget subclasses. */
+TimelineWidget {
+    background-color: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+}
+MasterTimelineWidget {
+    background-color: #252526;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+}
+
 /* ── Audio + light lanes (subtle role-based tint) ──────────────────── */
 AudioLaneWidget {
     background-color: #1a2a3a;
@@ -381,6 +401,16 @@ LightLaneWidget {
     background-color: #2a2a2a;
     border: 1px solid #3d3d3d;
     border-radius: 4px;
+}
+
+/* Compact buttons — used for tight icon-style buttons (M / S / × / etc.)
+   in the timeline lane controls. The base QPushButton padding (6px 14px)
+   crushes text in the small fixed-size buttons; this rule gives them
+   appropriate padding for their size. `size` is a separate property axis
+   from `role` so a button can be both `role=destructive` and `size=compact`. */
+QPushButton[size="compact"] {
+    padding: 2px 4px;
+    min-height: 0;
 }
 
 QLabel#LightLaneTargets {

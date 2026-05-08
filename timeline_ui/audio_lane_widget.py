@@ -174,10 +174,12 @@ class AudioLaneWidget(QFrame):
         controls_layout = QHBoxLayout()
 
         # Mute button — :checked state is data-driven; theme handles base look,
-        # destructive role colors the button red when mute is engaged.
+        # the inline :checked rule colors it red when engaged.
+        # size=compact gives tight padding so "M" fits the 30×25 fixed size.
         self.mute_button = QPushButton("M")
         self.mute_button.setFixedSize(30, 25)
         self.mute_button.setCheckable(True)
+        self.mute_button.setProperty("size", "compact")
         self.mute_button.toggled.connect(self._on_mute_toggled)
         self.mute_button.setStyleSheet(
             "QPushButton:checked { background-color: #d32f2f; color: white; "
