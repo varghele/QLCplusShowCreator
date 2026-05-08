@@ -346,9 +346,12 @@ LightLaneWidget {
 /* Compact buttons — used for tight icon-style buttons (M / S / × / etc.)
    in the timeline lane controls. The base QPushButton padding (6px 14px)
    crushes text in the small fixed-size buttons; this rule gives them
-   appropriate padding for their size. `size` is a separate property axis
-   from `role` so a button can be both `role=destructive` and `size=compact`. */
-QPushButton[size="compact"] {
+   appropriate padding for their size. `density` is a separate property
+   axis from `role` so a button can be both `role=destructive` and
+   `density=compact`. NB: do NOT name this property `size` — Qt has a
+   built-in Q_PROPERTY `size` of type QSize for the widget geometry,
+   so setProperty("size", "compact") silently does nothing. */
+QPushButton[density="compact"] {
     padding: 2px 4px;
     min-height: 0;
 }

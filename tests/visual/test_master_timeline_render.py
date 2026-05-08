@@ -134,6 +134,78 @@ def test_master_timeline_renders_in_grid(qapp):
         grid.deleteLater()
 
 
+def test_audio_header_is_not_squished_when_embedded(qapp):
+    """The audio lane controls (title / file+load / mute+vol) need ≥100 px
+    of vertical space. TimelineGrid.set_audio_lane previously used the
+    bare timeline-stripe min height (60) and squished the header."""
+    from gui.theme_manager import ThemeManager
+    from timeline_ui.audio_lane_widget import AudioLaneWidget
+    from timeline_ui.master_timeline_widget import MasterTimelineContainer
+    from timeline_ui.timeline_grid import TimelineGrid
+
+    ThemeManager().apply(qapp, "dark")
+    master = MasterTimelineContainer()
+    audio = AudioLaneWidget()
+    grid = TimelineGrid()
+    try:
+        grid.set_master(master)
+        grid.set_audio_lane(audio)
+        grid.resize(1200, 220)
+        grid.show()
+        for _ in range(5):
+            qapp.processEvents()
+
+        header_height = audio.controls_widget.height()
+        assert header_height >= 100, (
+            f"Audio header is squished to {header_height} px — "
+            "TimelineGrid.set_audio_lane is probably using the bare "
+            "TimelineWidget min height (60) instead of honouring the "
+            "audio lane's 100-px floor."
+        )
+    finally:
+        grid.hide()
+        grid.deleteLater()
+
+
+def test_compact_button_padding_takes_effect(qapp):
+    """The lane-control M / S / × buttons set density=compact so the
+    QSS rule QPushButton[density="compact"] tightens their padding.
+    Regression: the property used to be `size`, which collides with
+    Qt's built-in QSize Q_PROPERTY — setProperty silently did nothing
+    and the buttons kept the global 6×14 padding, crushing the text."""
+    from PyQt6.QtWidgets import QPushButton
+    from gui.theme_manager import ThemeManager
+
+    ThemeManager().apply(qapp, "dark")
+    compact = QPushButton("M")
+    compact.setProperty("density", "compact")
+    plain = QPushButton("M")
+    try:
+        compact.show()
+        plain.show()
+        for _ in range(3):
+            qapp.processEvents()
+        # The compact rule sets padding 2×4 + min-height 0 — its sizeHint
+        # should be smaller than a vanilla QPushButton with the same text.
+        compact_hint = compact.sizeHint()
+        plain_hint = plain.sizeHint()
+        assert compact_hint.width() < plain_hint.width(), (
+            f"density=compact didn't shrink the button — compact "
+            f"{compact_hint} vs plain {plain_hint}. Likely causes: the "
+            "QSS rule selector is wrong, or the property name collides "
+            "with a Qt built-in (don't use 'size')."
+        )
+        assert compact_hint.height() < plain_hint.height(), (
+            f"density=compact didn't shrink height — compact "
+            f"{compact_hint} vs plain {plain_hint}."
+        )
+    finally:
+        compact.hide()
+        plain.hide()
+        compact.deleteLater()
+        plain.deleteLater()
+
+
 @pytest.mark.parametrize(
     "theme,expected_bg",
     [("dark", (0x2A, 0x2A, 0x2A)), ("light", (0xF8, 0xF8, 0xF8))],

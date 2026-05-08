@@ -165,6 +165,10 @@ class AudioLaneWidget(QFrame):
 
         self.load_button = QPushButton("Load")
         self.load_button.setFixedWidth(50)
+        # density=compact tightens padding so "Load" fits in 50 px wide;
+        # the global 6×14 padding leaves only 22 px for the text and
+        # crushes it.
+        self.load_button.setProperty("density", "compact")
         self.load_button.clicked.connect(self._on_load_clicked)
         file_layout.addWidget(self.load_button)
 
@@ -175,11 +179,13 @@ class AudioLaneWidget(QFrame):
 
         # Mute button — :checked state is data-driven; theme handles base look,
         # the inline :checked rule colors it red when engaged.
-        # size=compact gives tight padding so "M" fits the 30×25 fixed size.
+        # density=compact gives tight padding so "M" fits the 30×25 fixed size.
+        # (Don't use "size" as the property name — collides with Qt's
+        # built-in QSize geometry property and is silently ignored.)
         self.mute_button = QPushButton("M")
         self.mute_button.setFixedSize(30, 25)
         self.mute_button.setCheckable(True)
-        self.mute_button.setProperty("size", "compact")
+        self.mute_button.setProperty("density", "compact")
         self.mute_button.toggled.connect(self._on_mute_toggled)
         self.mute_button.setStyleSheet(
             "QPushButton:checked { background-color: #d32f2f; color: white; "

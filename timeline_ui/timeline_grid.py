@@ -157,9 +157,14 @@ class TimelineGrid(QWidget):
         if self._audio_lane is not None:
             return
         self._audio_lane = audio_lane
+        # Capture the audio lane's own minimum height BEFORE detach_pieces
+        # tears down its layout — that's where the floor for the 3-row
+        # header (title / file+load / mute+vol) lives. Using
+        # stripe.minimumHeight() alone gives 60 (the bare TimelineWidget
+        # floor) which squishes the header.
+        audio_min = audio_lane.minimumHeight()
         header, stripe = audio_lane.detach_pieces()
-        # Reuse the audio lane's minimum height; clamp matching height across.
-        row_height = stripe.minimumHeight() or 100
+        row_height = max(stripe.minimumHeight(), audio_min, 100)
         header.setMinimumHeight(row_height)
         header.setMaximumHeight(row_height)
         stripe.setMinimumHeight(row_height)

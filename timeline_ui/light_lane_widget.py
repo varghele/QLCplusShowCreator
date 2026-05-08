@@ -140,9 +140,10 @@ class LightLaneWidget(QFrame):
 
         self.remove_button = QPushButton("×")
         self.remove_button.setFixedSize(25, 25)
-        # size=compact gives tight padding so "×" fits in 25×25; role
+        # density=compact gives tight padding so "×" fits in 25×25; role
         # still drives the destructive color. Two independent property axes.
-        self.remove_button.setProperty("size", "compact")
+        # ("size" would collide with Qt's QSize Q_PROPERTY — don't use it.)
+        self.remove_button.setProperty("density", "compact")
         self.remove_button.setProperty("role", "destructive")
         self.remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
         name_layout.addWidget(self.remove_button)
@@ -174,12 +175,12 @@ class LightLaneWidget(QFrame):
         controls_layout = QHBoxLayout()
 
         # Mute button — base look from theme; :checked goes red.
-        # size=compact gives tight padding so "M" fits 30×25.
+        # density=compact gives tight padding so "M" fits 30×25.
         self.mute_button = QPushButton("M")
         self.mute_button.setFixedSize(30, 25)
         self.mute_button.setCheckable(True)
         self.mute_button.setChecked(self.lane.muted)
-        self.mute_button.setProperty("size", "compact")
+        self.mute_button.setProperty("density", "compact")
         self.mute_button.setStyleSheet(
             "QPushButton:checked { background-color: #d32f2f; color: white; "
             "border-color: #b71c1c; }"
@@ -192,7 +193,7 @@ class LightLaneWidget(QFrame):
         self.solo_button.setFixedSize(30, 25)
         self.solo_button.setCheckable(True)
         self.solo_button.setChecked(self.lane.solo)
-        self.solo_button.setProperty("size", "compact")
+        self.solo_button.setProperty("density", "compact")
         self.solo_button.setStyleSheet(
             "QPushButton:checked { background-color: #FFC107; color: #222; "
             "border-color: #FFA000; }"
