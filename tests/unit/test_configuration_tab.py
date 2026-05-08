@@ -155,6 +155,34 @@ def test_disabled_cell_gets_dim_foreground(qapp):
         tab.deleteLater()
 
 
+def test_toolbar_buttons_match_default_button_styling(qapp):
+    """The +/- toolbar buttons share styling with the surrounding
+    Refresh / Update text buttons: default theme padding (no
+    ``density="compact"``) and a fixed ``TOOLBAR_BTN_WIDTH`` so they
+    line up. Pre-fix attempts used compact-density which made them
+    read as a different widget class from their text-button
+    neighbours, so the tab looked inconsistent with FixturesTab. The
+    contract: NO compact density, fixed width matching
+    ``TOOLBAR_BTN_WIDTH``, height free.
+    """
+    from gui.tabs.configuration_tab import TOOLBAR_BTN_WIDTH
+
+    tab = _make_tab(qapp, "ArtNet")
+    try:
+        # No compact-density: rely on the default
+        # ``QPushButton { padding: 6px 14px; }`` rule.
+        assert tab.add_universe_btn.property("density") in (None, "")
+        assert tab.remove_universe_btn.property("density") in (None, "")
+        # Sanity: the button text is what we think it is.
+        assert tab.add_universe_btn.text() == "+"
+        assert tab.remove_universe_btn.text() == "-"
+        for btn in (tab.add_universe_btn, tab.remove_universe_btn):
+            assert btn.minimumWidth() == TOOLBAR_BTN_WIDTH
+            assert btn.maximumWidth() == TOOLBAR_BTN_WIDTH
+    finally:
+        tab.deleteLater()
+
+
 def test_e131_row_keeps_multicast_and_port_editable(qapp):
     """The E1.31 protocol uses both Multicast and Port. The cells must
     be enabled/clickable AND lack the hardcoded white background.

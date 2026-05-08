@@ -98,21 +98,29 @@ class FixturesTab(BaseTab):
         toolbar = QtWidgets.QHBoxLayout()
         toolbar.setSpacing(8)
 
-        # Add Fixture button
+        # Toolbar +/-/duplicate buttons share styling with
+        # ConfigurationTab via TOOLBAR_BTN_WIDTH. Default theme
+        # padding (no compact-density) so the icon buttons render
+        # with the same proportions as default text buttons elsewhere
+        # — when the user compared this tab to ConfigurationTab the
+        # compact-density flavour was reading as a different class
+        # of widget than the Refresh / Update buttons that share
+        # ConfigurationTab's toolbar. Default styling everywhere is
+        # the simplest way to keep them visually consistent.
+        from gui.tabs.configuration_tab import TOOLBAR_BTN_WIDTH
+
         self.add_btn = QtWidgets.QPushButton("+")
-        self.add_btn.setFixedSize(31, 31)
+        self.add_btn.setFixedWidth(TOOLBAR_BTN_WIDTH)
         self.add_btn.setToolTip("Add Fixture")
         toolbar.addWidget(self.add_btn)
 
-        # Remove Fixture button
         self.remove_btn = QtWidgets.QPushButton("-")
-        self.remove_btn.setFixedSize(31, 31)
+        self.remove_btn.setFixedWidth(TOOLBAR_BTN_WIDTH)
         self.remove_btn.setToolTip("Remove Fixture")
         toolbar.addWidget(self.remove_btn)
 
-        # Duplicate Fixture button
         self.duplicate_btn = QtWidgets.QPushButton("⎘")
-        self.duplicate_btn.setFixedSize(31, 31)
+        self.duplicate_btn.setFixedWidth(TOOLBAR_BTN_WIDTH)
         self.duplicate_btn.setToolTip("Duplicate Fixture")
         toolbar.addWidget(self.duplicate_btn)
 

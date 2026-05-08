@@ -21,6 +21,21 @@ from .base_tab import BaseTab
 # `QTableView::item` selector would block them.
 _DISABLED_FG = QBrush(QColor(127, 127, 127))
 
+# Shared toolbar icon-button width for the +/-/duplicate buttons in
+# this tab and FixturesTab. We deliberately do NOT use
+# ``density="compact"`` — at this size the default theme padding
+# (``QPushButton { padding: 6px 14px; min-height: 22px; }``) renders
+# the glyph with the same proportions as the surrounding text
+# buttons (Refresh / Update), so a row of mixed icon-and-text
+# buttons reads as a uniform set. Compact-density buttons sat
+# snugly with 2×4 padding which made them look like a different
+# class of widget. Width is fixed at 40 to give the wider ``⎘``
+# glyph a little headroom; height is left free so the natural
+# ~36 px from the QSS min-height + padding wins.
+TOOLBAR_BTN_WIDTH = 40
+TOOLBAR_BTN_SIZE = TOOLBAR_BTN_WIDTH  # back-compat alias for tests
+_TOOLBAR_BTN_WIDTH = TOOLBAR_BTN_WIDTH
+
 
 class ConfigurationTab(BaseTab):
     """Universe configuration management tab
@@ -64,15 +79,20 @@ class ConfigurationTab(BaseTab):
         toolbar = QtWidgets.QHBoxLayout()
         toolbar.setSpacing(8)
 
-        # Add Universe button
+        # Add Universe button. Width is fixed (so the icon buttons
+        # line up uniformly), height is left to the theme's natural
+        # ~36 px so the icon buttons share the same row height as the
+        # Refresh / Update text buttons next to them. We deliberately
+        # don't use ``density="compact"`` — see TOOLBAR_BTN_WIDTH for
+        # the rationale.
         self.add_universe_btn = QtWidgets.QPushButton("+")
-        self.add_universe_btn.setFixedSize(31, 31)
+        self.add_universe_btn.setFixedWidth(_TOOLBAR_BTN_WIDTH)
         self.add_universe_btn.setToolTip("Add Universe")
         toolbar.addWidget(self.add_universe_btn)
 
         # Remove Universe button
         self.remove_universe_btn = QtWidgets.QPushButton("-")
-        self.remove_universe_btn.setFixedSize(31, 31)
+        self.remove_universe_btn.setFixedWidth(_TOOLBAR_BTN_WIDTH)
         self.remove_universe_btn.setToolTip("Remove Universe")
         toolbar.addWidget(self.remove_universe_btn)
 
