@@ -411,10 +411,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.menuRender.addAction(self.actionRenderToVideo)
         self.actionRenderToVideo.triggered.connect(self.render_to_video)
 
-        # Ctrl+L now focuses the embedded Live tab (index 5) — Live Mode
-        # used to be a separate window opened from a "Live" menu, but
-        # UI_MODERNIZATION_PLAN step 9 folded it in as the sixth tab.
-        self.actionGotoLive = QAction("Live Mode", self)
+        # Ctrl+L focuses the embedded Auto tab (index 5) — the auto-DJ
+        # audio-reactive lighting mode. Was originally a separate "Live
+        # Mode" window opened from a "Live" menu; UI_MODERNIZATION_PLAN
+        # step 9 folded it in as the sixth tab, and it was renamed to
+        # "Auto" since the engine is the auto-generation pipeline driven
+        # by live audio rather than a generic "live mode".
+        self.actionGotoLive = QAction("Auto Mode", self)
         self.actionGotoLive.setShortcut("Ctrl+L")
         self.actionGotoLive.triggered.connect(
             lambda: self.tabWidget.setCurrentIndex(5)

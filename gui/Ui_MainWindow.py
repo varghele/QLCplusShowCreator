@@ -117,7 +117,7 @@ class Ui_MainWindow(object):
         self.tabWidget.addTab(self.tab_stage, "Stage")
         self.tabWidget.addTab(self.tab_structure, "Structure")
         self.tabWidget.addTab(self.tab_2, "Shows")
-        self.tabWidget.addTab(self.tab_live, "Live")
+        self.tabWidget.addTab(self.tab_live, "Auto")
 
         self.horizontalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
@@ -137,7 +137,7 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_stage), _translate("MainWindow", "Stage"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_structure), _translate("MainWindow", "Structure"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Shows"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_live), _translate("MainWindow", "Live"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_live), _translate("MainWindow", "Auto"))
         # Toolbar actions
         self.saveAction.setText(_translate("MainWindow", "Save Configuration"))
         self.loadAction.setText(_translate("MainWindow", "Load Configuration"))

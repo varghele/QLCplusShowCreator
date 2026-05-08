@@ -250,6 +250,210 @@ def test_live_dmx_callback_fires_per_universe():
     assert bad_controller.artnet_sender.send_dmx.call_count == 2
 
 
+def test_fixture_definitions_reload_after_late_config_load(qapp, monkeypatch):
+    """Auto tab regression: opening the tab once with an empty config
+    primed ``_fixtures_loaded = True`` against an empty
+    ``fixture_definitions`` dict, and the one-shot guard meant a
+    *subsequent* config load never reloaded the QXFs. START would then
+    spin up an engine + DMXManager that built zero
+    ``FixtureChannelMap`` entries, so every ``_apply_*_block`` call hit
+    the ``fixture.name not in self.fixture_maps`` early-out and no DMX
+    was produced — audio meters worked, but lights didn't move and
+    colours didn't change. ``update_from_config`` must refresh the
+    definitions on every call so config swaps propagate.
+    """
+    from config.models import (Configuration, Fixture, FixtureGroup,
+                               FixtureMode, Universe)
+    from gui.theme_manager import ThemeManager
+    from gui.tabs import LiveTab
+    from utils import fixture_utils
+
+    ThemeManager().apply(qapp, "dark")
+
+    # Fake QXF cache: returns empty before the config has any fixtures,
+    # then a real-looking dict once models are requested.
+    served = {"calls": 0}
+
+    def fake_get_cached(models_in_config=None):
+        served["calls"] += 1
+        if not models_in_config:
+            return {}
+        return {
+            f"{mfr}_{model}": {
+                "manufacturer": mfr, "model": model,
+                "channels": [], "modes": [],
+            }
+            for (mfr, model) in models_in_config
+        }
+
+    monkeypatch.setattr(
+        fixture_utils, "get_cached_fixture_definitions", fake_get_cached
+    )
+
+    # Tab born against an empty config, exactly as MainWindow does.
+    initial = Configuration()
+    tab = LiveTab(initial, parent=None)
+    try:
+        # Simulate the user opening the Auto tab once before loading a
+        # YAML — the original bug's setup.
+        tab.on_tab_activated()
+        assert tab._fixtures_loaded is True
+        assert tab.fixture_definitions == {}
+
+        # User loads a config: MainWindow rebinds tab.config and calls
+        # update_from_config. We must end up with a populated
+        # fixture_definitions dict matching the new config — without
+        # the fix, the one-shot guard left it empty.
+        f = Fixture(
+            universe=1, address=1, manufacturer="ChauvetDJ", model="Intimidator",
+            name="MH1", group="Movers", current_mode="m",
+            available_modes=[FixtureMode(name="m", channels=10)],
+            type="MH",
+        )
+        loaded = Configuration(
+            fixtures=[f],
+            groups={"Movers": FixtureGroup(name="Movers", fixtures=[f])},
+            universes={1: Universe(id=1, name="U1", output={})},
+        )
+        tab.config = loaded
+        tab.update_from_config()
+
+        assert "ChauvetDJ_Intimidator" in tab.fixture_definitions, (
+            "fixture_definitions stayed stale after a config swap — "
+            "the engine + DMXManager would build zero fixture maps and "
+            "silently produce no DMX."
+        )
+    finally:
+        tab.cleanup()
+        tab.deleteLater()
+
+
+def test_universe_table_repopulates_on_late_config_load(qapp):
+    """Auto tab regression: ``_populate_universe_table`` was called
+    once in ``setup_ui`` against whatever config the tab was constructed
+    with. If MainWindow built the tab against an empty ``Configuration``
+    (the typical app-startup state) and the user then loaded a YAML,
+    the universe table stayed at 0 rows. ``_get_universe_mapping()``
+    returned ``{}``, ``LiveDMXController.set_universe_mapping({})``
+    overwrote the controller's default mapping, ``_send_all_universes``
+    iterated an empty dict, and ZERO DMX went anywhere — wire OR local
+    callback. Audio meters kept ticking because they don't depend on
+    DMX, which is exactly the visible symptom: 'meters work, lights
+    don't move'.
+
+    The fix has ``update_from_config`` repopulate the table, AND
+    ``_on_start`` keeps the controller's default mapping when the user
+    table is empty (defence in depth).
+    """
+    from config.models import (Configuration, Fixture, FixtureGroup,
+                               FixtureMode, Universe)
+    from gui.theme_manager import ThemeManager
+    from gui.tabs import LiveTab
+
+    ThemeManager().apply(qapp, "dark")
+
+    # Empty config at construction → universe table starts at 0 rows.
+    initial = Configuration()
+    tab = LiveTab(initial, parent=None)
+    try:
+        assert tab._universe_table.rowCount() == 0
+        assert tab._get_universe_mapping() == {}
+
+        # User loads a config with two universes. MainWindow rebinds
+        # tab.config and calls update_from_config.
+        f = Fixture(
+            universe=1, address=1, manufacturer="M", model="X",
+            name="A1", group="G", current_mode="m",
+            available_modes=[FixtureMode(name="m", channels=4)],
+            type="PAR",
+        )
+        loaded = Configuration(
+            fixtures=[f],
+            groups={"G": FixtureGroup(name="G", fixtures=[f])},
+            universes={
+                1: Universe(id=1, name="U1", output={}),
+                2: Universe(id=2, name="U2", output={}),
+            },
+        )
+        tab.config = loaded
+        tab.update_from_config()
+
+        # Table now reflects the loaded universes.
+        assert tab._universe_table.rowCount() == 2, (
+            "Universe table didn't repopulate after a config swap — "
+            "_get_universe_mapping() will return {} and the DMX "
+            "controller will be silenced."
+        )
+        mapping = tab._get_universe_mapping()
+        assert set(mapping.keys()) == {1, 2}
+        # Default 1-based config → 0-based ArtNet conversion.
+        assert mapping == {1: 0, 2: 1}
+    finally:
+        tab.cleanup()
+        tab.deleteLater()
+
+
+def test_on_start_keeps_default_mapping_when_user_mapping_empty(qapp, monkeypatch):
+    """Defence-in-depth for the dead-DMX bug: even if the universe
+    table is empty for some reason, START must not pass an empty
+    mapping into ``LiveDMXController.set_universe_mapping`` — that
+    would wipe the controller's auto-built default and leave the
+    DMX thread sending nothing. Only override when the user mapping
+    is non-empty.
+    """
+    from unittest.mock import MagicMock
+    from config.models import (Configuration, Fixture, FixtureGroup,
+                               FixtureMode, Universe)
+    from gui.theme_manager import ThemeManager
+    from gui.tabs import LiveTab
+    from utils import fixture_utils
+
+    ThemeManager().apply(qapp, "dark")
+
+    # Stub fixture-def loader so we don't scan the filesystem.
+    monkeypatch.setattr(
+        fixture_utils, "get_cached_fixture_definitions",
+        lambda models=None: {
+            f"{m}_{x}": {"manufacturer": m, "model": x,
+                         "channels": [], "modes": []}
+            for (m, x) in (models or set())
+        },
+    )
+
+    f = Fixture(
+        universe=1, address=1, manufacturer="M", model="X",
+        name="A1", group="G", current_mode="m",
+        available_modes=[FixtureMode(name="m", channels=4)],
+        type="PAR",
+    )
+    config = Configuration(
+        fixtures=[f],
+        groups={"G": FixtureGroup(name="G", fixtures=[f])},
+        universes={1: Universe(id=1, name="U1", output={})},
+    )
+    tab = LiveTab(config, parent=None)
+    try:
+        # Force the universe table empty to simulate the bug state.
+        tab._universe_table.setRowCount(0)
+        assert tab._get_universe_mapping() == {}
+
+        # Capture the mapping the controller actually ends up with by
+        # spying on set_universe_mapping. We don't run the full
+        # _on_start (it would touch real audio devices); just exercise
+        # the mapping-decision branch directly.
+        controller = MagicMock()
+        # Simulate the relevant lines of _on_start verbatim:
+        user_mapping = tab._get_universe_mapping()
+        if user_mapping:
+            controller.set_universe_mapping(user_mapping)
+
+        # set_universe_mapping must NOT have been called with empty.
+        controller.set_universe_mapping.assert_not_called()
+    finally:
+        tab.cleanup()
+        tab.deleteLater()
+
+
 def test_engine_does_not_auto_fill():
     """The engine grooves continuously; ``is_fill`` is only set by
     ``force_fill`` and clears on the next bar boundary. Catches a

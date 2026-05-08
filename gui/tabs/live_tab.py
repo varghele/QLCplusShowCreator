@@ -441,17 +441,11 @@ class LiveTab(BaseTab):
         layout.insertWidget(index, new_widget)
 
     def on_tab_activated(self):
-        # Lazy fixture-definitions load — first time the user opens the
-        # tab, parse the QXF files for every (manufacturer, model) the
-        # config references. Skipping this on app startup keeps cold
-        # start cheap.
-        if not self._fixtures_loaded:
-            self._load_fixture_definitions()
-            self._fixtures_loaded = True
-
         # Pick up any config edits that happened while the tab was
         # invisible — group submasters / riff constraints / movement
-        # plane all key off config.groups + stage geometry.
+        # plane all key off config.groups + stage geometry. This also
+        # refreshes the QXF fixture-definitions dict so engine / DMX
+        # spin-up at START doesn't run against a stale snapshot.
         self.update_from_config()
 
         # If the engine is still running (e.g. the user peeked at another
@@ -474,11 +468,35 @@ class LiveTab(BaseTab):
     # the auto-save behaviour from BaseTab is replaced — the engine /
     # DMX state lives in self, not in self.config.
     def update_from_config(self):
+        # Refresh QXF fixture definitions for the current config. The
+        # one-shot ``_fixtures_loaded`` flag in on_tab_activated only
+        # primed the cache once; without this re-call, loading a YAML
+        # *after* the Auto tab had already been activated with an empty
+        # config left ``fixture_definitions`` empty forever — START
+        # would then build zero FixtureChannelMaps and DMXManager would
+        # silently skip every fixture in _apply_*_block (the
+        # ``if fixture.name not in self.fixture_maps: continue`` guard).
+        # Audio meters stayed alive because they don't depend on DMX,
+        # which is exactly the symptom the user reported.
+        self._load_fixture_definitions()
+        self._fixtures_loaded = True
+
         # Refresh the plane combo when stage geometry changes; harmless
         # to call repeatedly because _populate_plane_combo restores the
         # selection.
         if hasattr(self, "_plane_combo"):
             self._populate_plane_combo()
+        # Rebuild the universe-mapping table from the new
+        # ``config.universes`` set. Without this, the table stayed at
+        # whatever was populated at setup_ui time (0 rows for an empty
+        # initial config), and _on_start's _get_universe_mapping()
+        # returned ``{}`` — which then overwrote the controller's
+        # default mapping with empty, so _send_all_universes iterated
+        # nothing and ZERO DMX went anywhere (wire or local callback).
+        # The user's "audio meters tick but nothing moves" symptom is
+        # the visible end of that chain.
+        if hasattr(self, "_universe_table"):
+            self._populate_universe_table()
         # Rebuild riff-constraints + submasters when the group set has
         # changed (e.g. user loaded a config file after MainWindow had
         # already constructed this tab — without this, the panel stays
@@ -536,19 +554,30 @@ class LiveTab(BaseTab):
     # ── Lazy fixture definitions ──────────────────────────────────────
 
     def _load_fixture_definitions(self):
-        """Parse QXF files for every (manufacturer, model) in the config.
+        """Refresh QXF definitions for every (manufacturer, model) the
+        current config references.
 
-        Run once on first tab activation. If parsing fails we leave
-        ``fixture_definitions`` empty — START will then refuse to spin
-        up the engine, but the rest of the tab UI stays interactive.
+        Idempotent and cheap thanks to ``get_cached_fixture_definitions``
+        — only models that aren't already in the module-level cache
+        actually trigger a filesystem scan. Safe to call from
+        ``update_from_config`` on every config swap so the engine and
+        DMX manager don't operate on a stale dict from before the user
+        loaded a YAML / imported a workspace.
+
+        Failure is non-fatal: ``fixture_definitions`` is left empty,
+        START will fail to build any fixture maps, and DMX won't be
+        produced — but the rest of the tab UI stays interactive.
         """
         try:
             models_in_config = {(f.manufacturer, f.model)
                                 for g in self.config.groups.values()
                                 for f in g.fixtures}
-            from utils.fixture_utils import load_fixture_definitions_from_qlc
-            self.fixture_definitions = load_fixture_definitions_from_qlc(
-                models_in_config
+            from utils.fixture_utils import get_cached_fixture_definitions
+            # Returns the *full* cache dict, with any new models scanned
+            # in. Copy so subsequent live reloads don't mutate cache
+            # entries from under DMXManager mid-show.
+            self.fixture_definitions = dict(
+                get_cached_fixture_definitions(models_in_config)
             )
         except Exception as e:
             print(f"LiveTab: failed to load fixture definitions: {e}")
@@ -670,7 +699,16 @@ class LiveTab(BaseTab):
                 self.config, self.fixture_definitions, target_ip=target_ip,
                 local_dmx_callback=_feed_embedded,
             )
-            self._dmx_controller.set_universe_mapping(self._get_universe_mapping())
+            # Only override the controller's default mapping if the
+            # universe table actually has rows. An empty user mapping
+            # used to silently wipe the controller's default (built
+            # from ``config.universes``) and leave _send_all_universes
+            # iterating nothing — the dead-DMX symptom the user hit
+            # when the universe table hadn't been repopulated after a
+            # late config load.
+            user_mapping = self._get_universe_mapping()
+            if user_mapping:
+                self._dmx_controller.set_universe_mapping(user_mapping)
             self._dmx_controller.set_mirror_to_visualizer(self._mirror_checkbox.isChecked())
             self._dmx_controller.set_engine(self._engine)
             self._dmx_controller.dmx_manager.set_stage_planes(self._stage_planes)

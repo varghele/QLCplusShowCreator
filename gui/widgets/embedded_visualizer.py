@@ -128,10 +128,20 @@ class EmbeddedVisualizer(QWidget):
             self._push_build_mode_dmx()
 
     def feed_dmx(self, universe: int, dmx_bytes: bytes) -> None:
-        """Forward a DMX frame to the engine. Ignored while in build mode
-        so the live show doesn't fight the synthetic full-on preview."""
-        if self._preview_mode == "build":
-            return
+        """Forward a DMX frame to the engine.
+
+        Always forwards — earlier versions gated this on
+        ``preview_mode == "live"`` to "protect" the synthetic build-mode
+        buffer from being overwritten, but that had two problems: a race
+        between starting the DMX thread and flipping the preview mode
+        could drop frames at the start of a show, and Live (Auto) mode
+        users observed the visualizer freezing on the build-mode full-on
+        buffer instead of mirroring the wire. The build/live distinction
+        is now purely about what gets pushed when *no* live source is
+        feeding: ``set_preview_mode("build")`` synthesises a full-on
+        buffer; live frames overwrite it the instant a controller starts
+        sending.
+        """
         if dmx_bytes is None:
             return
         self._engine.update_dmx(universe, dmx_bytes)
