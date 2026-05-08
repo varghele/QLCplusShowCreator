@@ -140,6 +140,66 @@ def test_update_stage_button_is_gone(qapp, sample_configuration):
         tab.deleteLater()
 
 
+def test_load_flow_propagates_config_to_live_tab(qapp, sample_configuration):
+    """When the user loads a YAML config file, MainWindow swaps
+    self.config to a new Configuration instance. Every tab's
+    ``self.config`` was bound at construction time and stays pointing
+    at the OLD instance unless rebound — which is what
+    ``_do_load_configuration`` does for each tab via
+    ``self.X_tab.config = self.config``.
+
+    Live tab was missed in that ladder for a long while: the visualizer
+    rendered an empty stage after a load even though the other tabs
+    showed all fixtures. This test pins the rebind + the central
+    visualizer push so the regression can't sneak back in.
+    """
+    from config.models import (Configuration, Fixture, FixtureGroup,
+                               FixtureMode, Universe)
+    from gui.theme_manager import ThemeManager
+    from gui.tabs import LiveTab
+
+    ThemeManager().apply(qapp, "dark")
+
+    # Live tab built against an empty starting config (mirrors the
+    # state right after MainWindow.__init__ before any file is loaded).
+    initial = Configuration()
+    tab = LiveTab(initial, parent=None)
+    try:
+        tab.embedded_visualizer = MagicMock()
+        assert tab.config is initial
+
+        # Now pretend the user loaded a YAML file: a new Configuration
+        # appears with fixtures + groups + universes. The MainWindow
+        # load flow does `self.live_tab.config = self.config` followed
+        # by `self.live_tab.update_from_config()`.
+        f = Fixture(
+            universe=1, address=1, manufacturer="M", model="X",
+            name="A1", group="Lights", current_mode="m",
+            available_modes=[FixtureMode(name="m", channels=4)],
+            type="PAR",
+        )
+        loaded = Configuration(
+            fixtures=[f],
+            groups={"Lights": FixtureGroup(name="Lights", fixtures=[f])},
+            universes={1: Universe(id=1, name="U1", output={})},
+        )
+        tab.config = loaded
+        tab.update_from_config()
+        qapp.processEvents()
+
+        # Live tab is now operating on the loaded config.
+        assert tab.config is loaded
+        # Submasters rebuilt for the freshly-loaded group.
+        assert list(tab._submasters._sliders.keys()) == ["Lights"]
+        # Visualizer was handed the new config (not the empty initial).
+        tab.embedded_visualizer.set_config.assert_called()
+        last_call = tab.embedded_visualizer.set_config.call_args[0][0]
+        assert last_call is loaded
+    finally:
+        tab.cleanup()
+        tab.deleteLater()
+
+
 def test_on_groups_changed_pushes_to_visualizers():
     """``MainWindow.on_groups_changed`` historically only refreshed the
     Stage/Shows tabs' visualizers (via update_from_config and

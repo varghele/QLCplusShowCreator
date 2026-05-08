@@ -719,6 +719,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.shows_tab.mark_config_dirty()
             self.shows_tab.update_from_config()
 
+            # Live tab needs the same treatment — its self.config was
+            # bound at construction time and stays pointing at the old
+            # Configuration instance unless we explicitly rebind it
+            # here. Without this the Live tab keeps showing fixtures
+            # from the previous session (or none at all), and its
+            # embedded visualizer renders an empty stage even after a
+            # config file is loaded.
+            self.live_tab.config = self.config
+            self.live_tab.update_from_config()
+
+            # Push the freshly-loaded config to every embedded 3D
+            # preview so all three (Stage / Shows / Live) repaint with
+            # the new fixture set without waiting for the user to
+            # activate each tab.
+            self.on_visualizer_config_changed()
+
             self.progress_manager.update_modal(8, "Done")
             self.progress_manager.finish_modal()
 
@@ -778,12 +794,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.progress_manager.update_modal(2, "Loading fixture definitions...")
             self._preload_fixture_definitions()
 
-            # Update all tabs
+            # Update all tabs — every tab's self.config was bound at
+            # construction time, so a fresh Configuration object needs
+            # to be propagated explicitly. Live tab is on the same list
+            # as the others; a missing rebind here was the bug behind
+            # "Live tab visualizer doesn't show fixtures after load".
             self.config_tab.config = self.config
             self.fixtures_tab.config = self.config
             self.stage_tab.config = self.config
             self.structure_tab.config = self.config
             self.shows_tab.config = self.config
+            self.live_tab.config = self.config
 
             # Refresh all tabs
             self.progress_manager.update_modal(3, "Updating Configuration tab...")
@@ -800,6 +821,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             self.progress_manager.update_modal(7, "Updating Shows tab...")
             self.shows_tab.update_from_config()
+
+            # Live tab refresh + central visualizer push so all 3D
+            # previews repaint with the imported fixture set.
+            self.live_tab.update_from_config()
+            self.on_visualizer_config_changed()
 
             self.progress_manager.finish_modal()
 
