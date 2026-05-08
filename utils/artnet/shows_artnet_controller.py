@@ -26,7 +26,8 @@ class ShowsArtNetController(QObject):
     """
 
     def __init__(self, config: Configuration, fixture_definitions: dict,
-                 song_structure=None, target_ip: str = "255.255.255.255"):
+                 song_structure=None, target_ip: str = "255.255.255.255",
+                 local_dmx_callback: Optional[Callable[[int, bytes], None]] = None):
         """
         Initialize ArtNet controller for ShowsTab.
 
@@ -35,11 +36,17 @@ class ShowsArtNetController(QObject):
             fixture_definitions: Dictionary of parsed fixture definitions
             song_structure: Optional SongStructure for BPM-aware timing
             target_ip: Target IP for ArtNet packets (default: broadcast)
+            local_dmx_callback: Optional callback ``(universe, dmx_bytes)``
+                invoked after each ArtNet packet is sent. Lets the embedded
+                in-process visualizer mirror what's being broadcast without
+                a TCP/ArtNet round-trip. The standalone visualizer keeps
+                receiving DMX over the wire as before — this is additive.
         """
         super().__init__()
 
         self.config = config
         self.fixture_definitions = fixture_definitions
+        self._local_dmx_callback = local_dmx_callback
 
         # Create DMX manager with song structure
         self.dmx_manager = DMXManager(config, fixture_definitions, song_structure)
@@ -456,6 +463,21 @@ class ShowsArtNetController(QObject):
             universe_int = int(universe_id)
             dmx_data = self.dmx_manager.get_dmx_data(universe_int)
             self.artnet_sender.send_dmx(universe_int - 1, dmx_data)  # Convert 1-based internal to 0-based ArtNet
+            # Forward the same frame to the in-process visualizer if one
+            # is wired up. Wrap in try/except so a misbehaving callback
+            # can't kill the DMX thread mid-show.
+            if self._local_dmx_callback is not None:
+                try:
+                    self._local_dmx_callback(universe_int, bytes(dmx_data))
+                except Exception as e:
+                    if DEBUG_PRINTS:
+                        print(f"local_dmx_callback raised: {e}")
+
+    def set_local_dmx_callback(
+        self, callback: Optional[Callable[[int, bytes], None]]
+    ) -> None:
+        """Update or clear the embedded-visualizer DMX callback after init."""
+        self._local_dmx_callback = callback
 
     def set_target_ip(self, ip: str):
         """

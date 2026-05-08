@@ -21,6 +21,8 @@ from timeline_ui.effect_clipboard import (copy_multiple_effects, paste_multiple_
                                           has_multi_clipboard_data, has_clipboard_data,
                                           paste_effect)
 from gui.progress_manager import get_progress_manager
+from gui.widgets.embedded_visualizer import EmbeddedVisualizer
+from timeline_ui.riff_browser_widget import RiffBrowserPanel
 from .base_tab import BaseTab
 
 # Try to import simple audio player (pygame-based) - preferred for performance
@@ -152,7 +154,51 @@ class ShowsTab(BaseTab):
         self.timeline_grid = TimelineGrid()
         self.timeline_grid.set_master(self.master_timeline)
         self.timeline_grid.set_audio_lane(self.audio_lane)
-        main_layout.addWidget(self.timeline_grid, 1)
+
+        # Right-side embedded 3D preview. While playback is running and
+        # the ArtNet controller is wired up, the preview mirrors the show
+        # via the local_dmx_callback path (no TCP/ArtNet round-trip).
+        # When stopped, it falls back to build mode so the user always
+        # sees their fixtures lit. The standalone visualizer subprocess
+        # keeps working unchanged for QLC+ interop.
+        self.embedded_visualizer = EmbeddedVisualizer(self)
+        self.embedded_visualizer.set_pop_out_callback(self._launch_visualizer)
+        self.embedded_visualizer.set_config(self.config)
+        self.embedded_visualizer.set_preview_mode("build")
+
+        # Inline riff browser under the visualizer. Reuses the shared
+        # RiffLibrary instance from MainWindow so we don't double-load
+        # the disk catalog. The global QDockWidget version stays for the
+        # Structure tab; gui.py hides it on the Shows tab so the user
+        # doesn't see two copies.
+        riff_library = self._get_shared_riff_library()
+        self.embedded_riff_panel = RiffBrowserPanel(riff_library, self)
+
+        # Right pane: visualizer (~16:9 top) + riff panel (fills below).
+        right_splitter = QSplitter(Qt.Orientation.Vertical)
+        right_splitter.addWidget(self.embedded_visualizer)
+        right_splitter.addWidget(self.embedded_riff_panel)
+        right_splitter.setStretchFactor(0, 0)
+        right_splitter.setStretchFactor(1, 1)
+        right_splitter.setCollapsible(0, True)
+        right_splitter.setCollapsible(1, True)
+        self._right_splitter = right_splitter
+
+        # Outer splitter: timeline (left) | right pane. Collapsible so
+        # the user can drag the right pane shut for full timeline width.
+        # Sizes persist via QSettings under `shows/main_splitter` and
+        # `shows/right_splitter`.
+        self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._main_splitter.addWidget(self.timeline_grid)
+        self._main_splitter.addWidget(right_splitter)
+        self._main_splitter.setStretchFactor(0, 1)
+        self._main_splitter.setStretchFactor(1, 0)
+        self._main_splitter.setCollapsible(0, False)
+        self._main_splitter.setCollapsible(1, True)
+        self._restore_splitter_states()
+        self._main_splitter.splitterMoved.connect(self._save_main_splitter_state)
+        right_splitter.splitterMoved.connect(self._save_right_splitter_state)
+        main_layout.addWidget(self._main_splitter, 1)
 
         # Create selection overlay for rubber-band selection (parented to self for proper stacking)
         self._selection_overlay = SelectionOverlay(self)
@@ -335,6 +381,10 @@ class ShowsTab(BaseTab):
         # Update ArtNet controller fixture mappings so new fixtures are tracked
         if self.artnet_controller:
             self.artnet_controller.update_fixtures()
+        # Refresh the embedded visualizer's fixture set so newly-added /
+        # removed fixtures appear (or vanish) in the 3D preview too.
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer:
+            self.embedded_visualizer.set_config(self.config)
 
     def _on_show_changed(self, show_name: str):
         """Handle show selection change."""
@@ -939,6 +989,12 @@ class ShowsTab(BaseTab):
                 self.artnet_controller.update_position(self.playhead_position)
                 self.artnet_controller.start_playback()
 
+        # Switch the embedded preview to live so the show drives it via
+        # local_dmx_callback. If ArtNet is off the callback never fires
+        # and the preview stays on whatever was last shown.
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer:
+            self.embedded_visualizer.set_preview_mode("live")
+
         self.playback_timer.start()
 
     def _pause_playback(self):
@@ -972,6 +1028,11 @@ class ShowsTab(BaseTab):
         # Stop ArtNet output
         if self.artnet_controller:
             self.artnet_controller.stop_playback()
+
+        # Drop the embedded preview back to build mode so every fixture
+        # is visible again instead of frozen on the last live DMX frame.
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer:
+            self.embedded_visualizer.set_preview_mode("build")
 
         self._seek_to(0.0)
 
@@ -1179,12 +1240,22 @@ class ShowsTab(BaseTab):
                 models_in_config = {(f.manufacturer, f.model) for f in self.config.fixtures}
                 fixture_defs = load_fixture_definitions_from_qlc(models_in_config)
 
-                # Create controller
+                # Create controller. The local_dmx_callback feeds the
+                # embedded visualizer in-process so the right-side preview
+                # mirrors what's being broadcast over ArtNet — no TCP
+                # round-trip. Wrap in a guard so a torn-down visualizer
+                # doesn't blow up the DMX thread mid-show.
+                def _feed_embedded(universe: int, dmx_bytes: bytes) -> None:
+                    vis = getattr(self, "embedded_visualizer", None)
+                    if vis is not None:
+                        vis.feed_dmx(universe, dmx_bytes)
+
                 self.artnet_controller = ShowsArtNetController(
                     config=self.config,
                     fixture_definitions=fixture_defs,
                     song_structure=self.song_structure,
-                    target_ip="255.255.255.255"  # Broadcast
+                    target_ip="255.255.255.255",  # Broadcast
+                    local_dmx_callback=_feed_embedded,
                 )
 
                 # Set light lanes
@@ -1293,6 +1364,82 @@ class ShowsTab(BaseTab):
         """Handle TCP server error."""
         print(f"TCP server error: {error_msg}")
 
+    # ── Embedded visualizer plumbing ──────────────────────────────────
+
+    def _launch_visualizer(self):
+        """Pop-out callback for the embedded visualizer. Launches the
+        standalone visualizer subprocess via the existing Stage tab logic
+        so QLC+ interop / TCP / ArtNet to the standalone view stays the
+        same — we just delegate the heavy lifting."""
+        main_window = self.window()
+        stage_tab = getattr(main_window, "stage_tab", None) if main_window else None
+        launcher = getattr(stage_tab, "_launch_visualizer", None) if stage_tab else None
+        if callable(launcher):
+            launcher()
+            return
+        # Fallback: minimal subprocess launch in case the Stage tab is
+        # somehow unavailable. Mirrors stage_tab._launch_visualizer's core
+        # behaviour without the user prompts.
+        import subprocess
+        import sys
+        project_root = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        visualizer_path = os.path.join(project_root, "visualizer", "main.py")
+        if os.path.exists(visualizer_path):
+            subprocess.Popen([sys.executable, visualizer_path], cwd=project_root)
+
+    def _get_shared_riff_library(self):
+        """Return MainWindow's RiffLibrary instance (preferred) or build
+        a local one. Sharing avoids re-scanning the riffs/ directory
+        twice and keeps the embedded panel in sync with the global dock."""
+        main_window = self.window()
+        lib = getattr(main_window, "riff_library", None) if main_window else None
+        if lib is not None:
+            return lib
+        # Fallback: stand-alone construction (mostly for tests / dev runs
+        # that instantiate ShowsTab without a MainWindow).
+        from riffs.riff_library import RiffLibrary
+        return RiffLibrary()
+
+    def _restore_splitter_states(self) -> None:
+        """Restore both splitter sizes from QSettings.
+
+        Defaults — main: timeline ~1000 / right pane ~520; right: vis
+        ~290 / riff fills below. 520×290 is roughly 16:9 so the
+        visualizer reads as a wide preview rather than a tall column.
+        """
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+
+        main_state = settings.value("shows/main_splitter")
+        if main_state is not None:
+            try:
+                self._main_splitter.restoreState(main_state)
+            except Exception:
+                self._main_splitter.setSizes([1000, 520])
+        else:
+            self._main_splitter.setSizes([1000, 520])
+
+        right_state = settings.value("shows/right_splitter")
+        if right_state is not None:
+            try:
+                self._right_splitter.restoreState(right_state)
+            except Exception:
+                self._right_splitter.setSizes([290, 600])
+        else:
+            self._right_splitter.setSizes([290, 600])
+
+    def _save_main_splitter_state(self, *_args) -> None:
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+        settings.setValue("shows/main_splitter", self._main_splitter.saveState())
+
+    def _save_right_splitter_state(self, *_args) -> None:
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+        settings.setValue("shows/right_splitter", self._right_splitter.saveState())
+
     def cleanup(self):
         """Clean up audio and ArtNet resources."""
         self._stop_playback()
@@ -1330,6 +1477,14 @@ class ShowsTab(BaseTab):
             except Exception:
                 pass
             self.tcp_server = None
+
+        # Clean up embedded visualizer (stops its FPS timer; the GL
+        # surface is destroyed via Qt's normal child teardown).
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer:
+            try:
+                self.embedded_visualizer.cleanup()
+            except Exception:
+                pass
 
         self.audio_lane.cleanup()
 

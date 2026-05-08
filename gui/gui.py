@@ -450,25 +450,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             traceback.print_exc()
 
     def _update_riff_browser_visibility(self, tab_index: int):
-        """Show or hide the riff browser based on the current tab.
+        """Show or hide the global riff-browser dock based on the current
+        tab.
 
-        The riff browser is only visible in the Shows tab (index 4).
-        It remembers its collapsed state when hidden and restores it when shown.
+        The Shows tab now hosts an inline ``RiffBrowserPanel`` under the
+        embedded visualizer (see ``shows_tab.setup_ui``), so the global
+        dock would just be a duplicate when the user is on Shows. Keep
+        the dock hidden in that case. No other tab uses the riff browser
+        today, so the dock effectively stays hidden across the whole app
+        — it sticks around only as a reusable home if a future tab wants
+        a free-floating one.
         """
         if not hasattr(self, 'riff_browser'):
             return
-
-        shows_tab_index = 4
-
-        if tab_index == shows_tab_index:
-            # Show riff browser and restore collapsed state
-            self.riff_browser.show()
-            self.riff_browser.set_collapsed(self._riff_browser_collapsed)
-        else:
-            # Save collapsed state and hide
-            if self.riff_browser.isVisible():
-                self._riff_browser_collapsed = self.riff_browser.is_collapsed()
-            self.riff_browser.hide()
+        # Save the collapsed state if the dock was visible, then hide.
+        if self.riff_browser.isVisible():
+            self._riff_browser_collapsed = self.riff_browser.is_collapsed()
+        self.riff_browser.hide()
 
     def on_groups_changed(self):
         """Coordinate updates when fixture groups change
