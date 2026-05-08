@@ -243,3 +243,46 @@ Today `live/window.py::LiveModeWindow` is a `QMainWindow` whose body is fully bu
 - Toggle `View > Fullscreen` (F11) — switches and restores cleanly.
 - Launch the standalone visualizer (`Stage tab > Pop Out` or via TCP toggle) — confirm it still receives stage/fixtures over TCP and DMX over ArtNet, independent of the embedded view.
 - Live tab — `Ctrl+L` switches focus to it; pressing Start with a microphone selected drives meters/BPM and DMX; switching away to another tab keeps the engine running but suspends the 50 Hz UI timer; pressing Stop cleans up; closing the app calls `live_tab.cleanup()`.
+
+## 9. Post-plan polish (2026-05-08)
+
+The 9 ordered steps above are committed and verified. Everything in this section is quality-of-life work layered on top of the completed foundation — same architectural principles, applied to surfaces the original plan didn't name explicitly. Listed here so the next session picks up from "what's the trajectory?" rather than "is the plan done?".
+
+### Configuration tab — dark-mode + protocol-aware visuals
+- `_update_row_visibility` and `_disable_cell` no longer paint `Qt.GlobalColor.white` / `lightGray` backgrounds — those hardcoded values made the dark theme look like a checker-board of glaring cells, with disabled cells *brighter* than enabled ones. Backgrounds now follow the theme; disabled cells get a neutral `setForeground(QBrush(QColor(127, 127, 127)))` (`_DISABLED_FG`) so the dimmed state reads in both themes.
+- This was masking a *correctness* perception bug: with conf_v8 (ArtNet protocol), Multicast and Port are correctly disabled by `_update_row_visibility`, but the user couldn't see the disabled state and read the cells as "broken". Two bugs masquerading as three.
+
+### Toolbar buttons — unified styling across tabs
+- Single `TOOLBAR_BTN_WIDTH = 40` constant in `configuration_tab.py`, imported by `fixtures_tab.py`. Both tabs' icon buttons (`+`, `-`, `⎘`) use default theme padding (no `density="compact"`) and `setFixedWidth(TOOLBAR_BTN_WIDTH)` only — height is left to the theme's natural ~36 px so icon buttons line up with default text buttons (Refresh / Update) in the same row.
+- Earlier attempts using `setFixedSize(31, 31)` + `density="compact"` produced visibly different-feeling buttons in tabs that mixed icon + text buttons (Configuration) versus tabs with only icon buttons (Fixtures). Default padding everywhere puts them in the same visual class.
+
+### Table headers — centralised alignment
+- `apply_modern_table_style` now sets `setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)` on the horizontal header. Previously FixturesTab set it explicitly while ConfigurationTab and StructureTab inherited Qt's default centred alignment, so the same QSS `QHeaderView::section { padding: 8px 10px; }` rule produced text in different positions inside the section box — read as "different padding" but was just alignment.
+
+### Stage tab — theme-aware chrome via QSS
+- `StageView` declares five `pyqtProperty(QColor)` (`stageOutlineColor`, `stageFillColor`, `stageGridColor`, `stageLabelColor`, `fixtureTextColor`). `dark.qss` and `light.qss` write them via `qproperty-*`. `drawBackground` and `_draw_dimension_labels` read from the properties; `FixtureItem` walks up to the parent `StageView` for its name + Z-height label colour.
+- Both themes also got an explicit `StageView { background-color: ...; border: ...; }` rule — without it the `QGraphicsView` widget area around the stage rectangle stayed at the OS default light-grey, leaving a bright surround around the dark stage in dark mode.
+- See gotchas #5 in `docs/qt-gotchas.md` for the full pattern. Adding a new theme is now a pure `.qss` edit.
+
+### Stage tab — orientation-axes UX
+- Two checkboxes ("Show orientation axes" + "Show all axes") collapsed into one. The original two-checkbox UX gated axes visibility on `(show_all OR isSelected)`, which made checking only the first one with no fixture selected produce *no visible change* — the user read the whole control as broken. Single checkbox now shows axes on every fixture unconditionally.
+- The handler iterates `scene.items()` and calls `item.update()` on each, plus `scene.update()`. `viewport().update()` alone wasn't enough — see gotcha #4.
+
+### Auto tab (formerly Live) — visualizer + DMX correctness
+- Tab renamed to "Auto" (only the user-visible label and `Ctrl+L` action; class names and file paths kept).
+- Three independent "DMX is dead" bugs root-caused: (1) `_fixtures_loaded` was a one-shot flag that left `fixture_definitions = {}` after a late YAML load; (2) `_populate_universe_table` was called only at construction time, so a late YAML load left the table empty and `_get_universe_mapping()` returned `{}`, which `LiveDMXController.set_universe_mapping` then used to *wipe* the auto-built default; (3) `EmbeddedVisualizer.feed_dmx` had a `if preview_mode == "build": return` early-exit that dropped frames during the start-up race between `_dmx_controller.start()` and `set_preview_mode("live")`.
+- All three are pinned by `tests/unit/test_live_tab.py` and `tests/unit/test_embedded_visualizer.py`. The pattern note in gotcha #6 was distilled from this debugging session.
+
+### Embedded visualizer — pre-init buffering
+- `RenderEngine` now buffers `_pending_fixtures` / `_pending_grid_size` / `_pending_dmx` (latest frame per universe) and flushes them via `_flush_pending_state()` at the end of `initializeGL`. Pre-fix, `set_config` calls fired before `initializeGL` (i.e., on tabs that hadn't yet been activated by the user) silently dropped — Shows tab specifically came up empty after a config load, even though Stage and Live (visible at the time) showed fixtures fine.
+
+### Cross-tab embedded visualizer sync
+- Single `MainWindow.on_visualizer_config_changed()` central push: iterates Stage / Shows / Auto tabs, calls `embedded_visualizer.set_config(self.config)` on each with try/except guards. Called from any flow that mutates fixtures or stage geometry: load YAML, import workspace, fixtures changed, groups changed, stage dimensions changed.
+
+## 10. What's not in scope
+
+Listed for clarity — these came up during the rework but were deliberately left:
+
+- **Fixtures table delegate-based editing.** `setCellWidget` is still used for Universe / Address / Mode / Group / Role columns. The widget cells currently render with per-widget `setStyleSheet` for per-row tinting, which reads as "fields colored" rather than "row colored with fields embedded". A proper fix needs `QStyledItemDelegate` for each — significant refactor, accepted current state. `gui/widgets/tinted_table.py` and `tinted_rows_table.py` are unused experiments kept around for the next attempt.
+- **Auto tab — multi-engine sessions.** The auto-DJ pipeline serves one band/show at a time. Multi-instance / multi-session is not needed and not built in.
+- **Theme support for the standalone (popped-out) visualizer.** The pop-out subprocess uses its own QApplication and doesn't read `QSettings("ui/theme")`. Low priority — the popout is for QLC+ interop / Pop-out preview, not for primary use.

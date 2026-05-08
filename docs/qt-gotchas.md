@@ -1,9 +1,11 @@
 # Qt Gotchas
 
-Three Qt/PyQt6 landmines we discovered the hard way during the UI
+Six Qt/PyQt6 landmines we discovered the hard way during the UI
 modernization rework. Each cost real time to diagnose. Read this before
-touching tables with per-row coloring, custom selection rendering, or
-cells with embedded editor widgets.
+touching tables with per-row coloring, custom selection rendering,
+cells with embedded editor widgets, custom-painted `QGraphicsItem`s,
+theme-driven colors in custom-painted widgets, or any tab cache derived
+from `self.config`.
 
 ---
 
@@ -121,10 +123,256 @@ The Fixtures tab has 5 widget cells that would each need a delegate (Universe sp
 
 ---
 
+## 4. `viewport().update()` doesn't dirty individual `QGraphicsItem`s
+
+### Symptom
+
+You toggle a class-level flag that affects how every `QGraphicsItem`
+of some type paints itself (e.g. `FixtureItem.show_orientation_axes = True`)
+and call `view.viewport().update()` to ask the view to repaint. The
+viewport repaints — `drawBackground` runs, `drawForeground` runs — but
+the items keep their old appearance. The new state never shows up on
+screen, even with `ViewportUpdateMode.FullViewportUpdate`.
+
+This bit us specifically on the Stage tab's "Show orientation axes"
+checkbox: the handler flipped the class flag and called
+`viewport().update()`, but the axes never appeared in the live view.
+
+### Cause
+
+Each `QGraphicsItem` keeps its own bounding-rect-based dirty
+tracking. `viewport().update()` schedules a paint event for the
+viewport widget — that triggers `drawItems`, which then asks each
+item whether it needs repainting. Toggling a class-level attribute
+doesn't make any individual instance dirty, so each item answers "no,
+nothing about *me* changed" and Qt re-uses the cached drawing.
+
+`scene.render()` to a fresh `QImage` *does* show the new state
+because that path forces every item to render — which is misleading
+because it makes the bug invisible to a unit test that uses
+`scene.render()` for verification but caught by an end-to-end test
+that grabs `viewport().grab()`.
+
+### Fix
+
+When the change is "every instance now paints differently", invalidate
+every instance:
+
+```python
+scene = self.stage_view.scene
+for item in scene.items():
+    item.update()
+scene.update()  # belt-and-braces viewport invalidation
+```
+
+`item.update()` is the canonical "I changed, repaint me" signal.
+`scene.update()` then covers viewport-level invalidation in one call
+without the caller needing to know about FullViewportUpdate vs
+MinimalViewportUpdate modes.
+
+### Why not other approaches?
+
+- **`viewport().update()` alone** — the original failure mode.
+  `FullViewportUpdate` mode helps, but only with respect to scrolled
+  regions, not with respect to per-item dirty tracking.
+- **`scene.invalidate()`** — works, but the explicit `for item in
+  scene.items(): item.update()` reads more clearly at the call site
+  and matches the canonical Qt pattern.
+
+---
+
+## 5. Theme-driven colours in custom-painted widgets via `pyqtProperty` + `qproperty-*`
+
+### Symptom
+
+A widget that does its own painting (overrides `drawBackground` /
+`paint` rather than letting QSS render its background) doesn't follow
+the theme. The QSS file has the right colour values somewhere, but the
+widget keeps drawing with whatever Python-side hardcoded `QColor` the
+painter used.
+
+We hit this on the Stage tab — `StageView.drawBackground` was painting
+the stage rectangle with `QtGui.QColor(240, 240, 240)` regardless of
+which theme was active.
+
+### Cause
+
+QSS rules like `background-color: #2d2d2d;` only work for widgets that
+let Qt's stylesheet engine paint their background — i.e. widgets where
+`drawBackground` defers to the style engine. Custom-painted widgets
+do their own drawing in `drawBackground` / `paint` and read colours
+from Python state, so QSS background-color rules never reach them.
+
+### Fix
+
+Declare colour properties on the widget as `pyqtProperty(QColor, ...)`
+and let the QSS theme write them via `qproperty-<name>`. The
+stylesheet engine calls the setter during widget polishing, the
+setter stores the value, and `drawBackground` reads from the stored
+value at paint time:
+
+```python
+# gui/StageView.py
+class StageView(QtWidgets.QGraphicsView):
+    def _get_stage_fill_color(self):
+        return self._stage_fill_color
+
+    def _set_stage_fill_color(self, color):
+        self._stage_fill_color = QColor(color)
+        self._on_theme_color_changed()  # invalidate viewport + items
+
+    stageFillColor = pyqtProperty(QColor, _get_stage_fill_color, _set_stage_fill_color)
+
+    def drawBackground(self, painter, rect):
+        painter.setBrush(QtGui.QBrush(self._stage_fill_color))
+        ...
+```
+
+```qss
+/* resources/themes/dark.qss */
+StageView {
+    qproperty-stageFillColor: #2d2d2e;
+    qproperty-fixtureTextColor: #e0e0e0;
+    /* ... */
+}
+```
+
+Adding a new theme is then a matter of filling in the `qproperty-*`
+lines — no Python edit required. Centre red/blue axes inside the
+plot are deliberately not part of this list — they're "data"
+colours, not theme chrome.
+
+### The lazy-polish gotcha
+
+`qproperty-*` rules are applied during widget *polishing*, which
+Qt does lazily on first show or when an existing stylesheet is
+re-applied. A unit test that constructs the widget and reads the
+property without ever calling `show()` will see the Python-side
+fallback value, not the QSS value. Force it:
+
+```python
+view.style().unpolish(view)
+view.style().polish(view)
+```
+
+### Hosting a `QGraphicsItem` in a styled view
+
+`QGraphicsItem` instances aren't widgets, so they can't be QSS targets
+themselves. For an item that needs theme colours (e.g. `FixtureItem`
+drawing label text), walk up to the parent view via
+`scene().views()[0]` and read the view's qproperty:
+
+```python
+def _theme_text_color(self):
+    scene = self.scene()
+    if scene is not None and scene.views():
+        view = scene.views()[0]
+        color = getattr(view, "fixtureTextColor", None)
+        if color is not None and color.isValid():
+            return color
+    return QColor(0, 0, 0)  # safe fallback
+```
+
+### Why not other approaches?
+
+- **Read the active palette via `QApplication.palette()`** — Qt's
+  application palette is **not** updated by QSS. It stays at the
+  platform default regardless of which theme stylesheet is active.
+  Palette-based theming and QSS-based theming are separate worlds.
+- **Read `ThemeManager.current()` and switch on the name** —
+  introduces a Python-side conditional, defeats QSS as the single
+  source of truth, and decoheres if `current()` returns `None`
+  before the first `apply()` call.
+- **Inline `setStyleSheet` per widget** — would work for the
+  widget-background case but not for `drawBackground` (where the
+  Python painter doesn't read QSS at all), and re-introduces the
+  mess the modernization rework was supposed to eliminate.
+
+---
+
+## 6. Tab caches derived from `self.config` need invalidation on the same triggers as the config rebind ladder
+
+### Symptom
+
+The user loads a YAML config (or imports a workspace) and one tab
+behaves as if the config were still empty: Live (Auto) tab produces no
+DMX, the universe-mapping table is empty, the visualizer's fixture
+list is stale, etc. Other tabs work fine — the bug is always
+tab-local.
+
+This was the root cause behind every "Auto mode does nothing"
+complaint we hit on 2026-05-08 — three independent bugs in this same
+class.
+
+### Cause
+
+Every tab stores `self.config = config` in `__init__`. When the user
+loads a new YAML, MainWindow does `self.config = Configuration.load(...)`
+which **swaps the reference** to a brand-new `Configuration` object.
+Each tab attribute keeps pointing at the *old* one until explicitly
+rebound:
+
+```python
+# MainWindow._do_load_configuration
+self.config = Configuration.load(file_path)
+self.config_tab.config = self.config         # rebind tab 1
+self.fixtures_tab.config = self.config        # rebind tab 2
+self.stage_tab.config = self.config           # rebind tab 3
+self.structure_tab.config = self.config       # rebind tab 4
+self.shows_tab.config = self.config           # rebind tab 5
+self.live_tab.config = self.config            # rebind tab 6 — easy to miss!
+```
+
+Missing one tab in this ladder is the highest-frequency regression
+in this codebase. *In-place* mutations of the existing `Configuration`
+(Fixtures tab adding fixtures, Stage tab moving them) work fine —
+the shared reference resolves the new state.
+
+But that's only half the bug. Every tab also has *secondary caches*
+derived from `self.config` at construction time. Each one needs the
+same invalidation discipline:
+
+| Cache                          | Invalidation trigger                       |
+|--------------------------------|--------------------------------------------|
+| `LiveTab._fixtures_loaded` flag | `update_from_config` should reload defs   |
+| `LiveTab._universe_table` rows  | `update_from_config` should repopulate    |
+| `LiveTab._submasters` widget    | `_rebuild_group_panels()` on group change |
+| `LiveTab._riff_constraints`     | `_rebuild_group_panels()` on group change |
+| `LiveTab._plane_combo` items    | `_populate_plane_combo()` on geometry chg |
+| `*_tab.embedded_visualizer`     | `set_config(self.config)` on every swap   |
+| `DMXManager.fixture_maps`       | rebuild on fixture set change             |
+
+A one-shot "loaded once" flag is the trap to avoid: pre-fix
+`LiveTab._fixtures_loaded` was `True` after the first activation
+against the empty initial config, so loading a YAML afterwards never
+re-ran the QXF scan. Audio meters kept ticking but no fixtures moved
+and no colours changed.
+
+### Fix
+
+1. The ladder in `_do_load_configuration` must rebind **every** tab —
+   add the next tab the moment you create it.
+2. Each tab's `update_from_config()` is the right place to refresh
+   the secondary caches. Don't gate on a "loaded once" flag.
+3. Use cache-aware loaders (`get_cached_fixture_definitions`) so
+   eager refresh stays cheap.
+
+### Discoverability
+
+Audit `setup_ui()` of every tab for `self.config.X` accesses that
+build widget contents. Each one is a candidate for this bug. The
+in-source landmark below has the master list.
+
+---
+
 ## In-source landmarks
 
 - `gui/widgets/group_row_delegate.py` — strips `State_Selected` so the row tint survives selection
 - `gui/widgets/row_outline_table.py` — overlay-based row-selection outline that spans widget cells
-- `gui/widgets/modern_table.py` — `apply_modern_table_style` (the right way to set table visuals without `QTableView::item`)
-- `resources/themes/{dark,light}.qss` — comments mark where the `::item` rule used to live
-- `gui/tabs/fixtures_tab.py::_update_row_colors` — concrete example of per-row tinting that works around all three gotchas at once
+- `gui/widgets/modern_table.py` — `apply_modern_table_style` (the right way to set table visuals without `QTableView::item`); also centralises `setDefaultAlignment(AlignLeft|AlignVCenter)` so every table reads the same
+- `resources/themes/{dark,light}.qss` — comments mark where the `::item` rule used to live; `StageView { qproperty-* }` block lives near the bottom and shows the canonical theme-driven custom-paint pattern
+- `gui/tabs/fixtures_tab.py::_update_row_colors` — concrete example of per-row tinting that works around all three table gotchas at once
+- `gui/StageView.py` — five `pyqtProperty(QColor)` declarations + the `_on_theme_color_changed` helper that invalidates viewport + items in lockstep
+- `gui/tabs/stage_tab.py::_on_show_axes_changed` — canonical "every item changed, repaint each one" handler (gotcha #4)
+- `gui/gui.py::_do_load_configuration` and `import_workspace` — the config-rebind ladder (gotcha #6); add new tabs here whenever you add a new tab
+- `gui/tabs/live_tab.py::update_from_config` — concrete example of a tab refreshing every secondary cache derived from `self.config`
