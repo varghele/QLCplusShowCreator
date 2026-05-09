@@ -201,9 +201,20 @@ class StructureTab(BaseTab):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed
         )
+        # Structure tab only ever has master + audio rows — no light lanes —
+        # so vertical scrolling inside the grid makes no sense here. Force
+        # the scrollbar off; otherwise small height-budget squeezes (e.g.
+        # the master row height bump in v1.0) leave room for Qt to decide
+        # the content is one pixel too tall and pop the scrollbar in.
+        self.timeline_grid.stripes_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         # Cap the grid height so the structure table below still gets space.
-        self.timeline_grid.setMinimumHeight(180)
-        self.timeline_grid.setMaximumHeight(220)
+        # 200 / 240 fits the current 76-px master + 100-px audio + horizontal
+        # scrollbar + frame margins comfortably on both Windows and Linux Qt
+        # builds, with belt-and-braces headroom in case row metrics shift.
+        self.timeline_grid.setMinimumHeight(200)
+        self.timeline_grid.setMaximumHeight(240)
         main_layout.addWidget(self.timeline_grid)
 
         # Show Structure (table view)
