@@ -451,6 +451,38 @@ class TestCellArrayRunner:
 
 
 class TestMultiHeadRunner:
+    def test_per_head_beam_emerges_along_local_x_at_zero_pan_tilt(self):
+        """At pan=tilt=0, the cone (built along +Z) should be rotated 90°
+        around Y so it emerges along the head's local +X. Matches the
+        chassis-level fix in MovingYokeChassisGeometry.beam_origin_transform.
+        """
+        import glm
+        head = HeadDescriptor(
+            offset_m=(0.5, 0.0, 0.0),
+            movement=Movement(
+                type=MovementType.YOKE, pan_max_deg=540.0, tilt_max_deg=270.0,
+                pan_channel=0, tilt_channel=1,
+            ),
+            channels=[0, 1],
+        )
+        emitter = MultiHead(heads=[head])
+        runner = MultiHeadRunner(emitter)
+        # DMX 128 ≈ pan=0, tilt=0 (center-mapping).
+        runner.update_dmx(_dmx({0: 128, 1: 128}), address=1)
+
+        emissions = list(runner.emissions(None, None))
+        assert len(emissions) == 1
+        local = emissions[0].local_transform
+        # Apply the local transform to a unit vector +Z (cone's native axis).
+        # Expect the result to point along +X in chassis-local frame
+        # (modulo the head_offset translation, which doesn't affect direction).
+        cone_dir_local = glm.vec3(0, 0, 1)
+        rotated = glm.vec3(local * glm.vec4(cone_dir_local, 0.0))  # w=0 → direction only
+        rotated_norm = glm.normalize(rotated)
+        assert rotated_norm.x == pytest.approx(1.0, abs=1e-3)
+        assert abs(rotated_norm.y) < 1e-3
+        assert abs(rotated_norm.z) < 1e-3
+
     def test_per_head_color_and_pan_tilt(self):
         heads = [
             HeadDescriptor(

@@ -434,6 +434,119 @@ def test_unknown_mode_returns_safe_defaults():
 
 
 # ---------------------------------------------------------------------------
+# Phase E: real-QXF archetype validation
+# ---------------------------------------------------------------------------
+
+
+def test_mac_aura_standard_is_moving_wash():
+    """Moving wash = moving head with RGB(W) + no gobo wheel.
+
+    The §1.4 "moving wash" gap: legacy MovingHeadRenderer hardcodes a gobo
+    subsystem on every MH. The composable renderer only instantiates a
+    GoboComponent when capabilities.gobo_wheel is present — so a no-gobo MH
+    renders cleanly.
+    """
+    root = _load('Martin-MAC-Aura.qxf')
+    caps = detect_capabilities(root, 'Standard')
+
+    assert caps.chassis is Chassis.MOVING_YOKE
+    assert caps.qlc_type == 'Moving Head'
+    assert isinstance(caps.emitter, PointEmitter)
+
+    # Movement: pan/tilt with fine channels
+    assert caps.movement is not None
+    assert caps.movement.type is MovementType.YOKE
+    assert caps.movement.pan_fine_channel is not None
+    assert caps.movement.tilt_fine_channel is not None
+
+    # RGBW color mixing
+    assert caps.color_mixing is not None
+    assert caps.color_mixing.mode is ColorMixingMode.RGBW
+
+    # The key archetype property: NO gobo wheel.
+    assert caps.gobo_wheel is None
+    assert caps.prism is None
+
+    # Has a color wheel (LEE filter macros) and a zoom channel.
+    assert caps.color_wheel is not None
+    assert caps.zoom_channel is not None
+    assert caps.dimmer_channel is not None
+
+
+def test_mac_aura_extended_is_multi_zone():
+    """Extended mode adds the Aura halo as a second zone — CellArray(2,1)."""
+    root = _load('Martin-MAC-Aura.qxf')
+    caps = detect_capabilities(root, 'Extended')
+
+    assert caps.chassis is Chassis.MOVING_YOKE
+    # Two zones: Beam (RGBW + dimmer) and Aura (RGB + dimmer)
+    assert isinstance(caps.emitter, CellArray)
+    assert caps.emitter.width == 2
+    assert caps.emitter.height == 1
+    assert len(caps.emitter.cells) == 2
+
+
+def test_magic_blade_r_is_moving_cell_bar():
+    """Ayrton MagicBlade-R: chassis-level pan/tilt + 7 RGBW cells along the bar.
+
+    Detected as MOVING_YOKE + CellArray (best fit in the v1 9-chassis
+    enum — a dedicated MOVING_BAR chassis is a follow-up). The point is
+    that detection produces the right semantic shape: movement + per-cell
+    color, no gobo, no prism.
+    """
+    root = _load('Ayrton-MagicBlade-R.qxf')
+    caps = detect_capabilities(root, 'Ex (44ch)')
+
+    assert caps.chassis is Chassis.MOVING_YOKE  # has_movement override
+    assert caps.qlc_type == 'LED Bar (Beams)'
+    assert caps.movement is not None
+    assert caps.movement.type is MovementType.YOKE
+
+    assert isinstance(caps.emitter, CellArray)
+    assert caps.emitter.width == 7
+    assert caps.emitter.height == 1
+    assert len(caps.emitter.cells) == 7
+    for cell in caps.emitter.cells:
+        assert cell.red_channel is not None
+        assert cell.green_channel is not None
+        assert cell.blue_channel is not None
+        assert cell.white_channel is not None
+
+    # Chassis-level master dimmer.
+    assert caps.dimmer_channel is not None
+    # No gobo, no prism (it's a moving cell bar, not a spot).
+    assert caps.gobo_wheel is None
+    assert caps.prism is None
+
+
+def test_led_matrix_blinder_is_panel_with_5x5_cells():
+    """Stairville LED Matrix Blinder 5x5: 25 dimmer-only cells in a 5×5 grid.
+
+    Validates the v1 "pixel matrix" archetype unlocks. Chassis PANEL +
+    CellArray(5,5) with per-cell dimmer (no color — it's a monochrome
+    blinder).
+    """
+    root = _load('Stairville-LED-Matrix-Blinder-5x5.qxf')
+    caps = detect_capabilities(root, '26-Channel')
+
+    assert caps.chassis is Chassis.PANEL
+    assert isinstance(caps.emitter, CellArray)
+    assert caps.emitter.width == 5
+    assert caps.emitter.height == 5
+    assert len(caps.emitter.cells) == 25
+
+    # Master dimmer + 25 per-cell dimmers; no color.
+    assert caps.dimmer_channel == 0
+    assert caps.color_mixing is None
+
+    # Each cell has a dimmer_channel but no color channels.
+    for cell in caps.emitter.cells:
+        assert cell.dimmer_channel is not None
+        assert cell.red_channel is None
+        assert cell.green_channel is None
+
+
+# ---------------------------------------------------------------------------
 # v1 archetype unlocks (synthetic QXFs — not in custom_fixtures/)
 # ---------------------------------------------------------------------------
 

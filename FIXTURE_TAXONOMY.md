@@ -49,9 +49,18 @@ Any extension of the enum has to be threaded through every one of these:
 
 ### 1.4 Gaps already known
 
-- **Moving-head bar** (4–10 moving heads on one chassis with independent pan/tilt) — `MovingHeadRenderer` is single-head only.
-- **Moving wash without gobo** (e.g. Martin MAC Aura) — `MovingHeadRenderer` assumes gobo+prism+focus; `WashRenderer` is stationary. Currently classified `MH` and rendered with a fictional gobo subsystem.
-- Non-light fixtures (hazers, smoke, fan, laser, scanner, strobe, effect, flower) — all collapse to `PAR` and render as a generic point.
+**Closed in Phase E (composable renderer, behind `FIXTURE_RENDERER=composable` default since Phase D Stage 4):**
+
+- ~~**Moving wash without gobo** (e.g. Martin MAC Aura) — `MovingHeadRenderer` assumes gobo+prism+focus; `WashRenderer` is stationary. Currently classified `MH` and rendered with a fictional gobo subsystem.~~ **Fixed.** The composable renderer only instantiates a `GoboComponent` when `capabilities.gobo_wheel` is present, so a no-gobo MH renders cleanly. Validated in `tests/unit/test_fixture_capabilities.py::test_mac_aura_standard_is_moving_wash` against `custom_fixtures/Martin-MAC-Aura.qxf`. Also validated visually in `tests/visual/test_fixture_renderer_parity.py`.
+
+- ~~**Moving-head bar** (4–10 moving heads on one chassis with independent pan/tilt) — `MovingHeadRenderer` is single-head only.~~ **Architecturally fixed.** `MultiHeadRunner` reads `<Head>` blocks and yields one `Emission` per head with its own pan/tilt + color/dimmer + 90°-Y beam orientation rotation. Synthetic test in `test_moving_head_bar_uses_multihead_with_per_head_movement`. *In practice*, the real-world QXFs in the upstream library (e.g. Ayrton MagicBlade-R) only model **one chassis-level pan/tilt** for the entire bar plus per-cell color — so they're detected as `MOVING_YOKE` chassis + `CellArray` emitter, not `MultiHead`. That works as a "moving cell bar" but the chassis silhouette renders as a compact yoke rather than a wide bar (follow-up: dedicated `MOVING_BAR` chassis).
+
+- ~~**Pixel matrix** (W×H grid of independently-addressable cells)~~ — not in the original §1.4 list but unlocked by the same Phase A/B work. `CellArrayRunner` handles `(W, H)` via `<Head>` blocks. Validated against `custom_fixtures/Stairville-LED-Matrix-Blinder-5x5.qxf` (`PANEL` chassis + `CellArray(5,5)`).
+
+**Still open (out of v1 scope):**
+
+- Non-light fixtures (hazers, smoke, fan, laser, scanner, strobe, effect, flower) — all collapse to `PAR` and render as a generic point in the legacy path. The composable model has `Chassis.PARTICLE` / `LASER` / `EFFECT` / `SCANNER` / `OTHER` enum slots and stub `ParticlePlumeRunner` / `LaserVectorRunner`, but no real rendering. See §4 for the outlier strategy.
+- "Moving cell bar" chassis silhouette mismatch — Ayrton MagicBlade-R and similar render with a `MOVING_YOKE` body even though they're wide bars. Detection is correct (movement + cells); only the chassis mesh is wrong. Adding a `MOVING_BAR` chassis variant would fix this without touching components or emitters.
 
 ---
 

@@ -277,6 +277,11 @@ class MultiHeadRunner(EmitterRunner):
                 state.pan_deg = (pan_combined - 0.5) * m.pan_max_deg
                 state.tilt_deg = (tilt_combined - 0.5) * m.tilt_max_deg
 
+    # 90° rotation around local Y that takes the beam cone (built along +Z by
+    # GeometryBuilder.create_beam_cone) and points it along the head's local +X
+    # — matching :meth:`MovingYokeChassisGeometry.beam_origin_transform`.
+    _CONE_ROTATION_90Y = glm.rotate(glm.mat4(1.0), glm.radians(90.0), glm.vec3(0, 1, 0))
+
     def emissions(
         self,
         chassis_color: Optional[ColorComponent],
@@ -284,10 +289,18 @@ class MultiHeadRunner(EmitterRunner):
     ) -> Iterator[Emission]:
         master = chassis_dimmer.normalized if chassis_dimmer is not None else 1.0
         for state, head in zip(self.head_states, self.emitter.heads):
-            # Build local transform: head offset + pan/tilt rotation.
+            # Build per-head local transform:
+            #   head_offset × pan × tilt × cone_rotation_90Y
+            # Applied right-to-left: rotate cone +Z → +X, then tilt around Y,
+            # then pan around Z, then translate to the head's slot along the
+            # chassis. Matches the chassis-level chain in
+            # MovingYokeChassisGeometry.beam_origin_transform, minus the
+            # head_translate (heads in a multi-head bar share a flat chassis,
+            # not a yoke-and-head compound).
             t = glm.translate(glm.mat4(1.0), glm.vec3(*head.offset_m))
             t = glm.rotate(t, glm.radians(state.pan_deg), glm.vec3(0, 0, 1))
             t = glm.rotate(t, glm.radians(-state.tilt_deg), glm.vec3(0, 1, 0))
+            t = t * self._CONE_ROTATION_90Y
             yield Emission(
                 local_transform=t,
                 color=state.rgb,

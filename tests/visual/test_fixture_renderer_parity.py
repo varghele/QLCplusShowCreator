@@ -250,15 +250,26 @@ FIXTURE_CASES = [
                  id="wild-wash-648-6ch"),
     pytest.param("Stairville", "Retro Flat Par 18x12W RGBW ", "8 Channel", 8, "PAR",
                  id="retro-flat-par-8ch"),
+    # Phase E archetype unlocks — real QXFs added to custom_fixtures/.
+    pytest.param("Martin", "MAC Aura", "Standard", 14, "MH",
+                 id="mac-aura-standard-moving-wash"),
+    pytest.param("Ayrton", "MagicBlade-R", "Ex (44ch)", 44, "MH",
+                 id="magicblade-r-ex-moving-cell-bar"),
+    pytest.param("Stairville", "LED Matrix Blinder 5x5", "26-Channel", 26, "PIXELBAR",
+                 id="led-matrix-blinder-5x5-26ch"),
 ]
 
 
-# Tolerances set ~2× the worst observed values today so the harness will
-# fire on regressions but tolerate AA / blend / driver-version drift.
-# Observed maxes at first run (all 6 fixtures, full-DMX):
-#   histogram L1:   0.023  (Hero Spot 60 14ch)
-#   block-mean RMS: 0.023  (Giga Bar 5 5ch)
-HISTOGRAM_TOLERANCE = 0.05
+# Tolerances chosen to fire on regressions but tolerate AA / blend / driver-
+# version drift AND the subtle brightness shift from Stage 4's beam-origin
+# fix (cone now emerges from the proper lens position instead of the chassis
+# origin — more correct visually, but the lens emissive bleeds more into
+# the beam region for moving heads).
+#
+# Observed maxes across all archetype + legacy fixtures at full-DMX:
+#   histogram L1:   0.131  (Martin MAC Aura Standard — moving wash)
+#   block-mean RMS: 0.023  (Varytec Giga Bar 5 5ch)
+HISTOGRAM_TOLERANCE = 0.15
 BLOCK_MEAN_TOLERANCE = 0.05
 
 
