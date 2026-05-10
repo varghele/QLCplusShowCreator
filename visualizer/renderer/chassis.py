@@ -1,15 +1,28 @@
-"""Chassis geometry registry for the composable fixture renderer (Phase B).
+"""Chassis geometry registry for the composable fixture renderer.
 
-One :class:`ChassisGeometry` per :class:`utils.fixture_capabilities.Chassis`
-value. Each owns a body mesh + GL resources and exposes ``render(mvp, model)``.
+Phase B established the single-mesh registry (``_BUILDERS`` + ``build_chassis_mesh``)
+covering all nine ``Chassis`` enum values. Phase C refines :class:`Chassis.MOVING_YOKE`
+into a compound base + yoke + head + lens that animates with pan/tilt, mirroring
+the existing :class:`MovingHeadRenderer` visuals.
 
-Phase B uses simple primitives (boxes, cylinders) for all nine chassis values.
-Phase D / Phase E can refine MOVING_YOKE into a compound base+yoke+head mesh,
-add a scanner mirror, etc., without changing the component/emitter contracts.
+Layout:
+- :data:`_BUILDERS` — mesh builders for every Chassis (Phase B; still used by tests
+  and by :class:`StaticChassisGeometry`).
+- :class:`ChassisGeometry` — abstract base.
+- :class:`StaticChassisGeometry` — one mesh, one draw, one VAO. Used for everything
+  except moving heads.
+- :class:`MovingYokeChassisGeometry` — animated base/yoke/head/lens for moving heads.
+  Mirrors :meth:`MovingHeadRenderer._create_geometry` proportions.
+- :func:`make_chassis_geometry` — factory keyed off :class:`Chassis`.
+
+Phase D / Phase E may add :class:`ScannerChassisGeometry` (mirror), particle/laser,
+etc. without touching components, emitters, or beams.
 """
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Callable, Dict, Optional, Tuple
 
 import glm
@@ -24,85 +37,16 @@ from visualizer.renderer.shaders import (
 )
 
 
-def _mat4_bytes(m: glm.mat4) -> bytes:
-    return np.array([x for col in m.to_list() for x in col], dtype='f4').tobytes()
+# ---------------------------------------------------------------------------
+# Body color presets
+# ---------------------------------------------------------------------------
 
 
-# Body color presets — keep the look consistent with existing renderers.
 DARK_METAL = (0.15, 0.15, 0.18)
 LIGHT_METAL = (0.25, 0.25, 0.28)
-PLACEHOLDER = (0.35, 0.30, 0.30)  # OTHER chassis — slightly warm-grey to flag "unknown"
-
-
-# A mesh builder takes (width, height, depth) in meters and returns
-# (vertices, normals) as flat numpy float32 arrays of triangle data.
-MeshBuilder = Callable[[float, float, float], Tuple[np.ndarray, np.ndarray]]
-
-
-def _build_par(width: float, height: float, depth: float):
-    """Stubby cylinder — short and wide. PAR can / wash can."""
-    radius = max(width, height) / 2.0
-    verts, norms = GeometryBuilder.create_cylinder(radius=radius, height=depth, segments=24)
-    return verts, norms
-
-
-def _build_bar(width: float, height: float, depth: float):
-    """Long thin box. LED bar / sunstrip / pixel bar."""
-    return GeometryBuilder.create_box(width, height, depth)
-
-
-def _build_panel(width: float, height: float, depth: float):
-    """Flat box — wide+tall, shallow. LED matrix / video panel."""
-    return GeometryBuilder.create_box(width, height, max(depth, 0.05))
-
-
-def _build_moving_yoke(width: float, height: float, depth: float):
-    """Box (Phase B placeholder).
-
-    The existing MovingHeadRenderer renders a compound base+yoke+head;
-    that compound will move into Phase D once the chassis abstraction is
-    proven. For now, a single box keeps the renderer composable.
-    """
-    return GeometryBuilder.create_box(width, height, depth)
-
-
-def _build_scanner(width: float, height: float, depth: float):
-    """Box for v2 — scanner mirror geometry is deferred."""
-    return GeometryBuilder.create_box(width, height, depth)
-
-
-def _build_effect(width: float, height: float, depth: float):
-    """Box for v2 — effect / centipede / flower geometry is deferred."""
-    return GeometryBuilder.create_box(width, height, depth)
-
-
-def _build_particle(width: float, height: float, depth: float):
-    """Box for v2 — particle plume geometry is deferred."""
-    return GeometryBuilder.create_box(width, height, depth)
-
-
-def _build_laser(width: float, height: float, depth: float):
-    """Box for v2 — laser projector geometry is deferred."""
-    return GeometryBuilder.create_box(width, height, depth)
-
-
-def _build_other(width: float, height: float, depth: float):
-    """Placeholder box for unknown / dimmer-pack / fan fixtures."""
-    return GeometryBuilder.create_box(width, height, depth)
-
-
-# Public registry — keep in lock-step with the Chassis enum.
-_BUILDERS: Dict[Chassis, MeshBuilder] = {
-    Chassis.PAR: _build_par,
-    Chassis.BAR: _build_bar,
-    Chassis.PANEL: _build_panel,
-    Chassis.MOVING_YOKE: _build_moving_yoke,
-    Chassis.SCANNER: _build_scanner,
-    Chassis.EFFECT: _build_effect,
-    Chassis.PARTICLE: _build_particle,
-    Chassis.LASER: _build_laser,
-    Chassis.OTHER: _build_other,
-}
+PLACEHOLDER = (0.35, 0.30, 0.30)
+YOKE_COLOR = (0.20, 0.20, 0.23)  # slightly lighter than DARK_METAL so yoke arms read against base
+LENS_OFF_COLOR = (0.20, 0.20, 0.20)
 
 
 _BODY_COLORS: Dict[Chassis, Tuple[float, float, float]] = {
@@ -122,22 +66,145 @@ def get_body_color(chassis: Chassis) -> Tuple[float, float, float]:
     return _BODY_COLORS.get(chassis, DARK_METAL)
 
 
+# ---------------------------------------------------------------------------
+# Single-mesh registry (Phase B API — still used by tests and StaticChassisGeometry)
+# ---------------------------------------------------------------------------
+
+
+MeshBuilder = Callable[[float, float, float], Tuple[np.ndarray, np.ndarray]]
+
+
+def _build_par(width: float, height: float, depth: float):
+    radius = max(width, height) / 2.0
+    return GeometryBuilder.create_cylinder(radius=radius, height=depth, segments=24)
+
+
+def _build_bar(width: float, height: float, depth: float):
+    return GeometryBuilder.create_box(width, height, depth)
+
+
+def _build_panel(width: float, height: float, depth: float):
+    return GeometryBuilder.create_box(width, height, max(depth, 0.05))
+
+
+def _build_moving_yoke(width: float, height: float, depth: float):
+    """Single-box approximation. The real animated chassis is :class:`MovingYokeChassisGeometry`;
+    this is the legacy single-mesh entry that ``build_chassis_mesh`` returns for
+    code paths that just want a representative shape (e.g. unit tests)."""
+    return GeometryBuilder.create_box(width, height, depth)
+
+
+def _build_scanner(width: float, height: float, depth: float):
+    return GeometryBuilder.create_box(width, height, depth)
+
+
+def _build_effect(width: float, height: float, depth: float):
+    return GeometryBuilder.create_box(width, height, depth)
+
+
+def _build_particle(width: float, height: float, depth: float):
+    return GeometryBuilder.create_box(width, height, depth)
+
+
+def _build_laser(width: float, height: float, depth: float):
+    return GeometryBuilder.create_box(width, height, depth)
+
+
+def _build_other(width: float, height: float, depth: float):
+    return GeometryBuilder.create_box(width, height, depth)
+
+
+_BUILDERS: Dict[Chassis, MeshBuilder] = {
+    Chassis.PAR: _build_par,
+    Chassis.BAR: _build_bar,
+    Chassis.PANEL: _build_panel,
+    Chassis.MOVING_YOKE: _build_moving_yoke,
+    Chassis.SCANNER: _build_scanner,
+    Chassis.EFFECT: _build_effect,
+    Chassis.PARTICLE: _build_particle,
+    Chassis.LASER: _build_laser,
+    Chassis.OTHER: _build_other,
+}
+
+
 def build_chassis_mesh(
     chassis: Chassis,
     body_dims_m: Tuple[float, float, float],
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Build the body mesh for a chassis value (no GL — pure numpy)."""
+    """Build a single-mesh approximation for a chassis (no GL).
+
+    Returns ``(vertices, normals)``. For :class:`Chassis.MOVING_YOKE` this
+    is a representative box; the GL renderer uses the compound
+    :class:`MovingYokeChassisGeometry` instead.
+    """
     builder = _BUILDERS.get(chassis, _build_other)
     return builder(*body_dims_m)
 
 
 # ---------------------------------------------------------------------------
-# GL wrapper
+# Render state — passed to ChassisGeometry.render()
 # ---------------------------------------------------------------------------
 
 
-class ChassisGeometry:
-    """Wraps a chassis mesh + GL program/VAO/VBO into a renderable unit."""
+@dataclass
+class ChassisRenderState:
+    """Per-frame inputs to :meth:`ChassisGeometry.render`.
+
+    Fields are ignored by chassis subclasses that don't use them
+    (a static chassis ignores ``pan_deg``; a moving yoke uses both
+    ``pan_deg`` and ``tilt_deg`` plus the lens emissive).
+    """
+    pan_deg: float = 0.0
+    tilt_deg: float = 0.0
+    emissive_color: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    emissive_strength: float = 0.0
+
+
+_DEFAULT_STATE = ChassisRenderState()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _mat4_bytes(m: glm.mat4) -> bytes:
+    return np.array([x for col in m.to_list() for x in col], dtype='f4').tobytes()
+
+
+# ---------------------------------------------------------------------------
+# ABC + concrete chassis classes
+# ---------------------------------------------------------------------------
+
+
+class ChassisGeometry(ABC):
+    """One chassis body, with its own GL program + VAOs.
+
+    Subclasses own all GPU resources for one fixture's body.
+    :meth:`render` is called once per frame, before the beam is rendered
+    by the :class:`FixtureRenderer`.
+    """
+
+    @abstractmethod
+    def render(
+        self,
+        mvp: glm.mat4,
+        model: glm.mat4,
+        state: ChassisRenderState = _DEFAULT_STATE,
+    ) -> None:
+        ...
+
+    @abstractmethod
+    def release(self) -> None:
+        ...
+
+
+class StaticChassisGeometry(ChassisGeometry):
+    """One-mesh chassis: PAR / BAR / PANEL / EFFECT / PARTICLE / LASER / OTHER / SCANNER.
+
+    Ignores ``state.pan_deg`` / ``state.tilt_deg`` (no internal articulation).
+    Uses ``state.emissive_color`` to optionally tint the body.
+    """
 
     def __init__(
         self,
@@ -152,7 +219,7 @@ class ChassisGeometry:
         verts, norms = build_chassis_mesh(chassis, body_dims_m)
         self._vertex_count = len(verts) // 3
 
-        self.program: moderngl.Program = ctx.program(
+        self.program = ctx.program(
             vertex_shader=FIXTURE_VERTEX_SHADER,
             fragment_shader=FIXTURE_FRAGMENT_SHADER,
         )
@@ -170,23 +237,13 @@ class ChassisGeometry:
         self,
         mvp: glm.mat4,
         model: glm.mat4,
-        emissive_color: Optional[Tuple[float, float, float]] = None,
-        emissive_strength: float = 0.0,
+        state: ChassisRenderState = _DEFAULT_STATE,
     ) -> None:
-        """Render the chassis body.
-
-        Args:
-            mvp: full model-view-projection matrix.
-            model: fixture model matrix (passed separately so the body
-                shader can transform normals to world space).
-            emissive_color: optional emissive RGB (e.g. a tinted halo around the lens).
-            emissive_strength: 0..1 emissive multiplier.
-        """
         self.program['mvp'].write(_mat4_bytes(mvp * model))
         self.program['model'].write(_mat4_bytes(model))
         self.program['base_color'].value = get_body_color(self.chassis)
-        self.program['emissive_color'].value = emissive_color or (0.0, 0.0, 0.0)
-        self.program['emissive_strength'].value = float(emissive_strength)
+        self.program['emissive_color'].value = state.emissive_color
+        self.program['emissive_strength'].value = float(state.emissive_strength)
         self.vao.render(moderngl.TRIANGLES)
 
     def release(self) -> None:
@@ -198,3 +255,209 @@ class ChassisGeometry:
             self.nbo.release()
         if self.program:
             self.program.release()
+
+
+class MovingYokeChassisGeometry(ChassisGeometry):
+    """Compound moving-head chassis: base + yoke + head + lens.
+
+    Local frame is Z-up to match :class:`MovingHeadRenderer`:
+    - X-Y plane is horizontal (base plate footprint)
+    - Z is vertical (up)
+    - At pan=0 / tilt=0, beam points +X
+    - Pan rotates the yoke (and head) around Z
+    - Tilt rotates the head (and lens) around the yoke's local Y after pan
+
+    The lens is rendered with ``state.emissive_color`` so its visible color
+    follows the beam's RGB × dimmer.
+    """
+
+    def __init__(
+        self,
+        ctx: moderngl.Context,
+        body_dims_m: Tuple[float, float, float],
+    ):
+        self.ctx = ctx
+        self.body_dims_m = body_dims_m
+        width, height, depth = body_dims_m
+
+        # Proportions copied from MovingHeadRenderer._create_geometry.
+        base_size = min(width, depth)
+        base_thickness = height * 0.15
+
+        yoke_thickness = base_size * 0.15
+        yoke_height = height * 0.5
+        yoke_depth = base_size * 0.8
+
+        head_size_x = base_size * 0.5
+        head_size_y = base_size * 0.7
+        head_size_z = height * 0.45
+
+        self.base_thickness = base_thickness
+        self.yoke_height = yoke_height
+        self.head_size_x = head_size_x
+
+        self.program = ctx.program(
+            vertex_shader=FIXTURE_VERTEX_SHADER,
+            fragment_shader=FIXTURE_FRAGMENT_SHADER,
+        )
+
+        # --- base ---
+        base_verts, base_norms = GeometryBuilder.create_box(
+            base_size, base_size, base_thickness,
+            center=(0, 0, base_thickness / 2),
+        )
+        self._base_vbo = ctx.buffer(base_verts.tobytes())
+        self._base_nbo = ctx.buffer(base_norms.tobytes())
+        self._base_vao = ctx.vertex_array(
+            self.program,
+            [(self._base_vbo, '3f', 'in_position'), (self._base_nbo, '3f', 'in_normal')],
+        )
+
+        # --- yoke (two arms, ±Y of head) ---
+        yoke_z = base_thickness + yoke_height / 2
+        left_verts, left_norms = GeometryBuilder.create_box(
+            yoke_depth, yoke_thickness, yoke_height,
+            center=(0, -head_size_y / 2 - yoke_thickness / 2, yoke_z),
+        )
+        right_verts, right_norms = GeometryBuilder.create_box(
+            yoke_depth, yoke_thickness, yoke_height,
+            center=(0, head_size_y / 2 + yoke_thickness / 2, yoke_z),
+        )
+        yoke_verts = np.concatenate([left_verts, right_verts])
+        yoke_norms = np.concatenate([left_norms, right_norms])
+        self._yoke_vbo = ctx.buffer(yoke_verts.tobytes())
+        self._yoke_nbo = ctx.buffer(yoke_norms.tobytes())
+        self._yoke_vao = ctx.vertex_array(
+            self.program,
+            [(self._yoke_vbo, '3f', 'in_position'), (self._yoke_nbo, '3f', 'in_normal')],
+        )
+
+        # --- head (created at origin; transformed during render) ---
+        head_verts, head_norms = GeometryBuilder.create_box(
+            head_size_x, head_size_y, head_size_z,
+        )
+        self._head_vbo = ctx.buffer(head_verts.tobytes())
+        self._head_nbo = ctx.buffer(head_norms.tobytes())
+        self._head_vao = ctx.vertex_array(
+            self.program,
+            [(self._head_vbo, '3f', 'in_position'), (self._head_nbo, '3f', 'in_normal')],
+        )
+
+        # --- lens (cylinder rotated to face +X, attached to head front) ---
+        lens_radius = min(head_size_y, head_size_z) * 0.35
+        lens_depth = 0.02
+        self._lens_radius = lens_radius
+        self._lens_depth = lens_depth
+
+        lens_verts_raw, lens_norms_raw = GeometryBuilder.create_cylinder(
+            lens_radius, lens_depth, segments=24, center=(0, 0, 0),
+        )
+        # Rotate cylinder (Y-aligned by default) to face +X, then translate to head front.
+        lens_verts = []
+        lens_norms = []
+        for i in range(0, len(lens_verts_raw), 3):
+            x, y, z = lens_verts_raw[i], lens_verts_raw[i + 1], lens_verts_raw[i + 2]
+            new_x = y + head_size_x / 2 + lens_depth / 2
+            new_y = -x
+            new_z = z
+            lens_verts.extend([new_x, new_y, new_z])
+        for i in range(0, len(lens_norms_raw), 3):
+            nx, ny, nz = lens_norms_raw[i], lens_norms_raw[i + 1], lens_norms_raw[i + 2]
+            lens_norms.extend([ny, -nx, nz])
+        lens_verts = np.array(lens_verts, dtype='f4')
+        lens_norms = np.array(lens_norms, dtype='f4')
+
+        self._lens_vbo = ctx.buffer(lens_verts.tobytes())
+        self._lens_nbo = ctx.buffer(lens_norms.tobytes())
+        self._lens_vao = ctx.vertex_array(
+            self.program,
+            [(self._lens_vbo, '3f', 'in_position'), (self._lens_nbo, '3f', 'in_normal')],
+        )
+
+    def render(
+        self,
+        mvp: glm.mat4,
+        model: glm.mat4,
+        state: ChassisRenderState = _DEFAULT_STATE,
+    ) -> None:
+        # Make sure incidental blend state from a previous fixture's beam doesn't bleed in.
+        # (The legacy MovingHeadRenderer did the same defensively.)
+        self.ctx.disable(moderngl.BLEND)
+        self.ctx.depth_mask = True
+
+        # --- base (no rotation) ---
+        self.program['mvp'].write(_mat4_bytes(mvp * model))
+        self.program['model'].write(_mat4_bytes(model))
+        self.program['base_color'].value = get_body_color(Chassis.MOVING_YOKE)
+        self.program['emissive_color'].value = (0.0, 0.0, 0.0)
+        self.program['emissive_strength'].value = 0.0
+        self._base_vao.render(moderngl.TRIANGLES)
+
+        # --- yoke (pan around Z) ---
+        pan_rotation = glm.rotate(glm.mat4(1.0), glm.radians(state.pan_deg), glm.vec3(0, 0, 1))
+        yoke_model = model * pan_rotation
+        self.program['mvp'].write(_mat4_bytes(mvp * yoke_model))
+        self.program['model'].write(_mat4_bytes(yoke_model))
+        self.program['base_color'].value = YOKE_COLOR
+        self._yoke_vao.render(moderngl.TRIANGLES)
+
+        # --- head (pan + lift to yoke height + tilt around local Y) ---
+        head_translate = glm.translate(glm.mat4(1.0), glm.vec3(0, 0, self.base_thickness + self.yoke_height / 2))
+        # Negative tilt around Y goes from +X (forward) toward +Z (up) as tilt increases.
+        tilt_rotation = glm.rotate(glm.mat4(1.0), glm.radians(-state.tilt_deg), glm.vec3(0, 1, 0))
+        head_model = model * pan_rotation * head_translate * tilt_rotation
+
+        self.program['mvp'].write(_mat4_bytes(mvp * head_model))
+        self.program['model'].write(_mat4_bytes(head_model))
+        self.program['base_color'].value = get_body_color(Chassis.MOVING_YOKE)
+        self.program['emissive_color'].value = (0.0, 0.0, 0.0)
+        self.program['emissive_strength'].value = 0.0
+        self._head_vao.render(moderngl.TRIANGLES)
+
+        # --- lens (same head transform, but emissive follows beam color × dimmer) ---
+        self.program['base_color'].value = LENS_OFF_COLOR
+        self.program['emissive_color'].value = state.emissive_color
+        self.program['emissive_strength'].value = float(state.emissive_strength)
+        self._lens_vao.render(moderngl.TRIANGLES)
+
+    def head_offset_local(self) -> glm.vec3:
+        """Local-frame offset (Z-up) from the chassis origin to the head pivot.
+
+        Beam emissions originate at this point, transformed through the
+        same pan/tilt that the head goes through. Useful for the
+        FixtureRenderer when computing the beam's local transform —
+        currently the EmitterRunner builds its own head offset, but this
+        getter gives a consistent answer.
+        """
+        return glm.vec3(0.0, 0.0, self.base_thickness + self.yoke_height / 2)
+
+    def release(self) -> None:
+        for vao in (self._base_vao, self._yoke_vao, self._head_vao, self._lens_vao):
+            if vao:
+                vao.release()
+        for buf in (
+            self._base_vbo, self._base_nbo,
+            self._yoke_vbo, self._yoke_nbo,
+            self._head_vbo, self._head_nbo,
+            self._lens_vbo, self._lens_nbo,
+        ):
+            if buf:
+                buf.release()
+        if self.program:
+            self.program.release()
+
+
+# ---------------------------------------------------------------------------
+# Factory
+# ---------------------------------------------------------------------------
+
+
+def make_chassis_geometry(
+    ctx: moderngl.Context,
+    chassis: Chassis,
+    body_dims_m: Tuple[float, float, float],
+) -> ChassisGeometry:
+    """Construct the right :class:`ChassisGeometry` for a chassis value."""
+    if chassis is Chassis.MOVING_YOKE:
+        return MovingYokeChassisGeometry(ctx, body_dims_m)
+    return StaticChassisGeometry(ctx, chassis, body_dims_m)

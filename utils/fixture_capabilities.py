@@ -1114,6 +1114,41 @@ def _find_first_preset(
     return None
 
 
+# ---------------------------------------------------------------------------
+# Legacy bridge — temporary mapping from the 6-string fixture_type to Chassis.
+# ---------------------------------------------------------------------------
+#
+# Phase C consumers (FixtureItem.paint, OrientationDialog) still receive the
+# legacy ``fixture_type`` string. They use this helper to translate it into a
+# Chassis enum value. Phase D removes the helper once :class:`Fixture` carries
+# ``chassis`` directly (populated at config load time via detect_capabilities).
+
+
+_LEGACY_TYPE_TO_CHASSIS: Dict[str, Chassis] = {
+    'MH': Chassis.MOVING_YOKE,
+    'PAR': Chassis.PAR,
+    # WASH was a renderer hint in the 6-string enum (no movement, single
+    # source RGB(W) wash). In the new model it's just a PAR-shaped fixture
+    # with NoOptics — chassis-wise it's PAR.
+    'WASH': Chassis.PAR,
+    'BAR': Chassis.BAR,
+    'PIXELBAR': Chassis.BAR,
+    'SUNSTRIP': Chassis.BAR,
+}
+
+
+def chassis_from_legacy_type(legacy_type: Optional[str]) -> Chassis:
+    """Map the legacy 6-string ``fixture_type`` to a :class:`Chassis` value.
+
+    Bridge for Phase C consumers that still hold a legacy string. Returns
+    :attr:`Chassis.OTHER` for unknown / missing input — callers can use
+    that as a "placeholder" cue.
+    """
+    if not legacy_type:
+        return Chassis.OTHER
+    return _LEGACY_TYPE_TO_CHASSIS.get(legacy_type, Chassis.OTHER)
+
+
 def _estimate_lumens(qxf_lumens: float, power_w: float, channel_defs: Dict[str, _ChannelDef]) -> float:
     """Use the QXF-declared lumens if present; else estimate from power.
 

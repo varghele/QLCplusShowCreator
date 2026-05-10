@@ -17,6 +17,7 @@ from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 from PyQt6.QtGui import QSurfaceFormat
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
+from utils.fixture_capabilities import Chassis, chassis_from_legacy_type
 from utils.geometry import GeometryBuilder
 
 
@@ -48,8 +49,11 @@ class OrientationPreviewWidget(QOpenGLWidget):
         self.pitch = 0.0
         self.roll = 0.0
 
-        # Fixture type for rendering (default to MH)
+        # Fixture type for rendering (default to MH). ``self.chassis`` is the
+        # chassis-keyed view; ``fixture_type`` is kept for sub-variant cues
+        # (SUNSTRIP vs BAR, WASH vs PAR) within a single chassis branch.
         self.fixture_type = "MH"
+        self.chassis: Chassis = Chassis.MOVING_YOKE
         self.segment_count = 8  # Default segment count for bars/sunstrips
 
         # Default colors and dimensions (will be set properly when geometry is created)
@@ -173,6 +177,7 @@ class OrientationPreviewWidget(QOpenGLWidget):
         """Update the fixture type and recreate geometry."""
         if fixture_type != self.fixture_type or segment_count != self.segment_count:
             self.fixture_type = fixture_type
+            self.chassis = chassis_from_legacy_type(fixture_type)
             self.segment_count = segment_count
             if self.ctx:
                 self._update_fixture_geometry()
@@ -193,22 +198,35 @@ class OrientationPreviewWidget(QOpenGLWidget):
                 setattr(self, attr, None)
 
     def _update_fixture_geometry(self):
-        """Create/update fixture geometry based on current fixture_type."""
-        # Release old geometry
+        """Create/update fixture geometry based on the current chassis.
+
+        Dispatches on :class:`Chassis` (Phase C). Within Chassis.BAR /
+        Chassis.PAR we still consult ``fixture_type`` for sub-variant
+        visuals (SUNSTRIP, WASH) where the existing code has a
+        dedicated mesh — keeps visual fidelity without re-introducing
+        a 6-string dispatch at the top level.
+        """
         self._release_fixture_vaos()
 
-        # Create geometry based on type
-        if self.fixture_type in ("BAR", "PIXELBAR"):
-            self._create_led_bar_geometry()
-        elif self.fixture_type == "SUNSTRIP":
-            self._create_sunstrip_geometry()
-        elif self.fixture_type == "PAR":
-            self._create_par_geometry()
-        elif self.fixture_type == "WASH":
-            self._create_wash_geometry()
-        elif self.fixture_type == "MH":
+        if self.chassis is Chassis.MOVING_YOKE:
             self._create_moving_head_geometry()
-        else:  # Default to MH
+        elif self.chassis is Chassis.PAR:
+            if self.fixture_type == "WASH":
+                self._create_wash_geometry()
+            else:
+                self._create_par_geometry()
+        elif self.chassis is Chassis.BAR:
+            if self.fixture_type == "SUNSTRIP":
+                self._create_sunstrip_geometry()
+            else:
+                self._create_led_bar_geometry()
+        elif self.chassis is Chassis.PANEL:
+            # Closest existing mesh — a flat-faced bar. Phase D may
+            # add a dedicated W×H pixel-matrix preview.
+            self._create_led_bar_geometry()
+        else:
+            # SCANNER / EFFECT / PARTICLE / LASER / OTHER — placeholder
+            # until each gets a dedicated preview mesh.
             self._create_moving_head_geometry()
 
     def _create_led_bar_geometry(self):
@@ -1325,17 +1343,22 @@ class OrientationPreviewWidget(QOpenGLWidget):
         # Render gimbal rings
         self._render_gimbal_rings(mvp, fixture_transform)
 
-        # Render fixture based on type
-        if self.fixture_type == "MH":
+        # Render fixture based on chassis (with sub-variant by fixture_type
+        # within Chassis.BAR / Chassis.PAR — keeps SUNSTRIP / WASH visuals).
+        if self.chassis is Chassis.MOVING_YOKE:
             self._render_moving_head(mvp, fixture_transform)
-        elif self.fixture_type == "PAR":
-            self._render_par(mvp, fixture_transform)
-        elif self.fixture_type in ("BAR", "PIXELBAR"):
+        elif self.chassis is Chassis.PAR:
+            if self.fixture_type == "WASH":
+                self._render_wash(mvp, fixture_transform)
+            else:
+                self._render_par(mvp, fixture_transform)
+        elif self.chassis is Chassis.BAR:
+            if self.fixture_type == "SUNSTRIP":
+                self._render_sunstrip(mvp, fixture_transform)
+            else:
+                self._render_led_bar(mvp, fixture_transform)
+        elif self.chassis is Chassis.PANEL:
             self._render_led_bar(mvp, fixture_transform)
-        elif self.fixture_type == "SUNSTRIP":
-            self._render_sunstrip(mvp, fixture_transform)
-        elif self.fixture_type == "WASH":
-            self._render_wash(mvp, fixture_transform)
         else:
             self._render_moving_head(mvp, fixture_transform)
 

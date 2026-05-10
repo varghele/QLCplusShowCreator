@@ -39,7 +39,11 @@ from visualizer.renderer.beams import (
     RectangularBeam,
     SegmentedBeam,
 )
-from visualizer.renderer.chassis import ChassisGeometry
+from visualizer.renderer.chassis import (
+    ChassisGeometry,
+    ChassisRenderState,
+    make_chassis_geometry,
+)
 from visualizer.renderer.components import (
     ColorComponent,
     DimmerComponent,
@@ -139,7 +143,9 @@ class FixtureRenderer:
         self.brightness_scale = 1.0
 
         # --- chassis geometry ---
-        self.chassis_geom = ChassisGeometry(ctx, capabilities.chassis, capabilities.body_dims_m)
+        self.chassis_geom: ChassisGeometry = make_chassis_geometry(
+            ctx, capabilities.chassis, capabilities.body_dims_m
+        )
 
         # --- state-only components (built only when the capability exists) ---
         self.movement: Optional[MovementComponent] = (
@@ -242,8 +248,11 @@ class FixtureRenderer:
     def render(self, mvp: glm.mat4) -> None:
         model = self.get_model_matrix()
 
-        # 1. Body chassis (no emissive — beam takes care of glow).
-        self.chassis_geom.render(mvp, model)
+        # 1. Body chassis. Pass pan/tilt so an animated chassis (moving yoke)
+        #    can rotate its yoke + head; static chassis ignore both. Lens
+        #    emissive follows beam color × dimmer for moving heads.
+        chassis_state = self._build_chassis_state()
+        self.chassis_geom.render(mvp, model, chassis_state)
 
         # 2. Build modifier bundle once per frame; beam variants ignore unused fields.
         modifiers = self._build_modifiers()
@@ -257,6 +266,31 @@ class FixtureRenderer:
         self.beam.release()
 
     # --- internal ---
+
+    def _build_chassis_state(self) -> ChassisRenderState:
+        """Build per-frame chassis inputs: pan/tilt for animated chassis,
+        emissive for the lens (color × dimmer)."""
+        pan = self.movement.pan_deg if self.movement is not None else 0.0
+        tilt = self.movement.tilt_deg if self.movement is not None else 0.0
+
+        if self.color is not None and self.dimmer is not None:
+            d = self.dimmer.normalized
+            r, g, b = self.color.rgb
+            emissive = (r * d, g * d, b * d)
+            strength = self.brightness_scale
+        elif self.color is not None:
+            emissive = self.color.rgb
+            strength = self.brightness_scale
+        else:
+            emissive = (0.0, 0.0, 0.0)
+            strength = 0.0
+
+        return ChassisRenderState(
+            pan_deg=pan,
+            tilt_deg=tilt,
+            emissive_color=emissive,
+            emissive_strength=strength,
+        )
 
     def _build_modifiers(self) -> BeamModifiers:
         """Bundle component state into the modifier struct passed to the beam.

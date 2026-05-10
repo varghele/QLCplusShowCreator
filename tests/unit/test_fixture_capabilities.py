@@ -27,6 +27,7 @@ from utils.fixture_capabilities import (
     MovementType,
     MultiHead,
     PointEmitter,
+    chassis_from_legacy_type,
     detect_capabilities,
 )
 
@@ -343,6 +344,27 @@ def test_giga_bar_51_channel_keeps_master_dimmer():
 # ---------------------------------------------------------------------------
 # Error-tolerance: missing mode / malformed input
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Phase C bridge: legacy 6-string fixture_type → Chassis
+# ---------------------------------------------------------------------------
+
+
+def test_chassis_from_legacy_type_known_strings():
+    assert chassis_from_legacy_type('MH') is Chassis.MOVING_YOKE
+    assert chassis_from_legacy_type('PAR') is Chassis.PAR
+    # WASH was a renderer hint in the 6-string enum; chassis-wise it's PAR.
+    assert chassis_from_legacy_type('WASH') is Chassis.PAR
+    assert chassis_from_legacy_type('BAR') is Chassis.BAR
+    assert chassis_from_legacy_type('PIXELBAR') is Chassis.BAR
+    assert chassis_from_legacy_type('SUNSTRIP') is Chassis.BAR
+
+
+def test_chassis_from_legacy_type_unknown_falls_back_to_other():
+    assert chassis_from_legacy_type('UNKNOWN') is Chassis.OTHER
+    assert chassis_from_legacy_type('') is Chassis.OTHER
+    assert chassis_from_legacy_type(None) is Chassis.OTHER  # type: ignore[arg-type]
 
 
 def test_unknown_mode_returns_safe_defaults():
