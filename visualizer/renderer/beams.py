@@ -239,7 +239,17 @@ class CylindricalBeam(BeamComponent):
 
 
 class ConeBeam(BeamComponent):
-    """Long narrow cone. Consumes gobo_pattern / gobo_rotation / focus_sharpness modifiers."""
+    """Long narrow cone. Consumes gobo_pattern / gobo_rotation / focus_sharpness modifiers.
+
+    When ``modifiers.prism_active`` is True, renders ``modifiers.prism_facets``
+    beams arranged around the beam axis at uniform 360/N° offsets, each tilted
+    outward by ``PRISM_TILT_DEG`` and at ``PRISM_INTENSITY_PER_FACET`` of the
+    base intensity. Mirrors :meth:`MovingHeadRenderer._render_beam` legacy
+    behavior (default 3 facets at 120°, 10° tilt, 40% intensity per facet).
+    """
+
+    PRISM_TILT_DEG = 10.0
+    PRISM_INTENSITY_PER_FACET = 0.4
 
     def __init__(
         self,
@@ -277,18 +287,71 @@ class ConeBeam(BeamComponent):
     ) -> None:
         if emission.dimmer < 0.01:
             return
-        mvp_bytes = _to_mvp_bytes(mvp, fixture_model, emission.local_transform)
+
+        if modifiers.prism_active and modifiers.prism_facets > 1:
+            self._render_prism_facets(mvp, fixture_model, emission, modifiers)
+        else:
+            self._render_one(
+                mvp, fixture_model, emission.local_transform,
+                emission, modifiers, intensity_scale=1.0,
+            )
+
+    def _render_one(
+        self,
+        mvp: glm.mat4,
+        fixture_model: glm.mat4,
+        local_transform: glm.mat4,
+        emission: Emission,
+        modifiers: BeamModifiers,
+        intensity_scale: float,
+    ) -> None:
+        mvp_bytes = _to_mvp_bytes(mvp, fixture_model, local_transform)
         _setup_additive_blending(self.ctx)
         try:
             self.program['mvp'].write(mvp_bytes)
             self.program['beam_color'].value = emission.color
-            self.program['beam_intensity'].value = emission.dimmer * modifiers.brightness_scale
+            self.program['beam_intensity'].value = (
+                emission.dimmer * modifiers.brightness_scale * intensity_scale
+            )
             self.program['gobo_pattern'].value = modifiers.gobo_pattern
             self.program['gobo_rotation'].value = modifiers.gobo_rotation_rad
             self.program['focus_sharpness'].value = modifiers.focus_sharpness
             self.vao.render(moderngl.TRIANGLES)
         finally:
             _restore_state(self.ctx)
+
+    def _render_prism_facets(
+        self,
+        mvp: glm.mat4,
+        fixture_model: glm.mat4,
+        emission: Emission,
+        modifiers: BeamModifiers,
+    ) -> None:
+        """Render N facet beams at evenly-spaced rotations around the beam axis.
+
+        Beam cone is built along +Z, so:
+        - rotation around the beam axis = rotation around local Z
+        - outward tilt = rotation around local Y, applied first
+        These are pre-multiplied into the emission's local_transform.
+        """
+        n = modifiers.prism_facets
+        tilt_mat = glm.rotate(
+            glm.mat4(1.0),
+            glm.radians(self.PRISM_TILT_DEG),
+            glm.vec3(0, 1, 0),
+        )
+        for i in range(n):
+            offset_deg = (360.0 / n) * i
+            rot_mat = glm.rotate(
+                glm.mat4(1.0),
+                glm.radians(offset_deg),
+                glm.vec3(0, 0, 1),
+            )
+            local = emission.local_transform * rot_mat * tilt_mat
+            self._render_one(
+                mvp, fixture_model, local, emission, modifiers,
+                intensity_scale=self.PRISM_INTENSITY_PER_FACET,
+            )
 
 
 # ---------------------------------------------------------------------------

@@ -48,6 +48,11 @@ PLACEHOLDER = (0.35, 0.30, 0.30)
 YOKE_COLOR = (0.20, 0.20, 0.23)  # slightly lighter than DARK_METAL so yoke arms read against base
 LENS_OFF_COLOR = (0.20, 0.20, 0.20)
 
+# Axis colors for the MOVING_YOKE debug overlay (red / blue / green).
+AXIS_X_COLOR = (0.9, 0.2, 0.2)
+AXIS_Y_COLOR = (0.2, 0.4, 0.9)
+AXIS_Z_COLOR = (0.2, 0.8, 0.2)
+
 
 _BODY_COLORS: Dict[Chassis, Tuple[float, float, float]] = {
     Chassis.PAR: DARK_METAL,
@@ -258,7 +263,7 @@ class StaticChassisGeometry(ChassisGeometry):
 
 
 class MovingYokeChassisGeometry(ChassisGeometry):
-    """Compound moving-head chassis: base + yoke + head + lens.
+    """Compound moving-head chassis: base + yoke + head + lens + debug axes.
 
     Local frame is Z-up to match :class:`MovingHeadRenderer`:
     - X-Y plane is horizontal (base plate footprint)
@@ -269,7 +274,17 @@ class MovingYokeChassisGeometry(ChassisGeometry):
 
     The lens is rendered with ``state.emissive_color`` so its visible color
     follows the beam's RGB × dimmer.
+
+    A red/blue/green X/Y/Z axis triad is drawn on the base for orientation
+    feedback (matches the legacy :class:`MovingHeadRenderer`). Disable
+    globally by setting ``MovingYokeChassisGeometry.show_axes = False``.
     """
+
+    show_axes: bool = True
+    AXIS_LENGTH = 0.4
+    AXIS_THICKNESS = 0.008
+    ARROW_LENGTH = 0.06
+    ARROW_WIDTH = 0.04
 
     def __init__(
         self,
@@ -347,7 +362,8 @@ class MovingYokeChassisGeometry(ChassisGeometry):
         lens_radius = min(head_size_y, head_size_z) * 0.35
         lens_depth = 0.02
         self._lens_radius = lens_radius
-        self._lens_depth = lens_depth
+        self.lens_depth = lens_depth
+        self.head_size_x = head_size_x
 
         lens_verts_raw, lens_norms_raw = GeometryBuilder.create_cylinder(
             lens_radius, lens_depth, segments=24, center=(0, 0, 0),
@@ -374,6 +390,118 @@ class MovingYokeChassisGeometry(ChassisGeometry):
             [(self._lens_vbo, '3f', 'in_position'), (self._lens_nbo, '3f', 'in_normal')],
         )
 
+        # --- coordinate axes on top of the base (debug overlay) ---
+        axis_origin_z = base_thickness + 0.01
+        self._axis_x_vao, self._axis_x_vbo, self._axis_x_nbo = self._build_axis_vao(
+            ctx, 'x', axis_origin_z,
+        )
+        self._axis_y_vao, self._axis_y_vbo, self._axis_y_nbo = self._build_axis_vao(
+            ctx, 'y', axis_origin_z,
+        )
+        self._axis_z_vao, self._axis_z_vbo, self._axis_z_nbo = self._build_axis_vao(
+            ctx, 'z', axis_origin_z,
+        )
+
+    def _build_axis_vao(
+        self,
+        ctx: moderngl.Context,
+        axis: str,
+        origin_z: float,
+    ) -> Tuple[moderngl.VertexArray, moderngl.Buffer, moderngl.Buffer]:
+        """Build one axis (shaft + pyramid arrow head) pointing along +X / +Y / +Z.
+
+        Mirrors the legacy ``MovingHeadRenderer._create_geometry`` axis blocks.
+        """
+        L = self.AXIS_LENGTH
+        T = self.AXIS_THICKNESS
+        AL = self.ARROW_LENGTH
+        AW = self.ARROW_WIDTH
+
+        if axis == 'x':
+            shaft_verts, shaft_norms = GeometryBuilder.create_box(
+                L, T, T, center=(L / 2, 0, origin_z),
+            )
+            arrow_tip = (L + AL, 0.0, origin_z)
+            arrow_base_x = L
+            arrow_verts = np.array([
+                # 4 triangular faces of pyramid pointing +X
+                arrow_base_x, -AW / 2, origin_z - AW / 2,
+                arrow_base_x,  AW / 2, origin_z - AW / 2,
+                *arrow_tip,
+
+                arrow_base_x,  AW / 2, origin_z + AW / 2,
+                arrow_base_x, -AW / 2, origin_z + AW / 2,
+                *arrow_tip,
+
+                arrow_base_x, -AW / 2, origin_z + AW / 2,
+                arrow_base_x, -AW / 2, origin_z - AW / 2,
+                *arrow_tip,
+
+                arrow_base_x,  AW / 2, origin_z - AW / 2,
+                arrow_base_x,  AW / 2, origin_z + AW / 2,
+                *arrow_tip,
+            ], dtype='f4')
+            arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [0, 0, -1] * 3 + [0, 0, 1] * 3, dtype='f4')
+        elif axis == 'y':
+            shaft_verts, shaft_norms = GeometryBuilder.create_box(
+                T, L, T, center=(0, L / 2, origin_z),
+            )
+            arrow_tip = (0.0, L + AL, origin_z)
+            arrow_base_y = L
+            arrow_verts = np.array([
+                -AW / 2, arrow_base_y, origin_z - AW / 2,
+                 AW / 2, arrow_base_y, origin_z - AW / 2,
+                *arrow_tip,
+
+                 AW / 2, arrow_base_y, origin_z + AW / 2,
+                -AW / 2, arrow_base_y, origin_z + AW / 2,
+                *arrow_tip,
+
+                -AW / 2, arrow_base_y, origin_z + AW / 2,
+                -AW / 2, arrow_base_y, origin_z - AW / 2,
+                *arrow_tip,
+
+                 AW / 2, arrow_base_y, origin_z - AW / 2,
+                 AW / 2, arrow_base_y, origin_z + AW / 2,
+                *arrow_tip,
+            ], dtype='f4')
+            arrow_norms = np.array([0, 0, -1] * 3 + [0, 0, 1] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+        else:  # 'z'
+            shaft_verts, shaft_norms = GeometryBuilder.create_box(
+                T, T, L, center=(0, 0, origin_z + L / 2),
+            )
+            arrow_tip = (0.0, 0.0, origin_z + L + AL)
+            arrow_base_z = origin_z + L
+            arrow_verts = np.array([
+                -AW / 2, -AW / 2, arrow_base_z,
+                 AW / 2, -AW / 2, arrow_base_z,
+                *arrow_tip,
+
+                 AW / 2,  AW / 2, arrow_base_z,
+                -AW / 2,  AW / 2, arrow_base_z,
+                *arrow_tip,
+
+                -AW / 2,  AW / 2, arrow_base_z,
+                -AW / 2, -AW / 2, arrow_base_z,
+                *arrow_tip,
+
+                 AW / 2, -AW / 2, arrow_base_z,
+                 AW / 2,  AW / 2, arrow_base_z,
+                *arrow_tip,
+            ], dtype='f4')
+            arrow_norms = np.array([0, -1, 0] * 3 + [0, 1, 0] * 3 + [-1, 0, 0] * 3 + [1, 0, 0] * 3, dtype='f4')
+
+        verts = np.concatenate([shaft_verts, arrow_verts])
+        norms = np.concatenate([shaft_norms, arrow_norms])
+
+        vbo = ctx.buffer(verts.tobytes())
+        nbo = ctx.buffer(norms.tobytes())
+        vao = ctx.vertex_array(
+            self.program,
+            [(vbo, '3f', 'in_position'), (nbo, '3f', 'in_normal')],
+        )
+        return vao, vbo, nbo
+
     def render(
         self,
         mvp: glm.mat4,
@@ -392,6 +520,15 @@ class MovingYokeChassisGeometry(ChassisGeometry):
         self.program['emissive_color'].value = (0.0, 0.0, 0.0)
         self.program['emissive_strength'].value = 0.0
         self._base_vao.render(moderngl.TRIANGLES)
+
+        # --- coordinate axes on the base (debug overlay; same MVP as base) ---
+        if self.show_axes:
+            self.program['base_color'].value = AXIS_X_COLOR
+            self._axis_x_vao.render(moderngl.TRIANGLES)
+            self.program['base_color'].value = AXIS_Y_COLOR
+            self._axis_y_vao.render(moderngl.TRIANGLES)
+            self.program['base_color'].value = AXIS_Z_COLOR
+            self._axis_z_vao.render(moderngl.TRIANGLES)
 
         # --- yoke (pan around Z) ---
         pan_rotation = glm.rotate(glm.mat4(1.0), glm.radians(state.pan_deg), glm.vec3(0, 0, 1))
@@ -431,8 +568,34 @@ class MovingYokeChassisGeometry(ChassisGeometry):
         """
         return glm.vec3(0.0, 0.0, self.base_thickness + self.yoke_height / 2)
 
+    def lens_world_pos(
+        self,
+        fixture_model: glm.mat4,
+        pan_deg: float,
+        tilt_deg: float,
+    ) -> glm.vec3:
+        """World position of the lens center, given chassis transform and pan/tilt.
+
+        Applies the same pan + head_translate + tilt chain that
+        :meth:`render` uses internally, then offsets along the head's
+        local +X to the lens center. Result is in the same world space
+        as ``fixture_model``.
+        """
+        pan_mat = glm.rotate(glm.mat4(1.0), glm.radians(pan_deg), glm.vec3(0, 0, 1))
+        head_translate = glm.translate(
+            glm.mat4(1.0),
+            glm.vec3(0, 0, self.base_thickness + self.yoke_height / 2),
+        )
+        tilt_mat = glm.rotate(glm.mat4(1.0), glm.radians(-tilt_deg), glm.vec3(0, 1, 0))
+        head_model = fixture_model * pan_mat * head_translate * tilt_mat
+        lens_local = glm.vec3(self.head_size_x / 2 + self.lens_depth, 0.0, 0.0)
+        return glm.vec3(head_model * glm.vec4(lens_local, 1.0))
+
     def release(self) -> None:
-        for vao in (self._base_vao, self._yoke_vao, self._head_vao, self._lens_vao):
+        for vao in (
+            self._base_vao, self._yoke_vao, self._head_vao, self._lens_vao,
+            self._axis_x_vao, self._axis_y_vao, self._axis_z_vao,
+        ):
             if vao:
                 vao.release()
         for buf in (
@@ -440,6 +603,9 @@ class MovingYokeChassisGeometry(ChassisGeometry):
             self._yoke_vbo, self._yoke_nbo,
             self._head_vbo, self._head_nbo,
             self._lens_vbo, self._lens_nbo,
+            self._axis_x_vbo, self._axis_x_nbo,
+            self._axis_y_vbo, self._axis_y_nbo,
+            self._axis_z_vbo, self._axis_z_nbo,
         ):
             if buf:
                 buf.release()

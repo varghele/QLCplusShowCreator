@@ -42,8 +42,10 @@ from visualizer.renderer.beams import (
 from visualizer.renderer.chassis import (
     ChassisGeometry,
     ChassisRenderState,
+    MovingYokeChassisGeometry,
     make_chassis_geometry,
 )
+from visualizer.renderer.floor_projection import FloorProjectionComponent
 from visualizer.renderer.components import (
     ColorComponent,
     DimmerComponent,
@@ -203,6 +205,13 @@ class FixtureRenderer:
         # --- beam ---
         self.beam: BeamComponent = _select_beam(ctx, capabilities)
 
+        # --- floor projection (MOVING_YOKE only — wash-style fixtures don't need a floor spot) ---
+        self.floor_projection: Optional[FloorProjectionComponent] = (
+            FloorProjectionComponent(ctx)
+            if isinstance(self.chassis_geom, MovingYokeChassisGeometry)
+            else None
+        )
+
     # --- public API ---
 
     @property
@@ -261,11 +270,121 @@ class FixtureRenderer:
         for emission in self.emitter_runner.emissions(self.color, self.dimmer):
             self.beam.render_emission(mvp, model, emission, modifiers)
 
+        # 4. Floor projection (MOVING_YOKE only).
+        if self.floor_projection is not None:
+            self._render_floor_projection(mvp, model, modifiers)
+
     def release(self) -> None:
         self.chassis_geom.release()
         self.beam.release()
+        if self.floor_projection is not None:
+            self.floor_projection.release()
 
     # --- internal ---
+
+    # --- Floor projection (MOVING_YOKE only) ---
+
+    def _render_floor_projection(
+        self,
+        mvp: glm.mat4,
+        model: glm.mat4,
+        modifiers: BeamModifiers,
+    ) -> None:
+        """Render the gobo+focus floor spot beneath a moving head.
+
+        Mirrors the legacy :meth:`MovingHeadRenderer._render_floor_projection`,
+        including prism dispatch (3 facets at 120° around the beam axis,
+        ~10° outward tilt, 40% intensity each).
+        """
+        if not isinstance(self.chassis_geom, MovingYokeChassisGeometry):
+            return
+        if self.color is None or self.dimmer is None:
+            return  # no visible output without color/dimmer
+        if self.dimmer.normalized < 0.01:
+            return
+
+        pan_deg = self.movement.pan_deg if self.movement is not None else 0.0
+        tilt_deg = self.movement.tilt_deg if self.movement is not None else 0.0
+        lens_pos = self.chassis_geom.lens_world_pos(model, pan_deg, tilt_deg)
+
+        beam_angle_deg = (
+            self.zoom.current_angle_deg
+            if self.zoom is not None
+            else self.capabilities.beam.max_deg or 25.0
+        )
+        color = self.color.rgb
+        dimmer = self.dimmer.normalized
+
+        if modifiers.prism_active and modifiers.prism_facets > 1:
+            n = modifiers.prism_facets
+            tilt_per_facet = 10.0  # legacy outward tilt
+            for i in range(n):
+                offset_deg = (360.0 / n) * i
+                facet_dir = self._compute_beam_dir_world(
+                    pan_deg, tilt_deg,
+                    prism_offset_deg=offset_deg,
+                    prism_outward_tilt_deg=tilt_per_facet,
+                )
+                self.floor_projection.render(
+                    mvp,
+                    lens_world_pos=lens_pos,
+                    beam_dir_world=facet_dir,
+                    beam_angle_deg=beam_angle_deg,
+                    color=color,
+                    dimmer=dimmer,
+                    gobo_pattern=modifiers.gobo_pattern,
+                    gobo_rotation_rad=modifiers.gobo_rotation_rad,
+                    focus_sharpness=modifiers.focus_sharpness,
+                    brightness_scale=modifiers.brightness_scale,
+                    intensity_scale=0.4,
+                )
+        else:
+            beam_dir = self._compute_beam_dir_world(pan_deg, tilt_deg)
+            self.floor_projection.render(
+                mvp,
+                lens_world_pos=lens_pos,
+                beam_dir_world=beam_dir,
+                beam_angle_deg=beam_angle_deg,
+                color=color,
+                dimmer=dimmer,
+                gobo_pattern=modifiers.gobo_pattern,
+                gobo_rotation_rad=modifiers.gobo_rotation_rad,
+                focus_sharpness=modifiers.focus_sharpness,
+                brightness_scale=modifiers.brightness_scale,
+                intensity_scale=1.0,
+            )
+
+    def _compute_beam_dir_world(
+        self,
+        pan_deg: float,
+        tilt_deg: float,
+        *,
+        prism_offset_deg: float = 0.0,
+        prism_outward_tilt_deg: float = 0.0,
+    ) -> glm.vec3:
+        """Compute the beam direction in world (Y-up) coordinates.
+
+        Mirrors the legacy :meth:`MovingHeadRenderer.get_beam_direction`
+        chain: fixture orientation × pan × tilt × prism_rotation × prism_tilt
+        applied to the chassis-local +X axis.
+        """
+        direction = glm.vec3(1, 0, 0)
+        tilt_mat = glm.rotate(glm.mat4(1.0), glm.radians(-tilt_deg), glm.vec3(0, 1, 0))
+        pan_mat = glm.rotate(glm.mat4(1.0), glm.radians(pan_deg), glm.vec3(0, 0, 1))
+        fixture_mat = glm.mat4(1.0)
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.yaw), glm.vec3(0, 1, 0))
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.pitch), glm.vec3(1, 0, 0))
+        fixture_mat = glm.rotate(fixture_mat, glm.radians(self.roll), glm.vec3(0, 0, 1))
+
+        prism_rot_mat = glm.rotate(
+            glm.mat4(1.0), glm.radians(prism_offset_deg), glm.vec3(1, 0, 0),
+        )
+        prism_tilt_mat = glm.rotate(
+            glm.mat4(1.0), glm.radians(prism_outward_tilt_deg), glm.vec3(0, 1, 0),
+        )
+
+        final = fixture_mat * pan_mat * tilt_mat * prism_rot_mat * prism_tilt_mat
+        return glm.normalize(glm.vec3(final * glm.vec4(direction, 0.0)))
 
     def _build_chassis_state(self) -> ChassisRenderState:
         """Build per-frame chassis inputs: pan/tilt for animated chassis,

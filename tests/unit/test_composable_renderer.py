@@ -532,3 +532,32 @@ class TestChassisRegistry:
         assert len(color) == 3
         for v in color:
             assert 0.0 <= v <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# Phase D Stage 2: MH parity constants
+# ---------------------------------------------------------------------------
+
+
+class TestMovingYokeChassisAxesDefaults:
+    def test_show_axes_defaults_true(self):
+        from visualizer.renderer.chassis import MovingYokeChassisGeometry
+        # Class-level default mirrors legacy MovingHeadRenderer (always renders axes).
+        assert MovingYokeChassisGeometry.show_axes is True
+
+    def test_axis_dimensions_match_legacy(self):
+        from visualizer.renderer.chassis import MovingYokeChassisGeometry
+        # Legacy MovingHeadRenderer hardcoded these values inline at line ~2097.
+        assert MovingYokeChassisGeometry.AXIS_LENGTH == 0.4
+        assert MovingYokeChassisGeometry.AXIS_THICKNESS == 0.008
+        assert MovingYokeChassisGeometry.ARROW_LENGTH == 0.06
+        assert MovingYokeChassisGeometry.ARROW_WIDTH == 0.04
+
+
+class TestConeBeamPrismConstants:
+    def test_prism_intensity_per_facet_matches_legacy(self):
+        from visualizer.renderer.beams import ConeBeam
+        # Legacy MovingHeadRenderer rendered each facet at 40% intensity
+        # (3 facets × 0.4 ≈ 120% combined to overcome additive falloff).
+        assert ConeBeam.PRISM_INTENSITY_PER_FACET == 0.4
+        assert ConeBeam.PRISM_TILT_DEG == 10.0
