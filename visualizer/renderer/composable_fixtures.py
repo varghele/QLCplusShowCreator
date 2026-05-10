@@ -196,10 +196,15 @@ class FixtureRenderer:
         )
 
         # --- emitter runner ---
+        # Thread the chassis's beam_origin_transform into the runner so the
+        # cone (built along +Z) emerges at the right place and direction.
+        # For moving yokes this incorporates pan/tilt + lens offset + 90°
+        # rotation; for static chassis it's identity and the cone stays +Z.
         self.emitter_runner: EmitterRunner = create_emitter_runner(
             capabilities.emitter,
             body_dims_m=capabilities.body_dims_m,
             chassis_movement=self.movement,
+            beam_origin_xform_fn=self.chassis_geom.beam_origin_transform,
         )
 
         # --- beam ---

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Iterator, List, Optional, Tuple
+from typing import Callable, Iterator, List, Optional, Tuple
 
 import glm
 
@@ -89,15 +89,24 @@ class EmitterRunner(FixtureComponent):
 
 
 class PointEmitterRunner(EmitterRunner):
-    """Single emission point at the chassis origin. PAR, wash, single-head MH, …"""
+    """Single emission point at the chassis origin. PAR, wash, single-head MH, …
+
+    ``beam_origin_xform_fn`` (if provided) returns the chassis-local
+    transform that places the cone at the fixture's emission point and
+    orients it along its outgoing direction. For moving heads this is
+    pan × head_translate × tilt × lens_offset × cone_rotation; for static
+    chassis it's typically identity (cone +Z is already correct).
+    """
 
     def __init__(
         self,
         emitter: PointEmitter,
         movement: Optional[MovementComponent] = None,
+        beam_origin_xform_fn: Optional[Callable[[float, float], glm.mat4]] = None,
     ):
         self.emitter = emitter
         self.movement = movement
+        self.beam_origin_xform_fn = beam_origin_xform_fn
 
     def update_dmx(self, dmx_data: bytes, address: int) -> None:
         # PointEmitter has no per-cell state; chassis-level movement
@@ -112,12 +121,20 @@ class PointEmitterRunner(EmitterRunner):
     ) -> Iterator[Emission]:
         color = chassis_color.rgb if chassis_color is not None else (1.0, 1.0, 1.0)
         dimmer = chassis_dimmer.normalized if chassis_dimmer is not None else 1.0
+
+        pan = self.movement.pan_deg if self.movement is not None else 0.0
+        tilt = self.movement.tilt_deg if self.movement is not None else 0.0
+        if self.beam_origin_xform_fn is not None:
+            local = self.beam_origin_xform_fn(pan, tilt)
+        else:
+            local = glm.mat4(1.0)
+
         yield Emission(
-            local_transform=glm.mat4(1.0),
+            local_transform=local,
             color=color,
             dimmer=dimmer,
-            pan_deg=self.movement.pan_deg if self.movement is not None else None,
-            tilt_deg=self.movement.tilt_deg if self.movement is not None else None,
+            pan_deg=pan if self.movement is not None else None,
+            tilt_deg=tilt if self.movement is not None else None,
         )
 
 
@@ -333,14 +350,24 @@ def create_emitter_runner(
     emitter: Emitter,
     body_dims_m: Tuple[float, float, float],
     chassis_movement: Optional[MovementComponent] = None,
+    beam_origin_xform_fn: Optional[Callable[[float, float], glm.mat4]] = None,
 ) -> EmitterRunner:
     """Build the right EmitterRunner for an Emitter variant.
 
     ``chassis_movement`` is threaded into ``PointEmitterRunner`` so its
     Emissions can carry the chassis-level pan/tilt for ConeBeam to use.
+
+    ``beam_origin_xform_fn`` is the chassis's beam-emission transform
+    (returns chassis-local mat4 for ``(pan_deg, tilt_deg)``). For moving
+    yokes this orients the cone along the head's local +X; for static
+    chassis it's typically left as None (cone +Z is correct as built).
     """
     if isinstance(emitter, PointEmitter):
-        return PointEmitterRunner(emitter, movement=chassis_movement)
+        return PointEmitterRunner(
+            emitter,
+            movement=chassis_movement,
+            beam_origin_xform_fn=beam_origin_xform_fn,
+        )
     if isinstance(emitter, CellArray):
         return CellArrayRunner(emitter, body_dims_m=body_dims_m)
     if isinstance(emitter, MultiHead):

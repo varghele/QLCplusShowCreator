@@ -16,13 +16,17 @@ from utils.geometry import GeometryBuilder
 # Feature flag — Phase D fixture-rewrite cutover.
 # ---------------------------------------------------------------------------
 #
-# Set environment variable ``FIXTURE_RENDERER=composable`` to route fixture
-# construction through the new composable renderer
-# (:mod:`visualizer.renderer.composable_fixtures`). Default ``legacy`` keeps
-# the existing 6-subclass dispatch. Will flip to ``composable`` once visual
-# regression tests pass for all 6 custom fixtures.
+# Default is now the composable renderer
+# (:mod:`visualizer.renderer.composable_fixtures`). Visual regression
+# tests (tests/visual/test_fixture_renderer_parity.py) pass for all 6
+# custom fixtures with the cone properly oriented along the head's local
+# +X for moving yokes.
+#
+# Set ``FIXTURE_RENDERER=legacy`` in the environment to fall back to the
+# original 6-subclass dispatch (kept available for parity comparison
+# and rollback during the v1.0 transition).
 
-FIXTURE_RENDERER_MODE = os.environ.get('FIXTURE_RENDERER', 'legacy').lower()
+FIXTURE_RENDERER_MODE = os.environ.get('FIXTURE_RENDERER', 'composable').lower()
 USE_COMPOSABLE_RENDERER = FIXTURE_RENDERER_MODE == 'composable'
 
 

@@ -129,23 +129,25 @@ class TestBuildFixturesPayloadIncludesCapabilities:
 
 class TestFixtureRendererFlag:
 
-    def test_default_is_legacy(self, monkeypatch):
-        # Reload the module so module-level FIXTURE_RENDERER_MODE picks up the env.
+    def test_default_is_composable(self, monkeypatch):
+        # Phase D Stage 4: default flipped from "legacy" to "composable" once
+        # visual regression confirmed parity.
         import importlib
         monkeypatch.delenv("FIXTURE_RENDERER", raising=False)
         from visualizer.renderer import fixtures as fixtures_module
         importlib.reload(fixtures_module)
-        assert fixtures_module.FIXTURE_RENDERER_MODE == "legacy"
-        assert fixtures_module.USE_COMPOSABLE_RENDERER is False
+        assert fixtures_module.FIXTURE_RENDERER_MODE == "composable"
+        assert fixtures_module.USE_COMPOSABLE_RENDERER is True
 
-    def test_composable_when_env_set(self, monkeypatch):
+    def test_legacy_when_env_set(self, monkeypatch):
+        """Legacy is still available as an escape hatch via env var."""
         import importlib
-        monkeypatch.setenv("FIXTURE_RENDERER", "composable")
+        monkeypatch.setenv("FIXTURE_RENDERER", "legacy")
         from visualizer.renderer import fixtures as fixtures_module
         importlib.reload(fixtures_module)
         try:
-            assert fixtures_module.FIXTURE_RENDERER_MODE == "composable"
-            assert fixtures_module.USE_COMPOSABLE_RENDERER is True
+            assert fixtures_module.FIXTURE_RENDERER_MODE == "legacy"
+            assert fixtures_module.USE_COMPOSABLE_RENDERER is False
         finally:
             # Restore default for downstream tests
             monkeypatch.delenv("FIXTURE_RENDERER", raising=False)

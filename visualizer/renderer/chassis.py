@@ -203,6 +203,27 @@ class ChassisGeometry(ABC):
     def release(self) -> None:
         ...
 
+    def beam_origin_transform(
+        self,
+        pan_deg: float = 0.0,
+        tilt_deg: float = 0.0,
+    ) -> glm.mat4:
+        """Local transform from chassis origin to the beam's emission point.
+
+        The beam cone is built along +Z (``GeometryBuilder.create_beam_cone``
+        convention). This transform places the cone at the fixture's
+        light-emission point and orients it along its outgoing direction.
+
+        Default (static chassis): identity — cone emerges from origin
+        along local +Z. For typical hanging mounts (pitch=90°) this maps
+        to world -Y (down), which matches PAR / BAR / WASH expectations.
+
+        :class:`MovingYokeChassisGeometry` overrides to incorporate
+        pan + head translation + tilt + lens offset + 90° rotation so
+        the cone emerges from the lens along the head's local +X.
+        """
+        return glm.mat4(1.0)
+
 
 class StaticChassisGeometry(ChassisGeometry):
     """One-mesh chassis: PAR / BAR / PANEL / EFFECT / PARTICLE / LASER / OTHER / SCANNER.
@@ -590,6 +611,38 @@ class MovingYokeChassisGeometry(ChassisGeometry):
         head_model = fixture_model * pan_mat * head_translate * tilt_mat
         lens_local = glm.vec3(self.head_size_x / 2 + self.lens_depth, 0.0, 0.0)
         return glm.vec3(head_model * glm.vec4(lens_local, 1.0))
+
+    def beam_origin_transform(
+        self,
+        pan_deg: float = 0.0,
+        tilt_deg: float = 0.0,
+    ) -> glm.mat4:
+        """Beam emission transform: pan × head_translate × tilt × lens_offset × cone_rotation.
+
+        Mirrors :meth:`MovingHeadRenderer._render_single_beam`:
+        ``beam_model = head_model * beam_offset * beam_rotation``,
+        where ``head_model = base_model * pan_rotation * head_translate * tilt_rotation``.
+
+        Applied to a cone vertex (cone built along +Z), the chain:
+        1. Rotates 90° around Y → cone now points along +X (head's forward)
+        2. Translates along +X to the lens center
+        3. Rotates around Y for tilt (around the head's pivot)
+        4. Translates up by head pivot Z
+        5. Rotates around Z for pan
+        ...then the fixture's model matrix places everything in world space.
+        """
+        pan_mat = glm.rotate(glm.mat4(1.0), glm.radians(pan_deg), glm.vec3(0, 0, 1))
+        head_translate = glm.translate(
+            glm.mat4(1.0),
+            glm.vec3(0, 0, self.base_thickness + self.yoke_height / 2),
+        )
+        tilt_mat = glm.rotate(glm.mat4(1.0), glm.radians(-tilt_deg), glm.vec3(0, 1, 0))
+        lens_offset = glm.translate(
+            glm.mat4(1.0),
+            glm.vec3(self.head_size_x / 2 + self.lens_depth, 0, 0),
+        )
+        cone_rotation = glm.rotate(glm.mat4(1.0), glm.radians(90.0), glm.vec3(0, 1, 0))
+        return pan_mat * head_translate * tilt_mat * lens_offset * cone_rotation
 
     def release(self) -> None:
         for vao in (
