@@ -17,7 +17,9 @@ ground truth, channel-name string matching is a last-resort fallback.
 
 from __future__ import annotations
 
+import os
 import re
+import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from enum import Enum
@@ -1147,6 +1149,122 @@ def chassis_from_legacy_type(legacy_type: Optional[str]) -> Chassis:
     if not legacy_type:
         return Chassis.OTHER
     return _LEGACY_TYPE_TO_CHASSIS.get(legacy_type, Chassis.OTHER)
+
+
+# ---------------------------------------------------------------------------
+# Cached lookup — Phase D bridge between Fixture and FixtureCapabilities.
+# ---------------------------------------------------------------------------
+#
+# ``Fixture`` doesn't carry capabilities (would force a YAML schema bump and
+# the data is derivable from the QXF). Instead, callers ask the module for a
+# cached :class:`FixtureCapabilities` keyed by (manufacturer, model, mode).
+#
+# Cache is invalidated when the fixture-definition cache in
+# ``fixture_utils.py`` is cleared (e.g. when QXF files change on disk).
+
+
+_FIXTURE_CAPABILITIES_CACHE: Dict[Tuple[str, str, str], 'FixtureCapabilities'] = {}
+
+
+def clear_capabilities_cache() -> None:
+    """Drop all cached :class:`FixtureCapabilities`. Call after QXF file changes."""
+    _FIXTURE_CAPABILITIES_CACHE.clear()
+
+
+def get_capabilities_for_fixture(fixture) -> 'FixtureCapabilities':
+    """Return the cached :class:`FixtureCapabilities` for a fixture's current mode.
+
+    On a cache miss, locates the fixture's ``.qxf`` file via the same search
+    paths used elsewhere (project ``custom_fixtures``, then platform-specific
+    QLC+ fixture directories), parses it, and runs :func:`detect_capabilities`.
+
+    Returns a safe-default ``FixtureCapabilities`` (chassis=OTHER, no
+    components) if the QXF can't be located or parsed.
+    """
+    key = (fixture.manufacturer, fixture.model, fixture.current_mode)
+    cached = _FIXTURE_CAPABILITIES_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    qxf_root = _find_and_parse_qxf(fixture.manufacturer, fixture.model)
+    if qxf_root is None:
+        caps = _safe_default_capabilities(fixture.current_mode)
+    else:
+        caps = detect_capabilities(qxf_root, fixture.current_mode)
+
+    _FIXTURE_CAPABILITIES_CACHE[key] = caps
+    return caps
+
+
+def _safe_default_capabilities(mode_name: str) -> 'FixtureCapabilities':
+    """Empty ``FixtureCapabilities`` for fixtures whose QXF isn't found."""
+    return FixtureCapabilities(
+        chassis=Chassis.OTHER,
+        qlc_type='',
+        mode_name=mode_name or '',
+    )
+
+
+def _find_and_parse_qxf(manufacturer: str, model: str) -> Optional[ET.Element]:
+    """Search QLC+ fixture directories for a manufacturer/model match and parse.
+
+    Mirrors the directory-search logic in :func:`utils.fixture_utils.load_fixture_definitions_from_qlc`
+    so the two paths agree on which file wins. Returns the parsed root or
+    ``None`` if no file matches.
+    """
+    search_dirs = []
+    project_custom = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'custom_fixtures',
+    )
+    if os.path.exists(project_custom):
+        search_dirs.append(project_custom)
+
+    if sys.platform.startswith('linux'):
+        search_dirs.append(os.path.expanduser('~/.qlcplus/Fixtures'))
+        search_dirs.append('/usr/share/qlcplus/Fixtures')
+    elif sys.platform == 'win32':
+        search_dirs.append(os.path.join(os.path.expanduser('~'), 'QLC+', 'Fixtures'))
+        search_dirs.append('C:\\QLC+\\Fixtures')
+        search_dirs.append('C:\\QLC+5\\Fixtures')
+    elif sys.platform == 'darwin':
+        search_dirs.append(os.path.expanduser('~/Library/Application Support/QLC+/Fixtures'))
+        search_dirs.append('/Applications/QLC+.app/Contents/Resources/Fixtures')
+
+    for dir_path in search_dirs:
+        if not os.path.exists(dir_path):
+            continue
+        for entry in os.listdir(dir_path):
+            entry_path = os.path.join(dir_path, entry)
+            if entry.endswith('.qxf') and os.path.isfile(entry_path):
+                root = _try_parse_qxf_match(entry_path, manufacturer, model)
+                if root is not None:
+                    return root
+            elif os.path.isdir(entry_path):
+                for fname in os.listdir(entry_path):
+                    if fname.endswith('.qxf'):
+                        root = _try_parse_qxf_match(os.path.join(entry_path, fname), manufacturer, model)
+                        if root is not None:
+                            return root
+    return None
+
+
+def _try_parse_qxf_match(
+    path: str,
+    manufacturer: str,
+    model: str,
+) -> Optional[ET.Element]:
+    """Return the parsed root if this file's manufacturer/model match, else None."""
+    try:
+        tree = ET.parse(path)
+    except (ET.ParseError, OSError):
+        return None
+    root = tree.getroot()
+    file_mfr = _find_text(root, './/Manufacturer')
+    file_model = _find_text(root, './/Model')
+    if file_mfr == manufacturer and file_model == model:
+        return root
+    return None
 
 
 def _estimate_lumens(qxf_lumens: float, power_w: float, channel_defs: Dict[str, _ChannelDef]) -> float:

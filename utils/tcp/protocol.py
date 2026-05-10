@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 from enum import Enum
 from typing import Dict, List, Any, Optional, Tuple
 from config.models import Configuration, Fixture, FixtureGroup
+from utils.fixture_capabilities import get_capabilities_for_fixture
 
 
 class MessageType(Enum):
@@ -680,7 +681,7 @@ class VisualizerProtocol:
                     "pitch": pitch,
                     "roll": roll
                 },
-                # QXF-derived data for visualizer
+                # QXF-derived data for visualizer (legacy renderer fields).
                 "fixture_type": qxf_data.get('fixture_type', fixture.type),
                 "physical": qxf_data.get('physical', {'width': 0.3, 'height': 0.3, 'depth': 0.2}),
                 "layout": qxf_data.get('layout', {'width': 1, 'height': 1}),
@@ -694,6 +695,11 @@ class VisualizerProtocol:
                 "pixel_segments": qxf_data.get('pixel_segments', {}).get(fixture.current_mode, []),
                 # Brightness data for realistic intensity scaling
                 "lumens": qxf_data.get('lumens', 10000.0),
+                # Phase D: composable-renderer capabilities (live FixtureCapabilities
+                # object). Stripped before JSON serialization in
+                # ``create_fixtures_message``; the in-process embedded visualizer
+                # consumes this directly.
+                "capabilities": get_capabilities_for_fixture(fixture),
             }
             fixtures_data.append(fixture_info)
 
@@ -710,9 +716,16 @@ class VisualizerProtocol:
         Returns:
             JSON string with newline delimiter
         """
+        # Strip the live ``capabilities`` field — it's a Python dataclass
+        # (not JSON-serializable) used by the in-process composable renderer.
+        # The standalone TCP visualizer consumes only the legacy fields.
+        payload = VisualizerProtocol.build_fixtures_payload(config)
+        json_payload = [
+            {k: v for k, v in fx.items() if k != 'capabilities'} for fx in payload
+        ]
         message = {
             "type": MessageType.FIXTURES.value,
-            "fixtures": VisualizerProtocol.build_fixtures_payload(config),
+            "fixtures": json_payload,
         }
         return json.dumps(message) + "\n"
 

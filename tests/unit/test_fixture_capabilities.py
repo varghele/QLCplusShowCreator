@@ -24,11 +24,14 @@ from utils.fixture_capabilities import (
     CellArray,
     Chassis,
     ColorMixingMode,
+    FixtureCapabilities,
     MovementType,
     MultiHead,
     PointEmitter,
     chassis_from_legacy_type,
+    clear_capabilities_cache,
     detect_capabilities,
+    get_capabilities_for_fixture,
 )
 
 
@@ -365,6 +368,57 @@ def test_chassis_from_legacy_type_unknown_falls_back_to_other():
     assert chassis_from_legacy_type('UNKNOWN') is Chassis.OTHER
     assert chassis_from_legacy_type('') is Chassis.OTHER
     assert chassis_from_legacy_type(None) is Chassis.OTHER  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Phase D Stage 1.1: cached get_capabilities_for_fixture
+# ---------------------------------------------------------------------------
+
+
+class _StubFixture:
+    """Quick stand-in to avoid importing config.models.Fixture (which has many required fields)."""
+    def __init__(self, manufacturer: str, model: str, mode: str):
+        self.manufacturer = manufacturer
+        self.model = model
+        self.current_mode = mode
+
+
+def test_get_capabilities_for_fixture_finds_custom_qxf():
+    clear_capabilities_cache()
+    f = _StubFixture("Varytec", "Hero Spot 60", "14 Channel")
+    caps = get_capabilities_for_fixture(f)
+    assert caps.chassis is Chassis.MOVING_YOKE
+    assert caps.movement is not None
+    assert caps.gobo_wheel is not None
+
+
+def test_get_capabilities_for_fixture_caches_repeated_calls():
+    clear_capabilities_cache()
+    f = _StubFixture("Showtec", "Sunstrip Active", "10 Channels Mode")
+    first = get_capabilities_for_fixture(f)
+    second = get_capabilities_for_fixture(f)
+    # Cache returns the same object identity on repeat lookup.
+    assert first is second
+
+
+def test_get_capabilities_for_fixture_unknown_returns_safe_default():
+    clear_capabilities_cache()
+    f = _StubFixture("NoSuchManufacturer", "NoSuchModel", "Standard")
+    caps = get_capabilities_for_fixture(f)
+    assert caps.chassis is Chassis.OTHER
+    assert caps.movement is None
+    assert caps.color_mixing is None
+    assert caps.channel_count == 0
+
+
+def test_clear_capabilities_cache_invalidates():
+    f = _StubFixture("Varytec", "Hero Spot 60", "14 Channel")
+    first = get_capabilities_for_fixture(f)
+    clear_capabilities_cache()
+    second = get_capabilities_for_fixture(f)
+    # New object after invalidation, equal-but-not-same.
+    assert first is not second
+    assert first.chassis is second.chassis
 
 
 def test_unknown_mode_returns_safe_defaults():

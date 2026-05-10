@@ -2,6 +2,7 @@
 # Fixture rendering for the 3D visualizer
 
 import math
+import os
 import numpy as np
 import moderngl
 import glm
@@ -9,6 +10,20 @@ from typing import Dict, List, Any, Optional, Tuple
 from abc import ABC, abstractmethod
 
 from utils.geometry import GeometryBuilder
+
+
+# ---------------------------------------------------------------------------
+# Feature flag — Phase D fixture-rewrite cutover.
+# ---------------------------------------------------------------------------
+#
+# Set environment variable ``FIXTURE_RENDERER=composable`` to route fixture
+# construction through the new composable renderer
+# (:mod:`visualizer.renderer.composable_fixtures`). Default ``legacy`` keeps
+# the existing 6-subclass dispatch. Will flip to ``composable`` once visual
+# regression tests pass for all 6 custom fixtures.
+
+FIXTURE_RENDERER_MODE = os.environ.get('FIXTURE_RENDERER', 'legacy').lower()
+USE_COMPOSABLE_RENDERER = FIXTURE_RENDERER_MODE == 'composable'
 
 
 # Warm white color temperature (~2700K)
@@ -3627,16 +3642,33 @@ class FixtureManager:
                 extra_info = f", pan={pan_ch}, tilt={tilt_ch}, dim={dimmer_ch}, color={color_ch}, wheel_colors={cw_count}"
             print(f"  - {name}: type={fix.__class__.__name__}, U{fix.universe}@{fix.address}{extra_info}")
 
-    def _create_fixture(self, fixture_data: Dict[str, Any]) -> FixtureRenderer:
+    def _create_fixture(self, fixture_data: Dict[str, Any]):
         """
         Create appropriate renderer for fixture type.
+
+        With ``FIXTURE_RENDERER=composable``, constructs the new composable
+        :class:`visualizer.renderer.composable_fixtures.FixtureRenderer`
+        from the ``capabilities`` payload key. Otherwise (default), uses
+        the legacy 6-subclass dispatch.
 
         Args:
             fixture_data: Fixture data dictionary
 
         Returns:
-            FixtureRenderer instance
+            FixtureRenderer instance (either composable or legacy)
         """
+        if USE_COMPOSABLE_RENDERER:
+            capabilities = fixture_data.get('capabilities')
+            if capabilities is not None:
+                # Lazy import — avoids a circular dependency with composable_fixtures
+                # (which would otherwise have to know about the legacy renderer).
+                from visualizer.renderer.composable_fixtures import (
+                    FixtureRenderer as ComposableFixtureRenderer,
+                )
+                return ComposableFixtureRenderer(self.ctx, fixture_data, capabilities)
+            # Capabilities missing (e.g. TCP path stripped them) — fall through
+            # to legacy so the standalone visualizer keeps working.
+
         fixture_type = fixture_data.get('fixture_type', 'PAR')
 
         if fixture_type == 'MH':

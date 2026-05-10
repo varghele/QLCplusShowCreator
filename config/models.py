@@ -700,6 +700,20 @@ class Riff:
     def is_compatible_with(self, fixture_group: 'FixtureGroup') -> tuple:
         """Check if riff can be used with fixture group.
 
+        Compatibility is checked at the :class:`Chassis` level — both
+        the riff's required ``fixture_types`` and the group's fixtures
+        are normalised to Chassis enum values before intersecting.
+
+        ``fixture_types`` entries may be either:
+        - Legacy 6-string types (``"MH"``, ``"PAR"``, ``"BAR"``,
+          ``"PIXELBAR"``, ``"SUNSTRIP"``, ``"WASH"``) — for backward
+          compatibility with existing riff JSON.
+        - :class:`Chassis` enum names (``"moving_yoke"``, ``"par"``,
+          ``"bar"``, ``"panel"``, ``"scanner"``, ``"effect"``,
+          ``"particle"``, ``"laser"``, ``"other"``) — for new riffs
+          targeting capability archetypes the legacy enum can't express.
+        Case-insensitive on both sides.
+
         Returns:
             tuple: (is_compatible: bool, reason_if_not: str)
         """
@@ -707,11 +721,22 @@ class Riff:
         if not self.fixture_types:
             return (True, "")
 
-        # Check if group has any fixture with matching type
         if fixture_group.fixtures:
-            group_types = set(f.type for f in fixture_group.fixtures)
-            matching_types = group_types.intersection(set(self.fixture_types))
-            if matching_types:
+            from utils.fixture_capabilities import Chassis, chassis_from_legacy_type
+
+            group_chassis = {
+                chassis_from_legacy_type(f.type) for f in fixture_group.fixtures
+            }
+            required: set = set()
+            for entry in self.fixture_types:
+                if not entry:
+                    continue
+                try:
+                    required.add(Chassis(entry.lower()))
+                except ValueError:
+                    required.add(chassis_from_legacy_type(entry))
+
+            if group_chassis & required:
                 return (True, "")
             return (False, f"Requires fixture types: {', '.join(self.fixture_types)}")
 
