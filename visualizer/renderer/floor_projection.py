@@ -190,10 +190,15 @@ class FloorProjectionComponent:
             glm.vec3(intersection.major_radius, 1.0, intersection.minor_radius),
         )
 
-        # Set blend / depth state similarly to the legacy renderer.
+        # Additive blend with depth TEST on but depth WRITE off: the
+        # projection plane sits just above the stage floor (y=0.03), so
+        # depth-test still lets it draw over the stage; meanwhile any
+        # fixture chassis already drawn at the same screen pixels (which
+        # is closer to the camera than the floor plane) correctly occludes
+        # the projection. Without the depth-test the projection drew over
+        # floor PARs that happened to sit under a moving head's spot.
         self.ctx.enable(moderngl.BLEND)
         self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
-        self.ctx.disable(moderngl.DEPTH_TEST)
         self.ctx.depth_mask = False
 
         try:
@@ -208,7 +213,6 @@ class FloorProjectionComponent:
             self.program['focus_sharpness'].value = focus_sharpness
             self.vao.render(moderngl.TRIANGLES)
         finally:
-            self.ctx.enable(moderngl.DEPTH_TEST)
             self.ctx.depth_mask = True
             self.ctx.disable(moderngl.BLEND)
 

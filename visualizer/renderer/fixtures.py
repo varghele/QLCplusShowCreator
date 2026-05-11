@@ -2846,8 +2846,11 @@ class MovingHeadRenderer(FixtureRenderer):
             self.ctx.enable(moderngl.BLEND)
             self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
 
-            # Disable depth test for projection (renders on top of floor)
-            self.ctx.disable(moderngl.DEPTH_TEST)
+            # Keep depth-test on (with depth WRITE off) so closer chassis
+            # geometry (e.g. a floor PAR sitting under this MH's spot)
+            # correctly occludes the projection ellipse. The projection
+            # plane at y=0.03 still draws over the stage floor because
+            # it sits above the floor's depth.
             self.ctx.depth_mask = False
 
             # Calculate distance falloff
@@ -3713,12 +3716,38 @@ class FixtureManager:
 
     def render(self, mvp: glm.mat4):
         """
-        Render all fixtures.
+        Render all fixtures in two passes (composable only).
+
+        Composable fixtures expose ``render_lighting`` (additive beams +
+        floor projections, no depth write) and ``render_chassis`` (opaque
+        body, with depth). Drawing all lighting first and then all chassis
+        on top guarantees fixture silhouettes stay readable at native
+        color regardless of how bright or overlapping the surrounding
+        beams are. Legacy fixtures (without the split methods) fall back
+        to single-pass.
 
         Args:
             mvp: View-projection matrix
         """
-        for fixture in self.fixtures.values():
+        two_pass = [
+            f for f in self.fixtures.values()
+            if hasattr(f, 'render_lighting') and hasattr(f, 'render_chassis')
+        ]
+        single_pass = [
+            f for f in self.fixtures.values()
+            if f not in two_pass
+        ]
+
+        # Pass 1: additive light volumes for all composable fixtures.
+        for fixture in two_pass:
+            fixture.render_lighting(mvp)
+
+        # Pass 2: opaque chassis on top.
+        for fixture in two_pass:
+            fixture.render_chassis(mvp)
+
+        # Legacy fixtures keep their old chassis-then-beam single pass.
+        for fixture in single_pass:
             fixture.render(mvp)
 
     def get_fixture(self, name: str) -> Optional[FixtureRenderer]:

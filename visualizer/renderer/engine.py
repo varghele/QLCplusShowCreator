@@ -14,6 +14,7 @@ from .camera import OrbitCamera
 from .stage import StageRenderer
 from .gizmo import CoordinateGizmo
 from .fixtures import FixtureManager
+from .hdr import HDRPipeline
 
 
 class RenderEngine(QOpenGLWidget):
@@ -50,6 +51,7 @@ class RenderEngine(QOpenGLWidget):
         self.stage_renderer: Optional[StageRenderer] = None
         self.gizmo_renderer: Optional[CoordinateGizmo] = None
         self.fixture_manager: Optional[FixtureManager] = None
+        self.hdr: Optional[HDRPipeline] = None
 
         # Stage dimensions
         self.stage_width = 10.0
@@ -117,6 +119,11 @@ class RenderEngine(QOpenGLWidget):
             # Create fixture manager
             self.fixture_manager = FixtureManager(self.ctx)
 
+            # HDR offscreen + tonemap pass so additive beam contributions
+            # don't clip the framebuffer to flat white. Sized lazily in
+            # paintGL from the current widget dimensions.
+            self.hdr = HDRPipeline(self.ctx)
+
             # Set camera to fit stage
             self.camera.set_stage_size(self.stage_width, self.stage_height)
 
@@ -163,36 +170,48 @@ class RenderEngine(QOpenGLWidget):
         # Calculate FPS
         self._update_fps()
 
-        # IMPORTANT: Bind Qt's FBO before rendering
-        # QOpenGLWidget uses an FBO, not the default framebuffer (0)
-        # We need to get the current FBO ID as it may change on resize
+        # Resolve the Qt LDR FBO once so we can target it for the tonemap
+        # and for LDR-only overlays (gizmo). Qt's FBO ID can change on
+        # resize.
         qt_fbo_id = self.defaultFramebufferObject()
-        self.ctx.fbo = self.ctx.detect_framebuffer(qt_fbo_id)
-        self.ctx.fbo.use()
+        qt_fbo = self.ctx.detect_framebuffer(qt_fbo_id)
+        self.ctx.fbo = qt_fbo
 
-        # Set viewport to widget size
-        self.ctx.viewport = (0, 0, self.width(), self.height())
-
-        # Clear screen (dark background)
-        self.ctx.fbo.clear(0.05, 0.05, 0.08, 1.0)
+        w, h = self.width(), self.height()
+        self.ctx.viewport = (0, 0, w, h)
 
         # Get view-projection matrix
         mvp = self.camera.get_view_projection_matrix()
 
-        # Render stage
-        if self.stage_renderer:
-            self.stage_renderer.render(mvp)
+        # --- Scene pass: render to HDR offscreen ---
+        if self.hdr is not None:
+            self.hdr.resize(w, h)
+            self.hdr.bind()
+            self.ctx.viewport = (0, 0, w, h)
+            self.hdr.clear(0.05, 0.05, 0.08, 1.0)
 
-        # Render fixtures
-        if self.fixture_manager:
-            self.fixture_manager.render(mvp)
+            if self.stage_renderer:
+                self.stage_renderer.render(mvp)
+            if self.fixture_manager:
+                self.fixture_manager.render(mvp)
 
-        # TODO: Phase V6 - Render beams
+            # --- Tonemap pass: HDR → Qt LDR FBO ---
+            self.hdr.tonemap_to(qt_fbo)
+            self.ctx.viewport = (0, 0, w, h)
+        else:
+            # Fallback path if HDR init failed: render direct to Qt FBO.
+            qt_fbo.use()
+            qt_fbo.clear(0.05, 0.05, 0.08, 1.0)
+            if self.stage_renderer:
+                self.stage_renderer.render(mvp)
+            if self.fixture_manager:
+                self.fixture_manager.render(mvp)
 
-        # Render coordinate gizmo (always on top, in corner)
+        # Render coordinate gizmo last to the LDR FBO so the UI overlay
+        # isn't affected by the tonemap curve.
         if self.gizmo_renderer:
             view_matrix = self.camera.get_view_matrix()
-            self.gizmo_renderer.render(view_matrix, self.width(), self.height())
+            self.gizmo_renderer.render(view_matrix, w, h)
 
     def _update_fps(self):
         """Update FPS counter."""
@@ -362,6 +381,10 @@ class RenderEngine(QOpenGLWidget):
         if self.gizmo_renderer:
             self.gizmo_renderer.release()
             self.gizmo_renderer = None
+
+        if self.hdr:
+            self.hdr.release()
+            self.hdr = None
 
         if self.ctx:
             self.ctx.release()

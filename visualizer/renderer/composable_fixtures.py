@@ -260,24 +260,43 @@ class FixtureRenderer:
             c.update_dmx(dmx_data, self.address)
 
     def render(self, mvp: glm.mat4) -> None:
+        """Render lighting (additive light volumes), then chassis (opaque on top).
+
+        :class:`FixtureManager.render` calls :meth:`render_lighting` and
+        :meth:`render_chassis` separately across all fixtures so chassis
+        silhouettes stay readable underneath bright / overlapping beams.
+        Direct callers (older tests) still get a self-contained render.
+        """
+        self.render_lighting(mvp)
+        self.render_chassis(mvp)
+
+    def render_lighting(self, mvp: glm.mat4) -> None:
+        """Render additive light volumes: beam cones + floor projection.
+
+        Depth-tested against whatever opaque geometry (stage, previously
+        drawn chassis) sits in the depth buffer, but does NOT write depth
+        itself — so later chassis draws can overwrite the additive
+        contributions at their own silhouette pixels.
+        """
         model = self.get_model_matrix()
-
-        # 1. Body chassis. Pass pan/tilt so an animated chassis (moving yoke)
-        #    can rotate its yoke + head; static chassis ignore both. Lens
-        #    emissive follows beam color × dimmer for moving heads.
-        chassis_state = self._build_chassis_state()
-        self.chassis_geom.render(mvp, model, chassis_state)
-
-        # 2. Build modifier bundle once per frame; beam variants ignore unused fields.
         modifiers = self._build_modifiers()
 
-        # 3. Iterate emissions × beam.
         for emission in self.emitter_runner.emissions(self.color, self.dimmer):
             self.beam.render_emission(mvp, model, emission, modifiers)
 
-        # 4. Floor projection (MOVING_YOKE only).
         if self.floor_projection is not None:
             self._render_floor_projection(mvp, model, modifiers)
+
+    def render_chassis(self, mvp: glm.mat4) -> None:
+        """Render the opaque chassis body.
+
+        Drawn AFTER lighting in the two-pass FixtureManager flow so the
+        chassis silhouette always reads at its native color, even when
+        sitting under additive beam contributions from other fixtures.
+        """
+        model = self.get_model_matrix()
+        chassis_state = self._build_chassis_state()
+        self.chassis_geom.render(mvp, model, chassis_state)
 
     def release(self) -> None:
         self.chassis_geom.release()
