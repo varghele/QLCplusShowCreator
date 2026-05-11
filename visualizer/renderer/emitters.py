@@ -210,24 +210,49 @@ def _compute_cell_offsets(
 
     Convention: cells laid out in the body's local X-Y plane (width = X,
     height = Y); Z stays at 0. Row-major matches CellArray.cells order.
+
+    Cells span the inner 90% of the body so the legacy bar chassis (which
+    drew per-cell slabs with a margin) and the composable cone offsets line
+    up — important now that :class:`PixelBarChassisGeometry` and
+    :class:`SunstripChassisGeometry` draw visible emitter slabs at these
+    positions and the beam must emerge from the slab, not from the chassis
+    edge.
     """
     if emitter.width <= 0 or emitter.height <= 0:
         yield glm.vec3(0.0, 0.0, 0.0)
         return
 
-    body_w, body_h, _ = body_dims_m
-    cell_w = body_w / emitter.width
-    cell_h = body_h / emitter.height
-    start_x = -body_w / 2.0 + cell_w / 2.0
-    start_y = -body_h / 2.0 + cell_h / 2.0
+    body_w, body_h, body_d = body_dims_m
+    span_w = body_w * 0.9
+    span_h = body_h * 0.9
+    cell_w = span_w / emitter.width
+    cell_h = span_h / emitter.height
+    start_x = -span_w / 2.0 + cell_w / 2.0
+    start_y = -span_h / 2.0 + cell_h / 2.0
+    # Cells emit from just above the body's front face so beams emerge from
+    # the visible emitter slabs / lamp bulbs the chassis draws there.
+    z = body_d / 2.0 + 0.005
 
     for row in range(emitter.height):
         for col in range(emitter.width):
             yield glm.vec3(
                 start_x + col * cell_w,
                 start_y + row * cell_h,
-                0.0,
+                z,
             )
+
+
+def compute_cell_offsets(
+    emitter: CellArray,
+    body_dims_m: Tuple[float, float, float],
+) -> List[glm.vec3]:
+    """Public helper: list version of :func:`_compute_cell_offsets`.
+
+    Used by chassis geometries that need to position visible per-cell
+    emitter geometry at the same offsets the :class:`CellArrayRunner`
+    uses for its emissions.
+    """
+    return list(_compute_cell_offsets(emitter, body_dims_m))
 
 
 # ---------------------------------------------------------------------------

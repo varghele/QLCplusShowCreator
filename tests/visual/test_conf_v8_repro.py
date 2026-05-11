@@ -237,6 +237,30 @@ def _front_par_world_pos(config: Configuration) -> glm.vec3:
     return glm.vec3(f.x, f.z, f.y)
 
 
+def _brightest_red_in_box(image: np.ndarray, cx: int, cy: int, half: int = 40) -> Tuple[int, int, int]:
+    """Return the brightest red-dominant pixel within ±half of (cx, cy).
+
+    The PAR with the new :class:`PARChassisGeometry` lights its lens slab,
+    not the full chassis body, so the brightest pixel sits a bit above or
+    around the projected origin (chassis local +Z → world +Y after the
+    standing pitch). Searching a small box accommodates that.
+    """
+    h, w, _ = image.shape
+    x0, x1 = max(0, cx - half), min(w, cx + half)
+    y0, y1 = max(0, cy - half), min(h, cy + half)
+    region = image[y0:y1, x0:x1]
+    r = region[..., 0].astype(int)
+    g = region[..., 1].astype(int)
+    b = region[..., 2].astype(int)
+    # Score: prefer red-dominant pixels. Zero out non-red ones.
+    score = np.where((r > g + 20) & (r > b + 20), r, -1)
+    if score.max() <= 0:
+        return (0, 0, 0)
+    idx = np.argmax(score)
+    by, bx = np.unravel_index(idx, score.shape)
+    return tuple(int(c) for c in region[by, bx])
+
+
 def test_conf_v8_par_alone_baseline(gl_context, ldr_fbo):
     """Baseline: render conf_v8 with ONLY the front PAR lit (everything else dark).
 
@@ -287,11 +311,10 @@ def test_conf_v8_front_par_stays_visible_ldr(gl_context, ldr_fbo):
     if not (0 <= px < FBO_SIZE and 0 <= py < FBO_SIZE):
         pytest.skip(f"Front PAR projects off-screen at ({px},{py}); adjust camera.")
 
-    # Sample a small box around the projected position.
-    box = img[max(0, py - 8):py + 8, max(0, px - 8):px + 8]
-    r = int(box[..., 0].mean())
-    g = int(box[..., 1].mean())
-    b = int(box[..., 2].mean())
+    # The new PARChassisGeometry lights only the lens slab (sitting on the
+    # chassis +Z face) — search around the projected origin for the
+    # brightest red-dominant pixel rather than averaging at the body centre.
+    r, g, b = _brightest_red_in_box(img, px, py)
     print(f"[conf_v8_ldr] avg RGB near PAR: ({r}, {g}, {b})")
 
     assert r - g >= 30 and r - b >= 30, (
@@ -313,10 +336,7 @@ def test_conf_v8_front_par_stays_visible_hdr(gl_context, hdr_fbo):
     if not (0 <= px < FBO_SIZE and 0 <= py < FBO_SIZE):
         pytest.skip(f"Front PAR projects off-screen at ({px},{py}); adjust camera.")
 
-    box = img[max(0, py - 8):py + 8, max(0, px - 8):px + 8]
-    r = int(box[..., 0].mean())
-    g = int(box[..., 1].mean())
-    b = int(box[..., 2].mean())
+    r, g, b = _brightest_red_in_box(img, px, py)
     print(f"[conf_v8_hdr] avg RGB near PAR: ({r}, {g}, {b})")
 
     assert r - g >= 30 and r - b >= 30, (

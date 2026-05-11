@@ -38,6 +38,8 @@ from visualizer.renderer.beams import (
     GlowBeam,
     RectangularBeam,
     SegmentedBeam,
+    SegmentedCylinderBeam,
+    SegmentedRectBeam,
 )
 from visualizer.renderer.chassis import (
     ChassisGeometry,
@@ -59,7 +61,11 @@ from visualizer.renderer.components import (
     StrobeComponent,
     ZoomComponent,
 )
-from visualizer.renderer.emitters import EmitterRunner, create_emitter_runner
+from visualizer.renderer.emitters import (
+    CellArrayRunner,
+    EmitterRunner,
+    create_emitter_runner,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -73,13 +79,17 @@ def _select_beam(
 ) -> BeamComponent:
     """Pick the right BeamComponent variant for a fixture's capabilities.
 
-    Decision tree (see FIXTURE_TAXONOMY.md §6 for context):
-    - MultiHead emitter → ConeBeam (one cone per head in the emission loop)
-    - Movement present (single moving head) → ConeBeam
-    - Chassis BAR/PANEL with cells → SegmentedBeam
-    - Chassis BAR/PANEL without cells, no optics → RectangularBeam (wash bar)
-    - Chassis PAR with optics → CylindricalBeam
-    - Otherwise → GlowBeam (cheap fallback)
+    Decision tree (matches the legacy renderers' beam shapes):
+    - MultiHead emitter / single moving head → ConeBeam (long cone with gobo).
+    - BAR/PANEL with RGB cells (pixel bar / LED bar / matrix) →
+      SegmentedRectBeam (short rectangular per-cell glow).
+    - BAR/PANEL with dimmer-only cells (sunstrip) →
+      SegmentedCylinderBeam (short cylindrical per-cell column).
+    - BAR/PANEL with no cells, no optics → RectangularBeam (wash bar).
+    - PAR with no optics (LED wash / flat par) → short RectangularBeam
+      sized to the body (matches legacy WashRenderer rectangular glow).
+    - PAR with optics → CylindricalBeam.
+    - Otherwise → GlowBeam (cheap fallback).
     """
     chassis = capabilities.chassis
     emitter = capabilities.emitter
@@ -88,23 +98,58 @@ def _select_beam(
     has_cells = isinstance(emitter, CellArray)
 
     if isinstance(emitter, MultiHead) or has_movement:
-        # Tune cone to fixture's lens range; fall back to a sensible default.
         cone_angle = capabilities.beam.max_deg if has_optics else 15.0
         return ConeBeam(ctx, cone_angle_deg=cone_angle)
 
     if has_cells and chassis in (Chassis.BAR, Chassis.PANEL):
-        return SegmentedBeam(ctx)
+        body_w, body_h, _ = capabilities.body_dims_m
+        n_cols = max(1, emitter.width)
+        n_rows = max(1, emitter.height)
+        cell_w = (body_w * 0.9) / n_cols
+        cell_h = (
+            (body_h * 0.9) / n_rows if n_rows > 1 else body_h * 0.6
+        )
+        if _cellarray_has_rgb(emitter):
+            # PixelBar / LED Bar / matrix — rectangular box per cell.
+            return SegmentedRectBeam(
+                ctx,
+                cell_width_m=cell_w * 0.85,
+                cell_height_m=cell_h * 0.85,
+                length_m=0.3,
+            )
+        # Sunstrip — cylindrical column per lamp.
+        lamp_radius = min(cell_w * 0.35, 0.025)
+        return SegmentedCylinderBeam(ctx, radius_m=lamp_radius, length_m=0.3)
 
     if chassis in (Chassis.BAR, Chassis.PANEL) and not has_optics:
-        # Wash bar / video panel — wide rectangular volume.
+        # Wash bar / video panel — wide short rectangular volume.
         w = capabilities.body_dims_m[0] * 0.6
         h = max(capabilities.body_dims_m[1] * 0.6, 0.3)
-        return RectangularBeam(ctx, width_m=w, height_m=h)
+        return RectangularBeam(ctx, width_m=w, height_m=h, length_m=0.4)
+
+    if chassis is Chassis.PAR and not has_optics:
+        # LED wash / flat par — short rectangular glow sized to the body.
+        body_w, body_h, _ = capabilities.body_dims_m
+        return RectangularBeam(
+            ctx,
+            width_m=body_w * 0.7,
+            height_m=body_h * 0.7,
+            length_m=0.3,
+        )
 
     if chassis is Chassis.PAR and has_optics:
         return CylindricalBeam(ctx)
 
     return GlowBeam(ctx)
+
+
+def _cellarray_has_rgb(emitter: CellArray) -> bool:
+    return any(
+        c.red_channel is not None
+        or c.green_channel is not None
+        or c.blue_channel is not None
+        for c in emitter.cells
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -145,8 +190,12 @@ class FixtureRenderer:
         self.brightness_scale = 1.0
 
         # --- chassis geometry ---
+        # Pass the emitter so a BAR/PANEL with a CellArray uses the
+        # cell-aware chassis (visible emitter slabs / lamp bulbs), and a
+        # PAR uses the lensed variant.
         self.chassis_geom: ChassisGeometry = make_chassis_geometry(
-            ctx, capabilities.chassis, capabilities.body_dims_m
+            ctx, capabilities.chassis, capabilities.body_dims_m,
+            emitter=capabilities.emitter,
         )
 
         # --- state-only components (built only when the capability exists) ---
@@ -412,7 +461,9 @@ class FixtureRenderer:
 
     def _build_chassis_state(self) -> ChassisRenderState:
         """Build per-frame chassis inputs: pan/tilt for animated chassis,
-        emissive for the lens (color × dimmer)."""
+        emissive for the lens (color × dimmer), and — for cell-based bar /
+        sunstrip / matrix fixtures — premultiplied per-cell emissive that
+        the chassis uses to light individual emitter slabs / lamp bulbs."""
         pan = self.movement.pan_deg if self.movement is not None else 0.0
         tilt = self.movement.tilt_deg if self.movement is not None else 0.0
 
@@ -428,11 +479,22 @@ class FixtureRenderer:
             emissive = (0.0, 0.0, 0.0)
             strength = 0.0
 
+        cell_emissives = None
+        if isinstance(self.emitter_runner, CellArrayRunner):
+            master = self.dimmer.normalized if self.dimmer is not None else 1.0
+            fallback = self.color.rgb if self.color is not None else (1.0, 1.0, 1.0)
+            cell_emissives = []
+            for cs in self.emitter_runner.cell_states:
+                rgb = cs.rgb if cs.has_color else fallback
+                k = cs.dimmer * master
+                cell_emissives.append((rgb[0] * k, rgb[1] * k, rgb[2] * k))
+
         return ChassisRenderState(
             pan_deg=pan,
             tilt_deg=tilt,
             emissive_color=emissive,
             emissive_strength=strength,
+            cell_emissives=cell_emissives,
         )
 
     def _build_modifiers(self) -> BeamModifiers:

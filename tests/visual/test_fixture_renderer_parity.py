@@ -273,11 +273,13 @@ FIXTURE_CASES = [
 #    but diverges from legacy at the lens area, especially for moving
 #    washes like the MAC Aura.
 #
-# Observed maxes across all archetype + legacy fixtures at full-DMX:
+# Observed maxes across all archetype + legacy fixtures at full-DMX
+# (after the Option B chassis port — most fixtures now match legacy
+# tightly; only the moving wash still diverges at the lens area):
 #   histogram L1:   0.136  (Martin MAC Aura Standard — moving wash)
 #   block-mean RMS: 0.078  (Martin MAC Aura Standard — chassis-on-top fix)
 HISTOGRAM_TOLERANCE = 0.15
-BLOCK_MEAN_TOLERANCE = 0.10
+BLOCK_MEAN_TOLERANCE = 0.085
 
 
 @pytest.mark.parametrize(

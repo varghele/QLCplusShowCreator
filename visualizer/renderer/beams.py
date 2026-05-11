@@ -420,11 +420,10 @@ class RectangularBeam(BeamComponent):
 
 
 class SegmentedBeam(BeamComponent):
-    """One short glow cone per emission. Used by CellArrayRunner output.
-
-    Phase B implementation: re-uses a single small cone VAO and draws it
-    N times with per-emission color/dimmer. Phase D may batch via
-    instancing if perf demands.
+    """One short glow cone per emission. Kept for back-compat; new code
+    should prefer :class:`SegmentedRectBeam` (pixel/LED bar) or
+    :class:`SegmentedCylinderBeam` (sunstrip) which match the legacy
+    fixture beam shapes more faithfully.
     """
 
     def __init__(
@@ -469,6 +468,135 @@ class SegmentedBeam(BeamComponent):
             self.program['mvp'].write(mvp_bytes)
             self.program['beam_color'].value = emission.color
             self.program['beam_intensity'].value = emission.dimmer * modifiers.brightness_scale
+            self.vao.render(moderngl.TRIANGLES)
+        finally:
+            _restore_state(self.ctx)
+
+
+# ---------------------------------------------------------------------------
+# SegmentedRectBeam — one short rectangular-box glow per cell
+# (pixel bar / LED bar; mirrors the legacy PixelBarRenderer / LEDBarRenderer)
+# ---------------------------------------------------------------------------
+
+
+class SegmentedRectBeam(BeamComponent):
+    """Per-cell short rectangular box glow.
+
+    Mirrors :meth:`PixelBarRenderer._create_segment_beams` / the matching
+    LED bar code: a thin "wall of light" emerging from each cell's
+    emitter slab. Width/height come from the cell footprint so the beam
+    sits flush with the visible slab on the chassis front face.
+    """
+
+    def __init__(
+        self,
+        ctx: moderngl.Context,
+        cell_width_m: float = 0.05,
+        cell_height_m: float = 0.05,
+        length_m: float = 0.3,
+    ):
+        super().__init__(ctx)
+        self.cell_width_m = cell_width_m
+        self.cell_height_m = cell_height_m
+        self.length_m = length_m
+
+        verts, alphas = GeometryBuilder.create_beam_box(
+            cell_width_m, cell_height_m, length_m,
+        )
+
+        self.program = ctx.program(
+            vertex_shader=BEAM_VERTEX_SHADER,
+            fragment_shader=BEAM_FRAGMENT_SHADER,
+        )
+        self.vbo = ctx.buffer(verts.tobytes())
+        self.abo = ctx.buffer(alphas.tobytes())
+        self.vao = ctx.vertex_array(
+            self.program,
+            [
+                (self.vbo, '3f', 'in_position'),
+                (self.abo, '1f', 'in_alpha'),
+            ],
+        )
+
+    def render_emission(
+        self,
+        mvp: glm.mat4,
+        fixture_model: glm.mat4,
+        emission: Emission,
+        modifiers: BeamModifiers = _DEFAULT_MODIFIERS,
+    ) -> None:
+        if emission.dimmer < 0.01:
+            return
+        mvp_bytes = _to_mvp_bytes(mvp, fixture_model, emission.local_transform)
+        _setup_additive_blending(self.ctx)
+        try:
+            self.program['mvp'].write(mvp_bytes)
+            self.program['beam_color'].value = emission.color
+            self.program['beam_intensity'].value = (
+                emission.dimmer * modifiers.brightness_scale
+            )
+            self.vao.render(moderngl.TRIANGLES)
+        finally:
+            _restore_state(self.ctx)
+
+
+# ---------------------------------------------------------------------------
+# SegmentedCylinderBeam — one short cylindrical glow per cell (sunstrip)
+# ---------------------------------------------------------------------------
+
+
+class SegmentedCylinderBeam(BeamComponent):
+    """Per-cell short cylindrical glow.
+
+    Mirrors :meth:`SunstripRenderer._render_segment_beams`: each lamp gets
+    a stubby cylindrical column of light extending from its bulb.
+    """
+
+    def __init__(
+        self,
+        ctx: moderngl.Context,
+        radius_m: float = 0.025,
+        length_m: float = 0.3,
+    ):
+        super().__init__(ctx)
+        self.radius_m = radius_m
+        self.length_m = length_m
+
+        verts, alphas = GeometryBuilder.create_beam_cylinder(
+            radius_m, length_m, segments=10,
+        )
+
+        self.program = ctx.program(
+            vertex_shader=BEAM_VERTEX_SHADER,
+            fragment_shader=BEAM_FRAGMENT_SHADER,
+        )
+        self.vbo = ctx.buffer(verts.tobytes())
+        self.abo = ctx.buffer(alphas.tobytes())
+        self.vao = ctx.vertex_array(
+            self.program,
+            [
+                (self.vbo, '3f', 'in_position'),
+                (self.abo, '1f', 'in_alpha'),
+            ],
+        )
+
+    def render_emission(
+        self,
+        mvp: glm.mat4,
+        fixture_model: glm.mat4,
+        emission: Emission,
+        modifiers: BeamModifiers = _DEFAULT_MODIFIERS,
+    ) -> None:
+        if emission.dimmer < 0.01:
+            return
+        mvp_bytes = _to_mvp_bytes(mvp, fixture_model, emission.local_transform)
+        _setup_additive_blending(self.ctx)
+        try:
+            self.program['mvp'].write(mvp_bytes)
+            self.program['beam_color'].value = emission.color
+            self.program['beam_intensity'].value = (
+                emission.dimmer * modifiers.brightness_scale
+            )
             self.vao.render(moderngl.TRIANGLES)
         finally:
             _restore_state(self.ctx)

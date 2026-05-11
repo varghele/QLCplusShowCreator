@@ -22,14 +22,14 @@ etc. without touching components, emitters, or beams.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Callable, Dict, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Callable, Dict, List, Optional, Tuple
 
 import glm
 import moderngl
 import numpy as np
 
-from utils.fixture_capabilities import Chassis
+from utils.fixture_capabilities import CellArray, Chassis
 from utils.geometry import GeometryBuilder
 from visualizer.renderer.gl_state import set_depth_mask
 from visualizer.renderer.shaders import (
@@ -159,11 +159,18 @@ class ChassisRenderState:
     Fields are ignored by chassis subclasses that don't use them
     (a static chassis ignores ``pan_deg``; a moving yoke uses both
     ``pan_deg`` and ``tilt_deg`` plus the lens emissive).
+
+    ``cell_emissives`` carries premultiplied per-cell ``(r, g, b)``
+    emissive values for bar / sunstrip / matrix chassis with a
+    :class:`CellArray` emitter. Order matches ``CellArrayRunner.cell_states``
+    (row-major). ``None`` means "no per-cell emitter geometry" — the chassis
+    just uses ``emissive_color`` for any unified emitter / lens surface.
     """
     pan_deg: float = 0.0
     tilt_deg: float = 0.0
     emissive_color: Tuple[float, float, float] = (0.0, 0.0, 0.0)
     emissive_strength: float = 0.0
+    cell_emissives: Optional[List[Tuple[float, float, float]]] = None
 
 
 _DEFAULT_STATE = ChassisRenderState()
@@ -674,16 +681,403 @@ class MovingYokeChassisGeometry(ChassisGeometry):
 
 
 # ---------------------------------------------------------------------------
+# PixelBarChassisGeometry — body box + per-cell visible emitter slabs
+# ---------------------------------------------------------------------------
+
+
+class PixelBarChassisGeometry(ChassisGeometry):
+    """Bar / panel chassis with one visible RGBW emitter slab per cell.
+
+    Mirrors the legacy :class:`PixelBarRenderer._create_geometry` visual:
+    a dark body box, with thin colored slabs sitting on the front face,
+    one per cell. Each slab lights up with that cell's premultiplied
+    emissive (read from :attr:`ChassisRenderState.cell_emissives`, which
+    the :class:`FixtureRenderer` populates from the
+    :class:`CellArrayRunner`'s per-cell state).
+    """
+
+    BODY_COLOR = (0.15, 0.15, 0.18)
+    SLAB_BASE_COLOR = (0.1, 0.1, 0.1)
+    SLAB_DEPTH = 0.01
+    # Slabs cover this fraction of each cell's width × the bar's height.
+    SLAB_WIDTH_FRACTION = 0.85
+    SLAB_HEIGHT_FRACTION = 0.6
+
+    def __init__(
+        self,
+        ctx: moderngl.Context,
+        body_dims_m: Tuple[float, float, float],
+        emitter: CellArray,
+    ):
+        self.ctx = ctx
+        self.body_dims_m = body_dims_m
+        self.emitter = emitter
+
+        self.program = ctx.program(
+            vertex_shader=FIXTURE_VERTEX_SHADER,
+            fragment_shader=FIXTURE_FRAGMENT_SHADER,
+        )
+
+        width, height, depth = body_dims_m
+        body_verts, body_norms = GeometryBuilder.create_box(width, height, depth)
+        self._body_vbo = ctx.buffer(body_verts.tobytes())
+        self._body_nbo = ctx.buffer(body_norms.tobytes())
+        self._body_vao = ctx.vertex_array(
+            self.program,
+            [(self._body_vbo, '3f', 'in_position'), (self._body_nbo, '3f', 'in_normal')],
+        )
+
+        span_w = width * 0.9
+        span_h = height * 0.9
+        cell_w = span_w / max(1, emitter.width)
+        cell_h = span_h / max(1, emitter.height)
+        slab_w = cell_w * self.SLAB_WIDTH_FRACTION
+        slab_h = (
+            cell_h * self.SLAB_WIDTH_FRACTION
+            if emitter.height > 1
+            else height * self.SLAB_HEIGHT_FRACTION
+        )
+        slab_z = depth / 2.0 + self.SLAB_DEPTH / 2.0
+        start_x = -span_w / 2.0 + cell_w / 2.0
+        start_y = -span_h / 2.0 + cell_h / 2.0
+
+        self._slab_vaos: list[moderngl.VertexArray] = []
+        self._slab_vbos: list[moderngl.Buffer] = []
+        self._slab_nbos: list[moderngl.Buffer] = []
+        for row in range(emitter.height):
+            for col in range(emitter.width):
+                cx = start_x + col * cell_w
+                cy = start_y + row * cell_h if emitter.height > 1 else 0.0
+                verts, norms = GeometryBuilder.create_box(
+                    slab_w, slab_h, self.SLAB_DEPTH,
+                    center=(cx, cy, slab_z),
+                )
+                vbo = ctx.buffer(verts.tobytes())
+                nbo = ctx.buffer(norms.tobytes())
+                vao = ctx.vertex_array(
+                    self.program,
+                    [(vbo, '3f', 'in_position'), (nbo, '3f', 'in_normal')],
+                )
+                self._slab_vbos.append(vbo)
+                self._slab_nbos.append(nbo)
+                self._slab_vaos.append(vao)
+
+    def render(
+        self,
+        mvp: glm.mat4,
+        model: glm.mat4,
+        state: ChassisRenderState = _DEFAULT_STATE,
+    ) -> None:
+        self.ctx.disable(moderngl.BLEND)
+        set_depth_mask(True)
+
+        self.program['mvp'].write(_mat4_bytes(mvp * model))
+        self.program['model'].write(_mat4_bytes(model))
+
+        # Body — unlit dark housing.
+        self.program['base_color'].value = self.BODY_COLOR
+        self.program['emissive_color'].value = (0.0, 0.0, 0.0)
+        self.program['emissive_strength'].value = 0.0
+        self._body_vao.render(moderngl.TRIANGLES)
+
+        # Slabs — one per cell, lit by per-cell emissive.
+        self.program['base_color'].value = self.SLAB_BASE_COLOR
+        emissives = state.cell_emissives
+        for i, vao in enumerate(self._slab_vaos):
+            if emissives is not None and i < len(emissives):
+                er, eg, eb = emissives[i]
+                # Treat the largest channel as overall intensity so an off
+                # cell (all-zero emissive) stays at SLAB_BASE_COLOR ambient.
+                strength = max(er, eg, eb)
+                self.program['emissive_color'].value = (er, eg, eb)
+                self.program['emissive_strength'].value = float(strength)
+            else:
+                self.program['emissive_color'].value = (0.0, 0.0, 0.0)
+                self.program['emissive_strength'].value = 0.0
+            vao.render(moderngl.TRIANGLES)
+
+    def release(self) -> None:
+        for vao in (self._body_vao, *self._slab_vaos):
+            if vao:
+                vao.release()
+        for buf in (
+            self._body_vbo, self._body_nbo,
+            *self._slab_vbos, *self._slab_nbos,
+        ):
+            if buf:
+                buf.release()
+        if self.program:
+            self.program.release()
+
+
+# ---------------------------------------------------------------------------
+# SunstripChassisGeometry — body box + per-cell lamp bulbs (cylinders)
+# ---------------------------------------------------------------------------
+
+
+class SunstripChassisGeometry(ChassisGeometry):
+    """Sunstrip-style chassis: a dark bar body with small cylindrical lamp
+    bulbs protruding from the front face, one per cell. Each lamp glows
+    warm-white at the cell's per-cell dimmer.
+
+    Mirrors the legacy :class:`SunstripRenderer._create_geometry`.
+    """
+
+    BODY_COLOR = (0.12, 0.12, 0.15)
+    LAMP_BASE_COLOR = (0.9, 0.85, 0.7)
+    # Warm-white preserved from legacy WARM_WHITE_COLOR.
+    LAMP_EMISSIVE = (1.0, 0.85, 0.6)
+    LAMP_HEIGHT = 0.02
+
+    def __init__(
+        self,
+        ctx: moderngl.Context,
+        body_dims_m: Tuple[float, float, float],
+        emitter: CellArray,
+    ):
+        self.ctx = ctx
+        self.body_dims_m = body_dims_m
+        self.emitter = emitter
+
+        self.program = ctx.program(
+            vertex_shader=FIXTURE_VERTEX_SHADER,
+            fragment_shader=FIXTURE_FRAGMENT_SHADER,
+        )
+
+        width, height, depth = body_dims_m
+        body_verts, body_norms = GeometryBuilder.create_box(width, height, depth)
+        self._body_vbo = ctx.buffer(body_verts.tobytes())
+        self._body_nbo = ctx.buffer(body_norms.tobytes())
+        self._body_vao = ctx.vertex_array(
+            self.program,
+            [(self._body_vbo, '3f', 'in_position'), (self._body_nbo, '3f', 'in_normal')],
+        )
+
+        n_lamps = max(1, emitter.width)
+        # Lamp radius — bound to cell width but capped at 3 cm like legacy.
+        lamp_radius = min(width * 0.9 / n_lamps * 0.35, 0.03)
+        self.lamp_radius = lamp_radius
+
+        # GeometryBuilder.create_cylinder is Y-axis aligned; rotate so it
+        # points +Z (lamp protrudes from front face), then translate to its
+        # cell position. (Same rotation as legacy SunstripRenderer.)
+        span = width * 0.9
+        cell_w = span / n_lamps
+        start_x = -span / 2.0 + cell_w / 2.0
+        lamp_z = depth / 2.0 + self.LAMP_HEIGHT / 2.0
+
+        self._lamp_vaos: list[moderngl.VertexArray] = []
+        self._lamp_vbos: list[moderngl.Buffer] = []
+        self._lamp_nbos: list[moderngl.Buffer] = []
+        for i in range(n_lamps):
+            x_offset = start_x + i * cell_w
+            raw_v, raw_n = GeometryBuilder.create_cylinder(
+                lamp_radius, self.LAMP_HEIGHT, segments=12, center=(0, 0, 0),
+            )
+            verts = []
+            norms = []
+            # (x, y, z) → (x, -z, y) then translate to (x_offset, 0, lamp_z)
+            for j in range(0, len(raw_v), 3):
+                x, y, z = raw_v[j], raw_v[j + 1], raw_v[j + 2]
+                verts.extend([x + x_offset, -z, y + lamp_z])
+            for j in range(0, len(raw_n), 3):
+                nx, ny, nz = raw_n[j], raw_n[j + 1], raw_n[j + 2]
+                norms.extend([nx, -nz, ny])
+            vbo = ctx.buffer(np.array(verts, dtype='f4').tobytes())
+            nbo = ctx.buffer(np.array(norms, dtype='f4').tobytes())
+            vao = ctx.vertex_array(
+                self.program,
+                [(vbo, '3f', 'in_position'), (nbo, '3f', 'in_normal')],
+            )
+            self._lamp_vbos.append(vbo)
+            self._lamp_nbos.append(nbo)
+            self._lamp_vaos.append(vao)
+
+    def render(
+        self,
+        mvp: glm.mat4,
+        model: glm.mat4,
+        state: ChassisRenderState = _DEFAULT_STATE,
+    ) -> None:
+        self.ctx.disable(moderngl.BLEND)
+        set_depth_mask(True)
+
+        self.program['mvp'].write(_mat4_bytes(mvp * model))
+        self.program['model'].write(_mat4_bytes(model))
+
+        # Body.
+        self.program['base_color'].value = self.BODY_COLOR
+        self.program['emissive_color'].value = (0.0, 0.0, 0.0)
+        self.program['emissive_strength'].value = 0.0
+        self._body_vao.render(moderngl.TRIANGLES)
+
+        # Lamps — warm-white emissive scaled by per-cell brightness.
+        self.program['base_color'].value = self.LAMP_BASE_COLOR
+        emissives = state.cell_emissives
+        for i, vao in enumerate(self._lamp_vaos):
+            if emissives is not None and i < len(emissives):
+                # Use the brightest channel as dimmer-equivalent. Sunstrip
+                # cells are warm-white, so dimmer ≈ max(rgb).
+                er, eg, eb = emissives[i]
+                dimmer = max(er, eg, eb)
+            else:
+                dimmer = 0.0
+            if dimmer > 0.01:
+                self.program['emissive_color'].value = (
+                    self.LAMP_EMISSIVE[0] * dimmer,
+                    self.LAMP_EMISSIVE[1] * dimmer,
+                    self.LAMP_EMISSIVE[2] * dimmer,
+                )
+                self.program['emissive_strength'].value = 1.5
+            else:
+                self.program['emissive_color'].value = (0.0, 0.0, 0.0)
+                self.program['emissive_strength'].value = 0.0
+            vao.render(moderngl.TRIANGLES)
+
+    def release(self) -> None:
+        for vao in (self._body_vao, *self._lamp_vaos):
+            if vao:
+                vao.release()
+        for buf in (
+            self._body_vbo, self._body_nbo,
+            *self._lamp_vbos, *self._lamp_nbos,
+        ):
+            if buf:
+                buf.release()
+        if self.program:
+            self.program.release()
+
+
+# ---------------------------------------------------------------------------
+# PARChassisGeometry — cylinder body + visible lens slab on the front face
+# ---------------------------------------------------------------------------
+
+
+class PARChassisGeometry(ChassisGeometry):
+    """PAR / wash chassis with a visible lens slab on the front.
+
+    Replaces the bare cylinder body that ``StaticChassisGeometry`` drew for
+    :class:`Chassis.PAR`. The lens slab lights up with the chassis-wide
+    emissive (color × dimmer), the way the legacy
+    :class:`WashRenderer._create_geometry` shows a coloured lens panel on
+    Wild Wash / Retro Flat Par fixtures.
+    """
+
+    BODY_COLOR = (0.12, 0.12, 0.15)
+    LENS_BASE_COLOR = (0.15, 0.15, 0.15)
+    LENS_DEPTH = 0.02
+    LENS_FACE_FRACTION = 0.85
+
+    def __init__(
+        self,
+        ctx: moderngl.Context,
+        body_dims_m: Tuple[float, float, float],
+    ):
+        self.ctx = ctx
+        self.body_dims_m = body_dims_m
+
+        self.program = ctx.program(
+            vertex_shader=FIXTURE_VERTEX_SHADER,
+            fragment_shader=FIXTURE_FRAGMENT_SHADER,
+        )
+
+        width, height, depth = body_dims_m
+        radius = max(width, height) / 2.0
+
+        body_verts, body_norms = GeometryBuilder.create_cylinder(
+            radius=radius, height=depth, segments=24,
+        )
+        self._body_vbo = ctx.buffer(body_verts.tobytes())
+        self._body_nbo = ctx.buffer(body_norms.tobytes())
+        self._body_vao = ctx.vertex_array(
+            self.program,
+            [(self._body_vbo, '3f', 'in_position'), (self._body_nbo, '3f', 'in_normal')],
+        )
+
+        lens_w = width * self.LENS_FACE_FRACTION
+        lens_h = height * self.LENS_FACE_FRACTION
+        lens_z = depth / 2.0 + self.LENS_DEPTH / 2.0
+        lens_verts, lens_norms = GeometryBuilder.create_box(
+            lens_w, lens_h, self.LENS_DEPTH, center=(0, 0, lens_z),
+        )
+        self._lens_vbo = ctx.buffer(lens_verts.tobytes())
+        self._lens_nbo = ctx.buffer(lens_norms.tobytes())
+        self._lens_vao = ctx.vertex_array(
+            self.program,
+            [(self._lens_vbo, '3f', 'in_position'), (self._lens_nbo, '3f', 'in_normal')],
+        )
+
+    def render(
+        self,
+        mvp: glm.mat4,
+        model: glm.mat4,
+        state: ChassisRenderState = _DEFAULT_STATE,
+    ) -> None:
+        self.ctx.disable(moderngl.BLEND)
+        set_depth_mask(True)
+
+        self.program['mvp'].write(_mat4_bytes(mvp * model))
+        self.program['model'].write(_mat4_bytes(model))
+
+        # Body — unlit.
+        self.program['base_color'].value = self.BODY_COLOR
+        self.program['emissive_color'].value = (0.0, 0.0, 0.0)
+        self.program['emissive_strength'].value = 0.0
+        self._body_vao.render(moderngl.TRIANGLES)
+
+        # Lens — emissive from chassis-wide colour × dimmer.
+        self.program['base_color'].value = self.LENS_BASE_COLOR
+        self.program['emissive_color'].value = state.emissive_color
+        self.program['emissive_strength'].value = float(state.emissive_strength)
+        self._lens_vao.render(moderngl.TRIANGLES)
+
+    def release(self) -> None:
+        for vao in (self._body_vao, self._lens_vao):
+            if vao:
+                vao.release()
+        for buf in (
+            self._body_vbo, self._body_nbo,
+            self._lens_vbo, self._lens_nbo,
+        ):
+            if buf:
+                buf.release()
+        if self.program:
+            self.program.release()
+
+
+# ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
+
+
+def _cellarray_has_color(emitter: CellArray) -> bool:
+    return any(
+        c.red_channel is not None
+        or c.green_channel is not None
+        or c.blue_channel is not None
+        for c in emitter.cells
+    )
 
 
 def make_chassis_geometry(
     ctx: moderngl.Context,
     chassis: Chassis,
     body_dims_m: Tuple[float, float, float],
+    emitter: Optional[object] = None,
 ) -> ChassisGeometry:
-    """Construct the right :class:`ChassisGeometry` for a chassis value."""
+    """Construct the right :class:`ChassisGeometry` for a fixture.
+
+    ``emitter`` is the :class:`FixtureCapabilities.emitter` value — used to
+    pick a cell-aware chassis (visible per-cell slabs / lamps) when the
+    fixture has a :class:`CellArray`. ``None`` falls back to the legacy
+    static / moving-yoke choice.
+    """
     if chassis is Chassis.MOVING_YOKE:
         return MovingYokeChassisGeometry(ctx, body_dims_m)
+    if isinstance(emitter, CellArray) and chassis in (Chassis.BAR, Chassis.PANEL):
+        if _cellarray_has_color(emitter):
+            return PixelBarChassisGeometry(ctx, body_dims_m, emitter)
+        return SunstripChassisGeometry(ctx, body_dims_m, emitter)
+    if chassis is Chassis.PAR:
+        return PARChassisGeometry(ctx, body_dims_m)
     return StaticChassisGeometry(ctx, chassis, body_dims_m)
