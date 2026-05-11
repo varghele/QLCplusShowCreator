@@ -21,6 +21,7 @@ import moderngl
 import numpy as np
 
 from utils.geometry import GeometryBuilder
+from visualizer.renderer.gl_state import set_depth_mask
 from visualizer.renderer.shaders import (
     FLOOR_PROJECTION_VERTEX_SHADER,
     GOBO_FLOOR_PROJECTION_FRAGMENT_SHADER,
@@ -199,7 +200,10 @@ class FloorProjectionComponent:
         # floor PARs that happened to sit under a moving head's spot.
         self.ctx.enable(moderngl.BLEND)
         self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
-        self.ctx.depth_mask = False
+        # ``ctx.depth_mask = False`` is a no-op in moderngl 5.11.x; use the
+        # real glDepthMask so the projection ellipse doesn't write depth
+        # and occlude subsequent chassis draws.
+        set_depth_mask(False)
 
         try:
             self.program['mvp'].write(_mat4_bytes(mvp * proj_model))
@@ -213,7 +217,7 @@ class FloorProjectionComponent:
             self.program['focus_sharpness'].value = focus_sharpness
             self.vao.render(moderngl.TRIANGLES)
         finally:
-            self.ctx.depth_mask = True
+            set_depth_mask(True)
             self.ctx.disable(moderngl.BLEND)
 
     def release(self) -> None:

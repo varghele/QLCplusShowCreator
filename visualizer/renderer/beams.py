@@ -29,6 +29,7 @@ import numpy as np
 
 from utils.geometry import GeometryBuilder
 from visualizer.renderer.emitters import Emission
+from visualizer.renderer.gl_state import set_depth_mask
 from visualizer.renderer.shaders import (
     BEAM_FRAGMENT_SHADER,
     BEAM_VERTEX_SHADER,
@@ -116,11 +117,14 @@ def _to_mvp_bytes(mvp: glm.mat4, fixture_model: glm.mat4, local: glm.mat4) -> by
 def _setup_additive_blending(ctx: moderngl.Context) -> None:
     ctx.enable(moderngl.BLEND)
     ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
-    ctx.depth_mask = False
+    # NB: ``ctx.depth_mask = False`` is a no-op in moderngl 5.11.x.
+    # Use the real glDepthMask via ctypes so beams don't write depth
+    # and occlude subsequent chassis draws (see gl_state.py).
+    set_depth_mask(False)
 
 
 def _restore_state(ctx: moderngl.Context) -> None:
-    ctx.depth_mask = True
+    set_depth_mask(True)
     ctx.disable(moderngl.BLEND)
 
 

@@ -28,6 +28,8 @@ from typing import Optional, Tuple
 import moderngl
 import numpy as np
 
+from visualizer.renderer.gl_state import set_depth_mask
+
 
 # ---------------------------------------------------------------------------
 # Shaders
@@ -210,11 +212,11 @@ class HDRPipeline:
 
         self.ctx.disable(moderngl.DEPTH_TEST)
         self.ctx.disable(moderngl.BLEND)
-        self.ctx.depth_mask = False
+        set_depth_mask(False)
 
         try:
             self._color.use(location=0)
             self._quad_vao.render(moderngl.TRIANGLE_STRIP)
         finally:
             self.ctx.enable(moderngl.DEPTH_TEST)
-            self.ctx.depth_mask = True
+            set_depth_mask(True)

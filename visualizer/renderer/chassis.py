@@ -31,6 +31,7 @@ import numpy as np
 
 from utils.fixture_capabilities import Chassis
 from utils.geometry import GeometryBuilder
+from visualizer.renderer.gl_state import set_depth_mask
 from visualizer.renderer.shaders import (
     FIXTURE_FRAGMENT_SHADER,
     FIXTURE_VERTEX_SHADER,
@@ -265,6 +266,12 @@ class StaticChassisGeometry(ChassisGeometry):
         model: glm.mat4,
         state: ChassisRenderState = _DEFAULT_STATE,
     ) -> None:
+        # Make sure depth writes are on — beams/floor projections explicitly
+        # turn them off via the real glDepthMask helper, and assigning
+        # ``ctx.depth_mask = True`` doesn't restore them in moderngl 5.11.
+        self.ctx.disable(moderngl.BLEND)
+        set_depth_mask(True)
+
         self.program['mvp'].write(_mat4_bytes(mvp * model))
         self.program['model'].write(_mat4_bytes(model))
         self.program['base_color'].value = get_body_color(self.chassis)
@@ -532,7 +539,7 @@ class MovingYokeChassisGeometry(ChassisGeometry):
         # Make sure incidental blend state from a previous fixture's beam doesn't bleed in.
         # (The legacy MovingHeadRenderer did the same defensively.)
         self.ctx.disable(moderngl.BLEND)
-        self.ctx.depth_mask = True
+        set_depth_mask(True)
 
         # --- base (no rotation) ---
         self.program['mvp'].write(_mat4_bytes(mvp * model))

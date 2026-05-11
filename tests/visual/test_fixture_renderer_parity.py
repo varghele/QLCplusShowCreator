@@ -261,16 +261,23 @@ FIXTURE_CASES = [
 
 
 # Tolerances chosen to fire on regressions but tolerate AA / blend / driver-
-# version drift AND the subtle brightness shift from Stage 4's beam-origin
-# fix (cone now emerges from the proper lens position instead of the chassis
-# origin — more correct visually, but the lens emissive bleeds more into
-# the beam region for moving heads).
+# version drift AND two known intentional divergences:
+#
+# 1. Stage 4's beam-origin fix — the composable cone emerges from the
+#    proper lens position; lens emissive bleeds slightly more into the
+#    beam region for moving heads.
+# 2. The chassis-on-top two-pass + real glDepthMask fix (May 2026) — the
+#    composable chassis silhouette renders opaque on top of the beam
+#    contribution instead of being additively brightened by it, which is
+#    visually correct (user-reported "fixtures vanishing under beams")
+#    but diverges from legacy at the lens area, especially for moving
+#    washes like the MAC Aura.
 #
 # Observed maxes across all archetype + legacy fixtures at full-DMX:
-#   histogram L1:   0.131  (Martin MAC Aura Standard — moving wash)
-#   block-mean RMS: 0.023  (Varytec Giga Bar 5 5ch)
+#   histogram L1:   0.136  (Martin MAC Aura Standard — moving wash)
+#   block-mean RMS: 0.078  (Martin MAC Aura Standard — chassis-on-top fix)
 HISTOGRAM_TOLERANCE = 0.15
-BLOCK_MEAN_TOLERANCE = 0.05
+BLOCK_MEAN_TOLERANCE = 0.10
 
 
 @pytest.mark.parametrize(
