@@ -3564,6 +3564,44 @@ class PARRenderer(FixtureRenderer):
                 obj.release()
 
 
+def _detect_capabilities_from_payload(fixture_data: Dict[str, Any]):
+    """Re-detect :class:`FixtureCapabilities` from the TCP payload's keys.
+
+    The show-creator side computes capabilities via the same QXF
+    detection pass; the standalone TCP visualizer strips the live
+    dataclass during JSON serialization (capabilities are full of
+    nested dataclasses + enums + a sealed-union emitter). Rather than
+    teach the serializer about each subtype, we just re-run detection
+    locally — it's deterministic from the ``(manufacturer, model, mode)``
+    triple, all three of which travel in the JSON payload, and the
+    standalone has access to the same ``custom_fixtures/`` QXF library.
+    """
+    try:
+        from utils.fixture_capabilities import get_capabilities_for_fixture
+    except ImportError:
+        return None
+
+    mfr = fixture_data.get('manufacturer')
+    model = fixture_data.get('model')
+    mode = fixture_data.get('mode') or fixture_data.get('current_mode')
+    if not (mfr and model and mode):
+        return None
+
+    class _CapsLookupProxy:
+        __slots__ = ('manufacturer', 'model', 'current_mode')
+
+        def __init__(self, mfr_, model_, mode_):
+            self.manufacturer = mfr_
+            self.model = model_
+            self.current_mode = mode_
+
+    try:
+        return get_capabilities_for_fixture(_CapsLookupProxy(mfr, model, mode))
+    except Exception as e:  # pragma: no cover — environment / QXF issue
+        print(f"Capability re-detection failed for {mfr}/{model}: {e}")
+        return None
+
+
 class FixtureManager:
     """Manages all fixture renderers and coordinates updates."""
 
@@ -3655,8 +3693,11 @@ class FixtureManager:
 
         With ``FIXTURE_RENDERER=composable``, constructs the new composable
         :class:`visualizer.renderer.composable_fixtures.FixtureRenderer`
-        from the ``capabilities`` payload key. Otherwise (default), uses
-        the legacy 6-subclass dispatch.
+        from the ``capabilities`` payload key. The standalone TCP path
+        strips that key during JSON serialization (the dataclass tree
+        isn't JSON-friendly), so when it's absent we re-detect the
+        capabilities locally from ``(manufacturer, model, mode)`` — same
+        deterministic lookup the show-creator side runs.
 
         Args:
             fixture_data: Fixture data dictionary
@@ -3666,6 +3707,8 @@ class FixtureManager:
         """
         if USE_COMPOSABLE_RENDERER:
             capabilities = fixture_data.get('capabilities')
+            if capabilities is None:
+                capabilities = _detect_capabilities_from_payload(fixture_data)
             if capabilities is not None:
                 # Lazy import — avoids a circular dependency with composable_fixtures
                 # (which would otherwise have to know about the legacy renderer).
@@ -3673,8 +3716,7 @@ class FixtureManager:
                     FixtureRenderer as ComposableFixtureRenderer,
                 )
                 return ComposableFixtureRenderer(self.ctx, fixture_data, capabilities)
-            # Capabilities missing (e.g. TCP path stripped them) — fall through
-            # to legacy so the standalone visualizer keeps working.
+            # Detection failed (QXF not findable) — fall through to legacy.
 
         fixture_type = fixture_data.get('fixture_type', 'PAR')
 

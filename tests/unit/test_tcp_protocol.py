@@ -118,8 +118,71 @@ class TestBuildFixturesPayloadIncludesCapabilities:
         message = json.loads(message_str.rstrip("\n"))
         assert message["type"] == "fixtures"
         assert "capabilities" not in message["fixtures"][0]
-        # Legacy fields still present so the standalone visualizer keeps working
-        assert "fixture_type" in message["fixtures"][0]
+        # Manufacturer/model/mode keys must survive so the standalone
+        # visualizer can re-detect capabilities locally from the QXF.
+        for key in ("manufacturer", "model", "mode"):
+            assert key in message["fixtures"][0]
+
+
+class TestStandaloneCapabilityRedetection:
+    """Standalone visualizer receives JSON without ``capabilities``; the
+    FixtureManager re-detects them locally so the composable renderer
+    can still be used (and inherits the chassis-on-top + glDepthMask fix
+    the legacy path doesn't have)."""
+
+    def test_redetects_capabilities_from_payload(self):
+        from utils.fixture_capabilities import (
+            FixtureCapabilities, Chassis, clear_capabilities_cache,
+        )
+        from visualizer.renderer.fixtures import _detect_capabilities_from_payload
+
+        clear_capabilities_cache()
+        payload = {
+            "manufacturer": "Varytec",
+            "model": "Hero Spot 60",
+            "mode": "14 Channel",
+        }
+        caps = _detect_capabilities_from_payload(payload)
+        assert isinstance(caps, FixtureCapabilities)
+        assert caps.chassis is Chassis.MOVING_YOKE
+
+    def test_returns_none_on_missing_keys(self):
+        from visualizer.renderer.fixtures import _detect_capabilities_from_payload
+
+        assert _detect_capabilities_from_payload({}) is None
+        assert _detect_capabilities_from_payload({"manufacturer": "X"}) is None
+
+    def test_full_tcp_roundtrip_preserves_composable_dispatch(self):
+        """A JSON payload (no ``capabilities`` key, like the standalone gets)
+        must still produce a composable :class:`FixtureRenderer` — not a
+        legacy one — so the standalone visualizer gets the bug fixes."""
+        from utils.tcp.protocol import VisualizerProtocol
+        from utils.fixture_capabilities import clear_capabilities_cache
+
+        clear_capabilities_cache()
+        cfg = self._make_config()
+        message_str = VisualizerProtocol.create_fixtures_message(cfg)
+        message = json.loads(message_str.rstrip("\n"))
+        fx = message["fixtures"][0]
+        assert "capabilities" not in fx  # stripped, as expected
+
+        caps = __import__(
+            'visualizer.renderer.fixtures', fromlist=['_detect_capabilities_from_payload']
+        )._detect_capabilities_from_payload(fx)
+        assert caps is not None, "Re-detection must succeed for known QXFs"
+
+    def _make_config(self):
+        from config.models import Configuration, Fixture, FixtureMode, FixtureGroup
+        f = Fixture(
+            universe=1, address=1,
+            manufacturer="Varytec", model="Hero Spot 60", name="F1",
+            group="g1", current_mode="14 Channel",
+            available_modes=[FixtureMode(name="14 Channel", channels=14)],
+            type="MH",
+        )
+        return Configuration(
+            fixtures=[f], groups={"g1": FixtureGroup(name="g1", fixtures=[f])},
+        )
 
 
 # ---------------------------------------------------------------------------
