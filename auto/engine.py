@@ -1,5 +1,5 @@
 """
-Live Show Engine — real-time riff generation driven by live audio.
+Auto Show Engine — real-time riff generation driven by live audio.
 
 Accumulates audio features into a sliding window, synthesizes a
 SectionAnalysis-compatible profile, and runs a groove+fill riff cycle
@@ -38,13 +38,13 @@ _VERY_LOW_SHAPES = ["linear_sweep"]
 
 
 @dataclass
-class LiveCycleState:
+class AutoCycleState:
     """Tracks where we are in the current groove cycle.
 
     The engine grooves continuously: every ``_cycle_bars`` bars, fresh
     riffs are selected from the audio profile. ``is_fill`` is no longer
     set automatically — it's a transient one-shot toggled by
-    :meth:`LiveShowEngine.force_fill` and cleared on the next bar
+    :meth:`AutoShowEngine.force_fill` and cleared on the next bar
     boundary, so the user can punch a fill manually without the engine
     auto-filling on its own.
     """
@@ -55,7 +55,7 @@ class LiveCycleState:
     fill_rudiment: str = "stroke"  # selected for force_fill use
 
 
-class LiveShowEngine:
+class AutoShowEngine:
     """Core engine for live audio-reactive lighting.
 
     Thread model:
@@ -84,7 +84,7 @@ class LiveShowEngine:
         # gone; the engine now grooves continuously and just picks new
         # riffs every cycle. Fill is purely manual via force_fill().
         self._cycle_bars: int = 4
-        self._cycle = LiveCycleState()
+        self._cycle = AutoCycleState()
         self._per_group_rudiments: Dict[str, Tuple[str, str]] = {}
         self._previous_rudiments: Dict[str, str] = {}
         self._running = False
@@ -106,12 +106,11 @@ class LiveShowEngine:
         # Active block tracking (lane_key -> block_type -> registered)
         self._active_lanes: set = set()
 
-        # DMX manager reference (set by LiveDMXController)
+        # DMX manager reference (set by AutoDMXController)
         self._dmx_manager = None
 
         # Callbacks for UI updates
         self._on_riffs_updated: Optional[Callable[[Dict[str, Tuple[str, str]]], None]] = None
-        self._on_state_changed: Optional[Callable[[], None]] = None
 
     # ── Public setters (called from Qt main thread) ──
 
@@ -147,6 +146,27 @@ class LiveShowEngine:
         with self._lock:
             self._target_plane = plane
 
+    def refresh_from_config(self, config: Configuration) -> None:
+        """Re-snapshot group classifications and names from ``config``.
+
+        Called when the user edits fixture/stage state mid-show; the
+        engine otherwise holds the snapshot taken at construction time
+        and would keep targeting the old fixture set. New groups get a
+        default 1.0 submaster and unconstrained riff set; removed
+        groups have their submaster/constraint entries dropped.
+        """
+        with self._lock:
+            self.config = config
+            self._group_classifications = classify_fixture_groups(config)
+            new_group_names = list(config.groups.keys())
+            self._group_names = new_group_names
+            self._group_submasters = {
+                g: self._group_submasters.get(g, 1.0) for g in new_group_names
+            }
+            self._group_constraints = {
+                g: self._group_constraints.get(g, None) for g in new_group_names
+            }
+
     def set_max_movement_speed(self, degrees_per_sec: float):
         """Set max pan/tilt speed. Forwarded to DMX manager."""
         if self._dmx_manager:
@@ -154,9 +174,6 @@ class LiveShowEngine:
 
     def set_on_riffs_updated(self, callback: Optional[Callable[[Dict[str, Tuple[str, str]]], None]]):
         self._on_riffs_updated = callback
-
-    def set_on_state_changed(self, callback: Optional[Callable[[], None]]):
-        self._on_state_changed = callback
 
     # ── Properties for UI reading ──
 
@@ -251,12 +268,6 @@ class LiveShowEngine:
                 bar_start = self._cycle.cycle_start_time + current_bar * bar_duration
                 bar_end = bar_start + bar_duration
                 self._create_all_blocks(bar_start, bar_end)
-
-                if self._on_state_changed:
-                    try:
-                        self._on_state_changed()
-                    except Exception:
-                        pass
 
     def force_fill(self):
         """Punch a one-shot fill on the current bar.
@@ -469,24 +480,41 @@ class LiveShowEngine:
             groove_name, fill_name = self._per_group_rudiments[group_name]
             role = roles.get(group_name, ActivationRole.FULL)
 
-            # Determine which rudiment to use this bar
+            # Determine which rudiment to use this bar.
+            #
+            # FILL_ONLY semantics in continuous-groove mode: the engine
+            # never auto-fills (is_fill is only set by manual FILL NOW),
+            # so a strict skip would mute accent / SPIKE-envelope groups
+            # for the entire session. Instead we play the punchier
+            # ``fill_name`` rudiment and let the energy-threshold weight
+            # from ``compute_richness_weights`` gate when the group
+            # actually fires — accent at energy>=0.60, etc.
             if self._cycle.is_fill:
                 if role == ActivationRole.GROOVE_ONLY:
-                    continue  # Skip groove-only groups during fill
+                    continue  # Skip groove-only groups during manual fill
                 rudiment_name = fill_name
             else:
-                if role == ActivationRole.FILL_ONLY:
-                    continue  # Skip fill-only groups during groove
-                rudiment_name = groove_name
+                rudiment_name = fill_name if role == ActivationRole.FILL_ONLY else groove_name
 
-            # Compute intensity with weights and submaster
-            # Richness weight drives activation (0-1), vocal weight is a subtle
-            # modifier (compressed to 0.7-1.0 range to avoid crushing intensity)
+            # Compute intensity with weights and submaster.
+            # Richness weight drives activation (0.0 = muted by energy
+            # threshold, 0.1-1.0 = active intensity); vocal weight is a
+            # subtle modifier (compressed to 0.7-1.0 to avoid crushing
+            # intensity); submaster is the user's per-group trim.
             base_weight = richness_weights.get(group_name, 1.0)
             vocal_raw = vocal_weights.get(group_name, 1.0)
             vocal_weight = 0.7 + 0.3 * vocal_raw  # compress 0-1 → 0.7-1.0
             submaster = self._group_submasters.get(group_name, 1.0)
-            intensity = max(0.3, base_weight) * vocal_weight * submaster
+            # FILL_ONLY groups must respect the raw weight (0.0 →
+            # silent) — that's the whole point of the "accent" role.
+            # Other groups get a 0.3 floor so they don't drop fully
+            # dark at low energy, keeping the show visually present.
+            if role == ActivationRole.FILL_ONLY:
+                intensity = base_weight * vocal_weight * submaster
+                if intensity <= 0.001:
+                    continue
+            else:
+                intensity = max(0.3, base_weight) * vocal_weight * submaster
 
             # Create dimmer block
             params = {"intensity": intensity, "speed": 1.0}

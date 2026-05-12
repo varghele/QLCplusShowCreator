@@ -1,5 +1,5 @@
 """
-BPM detection for live mode — tap tempo and auto-detection from audio.
+BPM detection for Auto mode — tap tempo and auto-detection from audio.
 """
 
 import time
@@ -152,9 +152,13 @@ class AutoBPMDetector:
         else:
             return
 
-        # Search for peaks in the BPM range 60-200
-        min_lag = int(self._rate * 60.0 / 200.0)  # 200 BPM
-        max_lag = int(self._rate * 60.0 / 60.0)    # 60 BPM
+        # Search for peaks in the BPM range 50-240 — wide enough to
+        # cover slow ballads (≈50 BPM, half-time feels) and fast
+        # punk / drum-and-bass (≈220-240 BPM) without going so wide
+        # that octave errors dominate. The spinbox accepts 30-300 so
+        # extreme tempi are still settable manually via TAP.
+        min_lag = int(self._rate * 60.0 / 240.0)  # 240 BPM
+        max_lag = int(self._rate * 60.0 / 50.0)    # 50 BPM
         max_lag = min(max_lag, n - 1)
 
         if min_lag >= max_lag:
@@ -174,4 +178,4 @@ class AutoBPMDetector:
 
         bpm = 60.0 * self._rate / lag
         self._confidence = float(np.clip(peak_value, 0.0, 1.0))
-        self._current_bpm = float(np.clip(bpm, 60.0, 200.0))
+        self._current_bpm = float(np.clip(bpm, 50.0, 240.0))

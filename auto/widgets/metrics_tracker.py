@@ -1,5 +1,5 @@
 """
-Live metrics tracker — scrolling 30-second chart of audio features.
+Auto-mode metrics tracker — scrolling 30-second chart of audio features.
 
 QPainter-based widget showing flux, rms, transient, richness, vocal,
 centroid, and contrast as color-coded polylines.
@@ -29,7 +29,7 @@ _METRIC_COLORS = {
 _METRICS = ['flux', 'rms', 'transient', 'richness', 'vocal', 'centroid', 'contrast']
 
 
-class LiveMetricsTracker(QWidget):
+class AutoMetricsTracker(QWidget):
     """Scrolling line chart of audio features over the last 30 seconds."""
 
     def __init__(self, parent=None):

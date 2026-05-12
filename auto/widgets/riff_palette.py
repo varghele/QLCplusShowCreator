@@ -1,5 +1,5 @@
 """
-Per-group riff constraint panel for live mode.
+Per-group riff constraint panel for Auto mode.
 
 Each fixture group gets a row showing the currently active riff and a
 multi-select popup to constrain which riffs the engine may choose from.
@@ -109,14 +109,18 @@ class GroupRiffConstraintPanel(QWidget):
         name_label.setStyleSheet("font-size: 10px;")
         row.addWidget(name_label)
 
-        # Active riff (engine-owned, read-only)
-        active_label = QLabel("---")
+        # Active riff readout (engine-owned, read-only). Shows the
+        # currently-playing rudiment for this group, prefixed with ▶ so
+        # the cell is recognisable even when the engine hasn't pushed a
+        # name yet ("▶ —" reads as "this slot will fill with the live
+        # riff"). Background comes from the theme — earlier versions
+        # hardcoded a dark navy block that looked like a black blob
+        # against either theme.
+        active_label = QLabel("▶ —")
         active_label.setFixedWidth(90)
         active_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        active_label.setStyleSheet(
-            "font-size: 10px; font-weight: bold; "
-            "background-color: #1a1a2e; border-radius: 3px; padding: 2px;"
-        )
+        active_label.setToolTip("Currently active riff (engine-driven)")
+        active_label.setStyleSheet("font-size: 10px; font-weight: bold;")
         self._active_labels[group_name] = active_label
         row.addWidget(active_label)
 
@@ -198,7 +202,7 @@ class GroupRiffConstraintPanel(QWidget):
         for group_name, riff_name in per_group.items():
             label = self._active_labels.get(group_name)
             if label:
-                label.setText(riff_name)
+                label.setText(f"▶ {riff_name}" if riff_name else "▶ —")
 
     def set_constraint(self, group_name: str, allowed: Optional[Set[str]]) -> None:
         """Programmatically restore a group's checked rudiments.

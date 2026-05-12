@@ -106,10 +106,12 @@ class Ui_MainWindow(object):
         # Structure Tab (UI created by StructureTab)
         self.tab_structure = QtWidgets.QWidget()
 
-        # Live Tab (UI created by LiveTab) — real-time audio-reactive
-        # lighting; was a separate QMainWindow until UI_MODERNIZATION_PLAN
-        # step 9 folded it in as the sixth tab.
-        self.tab_live = QtWidgets.QWidget()
+        # Auto Tab (UI created by AutoTab) — real-time audio-reactive
+        # auto-generation pipeline; was a separate QMainWindow until
+        # UI_MODERNIZATION_PLAN step 9 folded it in as the sixth tab.
+        # Was previously named "Live"; renamed so a future Live tab
+        # with different semantics can claim that name.
+        self.tab_auto = QtWidgets.QWidget()
 
         # Add tabs to widget
         self.tabWidget.addTab(self.tab_config, "Configuration")
@@ -117,7 +119,7 @@ class Ui_MainWindow(object):
         self.tabWidget.addTab(self.tab_stage, "Stage")
         self.tabWidget.addTab(self.tab_structure, "Structure")
         self.tabWidget.addTab(self.tab_2, "Shows")
-        self.tabWidget.addTab(self.tab_live, "Auto")
+        self.tabWidget.addTab(self.tab_auto, "Auto(Experimental)")
 
         self.horizontalLayout.addWidget(self.tabWidget)
         MainWindow.setCentralWidget(self.centralwidget)
@@ -137,7 +139,7 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_stage), _translate("MainWindow", "Stage"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_structure), _translate("MainWindow", "Structure"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Shows"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_live), _translate("MainWindow", "Auto"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_auto), _translate("MainWindow", "Auto(Experimental)"))
         # Toolbar actions
         self.saveAction.setText(_translate("MainWindow", "Save Configuration"))
         self.loadAction.setText(_translate("MainWindow", "Load Configuration"))

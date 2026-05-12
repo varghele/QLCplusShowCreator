@@ -1,10 +1,13 @@
 """
-Persistence for Live Mode session state.
+Persistence for Auto Mode session state.
 
 Stores ArtNet configuration, audio device choice, BPM/groove settings,
 movement target, color override, per-group constraints, submasters, and
-the visualiser-broadcast toggle in `~/.qlcautoshow/live_mode_settings.json`
-so the operator does not have to reconfigure on every launch.
+the visualiser-broadcast toggle in
+`~/.qlcautoshow/auto_mode_settings.json` so the operator does not have
+to reconfigure on every launch. The previous filename
+(``live_mode_settings.json``) is read once for migration so existing
+users don't lose state on the first run after the rename.
 """
 
 import json
@@ -14,12 +17,13 @@ from typing import Dict, List, Optional, Tuple
 
 
 _SETTINGS_DIR = os.path.join(os.path.expanduser("~"), ".qlcautoshow")
-_SETTINGS_PATH = os.path.join(_SETTINGS_DIR, "live_mode_settings.json")
+_SETTINGS_PATH = os.path.join(_SETTINGS_DIR, "auto_mode_settings.json")
+_LEGACY_SETTINGS_PATH = os.path.join(_SETTINGS_DIR, "live_mode_settings.json")
 
 
 @dataclass
-class LiveModeSettings:
-    """All persisted Live Mode state. Sensible defaults match a fresh launch."""
+class AutoModeSettings:
+    """All persisted Auto Mode state. Sensible defaults match a fresh launch."""
 
     # ArtNet output
     target_ip: str = "192.168.1.151"
@@ -31,8 +35,11 @@ class LiveModeSettings:
 
     # Engine controls
     bpm: int = 120
-    groove_bars: int = 3
     energy_sensitivity: int = 70  # 0..100
+    # ``target_plane_name`` holds the literal combo-box text, including
+    # "None (manual)" — earlier versions stripped that to "" on save
+    # which then fell back to "Front" on load, silently re-enabling
+    # plane targeting against the user's choice.
     target_plane_name: str = "Front"
     max_movement_speed: int = 0  # degrees/sec, 0 = off
 
@@ -46,15 +53,29 @@ class LiveModeSettings:
     group_submasters: Dict[str, int] = field(default_factory=dict)  # 0..100
 
 
-def load() -> LiveModeSettings:
-    """Read settings from disk. Returns defaults on missing/corrupt file."""
+def _read_json(path: str) -> Optional[dict]:
     try:
-        with open(_SETTINGS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return LiveModeSettings()
+        return None
 
-    defaults = LiveModeSettings()
+
+def load() -> AutoModeSettings:
+    """Read settings from disk. Returns defaults on missing/corrupt file.
+
+    Falls back to the legacy ``live_mode_settings.json`` path if the
+    current file is missing — keeps prior session state around through
+    the rename. The legacy file is never overwritten; subsequent saves
+    go to the new path.
+    """
+    data = _read_json(_SETTINGS_PATH)
+    if data is None:
+        data = _read_json(_LEGACY_SETTINGS_PATH)
+    if data is None:
+        return AutoModeSettings()
+
+    defaults = AutoModeSettings()
     valid_keys = set(asdict(defaults).keys())
     filtered = {k: v for k, v in data.items() if k in valid_keys}
 
@@ -67,10 +88,10 @@ def load() -> LiveModeSettings:
         except (ValueError, AttributeError):
             filtered["universe_mapping"] = {}
 
-    return LiveModeSettings(**{**asdict(defaults), **filtered})
+    return AutoModeSettings(**{**asdict(defaults), **filtered})
 
 
-def save(settings: LiveModeSettings) -> None:
+def save(settings: AutoModeSettings) -> None:
     """Write settings to disk. Silently ignores I/O errors — never block window close."""
     try:
         os.makedirs(_SETTINGS_DIR, exist_ok=True)
@@ -80,4 +101,4 @@ def save(settings: LiveModeSettings) -> None:
         with open(_SETTINGS_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
     except OSError as e:
-        print(f"Failed to save Live Mode settings: {e}")
+        print(f"Failed to save Auto Mode settings: {e}")

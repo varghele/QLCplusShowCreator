@@ -1,5 +1,5 @@
 """
-Live DMX Controller — dedicated ArtNet output for live mode.
+Auto DMX Controller — dedicated ArtNet output for Auto mode.
 
 Runs its own DMXManager + ArtNetSender, completely independent
 from the main app's ShowsArtNetController. Supports configurable
@@ -13,11 +13,11 @@ from typing import Optional, Dict, Callable
 from utils.artnet.dmx_manager import DMXManager
 from utils.artnet.sender import ArtNetSender
 from config.models import Configuration
-from live.engine import LiveShowEngine
+from auto.engine import AutoShowEngine
 
 
-class LiveDMXController:
-    """Manages DMX output for live mode on a dedicated 30Hz thread."""
+class AutoDMXController:
+    """Manages DMX output for Auto mode on a dedicated 30Hz thread."""
 
     def __init__(self, config: Configuration, fixture_definitions: dict,
                  target_ip: str = "192.168.1.151",
@@ -30,7 +30,7 @@ class LiveDMXController:
             local_dmx_callback: Optional ``(universe, dmx_bytes)`` hook
                 invoked once per universe per frame, after the ArtNet
                 packet is sent. Used by the embedded visualizer in the
-                Live tab to mirror what's going on the wire without a
+                Auto tab to mirror what's going on the wire without a
                 TCP/ArtNet round-trip. Standalone visualizer keeps
                 receiving DMX over the wire as before — this is additive.
         """
@@ -55,15 +55,15 @@ class LiveDMXController:
             self._universe_mapping[uid_int] = uid_int - 1  # 1-based → 0-based
 
         # Engine reference
-        self._engine: Optional[LiveShowEngine] = None
+        self._engine: Optional[AutoShowEngine] = None
 
         # Thread control
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._update_interval = 1.0 / 30.0  # 30Hz
 
-    def set_engine(self, engine: LiveShowEngine):
-        """Connect the live show engine."""
+    def set_engine(self, engine: AutoShowEngine):
+        """Connect the Auto show engine."""
         self._engine = engine
         engine.set_dmx_manager(self.dmx_manager)
 
@@ -103,7 +103,7 @@ class LiveDMXController:
 
         self._thread = threading.Thread(
             target=self._update_loop,
-            name="LiveDMXController",
+            name="AutoDMXController",
             daemon=True,
         )
         self._thread.start()
@@ -139,7 +139,7 @@ class LiveDMXController:
                 self._send_all_universes()
 
             except Exception as e:
-                print(f"Live DMX update error: {e}")
+                print(f"Auto DMX update error: {e}")
 
             # Maintain consistent frame rate
             elapsed = time.monotonic() - loop_start
@@ -168,17 +168,23 @@ class LiveDMXController:
                     try:
                         self._local_dmx_callback(config_uid, bytes(dmx_data))
                     except Exception as cb_err:
-                        print(f"Live local_dmx_callback raised: {cb_err}")
+                        print(f"Auto local_dmx_callback raised: {cb_err}")
             except Exception as e:
                 print(f"Error sending universe {config_uid}→{artnet_uid}: {e}")
 
     def _send_blackout(self):
-        """Send all zeros to all universes (blackout)."""
+        """Send all zeros to all universes (blackout).
+
+        Always blackouts both the wire and broadcast senders. The
+        broadcast viewer would otherwise hold whatever frame was last
+        sent if the user toggled mirroring off mid-show — we'd rather
+        a stray blackout packet at stop time than a stuck rig in the
+        visualiser.
+        """
         blackout = bytearray(512)
         for artnet_uid in self._universe_mapping.values():
             try:
                 self.artnet_sender.send_dmx(artnet_uid, blackout, force=True)
-                if self._mirror_to_visualizer:
-                    self._visualizer_sender.send_dmx(artnet_uid, blackout, force=True)
+                self._visualizer_sender.send_dmx(artnet_uid, blackout, force=True)
             except Exception:
                 pass

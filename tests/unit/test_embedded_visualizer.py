@@ -35,13 +35,19 @@ def vis(qapp):
         v.deleteLater()
 
 
-def test_feed_dmx_forwards_in_live_mode(vis):
+def _drain_events(qapp):
+    """Process queued signals so cross-thread emits land in their slot."""
+    qapp.processEvents()
+
+
+def test_feed_dmx_forwards_in_live_mode(vis, qapp):
     vis._preview_mode = "live"
     vis.feed_dmx(1, b"\x10" * 512)
+    _drain_events(qapp)
     vis._engine.update_dmx.assert_called_once_with(1, b"\x10" * 512)
 
 
-def test_feed_dmx_also_forwards_in_build_mode(vis):
+def test_feed_dmx_also_forwards_in_build_mode(vis, qapp):
     """Earlier versions gated forwarding on ``preview_mode == "live"``,
     which made the Live (Auto) tab visualizer freeze on the synthetic
     full-on buffer if a frame fired before ``set_preview_mode("live")``
@@ -49,14 +55,29 @@ def test_feed_dmx_also_forwards_in_build_mode(vis):
     governs what gets pushed when *no* live source is feeding."""
     vis._preview_mode = "build"
     vis.feed_dmx(1, b"\x42" * 512)
+    _drain_events(qapp)
     vis._engine.update_dmx.assert_called_once_with(1, b"\x42" * 512)
 
 
-def test_feed_dmx_drops_none_payload(vis):
+def test_feed_dmx_drops_none_payload(vis, qapp):
     """A None payload is still ignored — the engine would just raise."""
     vis._preview_mode = "live"
     vis.feed_dmx(0, None)
+    _drain_events(qapp)
     vis._engine.update_dmx.assert_not_called()
+
+
+def test_feed_dmx_marshals_via_queued_signal(vis, qapp):
+    """feed_dmx must not call update_dmx synchronously — it goes through
+    a queued signal so cross-thread invocations land on the main / GL
+    thread instead of racing the painter. Without draining the event
+    queue the slot should not have fired."""
+    vis._preview_mode = "live"
+    vis.feed_dmx(1, b"\x55" * 512)
+    # No processEvents — slot must still be pending.
+    vis._engine.update_dmx.assert_not_called()
+    _drain_events(qapp)
+    vis._engine.update_dmx.assert_called_once_with(1, b"\x55" * 512)
 
 
 def test_set_preview_mode_build_pushes_synthetic_buffer(vis):

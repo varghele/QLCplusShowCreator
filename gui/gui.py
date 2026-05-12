@@ -10,7 +10,7 @@ from PyQt6.QtGui import QUndoStack, QKeySequence, QAction
 from config.models import Configuration
 from utils.create_workspace import create_qlc_workspace
 from gui.Ui_MainWindow import Ui_MainWindow
-from gui.tabs import (ConfigurationTab, FixturesTab, LiveTab, ShowsTab,
+from gui.tabs import (ConfigurationTab, FixturesTab, AutoTab, ShowsTab,
                        StageTab, StructureTab)
 from gui.audio_settings_dialog import AudioSettingsDialog
 from gui.dialogs.workspace_options_dialog import WorkspaceOptionsDialog
@@ -215,7 +215,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.stage_tab = StageTab(self.config, self)
         self.structure_tab = StructureTab(self.config, self)
         self.shows_tab = ShowsTab(self.config, self)
-        self.live_tab = LiveTab(self.config, self)
+        self.auto_tab = AutoTab(self.config, self)
 
         # Replace placeholder tabs with actual tab widgets
         # The tab widget structure is created in Ui_MainWindow
@@ -289,8 +289,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         new_layout.setContentsMargins(0, 0, 0, 0)
         new_layout.addWidget(self.shows_tab)
 
-        # Live tab (tab_live)
-        layout = self.tab_live.layout()
+        # Auto tab (tab_auto)
+        layout = self.tab_auto.layout()
         if layout:
             while layout.count():
                 item = layout.takeAt(0)
@@ -298,9 +298,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                     item.widget().deleteLater()
             layout.deleteLater()
 
-        new_layout = QtWidgets.QVBoxLayout(self.tab_live)
+        new_layout = QtWidgets.QVBoxLayout(self.tab_auto)
         new_layout.setContentsMargins(0, 0, 0, 0)
-        new_layout.addWidget(self.live_tab)
+        new_layout.addWidget(self.auto_tab)
 
         # Create Riff Browser dockable panel
         self._create_riff_browser()
@@ -417,12 +417,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # step 9 folded it in as the sixth tab, and it was renamed to
         # "Auto" since the engine is the auto-generation pipeline driven
         # by live audio rather than a generic "live mode".
-        self.actionGotoLive = QAction("Auto Mode", self)
-        self.actionGotoLive.setShortcut("Ctrl+L")
-        self.actionGotoLive.triggered.connect(
+        self.actionGotoAuto = QAction("Auto Mode", self)
+        self.actionGotoAuto.setShortcut("Ctrl+L")
+        self.actionGotoAuto.triggered.connect(
             lambda: self.tabWidget.setCurrentIndex(5)
         )
-        self.addAction(self.actionGotoLive)
+        self.addAction(self.actionGotoAuto)
 
         # Help menu actions
         self.actionAbout.triggered.connect(self.show_about)
@@ -445,8 +445,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 tab_map[3] = self.structure_tab
             if hasattr(self, 'shows_tab'):
                 tab_map[4] = self.shows_tab
-            if hasattr(self, 'live_tab'):
-                tab_map[5] = self.live_tab
+            if hasattr(self, 'auto_tab'):
+                tab_map[5] = self.auto_tab
 
             # Call on_tab_deactivated on the previous tab
             if hasattr(self, '_current_tab_index') and self._current_tab_index in tab_map:
@@ -501,7 +501,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Use lightweight update for shows tab - only update lane group combos
         # instead of recreating all lanes (major performance improvement)
         self.shows_tab.update_fixture_groups_only()
-        # Live tab's embedded visualizer otherwise wouldn't see new
+        # Auto tab's embedded visualizer otherwise wouldn't see new
         # fixtures until the user manually activates the tab — push the
         # current config now so its 3D preview stays in sync.
         self.on_visualizer_config_changed()
@@ -509,11 +509,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def on_visualizer_config_changed(self):
         """Refresh every embedded 3D preview with the current config.
 
-        Stage / Shows / Live each own their own ``EmbeddedVisualizer``
+        Stage / Shows / Auto each own their own ``EmbeddedVisualizer``
         and historically each tab refreshed only its own on its own
         triggers — so changing stage dimensions in Stage tab left the
-        Shows/Live previews stale, and adding fixtures in Fixtures tab
-        left Live's preview stale, until the user manually activated
+        Shows/Auto previews stale, and adding fixtures in Fixtures tab
+        left Auto's preview stale, until the user manually activated
         the affected tab.
 
         This central push is called from any place that mutates the
@@ -522,7 +522,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         idempotent and cheap (RenderEngine batches GL state internally),
         so calling it on every tab on every change is fine.
         """
-        for tab_attr in ("stage_tab", "shows_tab", "live_tab"):
+        for tab_attr in ("stage_tab", "shows_tab", "auto_tab"):
             tab = getattr(self, tab_attr, None)
             if tab is None:
                 continue
@@ -722,18 +722,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.shows_tab.mark_config_dirty()
             self.shows_tab.update_from_config()
 
-            # Live tab needs the same treatment — its self.config was
+            # Auto tab needs the same treatment — its self.config was
             # bound at construction time and stays pointing at the old
             # Configuration instance unless we explicitly rebind it
-            # here. Without this the Live tab keeps showing fixtures
+            # here. Without this the Auto tab keeps showing fixtures
             # from the previous session (or none at all), and its
             # embedded visualizer renders an empty stage even after a
             # config file is loaded.
-            self.live_tab.config = self.config
-            self.live_tab.update_from_config()
+            self.auto_tab.config = self.config
+            self.auto_tab.update_from_config()
 
             # Push the freshly-loaded config to every embedded 3D
-            # preview so all three (Stage / Shows / Live) repaint with
+            # preview so all three (Stage / Shows / Auto) repaint with
             # the new fixture set without waiting for the user to
             # activate each tab.
             self.on_visualizer_config_changed()
@@ -799,15 +799,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             # Update all tabs — every tab's self.config was bound at
             # construction time, so a fresh Configuration object needs
-            # to be propagated explicitly. Live tab is on the same list
+            # to be propagated explicitly. Auto tab is on the same list
             # as the others; a missing rebind here was the bug behind
-            # "Live tab visualizer doesn't show fixtures after load".
+            # "Auto tab visualizer doesn't show fixtures after load".
             self.config_tab.config = self.config
             self.fixtures_tab.config = self.config
             self.stage_tab.config = self.config
             self.structure_tab.config = self.config
             self.shows_tab.config = self.config
-            self.live_tab.config = self.config
+            self.auto_tab.config = self.config
 
             # Refresh all tabs
             self.progress_manager.update_modal(3, "Updating Configuration tab...")
@@ -825,9 +825,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.progress_manager.update_modal(7, "Updating Shows tab...")
             self.shows_tab.update_from_config()
 
-            # Live tab refresh + central visualizer push so all 3D
+            # Auto tab refresh + central visualizer push so all 3D
             # previews repaint with the imported fixture set.
-            self.live_tab.update_from_config()
+            self.auto_tab.update_from_config()
             self.on_visualizer_config_changed()
 
             self.progress_manager.finish_modal()
@@ -1016,11 +1016,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if hasattr(self.shows_tab, 'cleanup'):
             self.shows_tab.cleanup()
 
-        # Tear down Live Mode threads (audio input, analyser, DMX) and
-        # persist its session state. Live Mode is performance-oriented so
+        # Tear down Auto Mode threads (audio input, analyser, DMX) and
+        # persist its session state. Auto Mode is performance-oriented so
         # it stays running across tab switches; closing the app is the
         # only place that stops it.
-        if hasattr(self, 'live_tab') and hasattr(self.live_tab, 'cleanup'):
-            self.live_tab.cleanup()
+        if hasattr(self, 'auto_tab') and hasattr(self.auto_tab, 'cleanup'):
+            self.auto_tab.cleanup()
 
         event.accept()

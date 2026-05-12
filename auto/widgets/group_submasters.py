@@ -1,5 +1,5 @@
 """
-Group submaster faders for live mode.
+Group submaster faders for Auto mode.
 One horizontal slider per physical fixture group, controlling intensity multiplier.
 """
 

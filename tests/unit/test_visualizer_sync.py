@@ -1,10 +1,10 @@
 """
 Cross-tab embedded-visualizer synchronisation.
 
-Stage / Shows / Live each own their own ``EmbeddedVisualizer`` and used
+Stage / Shows / Auto each own their own ``EmbeddedVisualizer`` and used
 to refresh only their own on their own triggers — so changing stage
-dimensions in Stage tab left the Shows / Live previews stale, and
-adding fixtures via the Fixtures tab left Live's preview stale, until
+dimensions in Stage tab left the Shows / Auto previews stale, and
+adding fixtures via the Fixtures tab left Auto's preview stale, until
 the user manually activated each affected tab.
 
 These tests pin the central
@@ -35,7 +35,7 @@ def _make_fake_main_with_visualizers():
         config=object(),  # opaque placeholder; mocks just record it
         stage_tab=types.SimpleNamespace(embedded_visualizer=MagicMock()),
         shows_tab=types.SimpleNamespace(embedded_visualizer=MagicMock()),
-        live_tab=types.SimpleNamespace(embedded_visualizer=MagicMock()),
+        auto_tab=types.SimpleNamespace(embedded_visualizer=MagicMock()),
     )
     # Bind the unbound method to our fake — avoids having to construct a
     # real QMainWindow + every tab during the test.
@@ -47,7 +47,7 @@ def test_central_push_hits_every_tab_visualizer():
     fake = _make_fake_main_with_visualizers()
     fake.stage_tab.embedded_visualizer.set_config.assert_called_once_with(fake.config)
     fake.shows_tab.embedded_visualizer.set_config.assert_called_once_with(fake.config)
-    fake.live_tab.embedded_visualizer.set_config.assert_called_once_with(fake.config)
+    fake.auto_tab.embedded_visualizer.set_config.assert_called_once_with(fake.config)
 
 
 def test_one_tab_failure_does_not_block_the_others():
@@ -59,7 +59,7 @@ def test_one_tab_failure_does_not_block_the_others():
         config=object(),
         stage_tab=types.SimpleNamespace(embedded_visualizer=MagicMock()),
         shows_tab=types.SimpleNamespace(embedded_visualizer=MagicMock()),
-        live_tab=types.SimpleNamespace(embedded_visualizer=MagicMock()),
+        auto_tab=types.SimpleNamespace(embedded_visualizer=MagicMock()),
     )
     fake.shows_tab.embedded_visualizer.set_config.side_effect = (
         RuntimeError("preview engine unhappy")
@@ -70,7 +70,7 @@ def test_one_tab_failure_does_not_block_the_others():
 
     # Other two tabs still received the config.
     fake.stage_tab.embedded_visualizer.set_config.assert_called_once_with(fake.config)
-    fake.live_tab.embedded_visualizer.set_config.assert_called_once_with(fake.config)
+    fake.auto_tab.embedded_visualizer.set_config.assert_called_once_with(fake.config)
 
 
 def test_missing_tab_or_visualizer_is_skipped():
@@ -83,7 +83,7 @@ def test_missing_tab_or_visualizer_is_skipped():
         config=object(),
         stage_tab=types.SimpleNamespace(embedded_visualizer=MagicMock()),
         # shows_tab missing entirely
-        live_tab=types.SimpleNamespace(),  # no embedded_visualizer attr
+        auto_tab=types.SimpleNamespace(),  # no embedded_visualizer attr
     )
     # Must not raise.
     MainWindow.on_visualizer_config_changed(fake)
@@ -140,7 +140,7 @@ def test_update_stage_button_is_gone(qapp, sample_configuration):
         tab.deleteLater()
 
 
-def test_load_flow_propagates_config_to_live_tab(qapp, sample_configuration):
+def test_load_flow_propagates_config_to_auto_tab(qapp, sample_configuration):
     """When the user loads a YAML config file, MainWindow swaps
     self.config to a new Configuration instance. Every tab's
     ``self.config`` was bound at construction time and stays pointing
@@ -156,22 +156,22 @@ def test_load_flow_propagates_config_to_live_tab(qapp, sample_configuration):
     from config.models import (Configuration, Fixture, FixtureGroup,
                                FixtureMode, Universe)
     from gui.theme_manager import ThemeManager
-    from gui.tabs import LiveTab
+    from gui.tabs import AutoTab
 
     ThemeManager().apply(qapp, "dark")
 
     # Live tab built against an empty starting config (mirrors the
     # state right after MainWindow.__init__ before any file is loaded).
     initial = Configuration()
-    tab = LiveTab(initial, parent=None)
+    tab = AutoTab(initial, parent=None)
     try:
         tab.embedded_visualizer = MagicMock()
         assert tab.config is initial
 
         # Now pretend the user loaded a YAML file: a new Configuration
         # appears with fixtures + groups + universes. The MainWindow
-        # load flow does `self.live_tab.config = self.config` followed
-        # by `self.live_tab.update_from_config()`.
+        # load flow does `self.auto_tab.config = self.config` followed
+        # by `self.auto_tab.update_from_config()`.
         f = Fixture(
             universe=1, address=1, manufacturer="M", model="X",
             name="A1", group="Lights", current_mode="m",
@@ -225,7 +225,7 @@ def test_on_groups_changed_pushes_to_visualizers():
             update_fixture_groups_only=lambda: update_fixture_groups_calls.append("shows"),
             embedded_visualizer=MagicMock(),
         ),
-        live_tab=types.SimpleNamespace(embedded_visualizer=MagicMock()),
+        auto_tab=types.SimpleNamespace(embedded_visualizer=MagicMock()),
     )
     # on_groups_changed delegates to self.on_visualizer_config_changed —
     # bind it to the fake so the lookup resolves.
@@ -243,4 +243,4 @@ def test_on_groups_changed_pushes_to_visualizers():
     # Live, which was the regression we're guarding against.
     fake.stage_tab.embedded_visualizer.set_config.assert_called_once_with(fake.config)
     fake.shows_tab.embedded_visualizer.set_config.assert_called_once_with(fake.config)
-    fake.live_tab.embedded_visualizer.set_config.assert_called_once_with(fake.config)
+    fake.auto_tab.embedded_visualizer.set_config.assert_called_once_with(fake.config)

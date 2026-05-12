@@ -1,5 +1,5 @@
 """
-Smoke test for ``LiveTab`` — the QMainWindow → tab refactor from
+Smoke test for ``AutoTab`` — the QMainWindow → tab refactor from
 UI_MODERNIZATION_PLAN step 9.
 
 We don't drive the audio engine here (that pulls in real audio devices
@@ -18,13 +18,13 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 
-def test_live_tab_constructs(qapp, sample_configuration):
+def test_auto_tab_constructs(qapp, sample_configuration):
     from gui.theme_manager import ThemeManager
-    from gui.tabs import LiveTab
+    from gui.tabs import AutoTab
 
     ThemeManager().apply(qapp, "dark")
 
-    tab = LiveTab(sample_configuration, parent=None)
+    tab = AutoTab(sample_configuration, parent=None)
     try:
         # Core widgets must exist for the rest of the tab to be useful.
         assert tab._start_btn is not None
@@ -55,14 +55,14 @@ def test_live_tab_constructs(qapp, sample_configuration):
         tab.deleteLater()
 
 
-def test_live_tab_phase_property_drives_theme(qapp, sample_configuration):
+def test_auto_tab_phase_property_drives_theme(qapp, sample_configuration):
     """``_set_phase`` flips the dynamic property and re-polishes so the
-    QSS ``QLabel#LiveStatusPhase[phase="..."]`` rule re-evaluates."""
+    QSS ``QLabel#AutoStatusPhase[phase="..."]`` rule re-evaluates."""
     from gui.theme_manager import ThemeManager
-    from gui.tabs import LiveTab
+    from gui.tabs import AutoTab
 
     ThemeManager().apply(qapp, "dark")
-    tab = LiveTab(sample_configuration, parent=None)
+    tab = AutoTab(sample_configuration, parent=None)
     try:
         tab._set_phase("running")
         assert tab._status_phase.property("phase") == "running"
@@ -87,13 +87,13 @@ def test_group_panels_rebuild_when_config_groups_change(qapp):
     from config.models import (Configuration, Fixture, FixtureGroup,
                                FixtureMode, Universe)
     from gui.theme_manager import ThemeManager
-    from gui.tabs import LiveTab
+    from gui.tabs import AutoTab
 
     ThemeManager().apply(qapp, "dark")
 
     # Empty config at construction — no groups → submasters has 0 sliders.
     config = Configuration(fixtures=[], groups={}, universes={})
-    tab = LiveTab(config, parent=None)
+    tab = AutoTab(config, parent=None)
     try:
         assert list(tab._submasters._sliders.keys()) == []
         assert tab._current_groups_fingerprint == frozenset()
@@ -126,10 +126,10 @@ def test_universe_table_layout(qapp, sample_configuration):
     clipping."""
     from PyQt6.QtWidgets import QHeaderView
     from gui.theme_manager import ThemeManager
-    from gui.tabs import LiveTab
+    from gui.tabs import AutoTab
 
     ThemeManager().apply(qapp, "dark")
-    tab = LiveTab(sample_configuration, parent=None)
+    tab = AutoTab(sample_configuration, parent=None)
     try:
         # Short header labels — anything longer gets clipped at 100 px.
         labels = [tab._universe_table.horizontalHeaderItem(c).text()
@@ -157,23 +157,23 @@ def test_force_groove_is_gone():
     """Removed alongside the GROOVE NOW button — engine grooves
     continuously, no programmatic restart needed."""
     from config.models import Configuration
-    from live.engine import LiveShowEngine
+    from auto.engine import AutoShowEngine
 
-    engine = LiveShowEngine(Configuration(), fixture_definitions={})
+    engine = AutoShowEngine(Configuration(), fixture_definitions={})
     assert not hasattr(engine, "force_groove")
 
 
-def test_live_tab_embeds_visualizer(qapp, sample_configuration):
-    """LiveTab should expose an EmbeddedVisualizer and host it inside a
+def test_auto_tab_embeds_visualizer(qapp, sample_configuration):
+    """AutoTab should expose an EmbeddedVisualizer and host it inside a
     vertical splitter on the right side, defaulting to build mode."""
     from PyQt6.QtCore import Qt
     from PyQt6.QtWidgets import QSplitter
     from gui.theme_manager import ThemeManager
-    from gui.tabs import LiveTab
+    from gui.tabs import AutoTab
     from gui.widgets.embedded_visualizer import EmbeddedVisualizer
 
     ThemeManager().apply(qapp, "dark")
-    tab = LiveTab(sample_configuration, parent=None)
+    tab = AutoTab(sample_configuration, parent=None)
     try:
         assert isinstance(tab.embedded_visualizer, EmbeddedVisualizer)
         assert tab.embedded_visualizer.preview_mode() == "build"
@@ -193,14 +193,14 @@ def test_live_tab_embeds_visualizer(qapp, sample_configuration):
 
 
 def test_live_dmx_callback_fires_per_universe():
-    """LiveDMXController.local_dmx_callback should fire once per
+    """AutoDMXController.local_dmx_callback should fire once per
     configured universe with the 1-based config universe id and a
     512-byte buffer. Misbehaving callbacks must not break the wire send."""
     from unittest.mock import MagicMock
 
     from config.models import (Configuration, Fixture, FixtureMode,
                                FixtureGroup, Universe)
-    from live.dmx_output import LiveDMXController
+    from auto.dmx_output import AutoDMXController
 
     fixtures = [
         Fixture(universe=1, address=1, manufacturer="M", model="A",
@@ -220,7 +220,7 @@ def test_live_dmx_callback_fires_per_universe():
     )
 
     received: list[tuple[int, bytes]] = []
-    controller = LiveDMXController(
+    controller = AutoDMXController(
         config, fixture_definitions={},
         local_dmx_callback=lambda u, b: received.append((u, b)),
     )
@@ -236,7 +236,7 @@ def test_live_dmx_callback_fires_per_universe():
         assert len(payload) == 512
 
     # Misbehaving callback shouldn't break the send loop.
-    bad_controller = LiveDMXController(
+    bad_controller = AutoDMXController(
         config, fixture_definitions={},
         local_dmx_callback=lambda u, b: (_ for _ in ()).throw(
             RuntimeError("boom")
@@ -265,7 +265,7 @@ def test_fixture_definitions_reload_after_late_config_load(qapp, monkeypatch):
     from config.models import (Configuration, Fixture, FixtureGroup,
                                FixtureMode, Universe)
     from gui.theme_manager import ThemeManager
-    from gui.tabs import LiveTab
+    from gui.tabs import AutoTab
     from utils import fixture_utils
 
     ThemeManager().apply(qapp, "dark")
@@ -292,7 +292,7 @@ def test_fixture_definitions_reload_after_late_config_load(qapp, monkeypatch):
 
     # Tab born against an empty config, exactly as MainWindow does.
     initial = Configuration()
-    tab = LiveTab(initial, parent=None)
+    tab = AutoTab(initial, parent=None)
     try:
         # Simulate the user opening the Auto tab once before loading a
         # YAML — the original bug's setup.
@@ -334,7 +334,7 @@ def test_universe_table_repopulates_on_late_config_load(qapp):
     with. If MainWindow built the tab against an empty ``Configuration``
     (the typical app-startup state) and the user then loaded a YAML,
     the universe table stayed at 0 rows. ``_get_universe_mapping()``
-    returned ``{}``, ``LiveDMXController.set_universe_mapping({})``
+    returned ``{}``, ``AutoDMXController.set_universe_mapping({})``
     overwrote the controller's default mapping, ``_send_all_universes``
     iterated an empty dict, and ZERO DMX went anywhere — wire OR local
     callback. Audio meters kept ticking because they don't depend on
@@ -348,13 +348,13 @@ def test_universe_table_repopulates_on_late_config_load(qapp):
     from config.models import (Configuration, Fixture, FixtureGroup,
                                FixtureMode, Universe)
     from gui.theme_manager import ThemeManager
-    from gui.tabs import LiveTab
+    from gui.tabs import AutoTab
 
     ThemeManager().apply(qapp, "dark")
 
     # Empty config at construction → universe table starts at 0 rows.
     initial = Configuration()
-    tab = LiveTab(initial, parent=None)
+    tab = AutoTab(initial, parent=None)
     try:
         assert tab._universe_table.rowCount() == 0
         assert tab._get_universe_mapping() == {}
@@ -396,7 +396,7 @@ def test_universe_table_repopulates_on_late_config_load(qapp):
 def test_on_start_keeps_default_mapping_when_user_mapping_empty(qapp, monkeypatch):
     """Defence-in-depth for the dead-DMX bug: even if the universe
     table is empty for some reason, START must not pass an empty
-    mapping into ``LiveDMXController.set_universe_mapping`` — that
+    mapping into ``AutoDMXController.set_universe_mapping`` — that
     would wipe the controller's auto-built default and leave the
     DMX thread sending nothing. Only override when the user mapping
     is non-empty.
@@ -405,7 +405,7 @@ def test_on_start_keeps_default_mapping_when_user_mapping_empty(qapp, monkeypatc
     from config.models import (Configuration, Fixture, FixtureGroup,
                                FixtureMode, Universe)
     from gui.theme_manager import ThemeManager
-    from gui.tabs import LiveTab
+    from gui.tabs import AutoTab
     from utils import fixture_utils
 
     ThemeManager().apply(qapp, "dark")
@@ -431,7 +431,7 @@ def test_on_start_keeps_default_mapping_when_user_mapping_empty(qapp, monkeypatc
         groups={"G": FixtureGroup(name="G", fixtures=[f])},
         universes={1: Universe(id=1, name="U1", output={})},
     )
-    tab = LiveTab(config, parent=None)
+    tab = AutoTab(config, parent=None)
     try:
         # Force the universe table empty to simulate the bug state.
         tab._universe_table.setRowCount(0)
@@ -460,9 +460,9 @@ def test_engine_does_not_auto_fill():
     regression to the old groove+fill auto-cycling."""
     import time
     from config.models import Configuration
-    from live.engine import LiveShowEngine
+    from auto.engine import AutoShowEngine
 
-    engine = LiveShowEngine(Configuration(), fixture_definitions={})
+    engine = AutoShowEngine(Configuration(), fixture_definitions={})
     engine.set_bpm(240.0)  # 1 bar = 1 second
     engine.start()
     try:

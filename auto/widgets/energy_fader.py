@@ -1,5 +1,5 @@
 """
-Energy sensitivity fader for live mode.
+Energy sensitivity fader for Auto mode.
 Controls how strongly the lighting algorithm reacts to audio features.
 """
 

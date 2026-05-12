@@ -18,7 +18,7 @@ Two preview modes:
 
 from typing import Callable, Optional
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
 )
@@ -46,6 +46,13 @@ _BUILD_MODE_DEFAULTS = {
 
 class EmbeddedVisualizer(QWidget):
     """Compact in-tab 3D preview wrapping ``RenderEngine``."""
+
+    # Marshals DMX frames from any thread onto the Qt main / GL thread.
+    # ``feed_dmx`` is called from the live DMX worker at 30 Hz; the
+    # RenderEngine's GL paint reads fixture state on the main thread,
+    # so direct mutation would race. The queued connection on the slot
+    # in :meth:`_setup_ui` does the thread hop.
+    _dmx_frame = pyqtSignal(int, object)
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -98,6 +105,11 @@ class EmbeddedVisualizer(QWidget):
         self._reset_btn.clicked.connect(self._engine.reset_camera)
         self._popout_btn.clicked.connect(self._on_popout_clicked)
 
+        # Queued connection: emit-from-DMX-thread → slot-runs-on-main.
+        self._dmx_frame.connect(
+            self._apply_dmx_frame, Qt.ConnectionType.QueuedConnection,
+        )
+
     # ── Public API ────────────────────────────────────────────────────
 
     def set_config(self, config) -> None:
@@ -141,9 +153,18 @@ class EmbeddedVisualizer(QWidget):
         feeding: ``set_preview_mode("build")`` synthesises a full-on
         buffer; live frames overwrite it the instant a controller starts
         sending.
+
+        Thread-safe: emits a queued signal so the actual GL-state
+        mutation runs on the main thread even if this is called from
+        the DMX worker.
         """
         if dmx_bytes is None:
             return
+        self._dmx_frame.emit(universe, dmx_bytes)
+
+    def _apply_dmx_frame(self, universe: int, dmx_bytes: bytes) -> None:
+        """Slot for the :pyattr:`_dmx_frame` queued signal — runs on the
+        Qt main thread, safely mutates renderer state."""
         self._engine.update_dmx(universe, dmx_bytes)
 
     def set_preview_mode(self, mode: str) -> None:

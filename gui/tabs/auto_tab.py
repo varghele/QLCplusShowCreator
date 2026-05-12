@@ -1,5 +1,11 @@
 """
-LiveTab — real-time audio-reactive lighting embedded as the sixth tab.
+AutoTab — real-time audio-reactive auto-generation tab.
+
+Renamed from ``LiveTab`` (file ``gui/tabs/live_tab.py``, package
+``live/``) so the "Live" name is free for a future performance-oriented
+tab with different semantics. The internal class names and module paths
+all read "Auto" now; the user-visible tab label is "Auto(Experimental)"
+to flag that the auto-generation pipeline is still being tuned.
 
 Ported from ``live/window.py::LiveModeWindow`` per UI_MODERNIZATION_PLAN
 step 9. The standalone ``QMainWindow`` shell is gone; the tab itself owns
@@ -9,7 +15,7 @@ the engine lifecycle. Two behavioural deltas vs. the old window:
   files on the first activation rather than blocking app startup.
 - **UI timer pauses when the tab isn't visible.** ``on_tab_deactivated``
   stops the 20 Hz UI tick to save cycles. The engine itself keeps
-  running — Live Mode is performance-oriented and shouldn't auto-stop
+  running — Auto Mode is performance-oriented and shouldn't auto-stop
   when the user peeks at another tab.
 
 Cleanup runs from ``MainWindow.closeEvent`` via :meth:`cleanup`, which
@@ -24,6 +30,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
+from typing import Dict
 
 from config.models import Configuration
 from audio.device_manager import DeviceManager
@@ -31,21 +38,21 @@ from audio.live_input import LiveAudioInput
 from audio.realtime_spectral import RealtimeSpectralAnalyzer, LiveFeatureFrame
 from audio.live_feature_bridge import LiveFeatureBridge
 from gui.widgets.embedded_visualizer import EmbeddedVisualizer
-from live.engine import LiveShowEngine
-from live.dmx_output import LiveDMXController
-from live.bpm_detector import TapBPM, AutoBPMDetector
-from live.widgets.color_wheel import HSVColorWheel
-from live.widgets.group_submasters import GroupSubmasterPanel
-from live.widgets.energy_fader import EnergySensitivityFader
-from live.widgets.riff_palette import GroupRiffConstraintPanel
-from live.widgets.metrics_tracker import LiveMetricsTracker
-from live import settings as live_settings
+from auto.engine import AutoShowEngine
+from auto.dmx_output import AutoDMXController
+from auto.bpm_detector import TapBPM, AutoBPMDetector
+from auto.widgets.color_wheel import HSVColorWheel
+from auto.widgets.group_submasters import GroupSubmasterPanel
+from auto.widgets.energy_fader import EnergySensitivityFader
+from auto.widgets.riff_palette import GroupRiffConstraintPanel
+from auto.widgets.metrics_tracker import AutoMetricsTracker
+from auto import settings as auto_settings
 from autogen.spatial import compute_stage_planes
 
 from .base_tab import BaseTab
 
 
-class LiveTab(BaseTab):
+class AutoTab(BaseTab):
     """Real-time audio-reactive lighting embedded as a tab."""
 
     def __init__(self, config: Configuration, parent=None):
@@ -54,7 +61,7 @@ class LiveTab(BaseTab):
         self.fixture_definitions: dict = {}
         self._fixtures_loaded = False
 
-        self._settings = live_settings.load()
+        self._settings = auto_settings.load()
 
         self._device_manager = DeviceManager()
         self._live_input = None
@@ -132,7 +139,7 @@ class LiveTab(BaseTab):
         bpm_label.setStyleSheet("font-weight: bold;")
         left_layout.addWidget(bpm_label)
         self._bpm_display = QLabel("120")
-        self._bpm_display.setObjectName("LiveBpmDisplay")
+        self._bpm_display.setObjectName("AutoBpmDisplay")
         self._bpm_display.setFont(QFont("Monospace", 24, QFont.Weight.Bold))
         self._bpm_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         left_layout.addWidget(self._bpm_display)
@@ -148,14 +155,14 @@ class LiveTab(BaseTab):
 
         # Status frame — dark bar with three labels, theme-styled via QSS.
         status_frame = QFrame()
-        status_frame.setObjectName("LiveStatusFrame")
+        status_frame.setObjectName("AutoStatusFrame")
         status_layout = QHBoxLayout(status_frame)
         self._status_riff = QLabel("Riff: ---")
-        self._status_riff.setObjectName("LiveStatusRiff")
+        self._status_riff.setObjectName("AutoStatusRiff")
         self._status_bar_counter = QLabel("Bar: -/-")
-        self._status_bar_counter.setObjectName("LiveStatusBarCounter")
+        self._status_bar_counter.setObjectName("AutoStatusBarCounter")
         self._status_phase = QLabel("STOPPED")
-        self._status_phase.setObjectName("LiveStatusPhase")
+        self._status_phase.setObjectName("AutoStatusPhase")
         # `phase` is a dynamic property the QSS reads — we re-polish on
         # change so the colour follows engine state without inline CSS.
         self._status_phase.setProperty("phase", "stopped")
@@ -249,7 +256,7 @@ class LiveTab(BaseTab):
         self._color_wheel.color_changed.connect(self._on_color_changed)
         center_layout.addWidget(self._color_wheel)
 
-        self._metrics_tracker = LiveMetricsTracker()
+        self._metrics_tracker = AutoMetricsTracker()
         center_layout.addWidget(self._metrics_tracker)
 
         center_layout.addStretch()
@@ -259,12 +266,12 @@ class LiveTab(BaseTab):
         # Vertical splitter so the user can drag the visualizer height
         # to taste; default ~290 px gives a roughly 16:9 preview at the
         # 520-px column width. Persistence via QSettings under
-        # `live/right_splitter`.
+        # `auto/right_splitter`.
         self._right_splitter = QSplitter(Qt.Orientation.Vertical)
 
         # Embedded visualizer. Build mode at construction so all fixtures
         # light up before the user hits START; preview flips to "live"
-        # in _on_start (DMX from LiveDMXController feeds it via the
+        # in _on_start (DMX from AutoDMXController feeds it via the
         # local_dmx_callback hook) and back to "build" in _on_stop.
         self.embedded_visualizer = EmbeddedVisualizer(self)
         self.embedded_visualizer.set_pop_out_callback(self._launch_visualizer)
@@ -306,6 +313,11 @@ class LiveTab(BaseTab):
         # appears for taller mappings.
         self._universe_table.setFixedHeight(120)
         self._populate_universe_table()
+        # Propagate ArtNet-uid edits to the running controller so
+        # mid-show remappings actually take effect on the wire (IP
+        # field already had editingFinished wired; universe column was
+        # silently editable but disconnected).
+        self._universe_table.itemChanged.connect(self._on_universe_mapping_edited)
         artnet_layout.addWidget(self._universe_table)
 
         # Mirror to broadcast — useful for the on-screen visualiser at home;
@@ -390,6 +402,12 @@ class LiveTab(BaseTab):
         Called from ``setup_ui`` (initial fill) and ``update_from_config``
         (when the user loads a config file after construction). Skips
         the rebuild if the group set hasn't changed.
+
+        Captures the existing widgets' state first so live edits to
+        submasters / constraints survive when the user later adds a
+        group (which forces a rebuild) — ``self._settings`` is only
+        snapshotted on tab deactivation, so reading from it here would
+        re-introduce stale on-disk values from before the live moves.
         """
         group_names = list(self.config.groups.keys())
         fingerprint = frozenset(group_names)
@@ -397,12 +415,32 @@ class LiveTab(BaseTab):
             return
         self._current_groups_fingerprint = fingerprint
 
+        # Snapshot current widget state (if any) so live edits survive
+        # the rebuild. Fall back to the persisted settings for groups
+        # that don't have a widget yet (newly added groups, first build).
+        current_constraints: Dict[str, set] = {}
+        if self._riff_constraints is not None:
+            current_constraints = dict(self._riff_constraints.get_constraints())
+        current_submasters: Dict[str, int] = {}
+        if self._submasters is not None:
+            current_submasters = dict(self._submasters.get_values())
+
         # Riff constraints panel — replace the placeholder/old widget.
         new_constraints = GroupRiffConstraintPanel(group_names)
-        for g, allowed in self._settings.group_constraints.items():
-            if g in group_names:
-                new_constraints.set_constraint(g, set(allowed))
+        for g in group_names:
+            if g in current_constraints:
+                new_constraints.set_constraint(g, set(current_constraints[g]))
+            elif g in self._settings.group_constraints:
+                new_constraints.set_constraint(g, set(self._settings.group_constraints[g]))
         new_constraints.constraints_changed.connect(self._on_constraints_changed)
+        # Disconnect the old widget before deletion — Qt's auto-disconnect
+        # is fine in practice but emits in the wake of setParent(None)
+        # could still hit our handler with a defunct group name.
+        if self._riff_constraints is not None:
+            try:
+                self._riff_constraints.constraints_changed.disconnect(self._on_constraints_changed)
+            except (TypeError, RuntimeError):
+                pass
         self._swap_layout_widget(
             self._center_layout, self._riff_constraints_index,
             self._riff_constraints, new_constraints,
@@ -411,10 +449,17 @@ class LiveTab(BaseTab):
 
         # Submasters panel — same swap.
         new_submasters = GroupSubmasterPanel(group_names)
-        for g, val in self._settings.group_submasters.items():
-            if g in group_names:
-                new_submasters.set_value(g, val / 100.0)
+        for g in group_names:
+            if g in current_submasters:
+                new_submasters.set_value(g, current_submasters[g] / 100.0)
+            elif g in self._settings.group_submasters:
+                new_submasters.set_value(g, self._settings.group_submasters[g] / 100.0)
         new_submasters.submaster_changed.connect(self._on_submaster_changed)
+        if self._submasters is not None:
+            try:
+                self._submasters.submaster_changed.disconnect(self._on_submaster_changed)
+            except (TypeError, RuntimeError):
+                pass
         self._swap_layout_widget(
             self._right_layout, self._submasters_index,
             self._submasters, new_submasters,
@@ -448,6 +493,11 @@ class LiveTab(BaseTab):
         # spin-up at START doesn't run against a stale snapshot.
         self.update_from_config()
 
+        # Re-enumerate audio devices so a USB mic plugged in after
+        # launch shows up without an app restart. Preserves the current
+        # selection where possible.
+        self._populate_devices()
+
         # If the engine is still running (e.g. the user peeked at another
         # tab during a gig), restart the UI tick so meters update again.
         if self._is_running:
@@ -461,7 +511,7 @@ class LiveTab(BaseTab):
         try:
             self._save_settings()
         except Exception as e:
-            print(f"Error saving Live Mode settings: {e}")
+            print(f"Error saving Auto Mode settings: {e}")
 
     # BaseTab calls update_from_config / save_to_config on activate /
     # deactivate by default. We override those hooks above instead, so
@@ -507,6 +557,14 @@ class LiveTab(BaseTab):
         # fixtures appear in the 3D preview.
         if hasattr(self, "embedded_visualizer") and self.embedded_visualizer:
             self.embedded_visualizer.set_config(self.config)
+        # Propagate the new fixture/stage state into a running engine
+        # so the show keeps targeting the right groups when the user
+        # edits config mid-show. No-op when stopped.
+        if self._engine is not None:
+            try:
+                self._engine.refresh_from_config(self.config)
+            except Exception as e:
+                print(f"AutoTab: engine refresh_from_config failed: {e}")
 
     # ── Embedded visualizer plumbing ──────────────────────────────────
 
@@ -537,7 +595,7 @@ class LiveTab(BaseTab):
         fall back to the ~16:9 default when no setting is present."""
         from PyQt6.QtCore import QSettings
         settings = QSettings("QLCShowCreator", "QLCShowCreator")
-        state = settings.value("live/right_splitter")
+        state = settings.value("auto/right_splitter")
         if state is not None:
             try:
                 self._right_splitter.restoreState(state)
@@ -549,7 +607,7 @@ class LiveTab(BaseTab):
     def _save_right_splitter_state(self, *_args) -> None:
         from PyQt6.QtCore import QSettings
         settings = QSettings("QLCShowCreator", "QLCShowCreator")
-        settings.setValue("live/right_splitter", self._right_splitter.saveState())
+        settings.setValue("auto/right_splitter", self._right_splitter.saveState())
 
     # ── Lazy fixture definitions ──────────────────────────────────────
 
@@ -580,7 +638,7 @@ class LiveTab(BaseTab):
                 get_cached_fixture_definitions(models_in_config)
             )
         except Exception as e:
-            print(f"LiveTab: failed to load fixture definitions: {e}")
+            print(f"AutoTab: failed to load fixture definitions: {e}")
             self.fixture_definitions = {}
 
     # ── Population helpers ────────────────────────────────────────────
@@ -611,42 +669,87 @@ class LiveTab(BaseTab):
         planes = compute_stage_planes(self.config)
         self._stage_planes = {p.name: p for p in planes}
 
-        self._plane_combo.clear()
-        self._plane_combo.addItem("None (manual)")
-        for plane in planes:
-            self._plane_combo.addItem(plane.name)
+        # Block signals while we tear down and rebuild — clear() fires
+        # ``currentTextChanged("")``, and the per-item addItem calls
+        # each fire it again, which would route through
+        # ``_on_target_plane_changed`` and either glitch the engine's
+        # plane target or noisily reroute through the L2 guard.
+        self._plane_combo.blockSignals(True)
+        try:
+            self._plane_combo.clear()
+            self._plane_combo.addItem("None (manual)")
+            for plane in planes:
+                self._plane_combo.addItem(plane.name)
 
-        saved = self._settings.target_plane_name
-        idx = self._plane_combo.findText(saved) if saved else -1
-        if idx < 0:
-            idx = self._plane_combo.findText("Front")
-        if idx >= 0:
-            self._plane_combo.setCurrentIndex(idx)
+            saved = self._settings.target_plane_name
+            idx = self._plane_combo.findText(saved) if saved else -1
+            if idx < 0:
+                idx = self._plane_combo.findText("Front")
+            if idx >= 0:
+                self._plane_combo.setCurrentIndex(idx)
+        finally:
+            self._plane_combo.blockSignals(False)
 
     def _populate_universe_table(self):
         universes = list(self.config.universes.keys())
         saved = self._settings.universe_mapping
-        self._universe_table.setRowCount(len(universes))
-        for row, uid in enumerate(universes):
-            uid_int = int(uid)
-            config_item = QTableWidgetItem(str(uid_int))
-            config_item.setFlags(config_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            artnet_uid = saved.get(uid_int, uid_int - 1)
-            artnet_item = QTableWidgetItem(str(artnet_uid))
-            self._universe_table.setItem(row, 0, config_item)
-            self._universe_table.setItem(row, 1, artnet_item)
+        # Block signals while we tear down + rebuild — setItem fires
+        # ``itemChanged`` and would trigger ``_on_universe_mapping_edited``
+        # repeatedly during refresh, potentially clobbering the running
+        # controller with partial state.
+        self._universe_table.blockSignals(True)
+        try:
+            self._universe_table.setRowCount(len(universes))
+            for row, uid in enumerate(universes):
+                uid_int = int(uid)
+                config_item = QTableWidgetItem(str(uid_int))
+                config_item.setFlags(config_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                artnet_uid = saved.get(uid_int, uid_int - 1)
+                artnet_item = QTableWidgetItem(str(artnet_uid))
+                self._universe_table.setItem(row, 0, config_item)
+                self._universe_table.setItem(row, 1, artnet_item)
+        finally:
+            self._universe_table.blockSignals(False)
 
     def _get_universe_mapping(self) -> dict:
+        """Read the universe-mapping table.
+
+        Returns the full mapping or ``None`` if any cell is unparsable —
+        callers can then preserve the controller's current/default
+        mapping rather than partially overwriting it (which would
+        silently kill DMX to the affected universes).
+        """
         mapping = {}
         for row in range(self._universe_table.rowCount()):
             config_item = self._universe_table.item(row, 0)
             artnet_item = self._universe_table.item(row, 1)
-            if config_item and artnet_item:
-                try:
-                    mapping[int(config_item.text())] = int(artnet_item.text())
-                except ValueError:
-                    pass
+            if not (config_item and artnet_item):
+                return None
+            try:
+                mapping[int(config_item.text())] = int(artnet_item.text())
+            except ValueError:
+                return None
         return mapping
+
+    def _on_universe_mapping_edited(self, _item) -> None:
+        """User edited an ArtNet-uid cell.
+
+        Push the rebuilt mapping into the running controller so wire
+        output reroutes immediately. Drops the edit if the mapping no
+        longer parses (single malformed cell ⇒ keep what the
+        controller had, avoid blacking out other universes by accident).
+        """
+        if self._dmx_controller is None:
+            return
+        mapping = self._get_universe_mapping()
+        if mapping is None:
+            self.show_error(
+                "Invalid universe mapping",
+                "ArtNet universe must be an integer. The previous mapping "
+                "has been kept until you fix the bad row.",
+            )
+            return
+        self._dmx_controller.set_universe_mapping(mapping)
 
     # ── Start / Stop ──────────────────────────────────────────────────
 
@@ -661,6 +764,39 @@ class LiveTab(BaseTab):
             self._load_fixture_definitions()
             self._fixtures_loaded = True
 
+        # Precondition gates — surfaced as errors rather than silent
+        # no-ops. Each one was a separate "I clicked START and nothing
+        # happened" report waiting to be filed.
+        if not self.config.groups:
+            self.show_error(
+                "No fixture groups",
+                "Auto mode needs at least one fixture group. Add fixtures "
+                "in the Fixtures tab and assign them to groups before starting.",
+            )
+            return
+        if not self.config.universes:
+            self.show_error(
+                "No universes configured",
+                "Auto mode has nothing to send DMX to. Configure at least "
+                "one universe in the Configuration tab before starting.",
+            )
+            return
+        if not self.fixture_definitions:
+            self.show_error(
+                "No fixture definitions",
+                "QLC+ fixture definitions could not be loaded for the "
+                "configured fixtures. Check that the QXF files for each "
+                "fixture's manufacturer/model are reachable.",
+            )
+            return
+        if self._input_device_combo.currentIndex() < 0:
+            self.show_error(
+                "No audio input device",
+                "Select an input device in the Audio Input panel before "
+                "starting Auto mode.",
+            )
+            return
+
         try:
             device_index = self._input_device_combo.currentData()
 
@@ -668,14 +804,20 @@ class LiveTab(BaseTab):
                 sample_rate=44100, channels=1, buffer_size=512
             )
             if not self._live_input.initialize(device_index=device_index):
-                print("Failed to initialize audio input")
+                self.show_error(
+                    "Audio input failed",
+                    "Could not initialise the selected audio input device. "
+                    "Try a different device or check that no other process "
+                    "is holding the input exclusively.",
+                )
+                self._cleanup()
                 return
 
             self._analyzer = RealtimeSpectralAnalyzer(sample_rate=44100)
             self._bridge = LiveFeatureBridge(self._analyzer)
             self._bridge.feature_updated.connect(self._on_feature_frame)
 
-            self._engine = LiveShowEngine(self.config, self.fixture_definitions)
+            self._engine = AutoShowEngine(self.config, self.fixture_definitions)
             self._engine.set_bpm(self._bpm_spinbox.value())
             self._engine.set_energy_sensitivity(self._energy_fader.value())
             self._engine.set_on_riffs_updated(self._on_riffs_updated_from_engine)
@@ -683,6 +825,23 @@ class LiveTab(BaseTab):
             plane = (self._stage_planes.get(plane_text)
                      if plane_text != "None (manual)" else None)
             self._engine.set_target_plane(plane)
+
+            # Push the current UI state for sticky per-group controls.
+            # Values restored from saved settings into the panels live
+            # in the widgets — the engine starts with its own defaults
+            # (submasters at 1.0, constraints None) and would otherwise
+            # ignore a 50% submaster slider until the user touched it.
+            # Max movement speed goes through the DMX manager, so we
+            # push it *after* set_engine wires it up (below).
+            if self._submasters is not None:
+                for g, v in self._submasters.get_values().items():
+                    self._engine.set_group_submaster(g, v / 100.0)
+            if self._riff_constraints is not None:
+                for g, allowed in self._riff_constraints.get_constraints().items():
+                    self._engine.set_group_constraints(g, allowed)
+            if self._color_wheel.is_override_active():
+                r, g, b = self._color_wheel.get_color()
+                self._engine.set_color_override((r, g, b))
 
             target_ip = self._ip_input.text().strip() or "192.168.1.151"
             # Forward each DMX frame to the embedded visualizer in-process
@@ -695,7 +854,7 @@ class LiveTab(BaseTab):
                 if vis is not None:
                     vis.feed_dmx(universe, dmx_bytes)
 
-            self._dmx_controller = LiveDMXController(
+            self._dmx_controller = AutoDMXController(
                 self.config, self.fixture_definitions, target_ip=target_ip,
                 local_dmx_callback=_feed_embedded,
             )
@@ -712,8 +871,20 @@ class LiveTab(BaseTab):
             self._dmx_controller.set_mirror_to_visualizer(self._mirror_checkbox.isChecked())
             self._dmx_controller.set_engine(self._engine)
             self._dmx_controller.dmx_manager.set_stage_planes(self._stage_planes)
+            # set_engine wires up engine._dmx_manager — now the speed
+            # cap can actually take effect; calling it earlier silently
+            # no-ops because the engine forwards through dmx_manager.
+            self._engine.set_max_movement_speed(float(self._speed_slider.value()))
 
-            self._live_input.start()
+            if not self._live_input.start():
+                self.show_error(
+                    "Audio capture failed",
+                    "Initialised the audio input but the stream refused to "
+                    "start. Check that the device isn't in use by another "
+                    "application and try again.",
+                )
+                self._cleanup()
+                return
             self._bridge.start(self._live_input.ring_buffer)
             self._dmx_controller.start()
 
@@ -730,13 +901,17 @@ class LiveTab(BaseTab):
             if self.embedded_visualizer is not None:
                 self.embedded_visualizer.set_preview_mode("live")
 
-            print("Live Mode started")
+            print("Auto Mode started")
 
         except Exception as e:
-            print(f"Failed to start Live Mode: {e}")
             import traceback
             traceback.print_exc()
             self._cleanup()
+            self.show_error(
+                "Auto mode failed to start",
+                f"An unexpected error occurred while starting:\n\n{e}\n\n"
+                "See the console for full traceback.",
+            )
 
     def _on_stop(self):
         if not self._is_running:
@@ -755,7 +930,7 @@ class LiveTab(BaseTab):
         if self.embedded_visualizer is not None:
             self.embedded_visualizer.set_preview_mode("build")
 
-        print("Live Mode stopped")
+        print("Auto Mode stopped")
 
     def _cleanup(self):
         """Tear down audio + engine + DMX threads. Idempotent."""
@@ -789,7 +964,7 @@ class LiveTab(BaseTab):
         try:
             self._save_settings()
         except Exception as e:
-            print(f"Error saving Live Mode settings: {e}")
+            print(f"Error saving Auto Mode settings: {e}")
         self._cleanup()
         try:
             self._device_manager.cleanup()
@@ -827,8 +1002,22 @@ class LiveTab(BaseTab):
     def _on_auto_bpm_toggled(self, checked):
         if checked:
             self._auto_bpm.reset()
+        # Auto BPM rewrites the spinbox on every UI tick (50 ms) — leaving
+        # the spinbox and TAP enabled then would silently overwrite the
+        # user's input. Disable the manual controls so the conflict is
+        # visible.
+        if hasattr(self, "_bpm_spinbox"):
+            self._bpm_spinbox.setEnabled(not checked)
+        if hasattr(self, "_tap_btn"):
+            self._tap_btn.setEnabled(not checked)
 
     def _on_bpm_spinbox_changed(self, value):
+        # Keep the large BPM display in sync with the spinbox even when
+        # the engine isn't running — otherwise the readout stays at
+        # whatever the engine last reported (or "120" if never started)
+        # which mismatches the spinbox the user just moved.
+        if hasattr(self, "_bpm_display"):
+            self._bpm_display.setText(str(int(value)))
         if self._engine:
             self._engine.set_bpm(float(value))
 
@@ -866,6 +1055,11 @@ class LiveTab(BaseTab):
             self._engine.set_max_movement_speed(float(value))
 
     def _on_target_plane_changed(self, text):
+        # ``QComboBox.clear()`` synchronously fires ``currentTextChanged("")``
+        # before _populate_plane_combo refills it. Treat that as no-op
+        # so the engine's plane target doesn't briefly flicker to None.
+        if not text:
+            return
         if self._engine:
             plane = (self._stage_planes.get(text)
                      if text != "None (manual)" else None)
@@ -909,10 +1103,15 @@ class LiveTab(BaseTab):
             self._set_phase(phase)
             self._bpm_display.setText(str(int(self._engine.bpm)))
 
-        if self._pending_riff_update:
-            active = {g: r[0] for g, r in self._pending_riff_update.items()}
-            self._riff_constraints.update_active_riffs(active)
+        # Capture-and-clear atomically so a worker-thread write that
+        # races with this read isn't silently dropped — pull the local
+        # reference first, then null the field, then dispatch.
+        pending = self._pending_riff_update
+        if pending:
             self._pending_riff_update = None
+            active = {g: r[0] for g, r in pending.items()}
+            if self._riff_constraints is not None:
+                self._riff_constraints.update_active_riffs(active)
 
         if self._auto_bpm_checkbox.isChecked() and self._is_running:
             auto_bpm = self._auto_bpm.get_bpm()
@@ -927,7 +1126,7 @@ class LiveTab(BaseTab):
 
     def _set_phase(self, phase: str):
         """Set the ``phase`` dynamic property + re-polish so the theme's
-        ``QLabel#LiveStatusPhase[phase="..."]`` rule re-evaluates."""
+        ``QLabel#AutoStatusPhase[phase="..."]`` rule re-evaluates."""
         if self._status_phase.property("phase") == phase:
             return
         self._status_phase.setProperty("phase", phase)
@@ -942,32 +1141,52 @@ class LiveTab(BaseTab):
         hue, sat = self._color_wheel.get_hue_saturation()
         override_active = self._color_wheel.is_override_active()
 
-        constraints = {
-            g: sorted(allowed)
-            for g, allowed in self._riff_constraints.get_constraints().items()
-        }
-        submasters = self._submasters.get_values()
+        # ``_riff_constraints`` / ``_submasters`` are placeholders until
+        # ``_rebuild_group_panels`` runs (config swap, etc.). Guard so a
+        # save before the first rebuild doesn't AttributeError.
+        if self._riff_constraints is not None:
+            constraints = {
+                g: sorted(allowed)
+                for g, allowed in self._riff_constraints.get_constraints().items()
+            }
+        else:
+            constraints = self._settings.group_constraints
+        if self._submasters is not None:
+            submasters = self._submasters.get_values()
+        else:
+            submasters = self._settings.group_submasters
 
         device_name = None
         idx = self._input_device_combo.currentIndex()
         if idx >= 0:
+            # The combo's display label is "DeviceName (HostApi)". Strip
+            # only the trailing host-api parenthesis by using ``rsplit``
+            # with a maxsplit so device names containing their own
+            # parens (e.g. "USB Audio (2- Realtek)") survive intact.
             label = self._input_device_combo.itemText(idx)
-            paren = label.rfind(" (")
-            device_name = label[:paren] if paren > 0 else label
+            parts = label.rsplit(" (", 1)
+            device_name = parts[0] if len(parts) == 2 and parts[1].endswith(")") else label
 
-        plane_text = self._plane_combo.currentText()
-        target_plane = plane_text if plane_text != "None (manual)" else ""
+        # Save the raw combo text — including the "None (manual)"
+        # sentinel — so the user's choice round-trips cleanly. Old
+        # versions saved "" for the manual case which then fell back to
+        # "Front" on load.
+        target_plane = self._plane_combo.currentText()
 
-        # `groove_bars` is a legacy field on LiveModeSettings — the engine
-        # no longer auto-fills, so we just preserve whatever was loaded
-        # (or the default) so old settings files round-trip cleanly.
-        self._settings = live_settings.LiveModeSettings(
+        # If the universe table currently has a malformed row,
+        # ``_get_universe_mapping`` returns None — preserve the last
+        # known-good mapping rather than persisting an empty dict
+        # that would wipe the user's setup on next launch.
+        universe_mapping = self._get_universe_mapping()
+        if universe_mapping is None:
+            universe_mapping = self._settings.universe_mapping
+
+        self._settings = auto_settings.AutoModeSettings(
             target_ip=self._ip_input.text().strip() or "192.168.1.151",
-            universe_mapping=self._get_universe_mapping(),
+            universe_mapping=universe_mapping,
             mirror_to_visualizer=self._mirror_checkbox.isChecked(),
             input_device_name=device_name,
             bpm=self._bpm_spinbox.value(),
-            groove_bars=self._settings.groove_bars,
             energy_sensitivity=int(round(self._energy_fader.value() * 100)),
             target_plane_name=target_plane,
             max_movement_speed=self._speed_slider.value(),
@@ -977,4 +1196,4 @@ class LiveTab(BaseTab):
             group_constraints=constraints,
             group_submasters=submasters,
         )
-        live_settings.save(self._settings)
+        auto_settings.save(self._settings)

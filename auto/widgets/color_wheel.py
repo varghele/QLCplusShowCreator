@@ -1,5 +1,5 @@
 """
-HSV Color Wheel widget for live mode color override.
+HSV Color Wheel widget for Auto mode color override.
 """
 
 import math
@@ -73,7 +73,14 @@ class HSVColorWheel(QWidget):
         return (self._hue, self._saturation)
 
     def set_state(self, override_active: bool, hue: float, saturation: float) -> None:
-        """Restore wheel state without emitting signals."""
+        """Restore wheel state.
+
+        Emits :pyattr:`color_changed` with the restored RGB (or ``-1,-1,-1``
+        for auto) so a connected engine learns the persisted override
+        immediately, rather than only after the user moves the wheel. The
+        connected slot is responsible for ignoring no-op refreshes if it
+        cares about minimising work.
+        """
         self._hue = max(0.0, min(360.0, hue))
         self._saturation = max(0.0, min(1.0, saturation))
         self._wheel_widget._selector_hue = self._hue
@@ -89,6 +96,12 @@ class HSVColorWheel(QWidget):
         self._override_btn.blockSignals(False)
         self._auto_btn.blockSignals(False)
         self._override_active = override_active
+
+        if override_active:
+            r, g, b = self.get_color()
+            self.color_changed.emit(r, g, b)
+        else:
+            self.color_changed.emit(-1, -1, -1)
 
     def _on_position_selected(self, hue: float, saturation: float):
         self._hue = hue
