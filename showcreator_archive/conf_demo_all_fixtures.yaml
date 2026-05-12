@@ -12,14 +12,14 @@ fixtures:
   manufacturer: Ayrton
   model: MagicBlade R
   mounting: hanging
-  name: MR1
+  name: MB1
   orientation_uses_group_default: false
   pitch: 0.0
   roll: 0.0
   type: MH
   universe: 1
-  x: -13.0
-  y: 4.0
+  x: -20.0
+  y: 3.0
   yaw: 0.0
   z: 3.5
   z_uses_group_default: false
@@ -30,7 +30,7 @@ fixtures:
   - channels: 14
     name: Standard
   current_mode: Extended
-  group: MH_WASH
+  group: MH_AURA
   manufacturer: Martin
   model: MAC Aura
   mounting: hanging
@@ -40,8 +40,8 @@ fixtures:
   roll: 0.0
   type: MH
   universe: 1
-  x: -9.75
-  y: 4.0
+  x: -15.0
+  y: 3.0
   yaw: 0.0
   z: 3.5
   z_uses_group_default: false
@@ -52,7 +52,7 @@ fixtures:
   - channels: 14
     name: 14 Channel
   current_mode: 14 Channel
-  group: MH_SPOT
+  group: MH_HERO
   manufacturer: Varytec
   model: Hero Spot 60
   mounting: hanging
@@ -62,8 +62,8 @@ fixtures:
   roll: 0.0
   type: MH
   universe: 1
-  x: -6.5
-  y: 4.0
+  x: -10.0
+  y: 3.0
   yaw: 0.0
   z: 3.5
   z_uses_group_default: false
@@ -88,8 +88,8 @@ fixtures:
   roll: 0.0
   type: SUNSTRIP
   universe: 1
-  x: -3.25
-  y: 4.0
+  x: -5.0
+  y: 3.0
   yaw: 0.0
   z: 3.0
   z_uses_group_default: false
@@ -104,7 +104,7 @@ fixtures:
   - channels: 4
     name: 4-Channel
   current_mode: 28-Channel
-  group: MATRIX
+  group: MATRIX_BLNR
   manufacturer: Stairville
   model: LED Matrix Blinder 5x5
   mounting: hanging
@@ -115,7 +115,7 @@ fixtures:
   type: SUNSTRIP
   universe: 1
   x: 0.0
-  y: 4.0
+  y: 3.0
   yaw: 0.0
   z: 3.0
   z_uses_group_default: false
@@ -128,7 +128,7 @@ fixtures:
   - channels: 8
     name: 8 Channel
   current_mode: 8 Channel
-  group: PAR
+  group: PAR_FLAT
   manufacturer: Stairville
   model: 'Retro Flat Par 18x12W RGBW '
   mounting: standing
@@ -138,8 +138,8 @@ fixtures:
   roll: 0.0
   type: WASH
   universe: 1
-  x: 3.25
-  y: 4.0
+  x: 5.0
+  y: 3.0
   yaw: 0.0
   z: 0.0
   z_uses_group_default: false
@@ -160,7 +160,7 @@ fixtures:
   - channels: 1
     name: 1 Channel
   current_mode: 6 Channel
-  group: WASH
+  group: WASH_WILD
   manufacturer: Stairville
   model: Wild Wash Pro 648 RGB LED
   mounting: standing
@@ -170,8 +170,8 @@ fixtures:
   roll: 0.0
   type: WASH
   universe: 1
-  x: 6.5
-  y: 4.0
+  x: 10.0
+  y: 3.0
   yaw: 0.0
   z: 0.0
   z_uses_group_default: false
@@ -190,8 +190,8 @@ fixtures:
   roll: 0.0
   type: PIXELBAR
   universe: 1
-  x: 9.75
-  y: 4.0
+  x: 15.0
+  y: 3.0
   yaw: 0.0
   z: 0.0
   z_uses_group_default: false
@@ -222,10 +222,380 @@ fixtures:
   roll: 0.0
   type: PIXELBAR
   universe: 1
-  x: 13.0
-  y: 4.0
+  x: 20.0
+  y: 3.0
   yaw: 0.0
   z: 0.0
+  z_uses_group_default: false
+- address: 1
+  available_modes:
+  - channels: 16
+    name: Standard
+  - channels: 20
+    name: Vector
+  current_mode: Standard
+  group: MH_BEAM
+  manufacturer: Clay Paky
+  model: Sharpy
+  mounting: hanging
+  name: SH1
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 2
+  x: -20.0
+  y: 7.0
+  yaw: 0.0
+  z: 4.0
+  z_uses_group_default: false
+- address: 17
+  available_modes:
+  - channels: 24
+    name: Main
+  - channels: 16
+    name: 16 channel
+  - channels: 30
+    name: 30 channel
+  current_mode: Main
+  group: MH_POINTE
+  manufacturer: Robe
+  model: Pointe
+  mounting: hanging
+  name: PT2
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 2
+  x: -16.923076923076923
+  y: 7.0
+  yaw: 0.0
+  z: 4.0
+  z_uses_group_default: false
+- address: 41
+  available_modes:
+  - channels: 97
+    name: Extended RGBW
+  - channels: 78
+    name: Extended RGB
+  - channels: 35
+    name: Shapes
+  - channels: 21
+    name: Standard
+  current_mode: Extended RGBW
+  group: MH_BEYE
+  manufacturer: Clay Paky
+  model: A.leda B-EYE K10
+  mounting: hanging
+  name: BE3
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 2
+  x: -13.846153846153847
+  y: 7.0
+  yaw: 0.0
+  z: 4.0
+  z_uses_group_default: false
+- address: 138
+  available_modes:
+  - channels: 30
+    name: Standard
+  - channels: 34
+    name: Vector
+  current_mode: Standard
+  group: MH_MYTHOS
+  manufacturer: Clay Paky
+  model: Mythos
+  mounting: hanging
+  name: MY4
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 2
+  x: -10.769230769230768
+  y: 7.0
+  yaw: 0.0
+  z: 4.0
+  z_uses_group_default: false
+- address: 168
+  available_modes:
+  - channels: 19
+    name: Basic
+  - channels: 27
+    name: Extended
+  current_mode: Extended
+  group: MH_QUANTUM
+  manufacturer: Martin
+  model: Mac Quantum Profile
+  mounting: hanging
+  name: MQ5
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 2
+  x: -7.692307692307692
+  y: 7.0
+  yaw: 0.0
+  z: 4.0
+  z_uses_group_default: false
+- address: 195
+  available_modes:
+  - channels: 20
+    name: Normal
+  - channels: 14
+    name: Compress
+  - channels: 21
+    name: Extended
+  current_mode: Normal
+  group: MH_X4
+  manufacturer: GLP
+  model: Impression X4
+  mounting: hanging
+  name: X46
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 2
+  x: -4.615384615384615
+  y: 7.0
+  yaw: 0.0
+  z: 4.0
+  z_uses_group_default: false
+- address: 215
+  available_modes:
+  - channels: 20
+    name: 20ch
+  - channels: 18
+    name: 18ch
+  - channels: 160
+    name: 160ch
+  current_mode: 20ch
+  group: MH_PANEL
+  manufacturer: Ayrton
+  model: MagicPanel 602
+  mounting: hanging
+  name: MP7
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 2
+  x: -1.5384615384615365
+  y: 7.0
+  yaw: 0.0
+  z: 4.0
+  z_uses_group_default: false
+- address: 235
+  available_modes:
+  - channels: 49
+    name: (1) 3-zones [RGBW]
+  - channels: 49
+    name: (1) 3-zones [CMY]
+  - channels: 27
+    name: (2) Basic [RGBW]
+  - channels: 27
+    name: (2) Basic [CMY]
+  - channels: 33
+    name: (3) Advanced [RGBW]
+  - channels: 33
+    name: (3) Advanced [CMY]
+  - channels: 90
+    name: (4) Full RGBW [RGBW]
+  - channels: 90
+    name: (4) Full RGBW [CMY]
+  - channels: 27
+    name: (5) Wash [RGBW]
+  - channels: 27
+    name: (5) Wash [CMY]
+  - channels: 47
+    name: (6) Pattern [RGBW]
+  - channels: 47
+    name: (6) Pattern [CMY]
+  - channels: 91
+    name: (7) Pixel RGB [RGBW]
+  - channels: 91
+    name: (7) Pixel RGB [CMY]
+  - channels: 110
+    name: (8) Pixel RGBW [RGBW]
+  - channels: 110
+    name: (8) Pixel RGBW [CMY]
+  - channels: 104
+    name: (9) Pattern Full RGB [RGBW]
+  - channels: 104
+    name: (9) Pattern Full RGB [CMY]
+  - channels: 123
+    name: (10) Pattern Full RGBW [RGBW]
+  - channels: 123
+    name: (10) Pattern Full RGBW [CMY]
+  current_mode: (2) Basic [RGBW]
+  group: MH_SPIIDER
+  manufacturer: Robe
+  model: Spiider
+  mounting: hanging
+  name: SP8
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 2
+  x: 1.53846153846154
+  y: 7.0
+  yaw: 0.0
+  z: 4.0
+  z_uses_group_default: false
+- address: 262
+  available_modes:
+  - channels: 33
+    name: Normal
+  - channels: 19
+    name: Compressed
+  - channels: 34
+    name: High-Resolution (Extended)
+  - channels: 28
+    name: Dual Pixel
+  - channels: 29
+    name: Dual Pixel High Resolution
+  - channels: 48
+    name: Singel Pixel
+  - channels: 49
+    name: Singel Pixel High Resolution
+  current_mode: Normal
+  group: MH_BAR_X4
+  manufacturer: GLP
+  model: Impression X4 Bar 10
+  mounting: hanging
+  name: XB9
+  orientation_uses_group_default: false
+  pitch: -45.0
+  roll: 0.0
+  type: MH
+  universe: 2
+  x: 4.615384615384617
+  y: 7.0
+  yaw: 0.0
+  z: 4.0
+  z_uses_group_default: false
+- address: 295
+  available_modes:
+  - channels: 3
+    name: 3-Channel
+  - channels: 4
+    name: 4-Channel
+  - channels: 14
+    name: Extended
+  current_mode: Extended
+  group: STROBE
+  manufacturer: Martin
+  model: Atomic 3000 LED
+  mounting: standing
+  name: AT10
+  orientation_uses_group_default: false
+  pitch: -90.0
+  roll: 0.0
+  type: BAR
+  universe: 2
+  x: 7.692307692307693
+  y: 7.0
+  yaw: 0.0
+  z: 0.5
+  z_uses_group_default: false
+- address: 309
+  available_modes:
+  - channels: 13
+    name: 13 channel
+  current_mode: 13 channel
+  group: LASER
+  manufacturer: Laserworld
+  model: CS-1000RGB Mk3
+  mounting: standing
+  name: LZ11
+  orientation_uses_group_default: false
+  pitch: -90.0
+  roll: 0.0
+  type: PAR
+  universe: 2
+  x: 10.76923076923077
+  y: 7.0
+  yaw: 0.0
+  z: 0.5
+  z_uses_group_default: false
+- address: 322
+  available_modes:
+  - channels: 10
+    name: 10 Channel
+  current_mode: 10 Channel
+  group: HAZER
+  manufacturer: Chauvet
+  model: Geyser P6
+  mounting: standing
+  name: GY12
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: WASH
+  universe: 2
+  x: 13.846153846153847
+  y: 7.0
+  yaw: 0.0
+  z: 0.0
+  z_uses_group_default: false
+- address: 332
+  available_modes:
+  - channels: 3
+    name: 3 Channel
+  - channels: 6
+    name: 6 Channel
+  - channels: 7
+    name: 7 Channel
+  - channels: 48
+    name: 48 Channel
+  - channels: 52
+    name: 52 Channel
+  current_mode: 52 Channel
+  group: MATRIX_DOTZ
+  manufacturer: American DJ
+  model: Dotz Matrix
+  mounting: hanging
+  name: DT13
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: PIXELBAR
+  universe: 2
+  x: 16.923076923076927
+  y: 7.0
+  yaw: 0.0
+  z: 3.5
+  z_uses_group_default: false
+- address: 384
+  available_modes:
+  - channels: 32
+    name: Option 16b
+  - channels: 28
+    name: Option Stnd
+  - channels: 32
+    name: Option Extn
+  current_mode: Option Extn
+  group: MH_ALPHA
+  manufacturer: Clay Paky
+  model: Alpha Spot HPE 575
+  mounting: hanging
+  name: AS14
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 2
+  x: 20.0
+  y: 7.0
+  yaw: 0.0
+  z: 4.0
   z_uses_group_default: false
 grid_size: 0.5
 groups:
@@ -265,8 +635,8 @@ groups:
       roll: 0.0
       type: PIXELBAR
       universe: 1
-      x: 13.0
-      y: 4.0
+      x: 20.0
+      y: 3.0
       yaw: 0.0
       z: 0.0
       z_uses_group_default: false
@@ -302,8 +672,8 @@ groups:
       roll: 0.0
       type: SUNSTRIP
       universe: 1
-      x: -3.25
-      y: 4.0
+      x: -5.0
+      y: 3.0
       yaw: 0.0
       z: 3.0
       z_uses_group_default: false
@@ -333,14 +703,76 @@ groups:
       roll: 0.0
       type: PIXELBAR
       universe: 1
-      x: 9.75
-      y: 4.0
+      x: 15.0
+      y: 3.0
       yaw: 0.0
       z: 0.0
       z_uses_group_default: false
     lighting_role: texture
     name: BAR_VARGHELE
-  MATRIX:
+  HAZER:
+    color: '#00897b'
+    default_mounting: standing
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 0.0
+    export_intensity: 255
+    fixtures:
+    - address: 322
+      available_modes:
+      - channels: 10
+        name: 10 Channel
+      current_mode: 10 Channel
+      group: HAZER
+      manufacturer: Chauvet
+      model: Geyser P6
+      mounting: standing
+      name: GY12
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: WASH
+      universe: 2
+      x: 13.846153846153847
+      y: 7.0
+      yaw: 0.0
+      z: 0.0
+      z_uses_group_default: false
+    lighting_role: ambient
+    name: HAZER
+  LASER:
+    color: '#3949ab'
+    default_mounting: standing
+    default_pitch: -90.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 0.5
+    export_intensity: 255
+    fixtures:
+    - address: 309
+      available_modes:
+      - channels: 13
+        name: 13 channel
+      current_mode: 13 channel
+      group: LASER
+      manufacturer: Laserworld
+      model: CS-1000RGB Mk3
+      mounting: standing
+      name: LZ11
+      orientation_uses_group_default: false
+      pitch: -90.0
+      roll: 0.0
+      type: PAR
+      universe: 2
+      x: 10.76923076923077
+      y: 7.0
+      yaw: 0.0
+      z: 0.5
+      z_uses_group_default: false
+    lighting_role: accent
+    name: LASER
+  MATRIX_BLNR:
     color: '#6a1b9a'
     default_mounting: hanging
     default_pitch: 0.0
@@ -360,7 +792,7 @@ groups:
       - channels: 4
         name: 4-Channel
       current_mode: 28-Channel
-      group: MATRIX
+      group: MATRIX_BLNR
       manufacturer: Stairville
       model: LED Matrix Blinder 5x5
       mounting: hanging
@@ -371,12 +803,232 @@ groups:
       type: SUNSTRIP
       universe: 1
       x: 0.0
-      y: 4.0
+      y: 3.0
       yaw: 0.0
       z: 3.0
       z_uses_group_default: false
     lighting_role: accent
-    name: MATRIX
+    name: MATRIX_BLNR
+  MATRIX_DOTZ:
+    color: '#c0ca33'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 3.5
+    export_intensity: 255
+    fixtures:
+    - address: 332
+      available_modes:
+      - channels: 3
+        name: 3 Channel
+      - channels: 6
+        name: 6 Channel
+      - channels: 7
+        name: 7 Channel
+      - channels: 48
+        name: 48 Channel
+      - channels: 52
+        name: 52 Channel
+      current_mode: 52 Channel
+      group: MATRIX_DOTZ
+      manufacturer: American DJ
+      model: Dotz Matrix
+      mounting: hanging
+      name: DT13
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: PIXELBAR
+      universe: 2
+      x: 16.923076923076927
+      y: 7.0
+      yaw: 0.0
+      z: 3.5
+      z_uses_group_default: false
+    lighting_role: accent
+    name: MATRIX_DOTZ
+  MH_ALPHA:
+    color: '#d81b60'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 4.0
+    export_intensity: 255
+    fixtures:
+    - address: 384
+      available_modes:
+      - channels: 32
+        name: Option 16b
+      - channels: 28
+        name: Option Stnd
+      - channels: 32
+        name: Option Extn
+      current_mode: Option Extn
+      group: MH_ALPHA
+      manufacturer: Clay Paky
+      model: Alpha Spot HPE 575
+      mounting: hanging
+      name: AS14
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 2
+      x: 20.0
+      y: 7.0
+      yaw: 0.0
+      z: 4.0
+      z_uses_group_default: false
+    lighting_role: texture
+    name: MH_ALPHA
+  MH_AURA:
+    color: '#1565c0'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 3.5
+    export_intensity: 255
+    fixtures:
+    - address: 21
+      available_modes:
+      - channels: 25
+        name: Extended
+      - channels: 14
+        name: Standard
+      current_mode: Extended
+      group: MH_AURA
+      manufacturer: Martin
+      model: MAC Aura
+      mounting: hanging
+      name: MA2
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: -15.0
+      y: 3.0
+      yaw: 0.0
+      z: 3.5
+      z_uses_group_default: false
+    lighting_role: texture
+    name: MH_AURA
+  MH_BAR_X4:
+    color: '#f4511e'
+    default_mounting: hanging
+    default_pitch: -45.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 4.0
+    export_intensity: 255
+    fixtures:
+    - address: 262
+      available_modes:
+      - channels: 33
+        name: Normal
+      - channels: 19
+        name: Compressed
+      - channels: 34
+        name: High-Resolution (Extended)
+      - channels: 28
+        name: Dual Pixel
+      - channels: 29
+        name: Dual Pixel High Resolution
+      - channels: 48
+        name: Singel Pixel
+      - channels: 49
+        name: Singel Pixel High Resolution
+      current_mode: Normal
+      group: MH_BAR_X4
+      manufacturer: GLP
+      model: Impression X4 Bar 10
+      mounting: hanging
+      name: XB9
+      orientation_uses_group_default: false
+      pitch: -45.0
+      roll: 0.0
+      type: MH
+      universe: 2
+      x: 4.615384615384617
+      y: 7.0
+      yaw: 0.0
+      z: 4.0
+      z_uses_group_default: false
+    lighting_role: texture
+    name: MH_BAR_X4
+  MH_BEAM:
+    color: '#e53935'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 4.0
+    export_intensity: 255
+    fixtures:
+    - address: 1
+      available_modes:
+      - channels: 16
+        name: Standard
+      - channels: 20
+        name: Vector
+      current_mode: Standard
+      group: MH_BEAM
+      manufacturer: Clay Paky
+      model: Sharpy
+      mounting: hanging
+      name: SH1
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 2
+      x: -20.0
+      y: 7.0
+      yaw: 0.0
+      z: 4.0
+      z_uses_group_default: false
+    lighting_role: accent
+    name: MH_BEAM
+  MH_BEYE:
+    color: '#43a047'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 4.0
+    export_intensity: 255
+    fixtures:
+    - address: 41
+      available_modes:
+      - channels: 97
+        name: Extended RGBW
+      - channels: 78
+        name: Extended RGB
+      - channels: 35
+        name: Shapes
+      - channels: 21
+        name: Standard
+      current_mode: Extended RGBW
+      group: MH_BEYE
+      manufacturer: Clay Paky
+      model: A.leda B-EYE K10
+      mounting: hanging
+      name: BE3
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 2
+      x: -13.846153846153847
+      y: 7.0
+      yaw: 0.0
+      z: 4.0
+      z_uses_group_default: false
+    lighting_role: texture
+    name: MH_BEYE
   MH_BLADE:
     color: '#b71c1c'
     default_mounting: hanging
@@ -399,20 +1051,20 @@ groups:
       manufacturer: Ayrton
       model: MagicBlade R
       mounting: hanging
-      name: MR1
+      name: MB1
       orientation_uses_group_default: false
       pitch: 0.0
       roll: 0.0
       type: MH
       universe: 1
-      x: -13.0
-      y: 4.0
+      x: -20.0
+      y: 3.0
       yaw: 0.0
       z: 3.5
       z_uses_group_default: false
     lighting_role: texture
     name: MH_BLADE
-  MH_SPOT:
+  MH_HERO:
     color: '#2e7d32'
     default_mounting: hanging
     default_pitch: 0.0
@@ -428,7 +1080,7 @@ groups:
       - channels: 14
         name: 14 Channel
       current_mode: 14 Channel
-      group: MH_SPOT
+      group: MH_HERO
       manufacturer: Varytec
       model: Hero Spot 60
       mounting: hanging
@@ -438,47 +1090,254 @@ groups:
       roll: 0.0
       type: MH
       universe: 1
-      x: -6.5
-      y: 4.0
+      x: -10.0
+      y: 3.0
       yaw: 0.0
       z: 3.5
       z_uses_group_default: false
     lighting_role: accent
-    name: MH_SPOT
-  MH_WASH:
-    color: '#1565c0'
+    name: MH_HERO
+  MH_MYTHOS:
+    color: '#fb8c00'
     default_mounting: hanging
     default_pitch: 0.0
     default_roll: 0.0
     default_yaw: 0.0
-    default_z_height: 3.5
+    default_z_height: 4.0
     export_intensity: 255
     fixtures:
-    - address: 21
+    - address: 138
       available_modes:
-      - channels: 25
-        name: Extended
-      - channels: 14
+      - channels: 30
         name: Standard
-      current_mode: Extended
-      group: MH_WASH
-      manufacturer: Martin
-      model: MAC Aura
+      - channels: 34
+        name: Vector
+      current_mode: Standard
+      group: MH_MYTHOS
+      manufacturer: Clay Paky
+      model: Mythos
       mounting: hanging
-      name: MA2
+      name: MY4
       orientation_uses_group_default: false
       pitch: 0.0
       roll: 0.0
       type: MH
-      universe: 1
-      x: -9.75
-      y: 4.0
+      universe: 2
+      x: -10.769230769230768
+      y: 7.0
       yaw: 0.0
-      z: 3.5
+      z: 4.0
       z_uses_group_default: false
     lighting_role: texture
-    name: MH_WASH
-  PAR:
+    name: MH_MYTHOS
+  MH_PANEL:
+    color: '#fdd835'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 4.0
+    export_intensity: 255
+    fixtures:
+    - address: 215
+      available_modes:
+      - channels: 20
+        name: 20ch
+      - channels: 18
+        name: 18ch
+      - channels: 160
+        name: 160ch
+      current_mode: 20ch
+      group: MH_PANEL
+      manufacturer: Ayrton
+      model: MagicPanel 602
+      mounting: hanging
+      name: MP7
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 2
+      x: -1.5384615384615365
+      y: 7.0
+      yaw: 0.0
+      z: 4.0
+      z_uses_group_default: false
+    lighting_role: accent
+    name: MH_PANEL
+  MH_POINTE:
+    color: '#1e88e5'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 4.0
+    export_intensity: 255
+    fixtures:
+    - address: 17
+      available_modes:
+      - channels: 24
+        name: Main
+      - channels: 16
+        name: 16 channel
+      - channels: 30
+        name: 30 channel
+      current_mode: Main
+      group: MH_POINTE
+      manufacturer: Robe
+      model: Pointe
+      mounting: hanging
+      name: PT2
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 2
+      x: -16.923076923076923
+      y: 7.0
+      yaw: 0.0
+      z: 4.0
+      z_uses_group_default: false
+    lighting_role: texture
+    name: MH_POINTE
+  MH_QUANTUM:
+    color: '#8e24aa'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 4.0
+    export_intensity: 255
+    fixtures:
+    - address: 168
+      available_modes:
+      - channels: 19
+        name: Basic
+      - channels: 27
+        name: Extended
+      current_mode: Extended
+      group: MH_QUANTUM
+      manufacturer: Martin
+      model: Mac Quantum Profile
+      mounting: hanging
+      name: MQ5
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 2
+      x: -7.692307692307692
+      y: 7.0
+      yaw: 0.0
+      z: 4.0
+      z_uses_group_default: false
+    lighting_role: key
+    name: MH_QUANTUM
+  MH_SPIIDER:
+    color: '#7cb342'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 4.0
+    export_intensity: 255
+    fixtures:
+    - address: 235
+      available_modes:
+      - channels: 49
+        name: (1) 3-zones [RGBW]
+      - channels: 49
+        name: (1) 3-zones [CMY]
+      - channels: 27
+        name: (2) Basic [RGBW]
+      - channels: 27
+        name: (2) Basic [CMY]
+      - channels: 33
+        name: (3) Advanced [RGBW]
+      - channels: 33
+        name: (3) Advanced [CMY]
+      - channels: 90
+        name: (4) Full RGBW [RGBW]
+      - channels: 90
+        name: (4) Full RGBW [CMY]
+      - channels: 27
+        name: (5) Wash [RGBW]
+      - channels: 27
+        name: (5) Wash [CMY]
+      - channels: 47
+        name: (6) Pattern [RGBW]
+      - channels: 47
+        name: (6) Pattern [CMY]
+      - channels: 91
+        name: (7) Pixel RGB [RGBW]
+      - channels: 91
+        name: (7) Pixel RGB [CMY]
+      - channels: 110
+        name: (8) Pixel RGBW [RGBW]
+      - channels: 110
+        name: (8) Pixel RGBW [CMY]
+      - channels: 104
+        name: (9) Pattern Full RGB [RGBW]
+      - channels: 104
+        name: (9) Pattern Full RGB [CMY]
+      - channels: 123
+        name: (10) Pattern Full RGBW [RGBW]
+      - channels: 123
+        name: (10) Pattern Full RGBW [CMY]
+      current_mode: (2) Basic [RGBW]
+      group: MH_SPIIDER
+      manufacturer: Robe
+      model: Spiider
+      mounting: hanging
+      name: SP8
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 2
+      x: 1.53846153846154
+      y: 7.0
+      yaw: 0.0
+      z: 4.0
+      z_uses_group_default: false
+    lighting_role: texture
+    name: MH_SPIIDER
+  MH_X4:
+    color: '#00acc1'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 4.0
+    export_intensity: 255
+    fixtures:
+    - address: 195
+      available_modes:
+      - channels: 20
+        name: Normal
+      - channels: 14
+        name: Compress
+      - channels: 21
+        name: Extended
+      current_mode: Normal
+      group: MH_X4
+      manufacturer: GLP
+      model: Impression X4
+      mounting: hanging
+      name: X46
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 2
+      x: -4.615384615384615
+      y: 7.0
+      yaw: 0.0
+      z: 4.0
+      z_uses_group_default: false
+    lighting_role: wash
+    name: MH_X4
+  PAR_FLAT:
     color: '#00838f'
     default_mounting: standing
     default_pitch: -90.0
@@ -496,7 +1355,7 @@ groups:
       - channels: 8
         name: 8 Channel
       current_mode: 8 Channel
-      group: PAR
+      group: PAR_FLAT
       manufacturer: Stairville
       model: 'Retro Flat Par 18x12W RGBW '
       mounting: standing
@@ -506,14 +1365,49 @@ groups:
       roll: 0.0
       type: WASH
       universe: 1
-      x: 3.25
-      y: 4.0
+      x: 5.0
+      y: 3.0
       yaw: 0.0
       z: 0.0
       z_uses_group_default: false
     lighting_role: key
-    name: PAR
-  WASH:
+    name: PAR_FLAT
+  STROBE:
+    color: '#5e35b1'
+    default_mounting: standing
+    default_pitch: -90.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 0.5
+    export_intensity: 255
+    fixtures:
+    - address: 295
+      available_modes:
+      - channels: 3
+        name: 3-Channel
+      - channels: 4
+        name: 4-Channel
+      - channels: 14
+        name: Extended
+      current_mode: Extended
+      group: STROBE
+      manufacturer: Martin
+      model: Atomic 3000 LED
+      mounting: standing
+      name: AT10
+      orientation_uses_group_default: false
+      pitch: -90.0
+      roll: 0.0
+      type: BAR
+      universe: 2
+      x: 7.692307692307693
+      y: 7.0
+      yaw: 0.0
+      z: 0.5
+      z_uses_group_default: false
+    lighting_role: accent
+    name: STROBE
+  WASH_WILD:
     color: '#5d4037'
     default_mounting: standing
     default_pitch: -90.0
@@ -539,7 +1433,7 @@ groups:
       - channels: 1
         name: 1 Channel
       current_mode: 6 Channel
-      group: WASH
+      group: WASH_WILD
       manufacturer: Stairville
       model: Wild Wash Pro 648 RGB LED
       mounting: standing
@@ -549,20 +1443,20 @@ groups:
       roll: 0.0
       type: WASH
       universe: 1
-      x: 6.5
-      y: 4.0
+      x: 10.0
+      y: 3.0
       yaw: 0.0
       z: 0.0
       z_uses_group_default: false
     lighting_role: wash
-    name: WASH
+    name: WASH_WILD
 midi_input_devices: null
 pause_show: null
 shows: {}
 shows_directory: null
 spots: {}
-stage_height: 8.0
-stage_width: 30.0
+stage_height: 10.0
+stage_width: 46.0
 universes:
   '1':
     name: Universe 1
@@ -572,5 +1466,14 @@ universes:
         ip: 255.255.255.255
         subnet: '0'
         universe: '1'
+      plugin: ArtNet
+  '2':
+    name: Universe 2
+    output:
+      line: '0'
+      parameters:
+        ip: 255.255.255.255
+        subnet: '0'
+        universe: '2'
       plugin: ArtNet
 workspace_path: null
