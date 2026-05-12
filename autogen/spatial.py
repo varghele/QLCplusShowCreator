@@ -58,11 +58,36 @@ def classify_fixture_groups(config: Configuration) -> Dict[str, GroupClassificat
     Classification based on average Y and Z positions of group's fixtures,
     relative to stage dimensions.
 
+    Coordinate convention (matches ``gui/StageView.py`` and the 3D
+    visualiser): X and Y are both **centered** at the origin, with
+    ``y < 0`` downstage (closer to audience) and ``y > 0`` upstage.
+    Valid Y range is therefore ``[-stage_height/2, +stage_height/2]``.
+
+    Zone thresholds split that range into thirds: a group is "front" if
+    its average Y is in the lower third (≤ ``-stage_height/6``), "back"
+    if it's in the upper third (≥ ``+stage_height/6``), and "mid"
+    otherwise. "overhead" overrides the Y zone when fixtures sit above
+    half the assumed ceiling height (4 m default).
+
+    Earlier versions used ``avg_y < D * 0.33`` / ``avg_y > D * 0.66``
+    which assumed Y ranged ``[0, D]``. With the real centered-Y data
+    almost every fixture got classified "front" because ``avg_y < D*0.33``
+    is true for any ``y`` in roughly the lower 0.83 of the stage. That
+    broke ``apply_vocal_rule`` (which boosts front fixtures during
+    vocals) and ``_group_activation_priority`` (zone-based cascade).
+
     Returns:
         {group_name: GroupClassification}
     """
-    stage_depth = config.stage_height  # Y axis = depth
-    stage_z = 4.0  # Default ceiling height estimate
+    stage_depth = config.stage_height  # Y axis = depth, centered at 0
+    stage_z = 4.0  # Default ceiling height estimate (z is bottom-up, not centered)
+
+    # Split the stage into thirds along Y, expressed in centered
+    # coordinates. ``front_threshold`` is the upper bound of the
+    # downstage third; ``back_threshold`` is the lower bound of the
+    # upstage third. The middle third sits between them.
+    front_threshold = -stage_depth / 6.0
+    back_threshold = stage_depth / 6.0
 
     classifications = {}
     for group_name, group in config.groups.items():
@@ -79,9 +104,9 @@ def classify_fixture_groups(config: Configuration) -> Dict[str, GroupClassificat
         # Classify zone
         if avg_z > stage_z * 0.5:
             zone = "overhead"
-        elif stage_depth > 0 and avg_y < stage_depth * 0.33:
+        elif stage_depth > 0 and avg_y < front_threshold:
             zone = "front"
-        elif stage_depth > 0 and avg_y > stage_depth * 0.66:
+        elif stage_depth > 0 and avg_y > back_threshold:
             zone = "back"
         else:
             zone = "mid"

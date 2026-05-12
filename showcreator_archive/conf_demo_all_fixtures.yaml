@@ -19,7 +19,7 @@ fixtures:
   type: MH
   universe: 1
   x: -20.0
-  y: 3.0
+  y: -3.0
   yaw: 0.0
   z: 3.5
   z_uses_group_default: false
@@ -41,7 +41,7 @@ fixtures:
   type: MH
   universe: 1
   x: -15.0
-  y: 3.0
+  y: -3.0
   yaw: 0.0
   z: 3.5
   z_uses_group_default: false
@@ -63,7 +63,7 @@ fixtures:
   type: MH
   universe: 1
   x: -10.0
-  y: 3.0
+  y: -3.0
   yaw: 0.0
   z: 3.5
   z_uses_group_default: false
@@ -89,7 +89,7 @@ fixtures:
   type: SUNSTRIP
   universe: 1
   x: -5.0
-  y: 3.0
+  y: -3.0
   yaw: 0.0
   z: 3.0
   z_uses_group_default: false
@@ -115,7 +115,7 @@ fixtures:
   type: SUNSTRIP
   universe: 1
   x: 0.0
-  y: 3.0
+  y: -3.0
   yaw: 0.0
   z: 3.0
   z_uses_group_default: false
@@ -139,7 +139,7 @@ fixtures:
   type: WASH
   universe: 1
   x: 5.0
-  y: 3.0
+  y: -3.0
   yaw: 0.0
   z: 0.0
   z_uses_group_default: false
@@ -171,7 +171,7 @@ fixtures:
   type: WASH
   universe: 1
   x: 10.0
-  y: 3.0
+  y: -3.0
   yaw: 0.0
   z: 0.0
   z_uses_group_default: false
@@ -191,7 +191,7 @@ fixtures:
   type: PIXELBAR
   universe: 1
   x: 15.0
-  y: 3.0
+  y: -3.0
   yaw: 0.0
   z: 0.0
   z_uses_group_default: false
@@ -223,7 +223,7 @@ fixtures:
   type: PIXELBAR
   universe: 1
   x: 20.0
-  y: 3.0
+  y: -3.0
   yaw: 0.0
   z: 0.0
   z_uses_group_default: false
@@ -245,7 +245,7 @@ fixtures:
   type: MH
   universe: 2
   x: -20.0
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 4.0
   z_uses_group_default: false
@@ -269,7 +269,7 @@ fixtures:
   type: MH
   universe: 2
   x: -16.923076923076923
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 4.0
   z_uses_group_default: false
@@ -295,7 +295,7 @@ fixtures:
   type: MH
   universe: 2
   x: -13.846153846153847
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 4.0
   z_uses_group_default: false
@@ -317,7 +317,7 @@ fixtures:
   type: MH
   universe: 2
   x: -10.769230769230768
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 4.0
   z_uses_group_default: false
@@ -339,7 +339,7 @@ fixtures:
   type: MH
   universe: 2
   x: -7.692307692307692
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 4.0
   z_uses_group_default: false
@@ -363,7 +363,7 @@ fixtures:
   type: MH
   universe: 2
   x: -4.615384615384615
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 4.0
   z_uses_group_default: false
@@ -387,7 +387,7 @@ fixtures:
   type: MH
   universe: 2
   x: -1.5384615384615365
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 4.0
   z_uses_group_default: false
@@ -445,7 +445,7 @@ fixtures:
   type: MH
   universe: 2
   x: 1.53846153846154
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 4.0
   z_uses_group_default: false
@@ -477,7 +477,7 @@ fixtures:
   type: MH
   universe: 2
   x: 4.615384615384617
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 4.0
   z_uses_group_default: false
@@ -501,7 +501,7 @@ fixtures:
   type: BAR
   universe: 2
   x: 7.692307692307693
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 0.5
   z_uses_group_default: false
@@ -521,7 +521,7 @@ fixtures:
   type: PAR
   universe: 2
   x: 10.76923076923077
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 0.5
   z_uses_group_default: false
@@ -541,7 +541,7 @@ fixtures:
   type: WASH
   universe: 2
   x: 13.846153846153847
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 0.0
   z_uses_group_default: false
@@ -569,7 +569,7 @@ fixtures:
   type: PIXELBAR
   universe: 2
   x: 16.923076923076927
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 3.5
   z_uses_group_default: false
@@ -593,7 +593,7 @@ fixtures:
   type: MH
   universe: 2
   x: 20.0
-  y: 7.0
+  y: 3.0
   yaw: 0.0
   z: 4.0
   z_uses_group_default: false
@@ -636,7 +636,7 @@ groups:
       type: PIXELBAR
       universe: 1
       x: 20.0
-      y: 3.0
+      y: -3.0
       yaw: 0.0
       z: 0.0
       z_uses_group_default: false
@@ -673,7 +673,7 @@ groups:
       type: SUNSTRIP
       universe: 1
       x: -5.0
-      y: 3.0
+      y: -3.0
       yaw: 0.0
       z: 3.0
       z_uses_group_default: false
@@ -704,7 +704,7 @@ groups:
       type: PIXELBAR
       universe: 1
       x: 15.0
-      y: 3.0
+      y: -3.0
       yaw: 0.0
       z: 0.0
       z_uses_group_default: false
@@ -735,7 +735,7 @@ groups:
       type: WASH
       universe: 2
       x: 13.846153846153847
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 0.0
       z_uses_group_default: false
@@ -766,7 +766,7 @@ groups:
       type: PAR
       universe: 2
       x: 10.76923076923077
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 0.5
       z_uses_group_default: false
@@ -803,7 +803,7 @@ groups:
       type: SUNSTRIP
       universe: 1
       x: 0.0
-      y: 3.0
+      y: -3.0
       yaw: 0.0
       z: 3.0
       z_uses_group_default: false
@@ -842,7 +842,7 @@ groups:
       type: PIXELBAR
       universe: 2
       x: 16.923076923076927
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 3.5
       z_uses_group_default: false
@@ -877,7 +877,7 @@ groups:
       type: MH
       universe: 2
       x: 20.0
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 4.0
       z_uses_group_default: false
@@ -910,7 +910,7 @@ groups:
       type: MH
       universe: 1
       x: -15.0
-      y: 3.0
+      y: -3.0
       yaw: 0.0
       z: 3.5
       z_uses_group_default: false
@@ -953,7 +953,7 @@ groups:
       type: MH
       universe: 2
       x: 4.615384615384617
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 4.0
       z_uses_group_default: false
@@ -986,7 +986,7 @@ groups:
       type: MH
       universe: 2
       x: -20.0
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 4.0
       z_uses_group_default: false
@@ -1023,7 +1023,7 @@ groups:
       type: MH
       universe: 2
       x: -13.846153846153847
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 4.0
       z_uses_group_default: false
@@ -1058,7 +1058,7 @@ groups:
       type: MH
       universe: 1
       x: -20.0
-      y: 3.0
+      y: -3.0
       yaw: 0.0
       z: 3.5
       z_uses_group_default: false
@@ -1091,7 +1091,7 @@ groups:
       type: MH
       universe: 1
       x: -10.0
-      y: 3.0
+      y: -3.0
       yaw: 0.0
       z: 3.5
       z_uses_group_default: false
@@ -1124,7 +1124,7 @@ groups:
       type: MH
       universe: 2
       x: -10.769230769230768
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 4.0
       z_uses_group_default: false
@@ -1159,7 +1159,7 @@ groups:
       type: MH
       universe: 2
       x: -1.5384615384615365
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 4.0
       z_uses_group_default: false
@@ -1194,7 +1194,7 @@ groups:
       type: MH
       universe: 2
       x: -16.923076923076923
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 4.0
       z_uses_group_default: false
@@ -1227,7 +1227,7 @@ groups:
       type: MH
       universe: 2
       x: -7.692307692307692
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 4.0
       z_uses_group_default: false
@@ -1296,7 +1296,7 @@ groups:
       type: MH
       universe: 2
       x: 1.53846153846154
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 4.0
       z_uses_group_default: false
@@ -1331,7 +1331,7 @@ groups:
       type: MH
       universe: 2
       x: -4.615384615384615
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 4.0
       z_uses_group_default: false
@@ -1366,7 +1366,7 @@ groups:
       type: WASH
       universe: 1
       x: 5.0
-      y: 3.0
+      y: -3.0
       yaw: 0.0
       z: 0.0
       z_uses_group_default: false
@@ -1401,7 +1401,7 @@ groups:
       type: BAR
       universe: 2
       x: 7.692307692307693
-      y: 7.0
+      y: 3.0
       yaw: 0.0
       z: 0.5
       z_uses_group_default: false
@@ -1444,7 +1444,7 @@ groups:
       type: WASH
       universe: 1
       x: 10.0
-      y: 3.0
+      y: -3.0
       yaw: 0.0
       z: 0.0
       z_uses_group_default: false
