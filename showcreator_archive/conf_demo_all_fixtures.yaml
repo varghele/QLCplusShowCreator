@@ -1,0 +1,576 @@
+fixtures:
+- address: 1
+  available_modes:
+  - channels: 20
+    name: St (20ch)
+  - channels: 18
+    name: Ba (18ch)
+  - channels: 44
+    name: Ex (44ch)
+  current_mode: St (20ch)
+  group: MH_BLADE
+  manufacturer: Ayrton
+  model: MagicBlade R
+  mounting: hanging
+  name: MR1
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 1
+  x: -13.0
+  y: 4.0
+  yaw: 0.0
+  z: 3.5
+  z_uses_group_default: false
+- address: 21
+  available_modes:
+  - channels: 25
+    name: Extended
+  - channels: 14
+    name: Standard
+  current_mode: Extended
+  group: MH_WASH
+  manufacturer: Martin
+  model: MAC Aura
+  mounting: hanging
+  name: MA2
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 1
+  x: -9.75
+  y: 4.0
+  yaw: 0.0
+  z: 3.5
+  z_uses_group_default: false
+- address: 46
+  available_modes:
+  - channels: 8
+    name: 8 Channel
+  - channels: 14
+    name: 14 Channel
+  current_mode: 14 Channel
+  group: MH_SPOT
+  manufacturer: Varytec
+  model: Hero Spot 60
+  mounting: hanging
+  name: HS3
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: MH
+  universe: 1
+  x: -6.5
+  y: 4.0
+  yaw: 0.0
+  z: 3.5
+  z_uses_group_default: false
+- address: 60
+  available_modes:
+  - channels: 1
+    name: 1 Channel Mode
+  - channels: 2
+    name: 2 Channels Mode
+  - channels: 5
+    name: 5 Channels Mode
+  - channels: 10
+    name: 10 Channels Mode
+  current_mode: 10 Channels Mode
+  group: BAR_SUNSTRIP
+  manufacturer: Showtec
+  model: Sunstrip Active
+  mounting: hanging
+  name: SA4
+  orientation_uses_group_default: false
+  pitch: -45.0
+  roll: 0.0
+  type: SUNSTRIP
+  universe: 1
+  x: -3.25
+  y: 4.0
+  yaw: 0.0
+  z: 3.0
+  z_uses_group_default: false
+- address: 70
+  available_modes:
+  - channels: 1
+    name: 1-Channel
+  - channels: 26
+    name: 26-Channel
+  - channels: 28
+    name: 28-Channel
+  - channels: 4
+    name: 4-Channel
+  current_mode: 28-Channel
+  group: MATRIX
+  manufacturer: Stairville
+  model: LED Matrix Blinder 5x5
+  mounting: hanging
+  name: LM5
+  orientation_uses_group_default: false
+  pitch: 0.0
+  roll: 0.0
+  type: SUNSTRIP
+  universe: 1
+  x: 0.0
+  y: 4.0
+  yaw: 0.0
+  z: 3.0
+  z_uses_group_default: false
+- address: 98
+  available_modes:
+  - channels: 4
+    name: 4 Channel
+  - channels: 6
+    name: 6 Channel
+  - channels: 8
+    name: 8 Channel
+  current_mode: 8 Channel
+  group: PAR
+  manufacturer: Stairville
+  model: 'Retro Flat Par 18x12W RGBW '
+  mounting: standing
+  name: RF6
+  orientation_uses_group_default: false
+  pitch: -90.0
+  roll: 0.0
+  type: WASH
+  universe: 1
+  x: 3.25
+  y: 4.0
+  yaw: 0.0
+  z: 0.0
+  z_uses_group_default: false
+- address: 106
+  available_modes:
+  - channels: 6
+    name: 6 Channel
+  - channels: 2
+    name: 2 Channel 1
+  - channels: 2
+    name: 2 Channel 2
+  - channels: 3
+    name: 3 Channel 1
+  - channels: 3
+    name: 3 Channel 2
+  - channels: 4
+    name: 4 Channel
+  - channels: 1
+    name: 1 Channel
+  current_mode: 6 Channel
+  group: WASH
+  manufacturer: Stairville
+  model: Wild Wash Pro 648 RGB LED
+  mounting: standing
+  name: WW7
+  orientation_uses_group_default: false
+  pitch: -90.0
+  roll: 0.0
+  type: WASH
+  universe: 1
+  x: 6.5
+  y: 4.0
+  yaw: 0.0
+  z: 0.0
+  z_uses_group_default: false
+- address: 112
+  available_modes:
+  - channels: 40
+    name: 40 Channels Mode
+  current_mode: 40 Channels Mode
+  group: BAR_VARGHELE
+  manufacturer: Varghele
+  model: LED BAR
+  mounting: standing
+  name: LB8
+  orientation_uses_group_default: false
+  pitch: -90.0
+  roll: 0.0
+  type: PIXELBAR
+  universe: 1
+  x: 9.75
+  y: 4.0
+  yaw: 0.0
+  z: 0.0
+  z_uses_group_default: false
+- address: 152
+  available_modes:
+  - channels: 3
+    name: 3 Channels
+  - channels: 4
+    name: 4 Channels
+  - channels: 5
+    name: 5 Channels
+  - channels: 8
+    name: 8 Channels
+  - channels: 10
+    name: 10 Channels
+  - channels: 48
+    name: 48 Channels
+  - channels: 51
+    name: 51 Channels
+  current_mode: 5 Channels
+  group: BAR_GIGA
+  manufacturer: Varytec
+  model: Giga Bar 5 LED RGBW
+  mounting: standing
+  name: GB9
+  orientation_uses_group_default: false
+  pitch: -90.0
+  roll: 0.0
+  type: PIXELBAR
+  universe: 1
+  x: 13.0
+  y: 4.0
+  yaw: 0.0
+  z: 0.0
+  z_uses_group_default: false
+grid_size: 0.5
+groups:
+  BAR_GIGA:
+    color: '#ad1457'
+    default_mounting: standing
+    default_pitch: -90.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 0.0
+    export_intensity: 255
+    fixtures:
+    - address: 152
+      available_modes:
+      - channels: 3
+        name: 3 Channels
+      - channels: 4
+        name: 4 Channels
+      - channels: 5
+        name: 5 Channels
+      - channels: 8
+        name: 8 Channels
+      - channels: 10
+        name: 10 Channels
+      - channels: 48
+        name: 48 Channels
+      - channels: 51
+        name: 51 Channels
+      current_mode: 5 Channels
+      group: BAR_GIGA
+      manufacturer: Varytec
+      model: Giga Bar 5 LED RGBW
+      mounting: standing
+      name: GB9
+      orientation_uses_group_default: false
+      pitch: -90.0
+      roll: 0.0
+      type: PIXELBAR
+      universe: 1
+      x: 13.0
+      y: 4.0
+      yaw: 0.0
+      z: 0.0
+      z_uses_group_default: false
+    lighting_role: texture
+    name: BAR_GIGA
+  BAR_SUNSTRIP:
+    color: '#ef6c00'
+    default_mounting: hanging
+    default_pitch: -45.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 3.0
+    export_intensity: 255
+    fixtures:
+    - address: 60
+      available_modes:
+      - channels: 1
+        name: 1 Channel Mode
+      - channels: 2
+        name: 2 Channels Mode
+      - channels: 5
+        name: 5 Channels Mode
+      - channels: 10
+        name: 10 Channels Mode
+      current_mode: 10 Channels Mode
+      group: BAR_SUNSTRIP
+      manufacturer: Showtec
+      model: Sunstrip Active
+      mounting: hanging
+      name: SA4
+      orientation_uses_group_default: false
+      pitch: -45.0
+      roll: 0.0
+      type: SUNSTRIP
+      universe: 1
+      x: -3.25
+      y: 4.0
+      yaw: 0.0
+      z: 3.0
+      z_uses_group_default: false
+    lighting_role: texture
+    name: BAR_SUNSTRIP
+  BAR_VARGHELE:
+    color: '#455a64'
+    default_mounting: standing
+    default_pitch: -90.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 0.0
+    export_intensity: 255
+    fixtures:
+    - address: 112
+      available_modes:
+      - channels: 40
+        name: 40 Channels Mode
+      current_mode: 40 Channels Mode
+      group: BAR_VARGHELE
+      manufacturer: Varghele
+      model: LED BAR
+      mounting: standing
+      name: LB8
+      orientation_uses_group_default: false
+      pitch: -90.0
+      roll: 0.0
+      type: PIXELBAR
+      universe: 1
+      x: 9.75
+      y: 4.0
+      yaw: 0.0
+      z: 0.0
+      z_uses_group_default: false
+    lighting_role: texture
+    name: BAR_VARGHELE
+  MATRIX:
+    color: '#6a1b9a'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 3.0
+    export_intensity: 255
+    fixtures:
+    - address: 70
+      available_modes:
+      - channels: 1
+        name: 1-Channel
+      - channels: 26
+        name: 26-Channel
+      - channels: 28
+        name: 28-Channel
+      - channels: 4
+        name: 4-Channel
+      current_mode: 28-Channel
+      group: MATRIX
+      manufacturer: Stairville
+      model: LED Matrix Blinder 5x5
+      mounting: hanging
+      name: LM5
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: SUNSTRIP
+      universe: 1
+      x: 0.0
+      y: 4.0
+      yaw: 0.0
+      z: 3.0
+      z_uses_group_default: false
+    lighting_role: accent
+    name: MATRIX
+  MH_BLADE:
+    color: '#b71c1c'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 3.5
+    export_intensity: 255
+    fixtures:
+    - address: 1
+      available_modes:
+      - channels: 20
+        name: St (20ch)
+      - channels: 18
+        name: Ba (18ch)
+      - channels: 44
+        name: Ex (44ch)
+      current_mode: St (20ch)
+      group: MH_BLADE
+      manufacturer: Ayrton
+      model: MagicBlade R
+      mounting: hanging
+      name: MR1
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: -13.0
+      y: 4.0
+      yaw: 0.0
+      z: 3.5
+      z_uses_group_default: false
+    lighting_role: texture
+    name: MH_BLADE
+  MH_SPOT:
+    color: '#2e7d32'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 3.5
+    export_intensity: 255
+    fixtures:
+    - address: 46
+      available_modes:
+      - channels: 8
+        name: 8 Channel
+      - channels: 14
+        name: 14 Channel
+      current_mode: 14 Channel
+      group: MH_SPOT
+      manufacturer: Varytec
+      model: Hero Spot 60
+      mounting: hanging
+      name: HS3
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: -6.5
+      y: 4.0
+      yaw: 0.0
+      z: 3.5
+      z_uses_group_default: false
+    lighting_role: accent
+    name: MH_SPOT
+  MH_WASH:
+    color: '#1565c0'
+    default_mounting: hanging
+    default_pitch: 0.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 3.5
+    export_intensity: 255
+    fixtures:
+    - address: 21
+      available_modes:
+      - channels: 25
+        name: Extended
+      - channels: 14
+        name: Standard
+      current_mode: Extended
+      group: MH_WASH
+      manufacturer: Martin
+      model: MAC Aura
+      mounting: hanging
+      name: MA2
+      orientation_uses_group_default: false
+      pitch: 0.0
+      roll: 0.0
+      type: MH
+      universe: 1
+      x: -9.75
+      y: 4.0
+      yaw: 0.0
+      z: 3.5
+      z_uses_group_default: false
+    lighting_role: texture
+    name: MH_WASH
+  PAR:
+    color: '#00838f'
+    default_mounting: standing
+    default_pitch: -90.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 0.0
+    export_intensity: 255
+    fixtures:
+    - address: 98
+      available_modes:
+      - channels: 4
+        name: 4 Channel
+      - channels: 6
+        name: 6 Channel
+      - channels: 8
+        name: 8 Channel
+      current_mode: 8 Channel
+      group: PAR
+      manufacturer: Stairville
+      model: 'Retro Flat Par 18x12W RGBW '
+      mounting: standing
+      name: RF6
+      orientation_uses_group_default: false
+      pitch: -90.0
+      roll: 0.0
+      type: WASH
+      universe: 1
+      x: 3.25
+      y: 4.0
+      yaw: 0.0
+      z: 0.0
+      z_uses_group_default: false
+    lighting_role: key
+    name: PAR
+  WASH:
+    color: '#5d4037'
+    default_mounting: standing
+    default_pitch: -90.0
+    default_roll: 0.0
+    default_yaw: 0.0
+    default_z_height: 0.0
+    export_intensity: 255
+    fixtures:
+    - address: 106
+      available_modes:
+      - channels: 6
+        name: 6 Channel
+      - channels: 2
+        name: 2 Channel 1
+      - channels: 2
+        name: 2 Channel 2
+      - channels: 3
+        name: 3 Channel 1
+      - channels: 3
+        name: 3 Channel 2
+      - channels: 4
+        name: 4 Channel
+      - channels: 1
+        name: 1 Channel
+      current_mode: 6 Channel
+      group: WASH
+      manufacturer: Stairville
+      model: Wild Wash Pro 648 RGB LED
+      mounting: standing
+      name: WW7
+      orientation_uses_group_default: false
+      pitch: -90.0
+      roll: 0.0
+      type: WASH
+      universe: 1
+      x: 6.5
+      y: 4.0
+      yaw: 0.0
+      z: 0.0
+      z_uses_group_default: false
+    lighting_role: wash
+    name: WASH
+midi_input_devices: null
+pause_show: null
+shows: {}
+shows_directory: null
+spots: {}
+stage_height: 8.0
+stage_width: 30.0
+universes:
+  '1':
+    name: Universe 1
+    output:
+      line: '0'
+      parameters:
+        ip: 255.255.255.255
+        subnet: '0'
+        universe: '1'
+      plugin: ArtNet
+workspace_path: null

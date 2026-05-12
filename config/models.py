@@ -1334,7 +1334,14 @@ class Configuration:
                 for name, spot in self.spots.items()
             },
             'workspace_path': self.workspace_path,
-            'shows_directory': self.shows_directory
+            'shows_directory': self.shows_directory,
+            # Stage geometry — historically lost on round-trip because
+            # save() didn't emit and load() didn't read these. The
+            # Stage tab's stage-size spinboxes effectively reset on
+            # every config load. Persist them now.
+            'stage_width': self.stage_width,
+            'stage_height': self.stage_height,
+            'grid_size': self.grid_size,
         }
 
         from config.compact_serializer import compact_serialize
@@ -1481,7 +1488,12 @@ class Configuration:
             midi_input_devices=midi_input_devices,
             pause_show=pause_show,
             workspace_path=data.get('workspace_path'),
-            shows_directory=data.get('shows_directory')
+            shows_directory=data.get('shows_directory'),
+            # Stage geometry; fall back to dataclass defaults when the
+            # YAML predates the field (older saved configs).
+            stage_width=data.get('stage_width', 10.0),
+            stage_height=data.get('stage_height', 6.0),
+            grid_size=data.get('grid_size', 0.5),
         )
 
         return config
