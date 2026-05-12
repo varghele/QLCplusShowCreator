@@ -89,8 +89,12 @@ class AutoTab(BaseTab):
         super().__init__(config, parent)
 
         # Device list depends on the audio host being initialised; build
-        # it after the UI exists so the combo is ready to receive items.
+        # it after the UI exists so the combos are ready to receive
+        # items. Order matters: the API combo must be populated before
+        # the device combo can be filtered through it.
+        self._populate_input_apis()
         self._populate_devices()
+        self._refresh_asio_hint()
 
     # ── BaseTab overrides ─────────────────────────────────────────────
 
@@ -331,9 +335,61 @@ class AutoTab(BaseTab):
 
         input_group = QGroupBox("Audio Input")
         input_layout = QVBoxLayout(input_group)
+
+        # Host API selector — drives the device combo. "Curated" is the
+        # default and applies mapper/telephony filtering + cross-API
+        # dedup. Per-API entries (Windows WASAPI / Windows WDM-KS / ASIO
+        # / …) narrow the list to a single API. "All devices (raw)" is
+        # the escape hatch for debugging.
+        api_row = QHBoxLayout()
+        api_row.setContentsMargins(0, 0, 0, 0)
+        api_label = QLabel("Host API:")
+        api_label.setStyleSheet("font-size: 10px;")
+        api_label.setFixedWidth(60)
+        self._input_api_combo = QComboBox()
+        api_row.addWidget(api_label)
+        api_row.addWidget(self._input_api_combo, 1)
+        input_layout.addLayout(api_row)
+
+        # Device row.
+        dev_row = QHBoxLayout()
+        dev_row.setContentsMargins(0, 0, 0, 0)
+        dev_label = QLabel("Device:")
+        dev_label.setStyleSheet("font-size: 10px;")
+        dev_label.setFixedWidth(60)
         self._input_device_combo = QComboBox()
-        input_layout.addWidget(self._input_device_combo)
+        dev_row.addWidget(dev_label)
+        dev_row.addWidget(self._input_device_combo, 1)
+        input_layout.addLayout(dev_row)
+
+        # Refresh + ASIO hint. The refresh button re-enumerates so a
+        # newly-plugged-in audio interface (Focusrite, etc.) appears
+        # without restarting the app — particularly relevant for ASIO
+        # drivers that only register a host API once their hardware is
+        # connected.
+        refresh_row = QHBoxLayout()
+        refresh_row.setContentsMargins(0, 0, 0, 0)
+        self._refresh_devices_btn = QPushButton("Refresh devices")
+        self._refresh_devices_btn.setProperty("density", "compact")
+        self._refresh_devices_btn.clicked.connect(self._on_refresh_devices)
+        refresh_row.addWidget(self._refresh_devices_btn)
+        refresh_row.addStretch()
+        input_layout.addLayout(refresh_row)
+
+        self._asio_hint_label = QLabel("")
+        self._asio_hint_label.setWordWrap(True)
+        self._asio_hint_label.setStyleSheet("font-size: 10px; color: #888;")
+        self._asio_hint_label.setVisible(False)
+        input_layout.addWidget(self._asio_hint_label)
+
         right_layout.addWidget(input_group)
+
+        # Wire signals after both combos exist so the api-combo handler
+        # can always reach the device combo. _populate_devices is the
+        # single entry-point — it rebuilds both combos consistently.
+        self._input_api_combo.currentTextChanged.connect(
+            self._on_input_api_changed
+        )
 
         plane_group = QGroupBox("Movement Target")
         plane_layout = QVBoxLayout(plane_group)
@@ -495,8 +551,12 @@ class AutoTab(BaseTab):
 
         # Re-enumerate audio devices so a USB mic plugged in after
         # launch shows up without an app restart. Preserves the current
-        # selection where possible.
+        # selection where possible. Order: refresh APIs first (in case
+        # plugging in an interface added/removed an ASIO host API), then
+        # devices, then the ASIO status hint.
+        self._populate_input_apis()
         self._populate_devices()
+        self._refresh_asio_hint()
 
         # If the engine is still running (e.g. the user peeked at another
         # tab during a gig), restart the UI tick so meters update again.
@@ -643,27 +703,159 @@ class AutoTab(BaseTab):
 
     # ── Population helpers ────────────────────────────────────────────
 
+    # Host API combo entries — special labels reserved for "no filter"
+    # variants. Real host API names (e.g. "Windows WASAPI") never
+    # collide with these.
+    _API_CURATED = "Curated (recommended)"
+    _API_RAW = "All devices (raw)"
+
+    def _populate_input_apis(self):
+        """Rebuild the host-API combo from the live host-API list.
+
+        Order: ``Curated`` first, then real APIs sorted by quality, then
+        ``All devices (raw)`` at the bottom. ASIO entries appear here
+        automatically when the host API is available — i.e. when the
+        user plugs in an ASIO-capable interface and the driver loads.
+        """
+        prev = self._input_api_combo.currentText() if self._input_api_combo.count() else None
+        self._input_api_combo.blockSignals(True)
+        try:
+            self._input_api_combo.clear()
+            self._input_api_combo.addItem(self._API_CURATED)
+            for _, api_name in self._device_manager.get_available_host_apis():
+                self._input_api_combo.addItem(api_name)
+            self._input_api_combo.addItem(self._API_RAW)
+
+            # Restore previous selection if it still exists; else saved
+            # value from settings; else default to Curated.
+            target = prev or self._settings.input_host_api or self._API_CURATED
+            idx = self._input_api_combo.findText(target)
+            if idx < 0:
+                idx = 0  # fall back to Curated
+            self._input_api_combo.setCurrentIndex(idx)
+        finally:
+            self._input_api_combo.blockSignals(False)
+
+    def _current_api_filter_kwargs(self):
+        """Translate the API combo selection into filter args for
+        ``enumerate_input_devices``.
+
+        Three modes:
+
+        - **Curated**: full filtering — mappers + telephony hidden,
+          cross-API dedup.
+        - **Specific host API**: same filtering, just scoped to one API.
+          The user gets a smaller list of clean entries within that API
+          (dedup off because there's only one API in play anyway).
+        - **Raw**: no filtering at all. The escape hatch for debugging
+          or for genuinely picking a telephony device.
+        """
+        text = self._input_api_combo.currentText()
+        if text == self._API_CURATED:
+            return {
+                "host_api_filter": None,
+                "include_mappers": False,
+                "include_telephony": False,
+                "dedup_physical": True,
+            }
+        if text == self._API_RAW:
+            return {
+                "host_api_filter": None,
+                "include_mappers": True,
+                "include_telephony": True,
+                "dedup_physical": False,
+            }
+        # Specific host API: filter junk, but no cross-API dedup since
+        # there's only one API to look at.
+        return {
+            "host_api_filter": text,
+            "include_mappers": False,
+            "include_telephony": False,
+            "dedup_physical": False,
+        }
+
     def _populate_devices(self):
-        devices = self._device_manager.enumerate_input_devices()
-        self._input_device_combo.clear()
-        for device in devices:
-            self._input_device_combo.addItem(
-                f"{device.name} ({device.host_api})", device.index
-            )
+        """Rebuild the device combo according to the current API filter.
 
-        saved_name = self._settings.input_device_name
-        if saved_name:
-            for i, device in enumerate(devices):
-                if device.name == saved_name:
-                    self._input_device_combo.setCurrentIndex(i)
-                    return
+        Restoration priority:
+            1. The currently-selected device (so a refresh doesn't lose it).
+            2. The persisted ``input_device_name``.
+            3. The system default input device.
+        """
+        prev_index = self._input_device_combo.currentData()
+        kwargs = self._current_api_filter_kwargs()
+        devices = self._device_manager.enumerate_input_devices(**kwargs)
 
-        default = self._device_manager.get_default_input_device()
-        if default:
-            for i in range(self._input_device_combo.count()):
-                if self._input_device_combo.itemData(i) == default.index:
-                    self._input_device_combo.setCurrentIndex(i)
-                    break
+        self._input_device_combo.blockSignals(True)
+        try:
+            self._input_device_combo.clear()
+            for device in devices:
+                label = f"{device.display_name or device.name}  [{device.host_api}]"
+                self._input_device_combo.addItem(label, device.index)
+
+            # Restoration — try the live selection first, then the
+            # persisted name, then the system default. Whichever matches
+            # an item in the current (possibly filtered) list wins.
+            chosen = -1
+            if prev_index is not None:
+                for i in range(self._input_device_combo.count()):
+                    if self._input_device_combo.itemData(i) == prev_index:
+                        chosen = i
+                        break
+
+            saved_name = self._settings.input_device_name
+            if chosen < 0 and saved_name:
+                for i, device in enumerate(devices):
+                    if device.name == saved_name or device.display_name == saved_name:
+                        chosen = i
+                        break
+
+            if chosen < 0:
+                default = self._device_manager.get_default_input_device()
+                if default is not None:
+                    for i in range(self._input_device_combo.count()):
+                        if self._input_device_combo.itemData(i) == default.index:
+                            chosen = i
+                            break
+
+            if chosen >= 0:
+                self._input_device_combo.setCurrentIndex(chosen)
+        finally:
+            self._input_device_combo.blockSignals(False)
+
+    def _refresh_asio_hint(self):
+        """Update the ASIO status label below the device combo.
+
+        Only shown for the ``warn`` and ``info`` cases — the ``ok``
+        message would just add noise once everything's set up.
+        """
+        from audio.device_manager import asio_status
+        status = asio_status()
+        level = status["level"]
+        if level == "ok":
+            self._asio_hint_label.setVisible(False)
+            return
+        msg = status["message"]
+        color = "#e67e22" if level == "warn" else "#888"
+        self._asio_hint_label.setStyleSheet(
+            f"font-size: 10px; color: {color};"
+        )
+        self._asio_hint_label.setText(msg)
+        self._asio_hint_label.setVisible(True)
+
+    def _on_input_api_changed(self, _text: str):
+        self._populate_devices()
+
+    def _on_refresh_devices(self):
+        """Re-enumerate devices and host APIs.
+
+        Used after plugging in an audio interface so the new host API
+        (typically ASIO) and any new devices become selectable without
+        restarting the app.
+        """
+        self._populate_input_apis()
+        self._populate_devices()
+        self._refresh_asio_hint()
 
     def _populate_plane_combo(self):
         planes = compute_stage_planes(self.config)
@@ -1159,13 +1351,15 @@ class AutoTab(BaseTab):
         device_name = None
         idx = self._input_device_combo.currentIndex()
         if idx >= 0:
-            # The combo's display label is "DeviceName (HostApi)". Strip
-            # only the trailing host-api parenthesis by using ``rsplit``
-            # with a maxsplit so device names containing their own
-            # parens (e.g. "USB Audio (2- Realtek)") survive intact.
+            # The combo's display label is "DeviceName  [HostApi]"
+            # (post the May 2026 audio rework). Strip only the trailing
+            # bracketed host-API tag — using ``rsplit`` with a maxsplit
+            # so device names containing their own brackets survive.
             label = self._input_device_combo.itemText(idx)
-            parts = label.rsplit(" (", 1)
-            device_name = parts[0] if len(parts) == 2 and parts[1].endswith(")") else label
+            parts = label.rsplit(" [", 1)
+            device_name = (parts[0].rstrip()
+                           if len(parts) == 2 and parts[1].endswith("]")
+                           else label)
 
         # Save the raw combo text — including the "None (manual)"
         # sentinel — so the user's choice round-trips cleanly. Old
@@ -1181,11 +1375,17 @@ class AutoTab(BaseTab):
         if universe_mapping is None:
             universe_mapping = self._settings.universe_mapping
 
+        input_host_api = (self._input_api_combo.currentText()
+                          if hasattr(self, "_input_api_combo")
+                          and self._input_api_combo.count()
+                          else self._settings.input_host_api)
+
         self._settings = auto_settings.AutoModeSettings(
             target_ip=self._ip_input.text().strip() or "192.168.1.151",
             universe_mapping=universe_mapping,
             mirror_to_visualizer=self._mirror_checkbox.isChecked(),
             input_device_name=device_name,
+            input_host_api=input_host_api,
             bpm=self._bpm_spinbox.value(),
             energy_sensitivity=int(round(self._energy_fader.value() * 100)),
             target_plane_name=target_plane,

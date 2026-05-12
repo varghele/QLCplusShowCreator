@@ -32,6 +32,12 @@ class AutoModeSettings:
 
     # Audio input — store device name (indices are unstable across reboots)
     input_device_name: Optional[str] = None
+    # Last-selected host API filter in the AutoTab input combo. Special
+    # values: "Curated (recommended)" (default) and "All devices (raw)".
+    # Anything else is a literal host-API name (e.g. "Windows WASAPI",
+    # "ASIO"). Resilient to missing or stale APIs — the AutoTab falls
+    # back to "Curated" if the saved API isn't currently available.
+    input_host_api: str = "Curated (recommended)"
 
     # Engine controls
     bpm: int = 120

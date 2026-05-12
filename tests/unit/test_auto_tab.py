@@ -18,6 +18,19 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 
+@pytest.fixture(autouse=True)
+def _no_settings_persistence(monkeypatch):
+    """Prevent AutoTab tests from writing to ``~/.qlcautoshow/auto_mode_settings.json``.
+
+    Several tests trigger ``_save_settings`` (directly or via
+    ``cleanup()`` / ``on_tab_deactivated()``). Without this fixture the
+    *real* user settings file gets clobbered on every test run, and
+    test runs leak state across each other — e.g. setting the host-API
+    combo to "All devices (raw)" in one test then having the next test
+    construct an AutoTab that loads that value as its default."""
+    monkeypatch.setattr("auto.settings.save", lambda _settings: None)
+
+
 def test_auto_tab_constructs(qapp, sample_configuration):
     from gui.theme_manager import ThemeManager
     from gui.tabs import AutoTab
@@ -482,3 +495,136 @@ def test_engine_does_not_auto_fill():
         assert engine.cycle_bars == 4
     finally:
         engine.stop()
+
+
+# ── Audio input host-API combo (new in May 2026) ─────────────────────
+
+
+def test_input_api_combo_populated_with_curated_default(qapp, sample_configuration):
+    """The host-API combo must contain Curated (first, default), each
+    real host API, and a Raw fallback at the bottom. Curated is the
+    selected entry on first construction so the user sees the filtered
+    list immediately rather than 43 entries."""
+    from gui.tabs import AutoTab
+
+    tab = AutoTab(sample_configuration, parent=None)
+    try:
+        api_combo = tab._input_api_combo
+        items = [api_combo.itemText(i) for i in range(api_combo.count())]
+        assert "Curated (recommended)" in items
+        assert "All devices (raw)" in items
+        # Curated is the default.
+        assert api_combo.currentText() == "Curated (recommended)"
+        # First and last positions are the special entries.
+        assert items[0] == "Curated (recommended)"
+        assert items[-1] == "All devices (raw)"
+    finally:
+        tab.cleanup()
+        tab.deleteLater()
+
+
+def test_switching_api_repopulates_device_combo(qapp, sample_configuration):
+    """Changing the host-API combo must drive a new device-combo
+    population through ``_populate_devices``. We assert by patching the
+    DeviceManager so we can observe the kwargs passed to it."""
+    from unittest.mock import MagicMock
+    from gui.tabs import AutoTab
+
+    tab = AutoTab(sample_configuration, parent=None)
+    try:
+        # Wrap enumerate_input_devices so we can spy on call args while
+        # still returning real (or empty) devices.
+        original = tab._device_manager.enumerate_input_devices
+        spy = MagicMock(side_effect=original)
+        tab._device_manager.enumerate_input_devices = spy
+
+        # Switch to "All devices (raw)" — should call enumerate with
+        # mappers + telephony included and dedup off.
+        spy.reset_mock()
+        idx = tab._input_api_combo.findText("All devices (raw)")
+        tab._input_api_combo.setCurrentIndex(idx)
+        assert spy.call_count >= 1
+        kwargs = spy.call_args.kwargs
+        assert kwargs["include_mappers"] is True
+        assert kwargs["include_telephony"] is True
+        assert kwargs["dedup_physical"] is False
+        assert kwargs["host_api_filter"] is None
+
+        # Switch back to Curated — opposite kwargs.
+        spy.reset_mock()
+        idx = tab._input_api_combo.findText("Curated (recommended)")
+        tab._input_api_combo.setCurrentIndex(idx)
+        kwargs = spy.call_args.kwargs
+        assert kwargs["include_mappers"] is False
+        assert kwargs["include_telephony"] is False
+        assert kwargs["dedup_physical"] is True
+    finally:
+        tab.cleanup()
+        tab.deleteLater()
+
+
+def test_input_host_api_persists_through_settings(qapp, sample_configuration):
+    """The selected host API round-trips through ``AutoModeSettings``.
+
+    The autouse ``_no_settings_persistence`` fixture already prevents
+    disk writes, so calling ``_save_settings`` here is safe — we just
+    verify the dataclass picks up the combo's current text."""
+    from gui.tabs import AutoTab
+
+    tab = AutoTab(sample_configuration, parent=None)
+    try:
+        idx = tab._input_api_combo.findText("All devices (raw)")
+        tab._input_api_combo.setCurrentIndex(idx)
+        tab._save_settings()
+        assert tab._settings.input_host_api == "All devices (raw)"
+    finally:
+        tab.cleanup()
+        tab.deleteLater()
+
+
+def test_refresh_devices_button_reprobes_apis(qapp, sample_configuration):
+    """The Refresh button re-runs API enumeration so a newly-plugged-in
+    interface (e.g. Focusrite USB with ASIO driver) appears without an
+    app restart."""
+    from unittest.mock import MagicMock
+    from gui.tabs import AutoTab
+
+    tab = AutoTab(sample_configuration, parent=None)
+    try:
+        spy_apis = MagicMock(side_effect=tab._device_manager.get_available_host_apis)
+        spy_devs = MagicMock(side_effect=tab._device_manager.enumerate_input_devices)
+        tab._device_manager.get_available_host_apis = spy_apis
+        tab._device_manager.enumerate_input_devices = spy_devs
+
+        tab._on_refresh_devices()
+
+        assert spy_apis.called
+        assert spy_devs.called
+    finally:
+        tab.cleanup()
+        tab.deleteLater()
+
+
+def test_asio_hint_visible_when_drivers_registered_but_not_loaded(
+        qapp, sample_configuration):
+    """When the ASIO registry has entries but PortAudio doesn't expose
+    an ASIO host API (your Focusrite-not-plugged-in case), the hint
+    label below the combo must surface the explanation."""
+    from unittest.mock import patch
+    from gui.tabs import AutoTab
+
+    fake_status = {
+        "in_portaudio": False,
+        "registered_drivers": ["Focusrite USB ASIO"],
+        "message": "ASIO drivers registered but not exposed.",
+        "level": "warn",
+    }
+    with patch("audio.device_manager.asio_status", return_value=fake_status):
+        tab = AutoTab(sample_configuration, parent=None)
+        try:
+            assert tab._asio_hint_label.isVisible() or \
+                "ASIO" in tab._asio_hint_label.text()
+            assert "ASIO" in tab._asio_hint_label.text()
+        finally:
+            tab.cleanup()
+            tab.deleteLater()

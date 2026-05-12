@@ -1,0 +1,327 @@
+{
+  "devices": [
+    {
+      "name": "Microsoft Sound Mapper - Input",
+      "hostapi": 0,
+      "max_input_channels": 2,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Mikrofon (Realtek(R) Audio)",
+      "hostapi": 0,
+      "max_input_channels": 2,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Kopfhörer (IE PRO BT Module Han",
+      "hostapi": 0,
+      "max_input_channels": 1,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Mikrofon (Steam Streaming Micro",
+      "hostapi": 0,
+      "max_input_channels": 8,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Microsoft Sound Mapper - Output",
+      "hostapi": 0,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Kopfhörer (IE PRO BT Module Ste",
+      "hostapi": 0,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Lautsprecher (Steam Streaming S",
+      "hostapi": 0,
+      "max_input_channels": 0,
+      "max_output_channels": 8,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Lautsprecher (Realtek(R) Audio)",
+      "hostapi": 0,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Kopfhörer (IE PRO BT Module Han",
+      "hostapi": 0,
+      "max_input_channels": 0,
+      "max_output_channels": 1,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Lautsprecher (Steam Streaming M",
+      "hostapi": 0,
+      "max_input_channels": 0,
+      "max_output_channels": 8,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Primärer Soundaufnahmetreiber",
+      "hostapi": 1,
+      "max_input_channels": 2,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Mikrofon (Realtek(R) Audio)",
+      "hostapi": 1,
+      "max_input_channels": 2,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Kopfhörer (IE PRO BT Module Hands-Free AG Audio)",
+      "hostapi": 1,
+      "max_input_channels": 1,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Mikrofon (Steam Streaming Microphone)",
+      "hostapi": 1,
+      "max_input_channels": 8,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Primärer Soundtreiber",
+      "hostapi": 1,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Kopfhörer (IE PRO BT Module Stereo)",
+      "hostapi": 1,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Lautsprecher (Steam Streaming Speakers)",
+      "hostapi": 1,
+      "max_input_channels": 0,
+      "max_output_channels": 8,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Lautsprecher (Realtek(R) Audio)",
+      "hostapi": 1,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Kopfhörer (IE PRO BT Module Hands-Free AG Audio)",
+      "hostapi": 1,
+      "max_input_channels": 0,
+      "max_output_channels": 1,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Lautsprecher (Steam Streaming Microphone)",
+      "hostapi": 1,
+      "max_input_channels": 0,
+      "max_output_channels": 8,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Lautsprecher (Steam Streaming Speakers)",
+      "hostapi": 2,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 48000.0
+    },
+    {
+      "name": "Kopfhörer (IE PRO BT Module Stereo)",
+      "hostapi": 2,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Lautsprecher (Realtek(R) Audio)",
+      "hostapi": 2,
+      "max_input_channels": 0,
+      "max_output_channels": 8,
+      "default_samplerate": 48000.0
+    },
+    {
+      "name": "Kopfhörer (IE PRO BT Module Hands-Free AG Audio)",
+      "hostapi": 2,
+      "max_input_channels": 0,
+      "max_output_channels": 1,
+      "default_samplerate": 16000.0
+    },
+    {
+      "name": "Lautsprecher (Steam Streaming Microphone)",
+      "hostapi": 2,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 48000.0
+    },
+    {
+      "name": "Kopfhörer (IE PRO BT Module Hands-Free AG Audio)",
+      "hostapi": 2,
+      "max_input_channels": 1,
+      "max_output_channels": 0,
+      "default_samplerate": 16000.0
+    },
+    {
+      "name": "Mikrofon (Realtek(R) Audio)",
+      "hostapi": 2,
+      "max_input_channels": 2,
+      "max_output_channels": 0,
+      "default_samplerate": 48000.0
+    },
+    {
+      "name": "Mikrofon (Steam Streaming Microphone)",
+      "hostapi": 2,
+      "max_input_channels": 1,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Stereomix (Realtek HD Audio Stereo input)",
+      "hostapi": 3,
+      "max_input_channels": 2,
+      "max_output_channels": 0,
+      "default_samplerate": 48000.0
+    },
+    {
+      "name": "Headphones (Realtek HD Audio 2nd output)",
+      "hostapi": 3,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Speakers (Realtek HD Audio output)",
+      "hostapi": 3,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Mikrofon (Realtek HD Audio Mic Array input)",
+      "hostapi": 3,
+      "max_input_channels": 2,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Mikrofon (Realtek HD Audio Mic input)",
+      "hostapi": 3,
+      "max_input_channels": 2,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Output (@System32\\drivers\\bthhfenum.sys,#4;%1 Hands-Free HF Audio%0\r\n;(Galaxy S22))",
+      "hostapi": 3,
+      "max_input_channels": 0,
+      "max_output_channels": 1,
+      "default_samplerate": 8000.0
+    },
+    {
+      "name": "Input (@System32\\drivers\\bthhfenum.sys,#4;%1 Hands-Free HF Audio%0\r\n;(Galaxy S22))",
+      "hostapi": 3,
+      "max_input_channels": 1,
+      "max_output_channels": 0,
+      "default_samplerate": 8000.0
+    },
+    {
+      "name": "Mikrofon (Steam Streaming Microphone Wave)",
+      "hostapi": 3,
+      "max_input_channels": 8,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Speakers (Steam Streaming Microphone Wave)",
+      "hostapi": 3,
+      "max_input_channels": 0,
+      "max_output_channels": 8,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Input (Steam Streaming Speakers Wave)",
+      "hostapi": 3,
+      "max_input_channels": 8,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Speakers (Steam Streaming Speakers Wave)",
+      "hostapi": 3,
+      "max_input_channels": 0,
+      "max_output_channels": 8,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Line ()",
+      "hostapi": 3,
+      "max_input_channels": 2,
+      "max_output_channels": 0,
+      "default_samplerate": 44100.0
+    },
+    {
+      "name": "Kopfhörer (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free AG Audio%0\r\n;(IE PRO BT Module))",
+      "hostapi": 3,
+      "max_input_channels": 0,
+      "max_output_channels": 1,
+      "default_samplerate": 16000.0
+    },
+    {
+      "name": "Kopfhörer (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free AG Audio%0\r\n;(IE PRO BT Module))",
+      "hostapi": 3,
+      "max_input_channels": 1,
+      "max_output_channels": 0,
+      "default_samplerate": 16000.0
+    },
+    {
+      "name": "Kopfhörer ()",
+      "hostapi": 3,
+      "max_input_channels": 0,
+      "max_output_channels": 2,
+      "default_samplerate": 44100.0
+    }
+  ],
+  "host_apis": [
+    {
+      "name": "MME",
+      "default_input_device": 1,
+      "default_output_device": 5
+    },
+    {
+      "name": "Windows DirectSound",
+      "default_input_device": 10,
+      "default_output_device": 14
+    },
+    {
+      "name": "Windows WASAPI",
+      "default_input_device": 26,
+      "default_output_device": 21
+    },
+    {
+      "name": "Windows WDM-KS",
+      "default_input_device": 31,
+      "default_output_device": 42
+    }
+  ]
+}

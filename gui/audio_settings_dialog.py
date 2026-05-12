@@ -9,13 +9,21 @@ from PyQt6.QtCore import Qt
 
 # Try to import audio components
 try:
-    from audio.device_manager import DeviceManager
+    from audio.device_manager import DeviceManager, asio_status
     from audio.audio_engine import AudioEngine
     AUDIO_AVAILABLE = True
 except ImportError:
     AUDIO_AVAILABLE = False
     DeviceManager = None
     AudioEngine = None
+    asio_status = None
+
+
+# Special host-API combo entries — mirror the AutoTab. ``CURATED``
+# applies the standard mapper/telephony filter plus cross-API dedup;
+# ``RAW`` disables all filtering for power users.
+_API_CURATED = "Curated (recommended)"
+_API_RAW = "All devices (raw)"
 
 
 class AudioSettingsDialog(QDialog):
@@ -43,8 +51,6 @@ class AudioSettingsDialog(QDialog):
         self.setWindowTitle("Audio Settings")
         self.setModal(True)
         self.setMinimumWidth(500)
-
-        self._current_host_api_filter = None
 
         self.setup_ui()
         self.load_current_settings()
@@ -88,10 +94,15 @@ class AudioSettingsDialog(QDialog):
 
         api_layout.addLayout(api_select_layout)
 
-        api_info = QLabel("Select ASIO for low-latency on Windows, or JACK on Linux.")
-        api_info.setStyleSheet("color: gray; font-style: italic;")
-        api_info.setWordWrap(True)
-        api_layout.addWidget(api_info)
+        # ASIO-aware status label, populated by _refresh_asio_status().
+        # Was a static "Select ASIO for low-latency on Windows" hint
+        # which lied: ASIO only appears in the combo when a driver is
+        # both registered and exposing a PortAudio host API.
+        self._api_info = QLabel("")
+        self._api_info.setStyleSheet("color: gray; font-style: italic;")
+        self._api_info.setWordWrap(True)
+        api_layout.addWidget(self._api_info)
+        self._refresh_asio_status()
 
         layout.addWidget(api_group)
 
@@ -218,6 +229,37 @@ class AudioSettingsDialog(QDialog):
         if enabled and self.input_device_combo.count() == 0:
             self._populate_input_device_combo()
 
+    def _current_filter_kwargs(self):
+        """Map the API combo selection to filter kwargs for
+        ``enumerate_*`` calls.
+
+        Three modes mirror the AutoTab combo: Curated (full filtering +
+        cross-API dedup), per-API (same filtering, scoped to one API),
+        and Raw (no filtering at all).
+        """
+        text = (self.api_combo.currentText()
+                if self.api_combo.count() else _API_CURATED)
+        if text == _API_CURATED:
+            return {
+                "host_api_filter": None,
+                "include_mappers": False,
+                "include_telephony": False,
+                "dedup_physical": True,
+            }
+        if text == _API_RAW:
+            return {
+                "host_api_filter": None,
+                "include_mappers": True,
+                "include_telephony": True,
+                "dedup_physical": False,
+            }
+        return {
+            "host_api_filter": text,
+            "include_mappers": False,
+            "include_telephony": False,
+            "dedup_physical": False,
+        }
+
     def _populate_input_device_combo(self):
         """Populate input device combo based on current host API filter."""
         if not self.device_manager:
@@ -225,14 +267,15 @@ class AudioSettingsDialog(QDialog):
 
         self.input_device_combo.clear()
         devices = self.device_manager.enumerate_input_devices(
-            host_api_filter=self._current_host_api_filter)
+            **self._current_filter_kwargs())
 
         if not devices:
             self.input_device_combo.addItem("No input devices found", None)
             return
 
         for device in devices:
-            display_text = f"{device.name} ({device.host_api})"
+            display_text = (f"{device.display_name or device.name} "
+                            f"[{device.host_api}]")
             self.input_device_combo.addItem(display_text, device.index)
 
         # Select default input device
@@ -255,19 +298,14 @@ class AudioSettingsDialog(QDialog):
         except (ValueError, ZeroDivisionError):
             self._latency_label.setText("")
 
-    def _on_host_api_changed(self, index):
-        """Handle host API selection change — re-filter device list."""
-        if index <= 0:
-            self._current_host_api_filter = None
-        else:
-            self._current_host_api_filter = self.api_combo.currentText()
-
+    def _on_host_api_changed(self, _index):
+        """Handle host API selection change — re-filter both device lists."""
         self._populate_device_combo()
         if self.enable_input_checkbox.isChecked():
             self._populate_input_device_combo()
 
     def _populate_device_combo(self):
-        """Populate device combo based on current host API filter."""
+        """Populate output device combo based on current host API filter."""
         if not self.device_manager:
             return
 
@@ -275,14 +313,15 @@ class AudioSettingsDialog(QDialog):
 
         self.device_combo.clear()
         devices = self.device_manager.enumerate_devices(
-            force_refresh=True, host_api_filter=self._current_host_api_filter)
+            **self._current_filter_kwargs())
 
         if not devices:
             self.device_combo.addItem("No devices found for this host API", None)
             return
 
         for device in devices:
-            display_text = f"{device.name} ({device.host_api})"
+            display_text = (f"{device.display_name or device.name} "
+                            f"[{device.host_api}]")
             self.device_combo.addItem(display_text, device.index)
 
         # Restore selection if possible
@@ -292,24 +331,54 @@ class AudioSettingsDialog(QDialog):
                     self.device_combo.setCurrentIndex(i)
                     break
 
+    def _refresh_asio_status(self):
+        """Update the under-combo hint with the current ASIO state.
+
+        Three flavours match :func:`audio.device_manager.asio_status`:
+
+        - ``ok``: ASIO host API present in PortAudio. Friendly green-ish
+          confirmation.
+        - ``warn``: registry has ASIO drivers but PortAudio sees no ASIO
+          host API. Typical when the user's interface is unplugged.
+          Amber colour.
+        - ``info``: no ASIO anywhere. Hint at ASIO4ALL for Windows users.
+        """
+        if not asio_status:
+            return
+        try:
+            status = asio_status()
+        except Exception:
+            return
+        level = status["level"]
+        if level == "ok":
+            color = "#2E7D32"  # green
+        elif level == "warn":
+            color = "#e67e22"  # amber
+        else:
+            color = "gray"
+        self._api_info.setText(status["message"])
+        self._api_info.setStyleSheet(
+            f"color: {color}; font-style: italic;"
+        )
+
     def load_current_settings(self):
         """Load current audio settings into the UI."""
         if not AUDIO_AVAILABLE or not self.device_manager:
             return
 
         try:
-            # Populate host API combo
+            # Populate host API combo. Order mirrors the AutoTab:
+            # Curated first (default), then real host APIs sorted by
+            # quality, then the raw escape hatch.
             self.api_combo.blockSignals(True)
             self.api_combo.clear()
-            self.api_combo.addItem("All Host APIs")
-
-            host_apis = self.device_manager.get_available_host_apis()
-            for _, api_name in host_apis:
+            self.api_combo.addItem(_API_CURATED)
+            for _, api_name in self.device_manager.get_available_host_apis():
                 self.api_combo.addItem(api_name)
-
+            self.api_combo.addItem(_API_RAW)
             self.api_combo.blockSignals(False)
 
-            # Populate devices (all APIs)
+            # Populate devices (curated by default).
             self._populate_device_combo()
 
             # Set current device
@@ -331,16 +400,40 @@ class AudioSettingsDialog(QDialog):
             print(f"Error loading settings: {e}")
 
     def refresh_devices(self):
-        """Refresh the list of available devices."""
+        """Refresh the list of available devices.
+
+        Also re-probes ASIO status — plugging in an audio interface
+        between dialog open and refresh can register a new ASIO host
+        API or flip a registered-but-not-loaded driver to ready.
+        """
         if not AUDIO_AVAILABLE or not self.device_manager:
             return
 
         try:
+            # Re-build the API combo so newly-available host APIs (e.g.
+            # ASIO after plugging in an interface) appear without
+            # reopening the dialog. Preserve the current selection.
+            prev_api = self.api_combo.currentText()
+            self.api_combo.blockSignals(True)
+            self.api_combo.clear()
+            self.api_combo.addItem(_API_CURATED)
+            for _, api_name in self.device_manager.get_available_host_apis():
+                self.api_combo.addItem(api_name)
+            self.api_combo.addItem(_API_RAW)
+            idx = self.api_combo.findText(prev_api)
+            self.api_combo.setCurrentIndex(idx if idx >= 0 else 0)
+            self.api_combo.blockSignals(False)
+
             self._populate_device_combo()
+            if self.enable_input_checkbox.isChecked():
+                self._populate_input_device_combo()
+            self._refresh_asio_status()
+
             device_count = self.device_combo.count()
-            if self.device_combo.itemData(0) is None:
+            if device_count == 1 and self.device_combo.itemData(0) is None:
                 device_count = 0
-            QMessageBox.information(self, "Success", f"Found {device_count} audio devices")
+            QMessageBox.information(self, "Success",
+                                    f"Found {device_count} audio devices")
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to refresh devices: {str(e)}")
