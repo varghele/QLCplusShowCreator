@@ -536,8 +536,7 @@ class DeviceManager:
 
     # ── Public enumeration (curated by default) ───────────────────────
 
-    def enumerate_devices(self, force_refresh: bool = False,
-                          host_api_filter: Optional[str] = None,
+    def enumerate_devices(self, host_api_filter: Optional[str] = None,
                           include_inputs: bool = False,
                           include_mappers: bool = False,
                           include_telephony: bool = False,
@@ -545,8 +544,6 @@ class DeviceManager:
         """Enumerate output-capable devices (and inputs if requested).
 
         Args:
-            force_refresh: Retained for API compatibility; ignored now
-                that there is no internal cache.
             host_api_filter: Restrict to one host API (e.g. ``"Windows WASAPI"``,
                 ``"ASIO"``). ``None`` = all APIs.
             include_inputs: If True, devices with only input channels are
@@ -559,7 +556,6 @@ class DeviceManager:
                 multiple host APIs to one entry, keeping the highest-
                 quality (lowest-rank) host API. Default on.
         """
-        del force_refresh  # kept for compat
         devices = self._all_devices_classified()
         if not include_inputs:
             devices = [d for d in devices if d.max_output_channels > 0]

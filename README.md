@@ -22,6 +22,13 @@ A visual tool for creating light shows for [QLC+](https://www.qlcplus.org/), fea
 - **Effects**: Prism (3-facet beam split), gobo patterns, focus simulation
 - **Dual Input**: TCP for config sync, ArtNet for live DMX
 
+### Auto Mode (Experimental)
+- **Live Audio Analysis**: Real-time spectral features (flux, RMS, transient, vocal presence, centroid, contrast)
+- **Auto-Generated Riffs**: Picks rudiments per fixture group from a sliding window of recent audio
+- **Per-Group Constraints**: AUTO / CURATED / LOCKED riff selection and submaster trim from the live tab
+- **Manual Override**: FILL NOW button, color override wheel, BPM tap / auto-detect, energy sensitivity, plane targeting
+- **Embedded Visualizer**: 3D preview mirrors live DMX in the tab itself
+
 ## Installation
 
 ### Using Conda (Recommended)
@@ -57,6 +64,10 @@ python main.py
 6. **Preview** - Enable ArtNet output and/or launch the 3D Visualizer from Stage tab
 7. **Export** - Generate QLC+ workspace file (.qxw)
 
+Or, for unscripted audio-reactive lighting:
+
+8. **Auto Mode (Experimental)** - Pick a host API + audio input, hit START, and the engine will pick riffs per group from live audio. Ctrl+L switches to the tab.
+
 ## Project Structure
 
 ```
@@ -67,11 +78,16 @@ QLCplusShowCreator/
 ├── timeline/            # Playback engine and song structure
 ├── timeline_ui/         # Timeline widgets and effect editors
 ├── riffs/               # Reusable effect library
-├── utils/               # ArtNet, TCP, export, orientation
-├── audio/               # Audio playback and waveform analysis
+├── rudiments/           # Atomic light-pattern vocabulary
+├── effects/             # Effect plug-ins (dimmer, colour, movement, special)
+├── audio/               # Audio playback, live capture, real-time analysis
+├── auto/                # Auto Mode tab engine, DMX, BPM, widgets
+├── autogen/             # Algorithmic show-generation pipeline
+├── utils/               # ArtNet, TCP, QXF parsing, orientation, export
 ├── shows/               # Show data (CSV + audio files)
 ├── custom_fixtures/     # User fixture definitions (.qxf)
 ├── visualizer/          # 3D Visualizer application
+├── tests/               # Unit + visual regression tests
 └── docs/                # Documentation
 ```
 
@@ -83,6 +99,9 @@ QLCplusShowCreator/
 - [3D Visualizer](docs/visualizer.md) - Rendering, effects, camera controls
 - [Fixture Orientation](docs/orientation.md) - 3D orientation and mounting system
 - [Riff System](docs/riffs.md) - Reusable beat-based effect patterns
+- [Qt Gotchas](docs/qt-gotchas.md) - PyQt6 / QSS pitfalls discovered the hard way
+- [GL Gotchas](docs/gl-gotchas.md) - ModernGL / OpenGL surprises in the visualizer
+- [Metric Analysis](docs/metric_analysis_results.md) - Empirical audio metrics for autogen tuning
 
 ## License
 

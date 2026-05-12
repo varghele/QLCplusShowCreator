@@ -1,15 +1,8 @@
 """
 AutoTab — real-time audio-reactive auto-generation tab.
 
-Renamed from ``LiveTab`` (file ``gui/tabs/live_tab.py``, package
-``live/``) so the "Live" name is free for a future performance-oriented
-tab with different semantics. The internal class names and module paths
-all read "Auto" now; the user-visible tab label is "Auto(Experimental)"
-to flag that the auto-generation pipeline is still being tuned.
-
-Ported from ``live/window.py::LiveModeWindow`` per UI_MODERNIZATION_PLAN
-step 9. The standalone ``QMainWindow`` shell is gone; the tab itself owns
-the engine lifecycle. Two behavioural deltas vs. the old window:
+User-visible label is "Auto(Experimental)" to flag the auto-generation
+pipeline as still tuning. Two behavioural deltas worth knowing:
 
 - **Lazy fixture-definition load.** ``on_tab_activated`` parses the QXF
   files on the first activation rather than blocking app startup.
@@ -18,8 +11,10 @@ the engine lifecycle. Two behavioural deltas vs. the old window:
   running — Auto Mode is performance-oriented and shouldn't auto-stop
   when the user peeks at another tab.
 
-Cleanup runs from ``MainWindow.closeEvent`` via :meth:`cleanup`, which
-replaces the old window's ``closeEvent``.
+Cleanup runs from ``MainWindow.closeEvent`` via :meth:`cleanup`.
+Historically this tab lived as a standalone ``QMainWindow`` named
+``LiveModeWindow`` in ``live/window.py``; UI_MODERNIZATION_PLAN step 9
+folded it into a tab and the May 2026 rename swapped Live → Auto.
 """
 
 from PyQt6.QtWidgets import (
@@ -1150,8 +1145,8 @@ class AutoTab(BaseTab):
     def cleanup(self):
         """Called from MainWindow.closeEvent on app shutdown.
 
-        Replaces the old ``LiveModeWindow.closeEvent`` — saves user
-        settings, tears down running threads, releases the audio host.
+        Saves user settings, tears down running threads, releases the
+        audio host.
         """
         try:
             self._save_settings()

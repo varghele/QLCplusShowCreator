@@ -295,10 +295,9 @@ def _theme_text_color(self):
 ### Symptom
 
 The user loads a YAML config (or imports a workspace) and one tab
-behaves as if the config were still empty: Live (Auto) tab produces no
-DMX, the universe-mapping table is empty, the visualizer's fixture
-list is stale, etc. Other tabs work fine — the bug is always
-tab-local.
+behaves as if the config were still empty: Auto tab produces no DMX,
+the universe-mapping table is empty, the visualizer's fixture list is
+stale, etc. Other tabs work fine — the bug is always tab-local.
 
 This was the root cause behind every "Auto mode does nothing"
 complaint we hit on 2026-05-08 — three independent bugs in this same
@@ -320,7 +319,7 @@ self.fixtures_tab.config = self.config        # rebind tab 2
 self.stage_tab.config = self.config           # rebind tab 3
 self.structure_tab.config = self.config       # rebind tab 4
 self.shows_tab.config = self.config           # rebind tab 5
-self.live_tab.config = self.config            # rebind tab 6 — easy to miss!
+self.auto_tab.config = self.config            # rebind tab 6 — easy to miss!
 ```
 
 Missing one tab in this ladder is the highest-frequency regression
@@ -334,16 +333,16 @@ same invalidation discipline:
 
 | Cache                          | Invalidation trigger                       |
 |--------------------------------|--------------------------------------------|
-| `LiveTab._fixtures_loaded` flag | `update_from_config` should reload defs   |
-| `LiveTab._universe_table` rows  | `update_from_config` should repopulate    |
-| `LiveTab._submasters` widget    | `_rebuild_group_panels()` on group change |
-| `LiveTab._riff_constraints`     | `_rebuild_group_panels()` on group change |
-| `LiveTab._plane_combo` items    | `_populate_plane_combo()` on geometry chg |
+| `AutoTab._fixtures_loaded` flag | `update_from_config` should reload defs   |
+| `AutoTab._universe_table` rows  | `update_from_config` should repopulate    |
+| `AutoTab._submasters` widget    | `_rebuild_group_panels()` on group change |
+| `AutoTab._riff_constraints`     | `_rebuild_group_panels()` on group change |
+| `AutoTab._plane_combo` items    | `_populate_plane_combo()` on geometry chg |
 | `*_tab.embedded_visualizer`     | `set_config(self.config)` on every swap   |
 | `DMXManager.fixture_maps`       | rebuild on fixture set change             |
 
 A one-shot "loaded once" flag is the trap to avoid: pre-fix
-`LiveTab._fixtures_loaded` was `True` after the first activation
+`AutoTab._fixtures_loaded` was `True` after the first activation
 against the empty initial config, so loading a YAML afterwards never
 re-ran the QXF scan. Audio meters kept ticking but no fixtures moved
 and no colours changed.
@@ -375,4 +374,4 @@ in-source landmark below has the master list.
 - `gui/StageView.py` — five `pyqtProperty(QColor)` declarations + the `_on_theme_color_changed` helper that invalidates viewport + items in lockstep
 - `gui/tabs/stage_tab.py::_on_show_axes_changed` — canonical "every item changed, repaint each one" handler (gotcha #4)
 - `gui/gui.py::_do_load_configuration` and `import_workspace` — the config-rebind ladder (gotcha #6); add new tabs here whenever you add a new tab
-- `gui/tabs/live_tab.py::update_from_config` — concrete example of a tab refreshing every secondary cache derived from `self.config`
+- `gui/tabs/auto_tab.py::update_from_config` — concrete example of a tab refreshing every secondary cache derived from `self.config`

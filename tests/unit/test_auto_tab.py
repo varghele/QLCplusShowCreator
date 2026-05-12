@@ -20,14 +20,24 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 @pytest.fixture(autouse=True)
 def _no_settings_persistence(monkeypatch):
-    """Prevent AutoTab tests from writing to ``~/.qlcautoshow/auto_mode_settings.json``.
+    """Isolate AutoTab tests from ``~/.qlcautoshow/auto_mode_settings.json``.
 
-    Several tests trigger ``_save_settings`` (directly or via
-    ``cleanup()`` / ``on_tab_deactivated()``). Without this fixture the
-    *real* user settings file gets clobbered on every test run, and
-    test runs leak state across each other — e.g. setting the host-API
-    combo to "All devices (raw)" in one test then having the next test
-    construct an AutoTab that loads that value as its default."""
+    Tests construct AutoTab instances which load settings from disk in
+    ``__init__`` and save back via ``cleanup()`` / ``on_tab_deactivated()``.
+    Both directions are dangerous in CI / dev:
+
+    - **Load**: a stale or hand-edited settings file on the developer's
+      machine can flip the host-API combo's default away from
+      "Curated (recommended)" and break tests that assume the default.
+      Also catches pollution from non-pytest smoke runs (manual
+      ``python -c ...`` invocations) that bypass this fixture.
+    - **Save**: tests that exercise the combo would otherwise persist
+      their choices to the real user settings file.
+
+    Stub both directions: load returns a fresh defaulted dataclass,
+    save is a no-op."""
+    from auto.settings import AutoModeSettings
+    monkeypatch.setattr("auto.settings.load", lambda: AutoModeSettings())
     monkeypatch.setattr("auto.settings.save", lambda _settings: None)
 
 
