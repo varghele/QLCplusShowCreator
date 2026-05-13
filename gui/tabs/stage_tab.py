@@ -90,6 +90,22 @@ class StageTab(BaseTab):
         grid_layout.addRow("Grid Size (m):", self.grid_size)
         grid_layout.addRow(self.snap_to_grid)
 
+        # View controls — fit the stage plot back to the viewport
+        # after the user has zoomed/panned. The 'F' shortcut below
+        # (wired in connect_signals) duplicates the button so the
+        # user can reset without moving the mouse off the plot.
+        view_group = QtWidgets.QGroupBox("View")
+        view_layout = QtWidgets.QVBoxLayout(view_group)
+        self.fit_view_btn = QtWidgets.QPushButton("Fit View (F)")
+        self.fit_view_btn.setToolTip(
+            "Reset zoom and pan to fit the whole stage.\n\n"
+            "Stage controls:\n"
+            "  • Mouse wheel — zoom (around cursor)\n"
+            "  • Space + left-drag — pan\n"
+            "  • F — fit view"
+        )
+        view_layout.addWidget(self.fit_view_btn)
+
         # Stage marks group
         spot_group = QtWidgets.QGroupBox("Stage Marks")
         spot_layout = QtWidgets.QVBoxLayout(spot_group)
@@ -153,6 +169,7 @@ class StageTab(BaseTab):
         # Add groups to control panel in order
         control_layout.addWidget(dim_group)
         control_layout.addWidget(grid_group)
+        control_layout.addWidget(view_group)
         control_layout.addWidget(spot_group)
         control_layout.addWidget(orientation_group)
         control_layout.addWidget(plot_group)
@@ -246,6 +263,16 @@ class StageTab(BaseTab):
         # the selection on the 2D StageView — single-click on a fixture is
         # enough to start editing it, no right-click required.
         self.stage_view.scene.selectionChanged.connect(self._on_stage_selection_changed)
+
+        # Fit View — button + F shortcut. The shortcut is scoped to this
+        # tab (``WidgetWithChildrenShortcut`` on ``self``) so F doesn't
+        # collide with the same key in other tabs / inputs and only
+        # fires when the user's focus is somewhere in the Stage tab.
+        from PyQt6.QtGui import QShortcut, QKeySequence
+        self.fit_view_btn.clicked.connect(self.stage_view.fit_to_stage)
+        self._fit_shortcut = QShortcut(QKeySequence("F"), self)
+        self._fit_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self._fit_shortcut.activated.connect(self.stage_view.fit_to_stage)
 
     def update_from_config(self):
         """Refresh stage view from configuration"""
