@@ -267,6 +267,21 @@ class StageTab(BaseTab):
             self.stage_height.blockSignals(False)
             self.grid_size.blockSignals(False)
 
+            # The StageView keeps its own stage_width_m / stage_depth_m /
+            # grid_size_m attributes (defaulted in __init__). set_config
+            # above doesn't refresh them, and blockSignals(True) on the
+            # spinboxes suppresses the valueChanged → _update_stage path
+            # we'd otherwise rely on. Without the explicit calls below
+            # the 2D plot stays at the default 10 × 6 m / 0.5 m grid no
+            # matter what the loaded YAML says.
+            if self.stage_view:
+                self.stage_view.updateStage(
+                    width_m=float(self.config.stage_width),
+                    depth_m=float(self.config.stage_height),
+                )
+                if hasattr(self.config, 'grid_size'):
+                    self.stage_view.updateGrid(size_m=float(self.config.grid_size))
+
         self._refresh_embedded_visualizer()
 
     def save_to_config(self):

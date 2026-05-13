@@ -3,13 +3,22 @@ Group submaster faders for Auto mode.
 One horizontal slider per physical fixture group, controlling intensity multiplier.
 """
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSlider, QLabel
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QSlider, QLabel,
+    QScrollArea, QFrame, QSizePolicy,
+)
 from PyQt6.QtCore import Qt, pyqtSignal
 from typing import List
 
 
 class GroupSubmasterPanel(QWidget):
-    """Panel of intensity submaster sliders, one per fixture group."""
+    """Panel of intensity submaster sliders, one per fixture group.
+
+    Rows live inside a ``QScrollArea`` so a config with many groups
+    doesn't push the rest of the Auto tab's right column (Audio Input,
+    Movement Target, START/STOP) off-screen — which in the vertical
+    splitter also squeezed the embedded 3D visualizer down to nothing.
+    """
 
     submaster_changed = pyqtSignal(str, float)  # group_name, value (0.0-1.0)
 
@@ -24,6 +33,24 @@ class GroupSubmasterPanel(QWidget):
         title = QLabel("Group Submasters")
         title.setStyleSheet("font-weight: bold; font-size: 11px;")
         layout.addWidget(title)
+
+        # Scroll area for group rows — mirrors the GroupRiffConstraintPanel
+        # treatment so the panel has a stable upper bound on the vertical
+        # space it claims regardless of group count.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # Cap how much vertical real estate the panel takes by default;
+        # ~5 rows fit before the scrollbar kicks in. Without this cap a
+        # tall row count still claims its full sizeHint and squeezes the
+        # visualizer pane above.
+        scroll.setMaximumHeight(150)
+        scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(2)
 
         for name in group_names:
             row = QHBoxLayout()
@@ -50,11 +77,13 @@ class GroupSubmasterPanel(QWidget):
             row.addWidget(label)
             row.addWidget(slider)
             row.addWidget(value_label)
-            layout.addLayout(row)
+            scroll_layout.addLayout(row)
 
             self._sliders[name] = slider
 
-        layout.addStretch()
+        scroll_layout.addStretch()
+        scroll.setWidget(scroll_widget)
+        layout.addWidget(scroll)
 
     def _on_value_changed(self, group_name: str, value: int, value_label: QLabel):
         value_label.setText(f"{value}%")
