@@ -5,7 +5,7 @@ diagnostic tables for rapid iteration on metrics and activation logic.
 
 Usage:
     python -m tests.autogen_harness test_conf.yaml SBD_cycle_of_a_pscho \
-        --audio light_track_cycle_of_a_psycho_test_wo_klick.mp3 \
+        --audio shows/audiofiles/light_track_cycle_of_a_psycho.mp3 \
         --compare
 """
 

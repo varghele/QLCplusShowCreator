@@ -5,7 +5,7 @@ capability-based model. Reads a QXF fixture definition + a mode name and
 produces a :class:`FixtureCapabilities` instance describing what the
 fixture can do.
 
-Phase A of the fixture-rewrite (see ``FIXTURE_TAXONOMY.md``). Phase B
+Phase A of the fixture-rewrite (see ``docs/fixture_taxonomy.md``). Phase B
 will build the composable renderer on top of this; Phase D ports the
 existing consumers (renderer dispatch, 2D icon, 3D preview, group
 constraints, build_fixtures_payload) to switch on :class:`Chassis`
