@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional, Tuple
 from utils.effects_utils import get_channels_by_property, find_closest_color_dmx
 from utils.orientation import calculate_pan_tilt, pan_tilt_to_dmx
+from utils.to_xml.step_compaction import compact_step_values
 
 
 def _map_rgb_to_color_wheel(r: int, g: int, b: int) -> int:
@@ -1440,8 +1441,12 @@ def build_unified_step(
         else:
             values.append(f"{fixture_id}:")
 
-    step.set("Values", str(total_channel_count))
-    step.text = ":".join(values)
+    # Drop zero-valued channels to match QLC+'s native saver convention
+    # (engine/src/chaserstep.cpp:293). Absent channels render as 0 in the
+    # scene, so playback is byte-identical and the file is ~30% smaller.
+    compacted_values, nonzero_count = compact_step_values(values)
+    step.set("Values", str(nonzero_count))
+    step.text = ":".join(compacted_values)
 
     return step
 

@@ -1,6 +1,7 @@
 import os
 import xml.etree.ElementTree as ET
 from config.models import Configuration
+from utils.to_xml.step_compaction import compact_step_values
 
 
 def add_steps_to_sequence(sequence, steps):
@@ -302,8 +303,10 @@ def _convert_dimmer_steps_to_rgb(steps, dimmer_block, colour_blocks, fixture_def
 
             values.append(f"{fixture_id}:{channel_values}")
 
-        new_step.set("Values", str(total_values))
-        new_step.text = ":".join(values)
+        # Drop zero-valued channels (QLC+ saver convention, ~30% smaller .qxw).
+        compacted_values, nonzero_count = compact_step_values(values)
+        new_step.set("Values", str(nonzero_count))
+        new_step.text = ":".join(compacted_values)
         converted_steps.append(new_step)
 
     return converted_steps
@@ -743,7 +746,10 @@ def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixtu
             channel_values = ",".join(channel_value_pairs)
             values.append(f"{fixture_id}:{channel_values}")
 
-        step.text = ":".join(values)
+        # Drop zero-valued channels (QLC+ saver convention, ~30% smaller .qxw).
+        compacted_values, nonzero_count = compact_step_values(values)
+        step.set("Values", str(nonzero_count))
+        step.text = ":".join(compacted_values)
         steps.append(step)
 
     return steps
