@@ -26,6 +26,9 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
             - speed_dial: bool - Include tap BPM SpeedDial
             - master_presets: bool - Include master presets (scenes/chasers for all fixtures)
             - dark_mode: bool - Use dark/black background
+            - qlc_target_version: str - Version stamped into <Creator><Version>.
+              Cosmetic only; the workspace XML schema is identical between
+              QLC+ 4.x and 5.x. Default: "4.14.4".
     """
     # Set up base dir
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -45,9 +48,10 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
     root.set("CurrentWindow", "VirtualConsole")
 
     # Create Creator section
+    qlc_version = (vc_options or {}).get('qlc_target_version', '4.14.4')
     creator = ET.SubElement(root, "Creator")
     ET.SubElement(creator, "Name").text = "Q Light Controller Plus"
-    ET.SubElement(creator, "Version").text = "4.12.4"
+    ET.SubElement(creator, "Version").text = qlc_version
     ET.SubElement(creator, "Author").text = "Auto Generated"
 
     # Create Engine section

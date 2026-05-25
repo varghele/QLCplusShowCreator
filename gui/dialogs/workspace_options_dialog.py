@@ -3,9 +3,20 @@
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QCheckBox, QGroupBox,
-    QDialogButtonBox, QLabel, QSpinBox, QGridLayout
+    QDialogButtonBox, QLabel, QSpinBox, QGridLayout, QComboBox
 )
 from PyQt6.QtCore import Qt
+
+# QLC+ target versions for the cosmetic <Creator><Version> stamp.
+# The workspace XML schema is identical across these (verified: stock
+# Sample.qxw and engine/src/doc.cpp are byte-identical between QLC+_4.14.4
+# and QLC+_5.2.1), so this only changes the version field on import to
+# silence QLC+'s built-in version-mismatch banner. See ROADMAP v1.0.
+QLC_TARGET_VERSIONS = [
+    ("QLC+ 4.x (latest stable, 4.14.4)", "4.14.4"),
+    ("QLC+ 5.x (latest stable, 5.2.1)", "5.2.1"),
+]
+DEFAULT_QLC_TARGET_VERSION = "4.14.4"
 
 
 class WorkspaceOptionsDialog(QDialog):
@@ -154,6 +165,31 @@ class WorkspaceOptionsDialog(QDialog):
 
         layout.addWidget(overrides_group)
 
+        # QLC+ target version (cosmetic stamp; schema is identical 4.x/5.x)
+        version_group = QGroupBox("QLC+ Target Version")
+        version_layout = QVBoxLayout(version_group)
+        version_desc = QLabel(
+            "Target QLC+ version stamped into the workspace file. The XML\n"
+            "schema is identical across 4.x and 5.x, so this only affects the\n"
+            "version banner QLC+ shows on import."
+        )
+        version_desc.setWordWrap(True)
+        version_desc.setStyleSheet("color: #888; margin-bottom: 5px;")
+        version_layout.addWidget(version_desc)
+
+        self.qlc_version_combo = QComboBox()
+        for label, value in QLC_TARGET_VERSIONS:
+            self.qlc_version_combo.addItem(label, userData=value)
+        # Default to latest stable 4.x.
+        default_idx = next(
+            (i for i, (_, v) in enumerate(QLC_TARGET_VERSIONS)
+             if v == DEFAULT_QLC_TARGET_VERSION),
+            0,
+        )
+        self.qlc_version_combo.setCurrentIndex(default_idx)
+        version_layout.addWidget(self.qlc_version_combo)
+        layout.addWidget(version_group)
+
         # Dark mode option
         appearance_group = QGroupBox("Appearance")
         appearance_layout = QVBoxLayout(appearance_group)
@@ -205,6 +241,8 @@ class WorkspaceOptionsDialog(QDialog):
                 - master_presets: bool - Include master presets for all fixtures
                 - dark_mode: bool - Use dark/black background
                 - group_intensities: dict[str, int] - Per-group max intensity (0-255)
+                - qlc_target_version: str - Version string stamped into
+                  <Creator><Version> (cosmetic; e.g. "4.14.4" or "5.2.1")
         """
         group_intensities = {
             name: spinbox.value()
@@ -220,4 +258,5 @@ class WorkspaceOptionsDialog(QDialog):
             'master_presets': self.master_presets_checkbox.isChecked(),
             'dark_mode': self.dark_mode_checkbox.isChecked(),
             'group_intensities': group_intensities,
+            'qlc_target_version': self.qlc_version_combo.currentData() or DEFAULT_QLC_TARGET_VERSION,
         }
