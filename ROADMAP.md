@@ -11,11 +11,13 @@ If you want to influence the order, open an issue or pick something up.
 What's left before the version on `main` is tagged `v1.0`.
 
 - [ ] Merge the `v1.0.5-fixture-rewrite` branch into `main`.
-- [ ] Clean up the `shows/renders/` and audio-file litter in the working tree; ship a small demo show set instead of the in-repo `voll_mit_vox_*` material.
-- [ ] Smoke-test the QLC+ workspace export against a recent QLC+ build (last verified against the version that produced `workspace_qlc_reference.qxw`).
+- [ ] Replace the in-repo `voll_mit_vox_*` audio + `shows/renders/` material with a small distributable demo show set. Local working-tree litter is already suppressed via `.gitignore`.
+- [ ] **Sequence-step compaction in the QLC+ exporter.** Profiling `workspace_generated.qxw` (41.85 MiB) shows 44.1% of all `(fixture, channel, value)` triples are zero-valued and are emitted unconditionally. QLC+'s own saver (`engine/src/chaserstep.cpp::saveXML`) skips zeros and the loader treats absent channels as zero, so dropping them is byte-identical playback. Expected file shrink: ~30% (41.85 MiB to ~29.5 MiB). Change site: `utils/to_xml/unified_sequence.py` per-fixture value emission. A coarser time-grid for static lanes is the bigger structural win and slips to v1.1.
+- [ ] **QLC+ target-version stamp** in the Workspace Options dialog. The XML schema is *unchanged* between QLC+ 4.x (4.14.4) and 5.x (5.2.1): stock `Sample.qxw` and `engine/src/doc.cpp` are byte-identical between those tags. The selector therefore only stamps `<Creator><Version>` so QLC+'s built-in compat banner doesn't fire on import.
+- [ ] **Runtime verification in actual QLC+ 4.14.4 and 5.2.1.** Open the same exported `.qxw` in both, confirm functions populate, virtual console renders, sequences play, fixtures are patched correctly. Manual step; no headless harness for the QLC+ binary.
+- [ ] **CI / release pipeline.** GitHub Actions on tag push (`v*`): `windows-latest` PyInstaller build via the existing `qlcshowcreator.spec`, `ubuntu-latest` build with `portaudio19-dev` + GL deps installed at build time. Artifacts attached to a draft GitHub Release. Smoke-test the Linux build path on a clean container first (the spec has only been used on Windows).
 - [ ] Virtual-console export positioning, known to be not bug-free (carried over from the v0.9.5 notes).
 - [ ] Screenshots + a short demo video for the README.
-- [ ] Decide on a licence-compatible distribution: PyInstaller spec is in `qlcshowcreator.spec`; verify the build on a clean Windows machine.
 
 ---
 

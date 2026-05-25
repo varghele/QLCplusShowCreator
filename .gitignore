@@ -69,6 +69,7 @@ binary/
 effects/effects.json
 release/
 nul
+scratch/
 
 # Scratch / versioned project configs at the project root.
 # `config.yaml` (the active project) is intentionally tracked;
@@ -77,3 +78,12 @@ nul
 
 # Stray default-name show file Windows creates.
 shows/New Show.csv
+
+# Local scratch shows + working-tree litter (user triages manually).
+shows/NTEST.csv
+shows/renders/
+shows/audiofiles/voll_mit_vox_*
+shows/audiofiles/backingtrack_*
+/tester.yaml
+/workspace_generated.qxw
+/workspace_saved.qxw
