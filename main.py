@@ -5,6 +5,13 @@ import sys
 # for deeply nested structures like timeline data with many light blocks
 sys.setrecursionlimit(10000)
 
+# Dump the Python stack to stderr on native crashes (SIGSEGV / Windows
+# STATUS_STACK_BUFFER_OVERRUN etc.). Without this, native fatals exit the
+# process silently and there's no way to know which Python call site led
+# into the offending C extension.
+import faulthandler
+faulthandler.enable()
+
 import os
 from PyQt6 import QtWidgets
 from PyQt6.QtGui import QIcon

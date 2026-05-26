@@ -563,7 +563,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.shows_tab.show_combo.addItems(sorted(self.config.shows.keys()))
             self.shows_tab.show_combo.setCurrentText(show_name)
             self.shows_tab.show_combo.blockSignals(False)
-            self.shows_tab.on_show_changed(show_name)
+            # Use _load_show directly, not _on_show_changed: the latter would
+            # call parent().on_show_selected('shows') and bounce right back
+            # to update the Structure tab again, infinite loop.
+            self.shows_tab._load_show(show_name)
 
     def save_configuration(self):
         """Save configuration to YAML file"""

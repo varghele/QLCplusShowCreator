@@ -20,6 +20,13 @@ concurrency:
 permissions:
   contents: write
 
+# Opt the JS-based actions (checkout, setup-python, upload-artifact) onto
+# Node 24 now rather than running on the soon-to-be-removed Node 20 bundled
+# in their @v4/@v5 versions. GitHub will flip this default on 2026-06-02,
+# at which point this env var can be removed.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build (${{ matrix.os }})

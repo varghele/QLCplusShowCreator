@@ -388,13 +388,9 @@ class ShowsTab(BaseTab):
 
     def _on_show_changed(self, show_name: str):
         """Handle show selection change."""
-        # Save current show before switching
         if self.current_show_name:
             self.save_to_config()
-
         self._load_show(show_name)
-
-        # Notify parent to sync with other tabs
         if self.parent() and hasattr(self.parent(), 'on_show_selected'):
             self.parent().on_show_selected(show_name, 'shows')
 
@@ -493,44 +489,47 @@ class ShowsTab(BaseTab):
         total_duration = self.song_structure.get_total_duration() if self.song_structure else 0
         self.total_time_label.setText(f"/ {self._format_time(total_duration)}")
 
-        # Clear and rebuild light lanes
+        # Clear and rebuild light lanes. Drain deferred deletes from the
+        # previous show's lane widgets BEFORE adding new ones - otherwise a
+        # pending deleteLater can fire mid-rebuild and leave the layout
+        # half-built with a phantom row from the old show.
         self._clear_light_lanes()
+        QApplication.processEvents()
 
         if show.timeline_data:
             # Load audio file if available, or clear if not
             if show.timeline_data.audio_file_path:
                 audio_filename = show.timeline_data.audio_file_path
-
-                # ALWAYS try local audiofiles folder first (for both old and new format)
-                # Extract just the filename from the path
                 basename = os.path.basename(audio_filename)
-                local_audio_path = None
 
-                if self.config.shows_directory and basename:
-                    local_audio_path = os.path.join(self.config.shows_directory, "audiofiles", basename)
+                # Resolve via Configuration.audio_bundle_dir which tries
+                # <config_dir>/audiofiles/ first, then falls back to
+                # <shows_directory>/audiofiles/ for legacy configs. Same
+                # helper the Structure tab uses, so audio resolution is
+                # consistent across tabs.
+                bundle_dir = self.config.audio_bundle_dir()
+                local_audio_path = (
+                    os.path.join(bundle_dir, basename)
+                    if bundle_dir and basename else None
+                )
 
-                # Priority 1: Check local audiofiles folder
+                # Priority 1: bundle dir lookup
                 if local_audio_path and os.path.exists(local_audio_path):
                     print(f"Using local audio file: {local_audio_path}")
                     self.audio_lane.load_audio_file(local_audio_path)
-
-                    # Update config to use just filename for future (migrate old absolute paths)
+                    # Migrate old absolute paths to filename-only on first read.
                     if os.path.isabs(audio_filename):
                         show.timeline_data.audio_file_path = basename
                         print(f"Stored audio filename in show: {basename}")
-
-                # Priority 2: Fall back to original path (for backward compatibility)
-                elif os.path.exists(audio_filename):
+                # Priority 2: legacy absolute path stored directly in YAML
+                elif os.path.isabs(audio_filename) and os.path.exists(audio_filename):
                     print(f"Using audio file from original path: {audio_filename}")
                     self.audio_lane.load_audio_file(audio_filename)
-
-                # Priority 3: File not found anywhere
+                # Priority 3: not found anywhere
                 else:
-                    if local_audio_path:
-                        print(f"Audio file not found in local folder: {local_audio_path}")
-                    print(f"Audio file not found at original path: {audio_filename}")
+                    print(f"Audio file not found for '{audio_filename}' "
+                          f"(bundle dir: {bundle_dir})")
                     self.audio_lane.clear_audio()
-                    # Also clear the mixer
                     if self.audio_mixer:
                         self.audio_mixer.remove_lane("audio")
             else:
@@ -540,13 +539,12 @@ class ShowsTab(BaseTab):
                 if self.audio_mixer:
                     self.audio_mixer.remove_lane("audio")
 
-            # Create lane widgets, yielding to event loop periodically
-            lane_count = len(show.timeline_data.lanes)
-            for i, lane_data in enumerate(show.timeline_data.lanes):
+            # Create lane widgets. Don't pump events inside this loop -
+            # any pending deleteLater from _clear_light_lanes above would
+            # fire mid-build and corrupt the layout.
+            for lane_data in show.timeline_data.lanes:
                 runtime_lane = LightLane.from_data_model(lane_data)
                 self._add_lane_widget(runtime_lane)
-                if (i + 1) % 3 == 0:
-                    QApplication.processEvents()
 
             # Update ArtNet controller with loaded lanes
             if self.artnet_controller:
@@ -568,7 +566,17 @@ class ShowsTab(BaseTab):
         self.audio_lane.set_song_structure(None)
 
     def _clear_light_lanes(self):
-        """Remove all light lane widgets."""
+        """Remove all light lane widgets.
+
+        Order matters: hide first to avoid the widget receiving paint
+        events after we've disconnected its signals and removed it from
+        the layout, setParent(None) to detach immediately (deleteLater
+        alone is deferred and can leave a phantom widget visible until
+        Qt processes the event queue), then deleteLater for the actual
+        Python-side cleanup. This pattern fixed a native crash on Windows
+        (STATUS_STACK_BUFFER_OVERRUN) where a paint event arriving for a
+        deleted-but-still-visible widget tore through PyQt's binding.
+        """
         for lane_widget in self.lane_widgets:
             try:
                 lane_widget.remove_requested.disconnect()
@@ -577,7 +585,9 @@ class ShowsTab(BaseTab):
                 lane_widget.block_edited.disconnect()
             except (TypeError, RuntimeError):
                 pass  # Signal already disconnected or widget deleted
+            lane_widget.hide()
             self.timeline_grid.remove_light_lane(lane_widget)
+            lane_widget.setParent(None)
             lane_widget.deleteLater()
         self.lane_widgets.clear()
 
@@ -1634,7 +1644,20 @@ class ShowsTab(BaseTab):
                 source_lane = lane_widget
                 timeline_widget = obj
                 break
-            elif lane_widget.timeline_scroll.viewport() is obj:
+            # NOTE: pre-TimelineGrid (refactor 985b2fb, 2026-05-07) the lane
+            # widget owned its own QScrollArea (`timeline_scroll`) and the
+            # mouse/click events came in via its viewport. After the
+            # TimelineGrid refactor, `detach_pieces()` nulls `timeline_scroll`
+            # because the timeline_widget is now hosted directly by the
+            # grid's shared scroll area. Accessing `.viewport()` on None was
+            # the source of a native STATUS_STACK_BUFFER_OVERRUN crash on
+            # show switch: Qt dispatches mouse/paint events to this filter,
+            # the filter hits None.viewport(), and PyQt6 escalates the
+            # AttributeError into a native fatal on Windows. Guard against
+            # the None case to preserve any legacy detached lanes from
+            # breaking, but the branch should be a no-op now.
+            scroll = getattr(lane_widget, "timeline_scroll", None)
+            if scroll is not None and scroll.viewport() is obj:
                 source_lane = lane_widget
                 timeline_widget = lane_widget.timeline_widget
                 break
