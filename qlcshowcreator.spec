@@ -50,7 +50,10 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    # Test deps the runtime doesn't need. requirements.txt installs pytest
+    # for the CI test step; PyInstaller picks it up via static analysis
+    # otherwise. Excluding keeps the bundle ~5-10 MB smaller.
+    excludes=['pytest', '_pytest', 'hypothesis'],
     noarchive=False,
 )
 
