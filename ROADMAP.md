@@ -12,6 +12,7 @@ What's left before the version on `main` is tagged `v1.0`.
 
 - [ ] Merge the `v1.0.5-fixture-rewrite` branch into `main`.
 - [ ] Replace the in-repo `voll_mit_vox_*` audio + `shows/renders/` material with a small distributable demo show set. Local working-tree litter is already suppressed via `.gitignore`.
+- [ ] **Show I/O cleanup: config YAML as single source of truth.** Today, loading a config also auto-creates a `shows/` directory and the running app keeps two parallel filesystems (config.yaml timeline data vs. `shows/*.csv` structure files). Reshape so the config is authoritative: drop the auto-create-on-load behavior, drop the silent CSV scanning, and surface CSV as an explicit `File -> Import / Export Show Structure` action. The CSV stays as a portable interchange format, not a backing store.
 - [ ] **Sequence-step compaction in the QLC+ exporter.** Profiling `workspace_generated.qxw` (41.85 MiB) shows 44.1% of all `(fixture, channel, value)` triples are zero-valued and are emitted unconditionally. QLC+'s own saver (`engine/src/chaserstep.cpp::saveXML`) skips zeros and the loader treats absent channels as zero, so dropping them is byte-identical playback. Expected file shrink: ~30% (41.85 MiB to ~29.5 MiB). Change site: `utils/to_xml/unified_sequence.py` per-fixture value emission. A coarser time-grid for static lanes is the bigger structural win and slips to v1.1.
 - [ ] **QLC+ target-version stamp** in the Workspace Options dialog. The XML schema is *unchanged* between QLC+ 4.x (4.14.4) and 5.x (5.2.1): stock `Sample.qxw` and `engine/src/doc.cpp` are byte-identical between those tags. The selector therefore only stamps `<Creator><Version>` so QLC+'s built-in compat banner doesn't fire on import.
 - [ ] **Runtime verification in actual QLC+ 4.14.4 and 5.2.1.** Open the same exported `.qxw` in both, confirm functions populate, virtual console renders, sequences play, fixtures are patched correctly. Manual step; no headless harness for the QLC+ binary.
@@ -28,34 +29,71 @@ The Stage tab models a flat rig today. Two practical problems hurt real-world us
 - [ ] **Stage layers (vertical stacking).** Multiple Z-planes per stage (e.g. ground stack, mid-truss, top-truss). Per-layer visibility toggle on the Stage tab, layer assignment per fixture, and consistent treatment in the 3D visualizer. Today the Z coordinate exists on `Fixture` but the 2D Stage tab collapses it, so two PARs at the same X,Y on different trusses overlap unrecognisably.
 - [ ] **Fixture list import / export.** Round-trip a rig as CSV or JSON (manufacturer, model, mode, universe, address, group, position, orientation). Use cases: send the patch to QLC+ users on a different rig, pre-fill a stage from a venue's spec sheet, version-control just the rig without the whole show. The serializer already deduplicates fixture definitions, so the export format can reference QLC+ library entries by name.
 - [ ] **Stage plot export.** Currently the toolbar action exists but is non-functional. Wire it to a PDF / PNG export of the 2D stage with fixture symbols, group colour, DMX address, universe, layer, and orientation tick. The "stage plot" that touring engineers hand to the venue. Expect this to be a chunk of work on its own (label collision avoidance, multi-layer legend, scale + dimensions, paper-size presets) which is why it slips from v1.0 to here.
+- [ ] **Plane visualisation upgrade.** The 6 cuboid stage faces (`StagePlane` dataclass exists at `config/models.py:77`) get drawn in the 3D view and a plane-picker UI in the Stage tab. Selection / hover highlights the active plane. *Targeting* a plane from a `MovementBlock` is deferred to v1.4a where it folds in as one shape of world-space target.
+- [ ] **Config merge / cross-config show import-export.** Pick selected shows from another config and pull them into the current one without swapping the whole project. Use case: "get the SBD set from last year's config into this venue's config." Mirror as an export action so a show can be lifted out for sharing.
+- [ ] **In-app .qxf library browser.** Search-and-patch dialog scoped to the QLC+ library + `custom_fixtures/`. Today users have to know paths; this lowers the onboarding friction of building a rig from scratch.
+- [ ] **Per-fixture DMX address conflict checker.** Lint in the Fixtures tab when two fixtures overlap on universe + address range. Cheap to write, prevents export-time silent bugs.
+- [ ] **Project templates / starter rigs.** Ship a handful of starter configs ("4 PARs + 2 movers", "PAR + wash + matrix", "festival opener kit") so new users land in a populated project instead of an empty one.
 
 ---
 
-## v1.2a - Stage-relative movement (focus geometry)
+## v1.2 - Authoring polish
+
+Quality-of-life work that doesn't fit a movement / morphing milestone but earns its keep every authoring session. No theme beyond "the app feels less brittle to use."
+
+- [ ] **Autosave + crash recovery.** Periodic `.autosave` write of the active config (every N minutes, debounced on modification). On launch, if an autosave is newer than the last saved config, prompt to recover. Covers Qt crashes, power cuts, and the "I forgot to save before closing" case.
+- [ ] **Undo / redo on the timeline.** The Shows tab is where the time-cost lives; a stack of timeline edits with reasonable granularity (block add / move / resize / delete, lane add / remove) covers the worst footguns. Out of scope: undoing config-level structural changes (fixture patch edits, group renames).
+- [ ] **Headless export CLI.** Wrap `Configuration.load + create_qlc_workspace` as a documented entry point: `qlcshowcreator export config.yaml --out workspace.qxw --qlc-version 5.2.1`. Already proven via the v1.0 roundtrip work; just needs an `argparse` shell + a console-script entry. Useful for batch workflows (export N variants for N venues) and for scripted setups.
+- [ ] **Riff library tagging + search.** As the library grows, the flat list scales badly. Tags, free-text search, and a favourites pin scale better than nested folders. The data model addition is small (`tags: List[str]`, a search index built lazily).
+
+---
+
+## v1.3 - Stability and error reporting
+
+A first-release app will hit bugs in users' rigs that we can't reproduce locally. This milestone is the plumbing that turns "it crashed" into "I have the traceback and can fix it."
+
+- [ ] **Structured local log.** Default-on file logging to `%APPDATA%/QLCShowCreator/logs/` (per-OS equivalent), rotated by day, with a "Reveal log in explorer" action in the Help menu. Captures unhandled exceptions, fixture-definition warnings, ArtNet socket failures, and the export pipeline's status.
+- [ ] **Crash reporter dialog.** On `sys.excepthook` / Qt unhandled exception, surface a modal with the traceback, the app version, and a "Copy to clipboard / Save as file" affordance the user can paste into a GitHub issue. No automatic upload.
+- [ ] **Opt-in crash telemetry (open question).** Whether to integrate a service like Sentry (or self-host Glitchtip) for automatic upload, gated on a clear opt-in in Settings. Privacy tradeoffs: lighting configs reveal venue names, fixture inventories, sometimes audio paths. Default off, explicit opt-in only.
+- [ ] **Diagnostics panel.** Help menu -> Diagnostics: app version, Python version, Qt version, OpenGL renderer, audio host APIs detected, ArtNet output state, current config path. Copyable as a markdown block to attach to bug reports.
+- [ ] **Audit the silent fallbacks.** Several code paths currently `print(...)` and continue (e.g. fixture definition missing, channels_dict empty, color-wheel preset not found). Convert to structured warnings the user can see in a "Last export warnings" panel rather than scrolling the terminal.
+
+---
+
+## v1.4a - Stage-relative movement (focus geometry)
 
 Today, moving-head pan / tilt is stored as raw DMX values (or normalised 0-1 equivalents). That breaks the moment the fixture moves an inch: the values point at empty air. It also blocks morphing entirely, because any new rig will have fixtures in different positions and the pan / tilt numbers carry no meaning across rigs.
 
-v1.2a reworks how movement is authored and stored so that focus is geometric, not arbitrary.
+v1.4a reworks how movement is authored and stored so that focus is geometric, not arbitrary.
 
-- [ ] **World-space targets on `MovementBlock`.** A movement block stores a stage position (X, Y, Z in metres) or a named spot, not pan / tilt numbers. Static positions, paths (circle / figure-8 / lissajous / sweep), and named-spot sequences are all expressed in stage coordinates.
+- [ ] **World-space targets on `MovementBlock`.** A movement block stores a stage position (X, Y, Z in metres), a named spot, or a `StagePlane` face, not pan / tilt numbers. Static positions, paths (circle / figure-8 / lissajous / sweep), named-spot sequences, and plane-projection paths are all expressed in stage coordinates. (Plane *visualisation* lands in v1.1; plane *targeting* lands here.)
 - [ ] **Per-fixture pan / tilt resolution at playback / export.** Given a fixture's position and orientation (yaw / pitch / roll, mounting) and the target world-space point, compute the pan / tilt DMX values via inverse kinematics. The `orientation.py` utilities already do half of this for the visualizer; the export pipeline needs the same path.
 - [ ] **Named spots as first-class authoring primitives.** The data model already has a `spots: Dict[str, Spot]` on `Configuration` (used today only by autogen). Promote it to the timeline: "point movers at SPOT_LEAD_VOX" instead of "pan=127, tilt=200" so a show is readable independent of any rig.
 - [ ] **Migration path for existing shows.** Existing `MovementBlock` data is pan / tilt. Provide an in-app converter that snapshots the current rig, traces where each beam lands, and rewrites the block to the world-space equivalent.
 - [ ] **Authoring UX.** Picking a target in the Stage tab or the embedded visualizer (click on the stage, get a world-space point) rather than dialling pan / tilt sliders. Sliders stay as a fallback.
 - [ ] **Calibration helper.** For a brand-new venue, the operator points each moving head at a known reference (centre stage, downstage-left corner) and the app derives the fixture's effective orientation so the rest of the show's spots resolve correctly.
 
-This is foundational for v1.2b but useful on its own, even without morphing. It is the difference between "redo every movement cue after every rig change" and "the focus is correct once the stage is correct".
+This is foundational for v1.4b but useful on its own, even without morphing. It is the difference between "redo every movement cue after every rig change" and "the focus is correct once the stage is correct".
 
 ---
 
-## v1.2b - Show morphing (venue adaptation)
+## v1.4b - Show morphing (venue adaptation)
 
-With v1.2a in place, focus is portable. v1.2b tackles the rest: lane retargeting, type substitution, group remapping. The mechanics are the smaller half. The bigger half is figuring out *what a show even is* in a way that survives a rig change.
+With v1.4a in place, focus is portable. v1.4b tackles the rest: lane retargeting, type substitution, group remapping. The mechanics are the smaller half. The bigger half is figuring out *what a show even is* in a way that survives a rig change.
+
+### Prerequisites
+
+- [ ] **Fixture role taxonomy rethink.** The current taxonomy is two parallel systems: per-fixture `type` (PAR / MH / BAR / PIXELBAR / SUNSTRIP / WASH, the legacy enum at `config/models.py:709`) and per-group `lighting_role` (`backbone` / `accent` / `ambient` / `movement` / `effect`). Neither covers the categories bigger venues actually have: **blinders** (audience-facing strong dimmers), **house lights**, **haze / fog**, **lasers**, **strobes**, decorative bar / truss. Open design questions:
+  - **Tag-based vs hierarchical vs single-role-with-importance?** A fixture could carry multiple tags (`[wash, accent, downstage]`), one primary role with sub-tags, or one role + an "importance" tier. Each shape changes how morphing's substitution logic finds the closest match in the target rig.
+  - **Is "role" per-fixture or per-group?** Today it's per-group via `lighting_role`. A blinder hung in the same group as washes complicates that.
+  - **Compatibility with `type`.** Decide whether the two systems collapse into one or stay parallel. The legacy enum's `# legacy 6-string types` comment already flags this for cleanup.
+  - **Default mapping for existing configs.** Whatever shape lands, existing user configs need a deterministic upgrade path.
+- [ ] **Fixture physical metadata.** Read `<Physical><Dimensions Weight="X" Width="Y" Height="Z" Depth="W"/>` (and bulb / power if present) from .qxf into `Fixture`. Surface in the Fixtures tab. The visualizer scales the rendered chassis to the dimensions in metres (the .qxf value is in millimetres). The morph engine uses physical size as one signal for substitution ("substitute a wash of similar throw, not a tiny par"). Could fold up into v1.4a if visualizer-only sizing lands earlier; the morph-relevant part stays here.
 
 ### Open questions
 
 - **What rig do you author the first show on?** A maximal "reference rig" (PARs + washes + movers + bars + specials) so every venue is a subset? A "minimal viable rig" (just PARs and washes) so every venue is a superset? Or the actual rig you happen to own, with morphing assumed to lose detail in either direction?
-- **What transfers, and what doesn't?** Structure, BPM, transitions, section markers obviously transfer. Riffs probably transfer (they're abstract patterns). Movement transfers via v1.2a. Colour transfers. Special effects (gobo index, prism on) need a per-rig opinion. Need a tier-list of "always transfers / transfers if compatible / always re-authored".
+- **What transfers, and what doesn't?** Structure, BPM, transitions, section markers obviously transfer. Riffs probably transfer (they're abstract patterns). Movement transfers via v1.4a. Colour transfers. Special effects (gobo index, prism on) need a per-rig opinion. Need a tier-list of "always transfers / transfers if compatible / always re-authored".
 - **How do you handle missing fixture types?** Venue has no moving heads, but the show has a movement lane on the chorus. Options: drop the lane entirely, demote it to a static colour wash on a substitute group, redirect to a pixel bar's per-cell chase, or flag it for the user to resolve. Probably some combination triggered by the lane's "importance" tag (which doesn't exist yet and would need to).
 - **How do you handle *extra* fixture types?** Venue has eight movers when the show was authored for two. Mirror them? Spread the pattern? Leave the extras dark and let the user fill them in? Same question for pixel matrices added on top of a PAR-only show.
 - **Is there a baseline a show can declare?** A show could carry a "minimum requirements" manifest (this many washes, this many movers, these capabilities) so morphing to an undersized rig becomes an explicit error rather than a silent degradation. Similar in spirit to a media query.
@@ -69,13 +107,25 @@ With v1.2a in place, focus is portable. v1.2b tackles the rest: lane retargeting
 - [ ] **Morph report.** Same shape as autogen's `GenerationReport`: every retarget, substitution, dropped block, with reasons. Editable post-hoc.
 - [ ] **Side-by-side preview.** Original show on rig A vs. morphed show on rig B in the embedded visualizer, scrubbable, before the user commits.
 
-Depends on v1.1 (stable groups / roles, fixture-list import-export) and v1.2a (focus survives rig changes).
+Depends on v1.1 (stable groups / roles, fixture-list import-export) and v1.4a (focus survives rig changes).
 
 ---
 
-## v1.3 - Live operations and clock sync
+## v1.5 - Timeline ergonomics (post-morphing)
 
-A show that runs from a button press is fine until the band restarts the song, the bassist breaks a string, or the singer holds a note three bars long. Today the playhead is fire-and-forget. v1.3 adds the operator-side surface and the clock plumbing.
+Once morphing has settled the question of how shows are structured across rigs, the timeline ergonomics become worth the investment. Doing this before v1.4b risks redoing the work after the data model shifts.
+
+- [ ] **Per-block edge ramps.** Each `DimmerBlock` / `ColourBlock` / `MovementBlock` carries a `fade_in_ms` + `fade_out_ms` (or beat-denominated equivalent). Visible in the timeline as triangular ramps at the clip edges, Reaper-style. Independent of neighbours - a block faded in but with no neighbour fades cleanly to 0.
+- [ ] **Implicit crossfade on overlap.** When two blocks in the same lane overlap, the overlap region is the crossfade between them. No explicit parameter - drag two blocks until they touch and they crossfade. UX matches Reaper's audio-clip overlap behaviour. Combined with edge ramps, this covers ~all the common authoring patterns (block-with-decay, segue-into-next, cross-blend).
+- [ ] **Visualization in the Shows tab.** Triangular ramp icons at block edges; overlap region tinted to make the crossfade visible. Drag handles to adjust ramp length.
+- [ ] **Export path.** The QLC+ sequence step generator needs to interpolate values during ramp / overlap regions instead of step-snapping. Cleanest path: extend `build_unified_step` to query each block's value-at-time including its ramp profile, instead of the current step-aligned sample. Step count grows during ramps but the existing zero-skip work absorbs much of the new bytes.
+- [ ] **Migration.** Existing blocks have no ramps. Default to 0 / 0 on load. No-op for existing shows.
+
+---
+
+## v1.6 - Live operations and clock sync
+
+A show that runs from a button press is fine until the band restarts the song, the bassist breaks a string, or the singer holds a note three bars long. Today the playhead is fire-and-forget. v1.6 adds the operator-side surface and the clock plumbing.
 
 - [ ] **Live tab** for the show operator. Not the same as Auto Mode (which generates lighting); this tab is the runtime view for an authored show. Goals:
   - Big visible playhead, current section, next section, bars remaining in the current part.
@@ -89,22 +139,24 @@ A show that runs from a button press is fine until the band restarts the song, t
 - [ ] **MTC (MIDI Time Code) support** as a fallback for environments without MIDI clock.
 - [ ] **Tempo-map handling.** Real songs aren't a single BPM. The Live tab and the clock-sync code need to honour the per-part BPM already in the structure data, including transitions.
 - [ ] **Persistence of operator state.** If the app crashes mid-set, the next launch resumes at the last known cue position, not from bar 0.
+- [ ] **Per-show notes / metadata.** Free-text notes per show (set-list cues, sound-check reminders, gear notes, key changes). Surfaced in the Live tab as a sidebar so the operator can read them at runtime. Stored alongside the show in the config.
+- [ ] **ArtNet input listener.** Folded in once the MIDI cue work above pins down the "external signal routes to a cue point" abstraction. Listens for Art-Net DMX from another console / DAW, maps a configured universe-and-channel-range to cue triggers. The MIDI cue layer and the Art-Net listener share the same router; only the input side differs.
 
 ---
 
-## v1.4 - Autogen polish
+## v1.7 - Autogen polish
 
 The automatic show generator runs end-to-end today, but the matcher is a black box. This milestone makes it *legible* so the algorithm can be tuned with evidence rather than guesswork. Source: `v1_theory_and_implementation_plan/autofuture.md`.
 
 - [ ] **Decision logging system.** Every rudiment considered, its score breakdown, why one was picked, why iterative selection stabilised. Exportable as a Markdown report alongside the generated show.
-- [ ] **Generation Inspector UI pass.** The dialog exists and the `GenerationReport` already carries the data; the v1.4 work is to make it interactive (click a generated block, see why), surface the colour palette decisions, and add a side-by-side "what changed when I tweaked this parameter" view.
+- [ ] **Generation Inspector UI pass.** The dialog exists and the `GenerationReport` already carries the data; the v1.7 work is to make it interactive (click a generated block, see why), surface the colour palette decisions, and add a side-by-side "what changed when I tweaked this parameter" view.
 - [ ] **Colour palette presets** in the autogen dialog. The API supports preset palettes but the UI only exposes the audio-derived path.
 - [ ] **Matcher tuning.** Once the inspector exists, revisit the scoring weights for envelope similarity vs. repetition rate fit vs. coherence.
 - [ ] **Per-section overrides.** Let the user lock a specific rudiment or role for a named section before re-running generation, instead of editing the output.
 
 ---
 
-## v1.5 - Auto Mode hardening
+## v1.8 - Auto Mode hardening
 
 Auto Mode (live audio-reactive) works but is labelled "experimental" for real reasons. Source: `todo/auto_mode_patches.md`.
 
@@ -116,7 +168,7 @@ Auto Mode (live audio-reactive) works but is labelled "experimental" for real re
 
 ---
 
-## v1.6 - Visualizer breadth
+## v1.9 - Visualizer breadth
 
 Round out the composable renderer to cover the fixture types that currently fall back to a generic point. Source: `docs/fixture_taxonomy.md` §1.4 and §4.
 

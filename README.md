@@ -105,7 +105,7 @@ QLCplusShowCreator/
 
 User-facing:
 - [FEATURES](FEATURES.md) - full capability tour
-- [ROADMAP](ROADMAP.md) - themed milestones (v1.1 stage layers and rig import/export, v1.2a stage-relative movement, v1.2b show morphing, v1.3 Live tab and MIDI clock sync, v1.4 autogen polish, v1.5 Auto Mode hardening, v1.6 visualizer breadth, v2.0 algorithmic generation v2)
+- [ROADMAP](ROADMAP.md) - themed milestones (v1.1 stage layers and rig import/export, v1.2 authoring polish, v1.3 stability and error reporting, v1.4a stage-relative movement, v1.4b show morphing, v1.5 timeline ergonomics, v1.6 Live tab and MIDI clock sync, v1.7 autogen polish, v1.8 Auto Mode hardening, v1.9 visualizer breadth, v2.0 algorithmic generation v2)
 - [CHANGELOG](CHANGELOG.md) - what shipped when
 
 Subsystem:
