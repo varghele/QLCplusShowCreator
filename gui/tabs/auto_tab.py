@@ -13,7 +13,7 @@ pipeline as still tuning. Two behavioural deltas worth knowing:
 
 Cleanup runs from ``MainWindow.closeEvent`` via :meth:`cleanup`.
 Historically this tab lived as a standalone ``QMainWindow`` named
-``LiveModeWindow`` in ``live/window.py``; UI_MODERNIZATION_PLAN step 9
+``LiveModeWindow`` in ``live/window.py``; the UI modernization work
 folded it into a tab and the May 2026 rename swapped Live → Auto.
 """
 

@@ -415,10 +415,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Ctrl+L focuses the embedded Auto tab (index 5) — the auto-DJ
         # audio-reactive lighting mode. Was originally a separate "Live
-        # Mode" window opened from a "Live" menu; UI_MODERNIZATION_PLAN
-        # step 9 folded it in as the sixth tab, and it was renamed to
-        # "Auto" since the engine is the auto-generation pipeline driven
-        # by live audio rather than a generic "live mode".
+        # Mode" window opened from a "Live" menu before being folded in
+        # as the sixth tab. Renamed from "Live" to "Auto" since the
+        # engine is the auto-generation pipeline driven by live audio
+        # rather than a generic "live mode".
         self.actionGotoAuto = QAction("Auto Mode", self)
         self.actionGotoAuto.setShortcut("Ctrl+L")
         self.actionGotoAuto.triggered.connect(

@@ -107,10 +107,10 @@ class Ui_MainWindow(object):
         self.tab_structure = QtWidgets.QWidget()
 
         # Auto Tab (UI created by AutoTab) — real-time audio-reactive
-        # auto-generation pipeline; was a separate QMainWindow until
-        # UI_MODERNIZATION_PLAN step 9 folded it in as the sixth tab.
-        # Was previously named "Live"; renamed so a future Live tab
-        # with different semantics can claim that name.
+        # auto-generation pipeline. Was originally a separate QMainWindow
+        # opened from a "Live" menu (Ctrl+L) before being folded in as the
+        # sixth tab. Renamed from "Live" to "Auto" so a future Live tab
+        # (operator runtime view) can claim that name.
         self.tab_auto = QtWidgets.QWidget()
 
         # Add tabs to widget

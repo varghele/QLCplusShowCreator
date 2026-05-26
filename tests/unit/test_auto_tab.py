@@ -1,6 +1,7 @@
 """
-Smoke test for ``AutoTab`` — the QMainWindow → tab refactor from
-UI_MODERNIZATION_PLAN step 9.
+Smoke test for ``AutoTab`` — covers the QMainWindow → tab refactor that
+folded the former ``LiveModeWindow`` into the sixth tab and the
+subsequent Live → Auto rename.
 
 We don't drive the audio engine here (that pulls in real audio devices
 and sounddevice / portaudio threads). The test just makes sure the tab

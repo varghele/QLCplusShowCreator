@@ -45,6 +45,7 @@ Quality-of-life work that doesn't fit a movement / morphing milestone but earns 
 - [ ] **Undo / redo on the timeline.** The Shows tab is where the time-cost lives; a stack of timeline edits with reasonable granularity (block add / move / resize / delete, lane add / remove) covers the worst footguns. Out of scope: undoing config-level structural changes (fixture patch edits, group renames).
 - [ ] **Headless export CLI.** Wrap `Configuration.load + create_qlc_workspace` as a documented entry point: `qlcshowcreator export config.yaml --out workspace.qxw --qlc-version 5.2.1`. Already proven via the v1.0 roundtrip work; just needs an `argparse` shell + a console-script entry. Useful for batch workflows (export N variants for N venues) and for scripted setups.
 - [ ] **Riff library tagging + search.** As the library grows, the flat list scales badly. Tags, free-text search, and a favourites pin scale better than nested folders. The data model addition is small (`tags: List[str]`, a search index built lazily).
+- [ ] **Fixtures table delegate-based editing.** The fixtures table still uses `setCellWidget` for Universe / Address / Mode / Group / Role columns with per-widget `setStyleSheet` for per-row tinting, which reads as "fields coloured" rather than "row coloured with fields embedded". Proper fix: a `QStyledItemDelegate` per column. The half-finished experiments `gui/widgets/tinted_table.py` and `gui/widgets/tinted_rows_table.py` were kept for this; either complete them or remove them as part of this work.
 
 ---
 
@@ -146,7 +147,7 @@ A show that runs from a button press is fine until the band restarts the song, t
 
 ## v1.7 - Autogen polish
 
-The automatic show generator runs end-to-end today, but the matcher is a black box. This milestone makes it *legible* so the algorithm can be tuned with evidence rather than guesswork. Source: `v1_theory_and_implementation_plan/autofuture.md`.
+The automatic show generator runs end-to-end today, but the matcher is a black box. This milestone makes it *legible* so the algorithm can be tuned with evidence rather than guesswork. Source: `docs/autofuture.md`.
 
 - [ ] **Decision logging system.** Every rudiment considered, its score breakdown, why one was picked, why iterative selection stabilised. Exportable as a Markdown report alongside the generated show.
 - [ ] **Generation Inspector UI pass.** The dialog exists and the `GenerationReport` already carries the data; the v1.7 work is to make it interactive (click a generated block, see why), surface the colour palette decisions, and add a side-by-side "what changed when I tweaked this parameter" view.
@@ -179,12 +180,13 @@ Round out the composable renderer to cover the fixture types that currently fall
 - [ ] **Effect / flower fixtures.** Centipede, derby, sweeper, butterfly. Multi-beam fixed-pattern.
 - [ ] **Strobe.** Currently renders as a steady PAR; wants a high-frequency emission path.
 - [ ] **Floor projection for non-MH beams.** Currently only moving heads get a projected spotlight.
+- [ ] **Theme support in the standalone visualizer.** The popped-out visualizer subprocess spawns its own QApplication and ignores `QSettings("ui/theme")`, so it stays light-grey regardless of the main window's theme. Wire theme awareness so the popout matches. Low priority - popout is for QLC+ interop / preview, not primary use.
 
 ---
 
 ## v2.0 - Algorithmic generation v2
 
-The bigger autogen rethink. Out of scope for v1.x. Tracked in `v1_theory_and_implementation_plan/theory-algorithmic-show-generation.md`.
+The bigger autogen rethink. Out of scope for v1.x. Tracked in `docs/theory-algorithmic-show-generation.md`.
 
 - [ ] **Rolling-window analysis for prepared mode.** Currently each section is scored in isolation; v2 looks across section boundaries to keep transitions coherent.
 - [ ] **Multi-pass generation.** First pass picks rudiments per section, second pass adjusts for cross-section diversity / repetition penalties.
@@ -209,4 +211,4 @@ These come up periodically and the answer is "not yet, but not no":
 
 - The current working branch is `v1.0.5-fixture-rewrite`.
 - Issues and progress live on GitHub (link in README once the repo is published).
-- The `todo/` and `v1_theory_and_implementation_plan/` directories are the working backlog: they're more detailed than this roadmap and update faster.
+- The `todo/` directory and the theory notes in `docs/` (`autofuture.md`, `theory-algorithmic-show-generation.md`) are the working backlog: they're more detailed than this roadmap and update faster.
