@@ -115,10 +115,10 @@ def test_overhead_overrides_y_zone():
 
 
 def test_demo_config_layout_classifies_correctly():
-    """Sanity check against the exact two-row layout shipped in
-    ``showcreator_archive/conf_demo_all_fixtures.yaml``: downstage row at
-    y=-3, upstage row at y=+3 on a 10 m stage. Pre-fix both rows came
-    out "front" because both ``-3 < D*0.33 = 3.3`` and ``3 < D*0.33``."""
+    """Sanity check against the exact two-row layout shipped in the legacy
+    ``conf_demo_all_fixtures.yaml`` (moved to local-only ``archive/`` in v1.0):
+    downstage row at y=-3, upstage row at y=+3 on a 10 m stage. Pre-fix both
+    rows came out "front" because both ``-3 < D*0.33 = 3.3`` and ``3 < D*0.33``."""
     cfg = _make_config({
         "DOWNSTAGE": [_make_fixture("d", y=-3.0)],
         "UPSTAGE":   [_make_fixture("u", y=3.0)],

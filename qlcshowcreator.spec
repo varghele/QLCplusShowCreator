@@ -31,13 +31,6 @@ a = Analysis(
         # config is a namespace package (no __init__.py)
         'config.models',
         'config.compact_serializer',
-        # live widgets
-        'live.widgets',
-        'live.widgets.color_wheel',
-        'live.widgets.energy_fader',
-        'live.widgets.group_submasters',
-        'live.widgets.metrics_tracker',
-        'live.widgets.riff_palette',
         # gui subpackages
         'gui.dialogs',
         'gui.dialogs.autogen_dialog',

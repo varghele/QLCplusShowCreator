@@ -29,7 +29,15 @@ from visualizer.renderer.camera import OrbitCamera
 
 
 FBO_SIZE = 768
-CONFIG_PATH = pathlib.Path(__file__).resolve().parents[2] / "showcreator_archive" / "conf_v8.yaml"
+# conf_v8.yaml lived in the tracked `showcreator_archive/` until v1.0; the
+# directory was renamed to `archive/` and gitignored. This test still runs
+# locally if the file is present and is skipped otherwise (fresh clones,
+# CI without a local archive).
+CONFIG_PATH = pathlib.Path(__file__).resolve().parents[2] / "archive" / "conf_v8.yaml"
+pytestmark = pytest.mark.skipif(
+    not CONFIG_PATH.exists(),
+    reason=f"Requires local archive file: {CONFIG_PATH}"
+)
 
 
 @pytest.fixture(scope="module")
