@@ -1,0 +1,145 @@
+name: Release Build
+
+# Triggers:
+#   workflow_dispatch  - run manually from the Actions tab. Use this while
+#                        iterating on the Linux build before pushing real tags.
+#   push tag v*        - run on a real release. Builds + drafts a GitHub Release.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+# Prevent overlapping runs for the same ref. A second push to the same tag
+# cancels the older run (rare, but tag re-pushes do happen during iteration).
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+# release-creation step needs write access to repo contents (releases live there).
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Don't cancel sibling jobs if one OS fails; the other artifact is still useful.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_suffix: windows-x86_64
+            archive_ext: zip
+          # Pin Ubuntu 22.04 deliberately: building on an older glibc keeps the
+          # binary forward-compatible with newer distros. Building on 24.04 would
+          # break users still on 22.04 / Debian 12 / Mint 21.
+          - os: ubuntu-22.04
+            artifact_suffix: linux-x86_64
+            archive_ext: tar.gz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        # PortAudio for sounddevice's native link. GL libs for moderngl /
+        # the 3D visualizer (PyInstaller needs them present at analysis time
+        # to know about the dynamic load). Add Qt platform libs that PyQt6
+        # commonly pulls at build time.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libportaudio2 portaudio19-dev \
+            libgl1 libegl1 \
+            libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
+            libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller --clean --noconfirm qlcshowcreator.spec
+
+      - name: Determine version label
+        id: version
+        shell: bash
+        # tag push -> use the tag (refs/tags/v1.0.0 -> v1.0.0).
+        # manual dispatch -> dev-<short-sha> so iteration artifacts are distinguishable.
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "label=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "label=dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = "QLCShowCreator-${{ matrix.artifact_suffix }}-${{ steps.version.outputs.label }}.zip"
+          Compress-Archive -Path "dist/QLCShowCreator/*" -DestinationPath $archive
+          echo "ARCHIVE_PATH=$archive" >> $env:GITHUB_ENV
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          archive="QLCShowCreator-${{ matrix.artifact_suffix }}-${{ steps.version.outputs.label }}.tar.gz"
+          tar -czf "$archive" -C dist QLCShowCreator
+          echo "ARCHIVE_PATH=$archive" >> "$GITHUB_ENV"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QLCShowCreator-${{ matrix.artifact_suffix }}-${{ steps.version.outputs.label }}
+          path: ${{ env.ARCHIVE_PATH }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Draft GitHub Release
+    needs: build
+    # Only create a release for actual tag pushes. workflow_dispatch runs
+    # produce artifacts but no release - that's what makes the dispatch
+    # trigger safe for iterating on the Linux build.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifact tree
+        # download-artifact unpacks each artifact under its own subdir.
+        # Move the actual archives to a single dir so the release upload glob is clean.
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f \( -name '*.zip' -o -name '*.tar.gz' \) \
+            -exec mv {} release-assets/ \;
+          ls -la release-assets/
+
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: true
+          # Generate a placeholder body from commits since the previous tag.
+          # You overwrite this with real release notes when publishing the draft.
+          generate_release_notes: true
+          files: release-assets/*
+          fail_on_unmatched_files: true
