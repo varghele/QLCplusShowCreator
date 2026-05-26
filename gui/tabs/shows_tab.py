@@ -388,13 +388,9 @@ class ShowsTab(BaseTab):
 
     def _on_show_changed(self, show_name: str):
         """Handle show selection change."""
-        # Save current show before switching
         if self.current_show_name:
             self.save_to_config()
-
         self._load_show(show_name)
-
-        # Notify parent to sync with other tabs
         if self.parent() and hasattr(self.parent(), 'on_show_selected'):
             self.parent().on_show_selected(show_name, 'shows')
 
@@ -493,8 +489,12 @@ class ShowsTab(BaseTab):
         total_duration = self.song_structure.get_total_duration() if self.song_structure else 0
         self.total_time_label.setText(f"/ {self._format_time(total_duration)}")
 
-        # Clear and rebuild light lanes
+        # Clear and rebuild light lanes. Drain deferred deletes from the
+        # previous show's lane widgets BEFORE adding new ones - otherwise a
+        # pending deleteLater can fire mid-rebuild and leave the layout
+        # half-built with a phantom row from the old show.
         self._clear_light_lanes()
+        QApplication.processEvents()
 
         if show.timeline_data:
             # Load audio file if available, or clear if not
@@ -539,13 +539,12 @@ class ShowsTab(BaseTab):
                 if self.audio_mixer:
                     self.audio_mixer.remove_lane("audio")
 
-            # Create lane widgets, yielding to event loop periodically
-            lane_count = len(show.timeline_data.lanes)
-            for i, lane_data in enumerate(show.timeline_data.lanes):
+            # Create lane widgets. Don't pump events inside this loop -
+            # any pending deleteLater from _clear_light_lanes above would
+            # fire mid-build and corrupt the layout.
+            for lane_data in show.timeline_data.lanes:
                 runtime_lane = LightLane.from_data_model(lane_data)
                 self._add_lane_widget(runtime_lane)
-                if (i + 1) % 3 == 0:
-                    QApplication.processEvents()
 
             # Update ArtNet controller with loaded lanes
             if self.artnet_controller:
@@ -1645,7 +1644,20 @@ class ShowsTab(BaseTab):
                 source_lane = lane_widget
                 timeline_widget = obj
                 break
-            elif lane_widget.timeline_scroll.viewport() is obj:
+            # NOTE: pre-TimelineGrid (refactor 985b2fb, 2026-05-07) the lane
+            # widget owned its own QScrollArea (`timeline_scroll`) and the
+            # mouse/click events came in via its viewport. After the
+            # TimelineGrid refactor, `detach_pieces()` nulls `timeline_scroll`
+            # because the timeline_widget is now hosted directly by the
+            # grid's shared scroll area. Accessing `.viewport()` on None was
+            # the source of a native STATUS_STACK_BUFFER_OVERRUN crash on
+            # show switch: Qt dispatches mouse/paint events to this filter,
+            # the filter hits None.viewport(), and PyQt6 escalates the
+            # AttributeError into a native fatal on Windows. Guard against
+            # the None case to preserve any legacy detached lanes from
+            # breaking, but the branch should be a no-op now.
+            scroll = getattr(lane_widget, "timeline_scroll", None)
+            if scroll is not None and scroll.viewport() is obj:
                 source_lane = lane_widget
                 timeline_widget = lane_widget.timeline_widget
                 break
