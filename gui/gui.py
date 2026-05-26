@@ -382,6 +382,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.actionSaveConfig.triggered.connect(self.save_configuration)
         self.actionSaveConfigAs.triggered.connect(self.save_configuration_as)
         self.actionLoadConfig.triggered.connect(self.load_configuration)
+        self.actionImportShowStructure.triggered.connect(self.import_show_structure_file)
+        self.actionExportShowStructure.triggered.connect(self.export_show_structure_file)
         self.actionImportWorkspace.triggered.connect(self.import_workspace)
         self.actionCreateWorkspace.triggered.connect(self.create_workspace)
         self.actionExit.triggered.connect(self.close)
@@ -743,11 +745,77 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             print(f"Configuration loaded from {file_path}")
 
+            # Legacy-CSV merge prompt. Old configs may have shows on disk in
+            # the shows_directory hint that aren't in the YAML (the v1.0
+            # cleanup stopped silently re-scanning them on load). Offer a
+            # one-shot opt-in to merge them in. User still has to Save to
+            # persist.
+            self._offer_legacy_csv_merge()
+
         except Exception as e:
             self.progress_manager.finish_modal()
             print(f"Error loading configuration: {e}")
             import traceback
             traceback.print_exc()
+
+    def _offer_legacy_csv_merge(self):
+        """Scan config.shows_directory for *.csv shows not in config.shows.
+
+        If any are found, prompt once. On accept, read each via
+        ``utils.show_io.read_show`` and add to ``config.shows`` in memory.
+        Skips silently if shows_directory is unset / missing / has no
+        unrecognised CSVs.
+        """
+        shows_dir = getattr(self.config, 'shows_directory', None)
+        if not shows_dir or not os.path.isdir(shows_dir):
+            return
+        try:
+            csv_files = [f for f in os.listdir(shows_dir) if f.lower().endswith('.csv')]
+        except OSError:
+            return
+        candidates = []
+        for csv_name in csv_files:
+            stem = os.path.splitext(csv_name)[0]
+            if stem in self.config.shows:
+                continue
+            candidates.append((stem, os.path.join(shows_dir, csv_name)))
+        if not candidates:
+            return
+
+        names_preview = ', '.join(stem for stem, _ in candidates[:5])
+        more = f' (and {len(candidates) - 5} more)' if len(candidates) > 5 else ''
+        reply = QMessageBox.question(
+            self,
+            "Legacy CSV Shows Found",
+            f"Found {len(candidates)} show CSV file(s) in:\n{shows_dir}\n\n"
+            f"that aren't in your config.yaml: {names_preview}{more}\n\n"
+            "Import them into the config? (You will still need to Save to "
+            "persist the result.)",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        from utils.show_io import read_show
+        imported = 0
+        for stem, path in candidates:
+            try:
+                show, _ = read_show(path)
+                # Use the stem we derived from the filename in case the
+                # file's internal name disagrees.
+                show.name = stem
+                self.config.shows[stem] = show
+                imported += 1
+            except Exception as e:
+                print(f"Skipping {path}: {e}")
+        if imported:
+            self.structure_tab.update_from_config()
+            self.shows_tab.update_from_config()
+            QMessageBox.information(
+                self, "Shows Imported",
+                f"Imported {imported} legacy CSV show(s) into the config.\n"
+                "Save the config to persist them."
+            )
 
     def _preload_fixture_definitions(self):
         """Pre-load fixture definitions into cache for faster access."""
@@ -850,24 +918,109 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             import traceback
             traceback.print_exc()
 
-    def import_show_structure(self):
-        """Import show structure from CSV files"""
+    def import_show_structure_file(self):
+        """File -> Import Show Structure: read a .csv or .yaml into the config.
+
+        CSV input: show name comes from the file basename, only ``parts`` are
+        populated. YAML input: full show (parts + effects + timeline_data +
+        triggers) reconstructed from a self-contained show file.
+
+        If a show with the same name already exists, the user is asked to
+        confirm overwrite. The imported show is selected in the Structure
+        tab on success.
+        """
+        from utils.show_io import read_show
+        default_dir = self.config.shows_directory or (
+            os.path.dirname(self.config_path) if self.config_path else ""
+        )
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Show Structure",
+            default_dir,
+            "Show files (*.csv *.yaml *.yml);;CSV (*.csv);;YAML (*.yaml *.yml)"
+        )
+        if not file_path:
+            return
         try:
-            self.shows_tab.import_show_structure()
-            QMessageBox.information(
-                self,
-                "Success",
-                "Show structure imported successfully"
-            )
+            show, fmt = read_show(file_path)
         except Exception as e:
             QMessageBox.critical(
-                self,
-                "Error",
-                f"Failed to import show structure: {str(e)}"
+                self, "Import Failed",
+                f"Could not import {os.path.basename(file_path)}:\n{e}"
             )
-            print(f"Error importing show structure: {e}")
-            import traceback
-            traceback.print_exc()
+            return
+
+        if show.name in self.config.shows:
+            reply = QMessageBox.question(
+                self, "Overwrite Show?",
+                f"A show named '{show.name}' already exists in the config.\n\n"
+                "Overwrite it with the imported one?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        self.config.shows[show.name] = show
+        # Refresh the Structure tab so the imported show shows up + selects.
+        self.structure_tab.update_from_config()
+        if hasattr(self.structure_tab, 'show_combo'):
+            idx = self.structure_tab.show_combo.findText(show.name)
+            if idx >= 0:
+                self.structure_tab.show_combo.setCurrentIndex(idx)
+        # Remember this directory for the next import/export dialog.
+        self.config.shows_directory = os.path.dirname(file_path)
+
+        QMessageBox.information(
+            self, "Imported",
+            f"Imported show '{show.name}' from {fmt.upper()}.\n"
+            f"Save the config to persist it."
+        )
+
+    def export_show_structure_file(self):
+        """File -> Export Show Structure: write the current show to .csv or .yaml.
+
+        CSV writes the 6-column structure (parts only). YAML writes the full
+        show including timeline_data, effects, and triggers. Format is picked
+        by the extension of the chosen path.
+        """
+        from utils.show_io import write_show
+        current_name = getattr(self.structure_tab, 'current_show_name', '')
+        show = self.config.shows.get(current_name) if current_name else None
+        if not show:
+            QMessageBox.warning(
+                self, "No Show Selected",
+                "Open a show in the Structure tab before exporting."
+            )
+            return
+        default_dir = self.config.shows_directory or (
+            os.path.dirname(self.config_path) if self.config_path else ""
+        )
+        default_path = os.path.join(default_dir, f"{show.name}.csv") if default_dir else f"{show.name}.csv"
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Show Structure",
+            default_path,
+            "CSV (*.csv);;YAML (*.yaml)"
+        )
+        if not file_path:
+            return
+        # Auto-append extension if the user didn't type one (Qt's filter
+        # selection alone doesn't guarantee it on every platform).
+        if not os.path.splitext(file_path)[1]:
+            file_path += ".csv"
+        try:
+            fmt = write_show(file_path, show)
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Export Failed",
+                f"Could not export to {os.path.basename(file_path)}:\n{e}"
+            )
+            return
+        self.config.shows_directory = os.path.dirname(file_path)
+        QMessageBox.information(
+            self, "Exported",
+            f"Exported '{show.name}' to {fmt.upper()}:\n{file_path}"
+        )
 
     def create_workspace(self):
         """Create QLC+ workspace file from configuration"""

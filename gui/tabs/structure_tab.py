@@ -1037,70 +1037,32 @@ class StructureTab(BaseTab):
 
         if custom_dir:
             self.config.shows_directory = custom_dir
-
-            # Create audiofiles subdirectory
-            audiofiles_dir = os.path.join(self.config.shows_directory, "audiofiles")
-            os.makedirs(audiofiles_dir, exist_ok=True)
-
-            # Auto-load shows and refresh
-            self._auto_load_shows()
-            self.update_from_config()
-
+            # shows_directory is just a hint now; we no longer auto-create
+            # an audiofiles/ subdir here or auto-scan for CSVs. Audio files
+            # live next to the config (config_dir/audiofiles/), and CSVs
+            # are imported explicitly via File -> Import Show Structure.
             QMessageBox.information(
                 self,
                 "Directory Set",
-                f"Shows directory set to:\n{custom_dir}\n\nLoaded {len(self.config.shows)} show(s)."
+                f"Shows directory hint set to:\n{custom_dir}\n\n"
+                "Used as the default location for File -> Import / Export "
+                "Show Structure dialogs."
             )
 
     def _ensure_shows_directory(self) -> bool:
-        """Ensure shows directory is configured. Returns True if set, False if cancelled."""
-        if self.config.shows_directory and os.path.exists(self.config.shows_directory):
-            return True
+        """Silent check: returns True iff shows_directory hint is set and exists.
 
-        print(f"DEBUG: No shows directory set, prompting user...")
-
-        # Ask user if they want to use default or choose custom directory
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        default_dir = os.path.join(project_root, "shows")
-
-        reply = QMessageBox.question(
-            self,
-            "Set Shows Directory",
-            f"No shows directory is configured.\n\n"
-            f"Default location: {default_dir}\n\n"
-            f"WARNING: The default location is in the program directory and may be overwritten during updates.\n"
-            f"It's recommended to choose your own directory.\n\n"
-            f"Do you want to use the default location?\n"
-            f"(Click 'No' to choose a custom directory)",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel
+        Used to be a prompt-and-auto-create-on-first-use path that also
+        triggered CSV scanning. v1.0 demoted ``shows_directory`` to a hint
+        (last-used import/export location) so this function no longer
+        prompts or creates. Callers that need a directory for an explicit
+        user action (Set Shows Directory button, Export Show Structure
+        dialog) use a QFileDialog at the call site instead.
+        """
+        return bool(
+            self.config.shows_directory
+            and os.path.exists(self.config.shows_directory)
         )
-
-        if reply == QMessageBox.StandardButton.Cancel:
-            return False
-        elif reply == QMessageBox.StandardButton.Yes:
-            # Use default directory
-            os.makedirs(default_dir, exist_ok=True)
-            self.config.shows_directory = default_dir
-        else:
-            # Choose custom directory
-            custom_dir = QFileDialog.getExistingDirectory(
-                self,
-                "Select Shows Directory",
-                os.path.expanduser("~"),
-                QFileDialog.Option.ShowDirsOnly
-            )
-            if not custom_dir:
-                return False
-            self.config.shows_directory = custom_dir
-
-        # Create audiofiles subdirectory
-        audiofiles_dir = os.path.join(self.config.shows_directory, "audiofiles")
-        os.makedirs(audiofiles_dir, exist_ok=True)
-
-        # Auto-load shows from the newly configured directory
-        self._auto_load_shows()
-
-        return True
 
     def _delete_show(self):
         """Delete the current show (from config and disk)."""
@@ -1125,19 +1087,14 @@ class StructureTab(BaseTab):
 
         show = self.config.shows.get(self.current_show_name)
 
-        # Delete CSV file
-        if self.config.shows_directory:
-            csv_path = os.path.join(self.config.shows_directory, f"{self.current_show_name}.csv")
-            if os.path.exists(csv_path):
-                try:
-                    os.remove(csv_path)
-                except Exception as e:
-                    print(f"Failed to delete CSV file: {e}")
-
-            # Delete audio file if it exists
-            if show and show.timeline_data and show.timeline_data.audio_file_path:
-                audio_filename = os.path.basename(show.timeline_data.audio_file_path)
-                audio_path = os.path.join(self.config.shows_directory, "audiofiles", audio_filename)
+        # Delete bundled audio file if it exists. CSVs on disk are now
+        # user-managed (exported via File -> Export Show Structure), so
+        # delete-show only touches the in-memory config and the audio bundle.
+        if show and show.timeline_data and show.timeline_data.audio_file_path:
+            audio_filename = os.path.basename(show.timeline_data.audio_file_path)
+            bundle_dir = self.config.audio_bundle_dir()
+            if bundle_dir:
+                audio_path = os.path.join(bundle_dir, audio_filename)
                 if os.path.exists(audio_path):
                     try:
                         os.remove(audio_path)
@@ -1213,22 +1170,26 @@ class StructureTab(BaseTab):
         if self.current_show.timeline_data and self.current_show.timeline_data.audio_file_path:
             audio_filename = self.current_show.timeline_data.audio_file_path
 
-            # Check if it's just a filename (new format) or a full path (old format)
-            if not os.path.isabs(audio_filename):
-                # New format: filename only, look in audiofiles folder
-                if self.config.shows_directory:
-                    audio_path = os.path.join(self.config.shows_directory, "audiofiles", audio_filename)
-                    if os.path.exists(audio_path):
-                        self.audio_lane.load_audio_file(audio_path)
-                    else:
-                        print(f"Audio file not found: {audio_path}")
-                        self.audio_lane.clear_audio()
-            else:
-                # Old format: full path
+            if os.path.isabs(audio_filename):
+                # Legacy: absolute path written before audio_bundle_dir landed.
                 if os.path.exists(audio_filename):
                     self.audio_lane.load_audio_file(audio_filename)
                 else:
                     print(f"Audio file not found: {audio_filename}")
+                    self.audio_lane.clear_audio()
+            else:
+                # New format: filename only. Resolve via Configuration's
+                # audio_bundle_dir (tries <config_dir>/audiofiles/ first,
+                # falls back to <shows_directory>/audiofiles/ for legacy).
+                bundle_dir = self.config.audio_bundle_dir()
+                audio_path = (
+                    os.path.join(bundle_dir, audio_filename) if bundle_dir else None
+                )
+                if audio_path and os.path.exists(audio_path):
+                    self.audio_lane.load_audio_file(audio_path)
+                else:
+                    print(f"Audio file not found for '{audio_filename}' "
+                          f"(bundle dir: {bundle_dir})")
                     self.audio_lane.clear_audio()
         else:
             # No audio for this show, clear it
@@ -1361,13 +1322,16 @@ class StructureTab(BaseTab):
             QMessageBox.critical(self, "Import Error", f"Failed to import CSV:\n{str(e)}")
 
     def _auto_save(self):
-        """Auto-save to config and CSV."""
-        if not self.current_show_name or not self.current_show:
-            return
+        """Hook called after in-memory edits. No-op today.
 
-        # Save to config (already updated in memory)
-        # Save to CSV
-        self._save_to_csv()
+        Edits already mutate self.config.shows in place, so nothing needs to
+        happen here for the YAML round-trip. The user persists via
+        ``File -> Save Configuration``. Previously this also wrote a CSV per
+        show on every edit, which created the parallel-filesystem problem
+        v1.0 set out to fix (config.yaml + shows/*.csv kept independently).
+        The autosave-to-yaml feature in v1.2 will land in this slot.
+        """
+        return
 
     def _save_to_csv(self):
         """Save current show structure to CSV file."""
@@ -1447,19 +1411,30 @@ class StructureTab(BaseTab):
         print(f"Successfully imported {imported_count} show(s) from {shows_dir}")
 
     def _on_audio_file_loaded(self, file_path: str):
-        """Handle audio file loaded - copy to audiofiles folder."""
+        """Handle audio file loaded - copy to <config_dir>/audiofiles/."""
         if not file_path or not self.current_show:
             return
 
-        # Ensure shows directory is configured
-        if not self._ensure_shows_directory():
+        # Resolve the bundle dir next to the config (creates it if needed).
+        # If the config has never been saved (no _loaded_from), we can't
+        # bundle - warn and keep the absolute path so playback still works.
+        audiofiles_dir = self.config.audio_bundle_dir(create=True)
+        if not audiofiles_dir:
+            QMessageBox.warning(
+                self,
+                "Audio Not Bundled",
+                "The config has not been saved yet, so the audio file path "
+                "will be stored as an absolute path.\n\n"
+                "Save the config to bundle audio under "
+                "<config_dir>/audiofiles/ on the next audio load."
+            )
+            if self.current_show.timeline_data is None:
+                self.current_show.timeline_data = TimelineData()
+            self.current_show.timeline_data.audio_file_path = os.path.abspath(file_path)
+            self._auto_save()
             return
 
-        # Copy audio file to audiofiles folder
         try:
-            audiofiles_dir = os.path.join(self.config.shows_directory, "audiofiles")
-            os.makedirs(audiofiles_dir, exist_ok=True)
-
             filename = os.path.basename(file_path)
             dest_path = os.path.join(audiofiles_dir, filename)
 
@@ -1479,7 +1454,7 @@ class StructureTab(BaseTab):
             QMessageBox.warning(
                 self,
                 "Audio Copy Error",
-                f"Failed to copy audio file to shows directory:\n{str(e)}"
+                f"Failed to copy audio file to bundle directory:\n{str(e)}"
             )
 
         # Update time display
@@ -1655,40 +1630,16 @@ class StructureTab(BaseTab):
             self.playback_sync = None
 
     def save_to_config(self):
-        """Save all show structures to configuration and CSV files."""
-        # Ensure shows directory is configured
-        if not self._ensure_shows_directory():
-            return
+        """Flush UI state into the in-memory Configuration. No-op today.
 
-        # Get all shows that have parts
-        shows_to_save = [(name, show) for name, show in self.config.shows.items()
-                         if show.parts]
-
-        if not shows_to_save:
-            print("No shows with parts to save")
-            return
-
-        # Create progress dialog
-        progress = QProgressDialog("Saving show structures...", "Cancel", 0, len(shows_to_save), self)
-        progress.setWindowTitle("Saving Shows")
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setMinimumDuration(0)  # Show immediately
-        progress.setValue(0)
-
-        saved_count = 0
-        for i, (show_name, show) in enumerate(shows_to_save):
-            if progress.wasCanceled():
-                break
-
-            progress.setLabelText(f"Saving {show_name}...")
-            progress.setValue(i)
-
-            # Save this show to CSV
-            self._save_show_to_csv(show_name, show)
-            saved_count += 1
-
-        progress.setValue(len(shows_to_save))
-        print(f"Saved {saved_count} show(s) to CSV")
+        Other tabs use this hook to copy widget state back to the config
+        object before File -> Save / Export. The structure tab's edits
+        already mutate self.config.shows in place as the user edits, so
+        nothing extra is needed here. Previously this method wrote a CSV
+        per show to disk - that behaviour moved to the explicit
+        File -> Export Show Structure action in v1.0.
+        """
+        return
 
     def _save_show_to_csv(self, show_name: str, show: Show):
         """Save a specific show structure to CSV file.
@@ -1720,33 +1671,20 @@ class StructureTab(BaseTab):
             print(f"Failed to save CSV for {show_name}: {e}")
 
     def on_tab_activated(self):
-        """Called when tab becomes visible."""
-        # Prevent recursive activation
-        if self._is_activating:
-            print("DEBUG: Skipping recursive activation")
-            return
+        """Called when tab becomes visible.
 
+        v1.0 made config.yaml the single source of truth, so this hook just
+        refreshes the UI from the in-memory config. Previously it prompted
+        for a shows_directory on first activation and silently scanned that
+        directory for CSV files; both behaviours moved out (shows_directory
+        is now a hint set via the "Set Shows Directory" button, and CSV
+        import is explicit via File -> Import Show Structure).
+        """
+        if self._is_activating:
+            return
         try:
             self._is_activating = True
-            print(f"DEBUG: Structure tab activated, shows_directory = {self.config.shows_directory}")
-
-            # Ensure shows directory is configured on first activation
-            if not self.config.shows_directory or not os.path.exists(self.config.shows_directory):
-                print("DEBUG: Prompting for shows directory...")
-                if not self._ensure_shows_directory():
-                    print("DEBUG: User cancelled directory selection")
-                    return  # User cancelled, don't proceed
-
-            # Auto-load shows and refresh the dropdown
-            print("DEBUG: Auto-loading shows...")
-            self._auto_load_shows()
-            print(f"DEBUG: After auto-load, config.shows has {len(self.config.shows)} shows")
-            print(f"DEBUG: Shows: {list(self.config.shows.keys())}")
             self.update_from_config()
-        except Exception as e:
-            print(f"ERROR in on_tab_activated: {e}")
-            import traceback
-            traceback.print_exc()
         finally:
             self._is_activating = False
 
