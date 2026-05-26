@@ -176,6 +176,62 @@ class TestFindNearestBeatTime:
         snapped = ss.find_nearest_beat_time(-1.0)
         assert snapped == 0.0
 
+    def test_half_beat_subdivision_snaps_to_offbeat(self):
+        # 120 BPM → seconds_per_beat = 0.5 → seconds_per_half = 0.25.
+        # 0.6 should snap to 0.5 (the off-beat between beats 1 and 2),
+        # NOT to 0.5 the on-beat. Both happen to coincide here, so use
+        # a target where they differ.
+        parts = [ShowPart(name="A", color="#FFF", signature="4/4",
+                          bpm=120.0, num_bars=4, transition="instant")]
+        ss = SongStructure()
+        ss.load_from_show_parts(parts)
+        # 0.27s with subdivision=2 should snap to the half-beat at 0.25s
+        # (closer than the on-beat at 0.5s and on-beat at 0.0s).
+        snapped = ss.find_nearest_beat_time(0.27, subdivision=2)
+        assert abs(snapped - 0.25) < 1e-6
+
+    def test_quarter_beat_subdivision_snaps_to_sixteenth(self):
+        # 120 BPM → seconds_per_beat = 0.5 → seconds_per_quarter = 0.125.
+        parts = [ShowPart(name="A", color="#FFF", signature="4/4",
+                          bpm=120.0, num_bars=4, transition="instant")]
+        ss = SongStructure()
+        ss.load_from_show_parts(parts)
+        # 0.13s with subdivision=4 should snap to 0.125s, not 0.0 or 0.25.
+        snapped = ss.find_nearest_beat_time(0.13, subdivision=4)
+        assert abs(snapped - 0.125) < 1e-6
+
+    def test_subdivision_default_matches_legacy_behaviour(self):
+        # subdivision omitted should behave identically to subdivision=1 — the
+        # legacy callers must continue to snap on-beat.
+        parts = [ShowPart(name="A", color="#FFF", signature="4/4",
+                          bpm=120.0, num_bars=4, transition="instant")]
+        ss = SongStructure()
+        ss.load_from_show_parts(parts)
+        # 0.27s should snap to 0.5 (closer than 0.0) at subdivision=1.
+        snapped_default = ss.find_nearest_beat_time(0.27)
+        snapped_explicit = ss.find_nearest_beat_time(0.27, subdivision=1)
+        assert snapped_default == snapped_explicit
+        assert abs(snapped_default - 0.5) < 1e-6
+
+    def test_subdivision_zero_or_negative_treated_as_one(self):
+        # Defensive: callers passing 0 or a negative number shouldn't divide
+        # by zero / flip the sign. We coerce to 1.
+        parts = [ShowPart(name="A", color="#FFF", signature="4/4",
+                          bpm=120.0, num_bars=4, transition="instant")]
+        ss = SongStructure()
+        ss.load_from_show_parts(parts)
+        assert ss.find_nearest_beat_time(0.27, subdivision=0) == \
+               ss.find_nearest_beat_time(0.27, subdivision=1)
+        assert ss.find_nearest_beat_time(0.27, subdivision=-3) == \
+               ss.find_nearest_beat_time(0.27, subdivision=1)
+
+    def test_subdivision_with_empty_structure(self):
+        # Default-bpm path (no parts loaded) should also honour subdivision.
+        # 120 BPM → 0.5s per beat → 0.25s per half. 0.27 → 0.25.
+        ss = SongStructure()
+        snapped = ss.find_nearest_beat_time(0.27, subdivision=2)
+        assert abs(snapped - 0.25) < 1e-6
+
 
 class TestGetBeatTimesInRange:
 

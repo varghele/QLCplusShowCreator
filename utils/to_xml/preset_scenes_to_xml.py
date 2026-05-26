@@ -1013,7 +1013,7 @@ def create_master_presets(
             function_id += 1
     _make_chaser("Effect - Strobe", strobe_steps, 125, "Effect_Strobe")
 
-    # --- Random Strobe: one random fixture at a time, exponential decay ---
+    # --- Random Stroke: one random fixture at a time, exponential decay ---
     import random as rng_module
     num_rstrobe_steps = max(8, len(all_fixtures) * 2)
     rstrobe_steps = []
@@ -1031,10 +1031,10 @@ def create_master_presets(
             create_scene_function(engine, function_id, f"RndStrobe Step {i+1}", fixture_values, hidden=True)
             rstrobe_steps.append(function_id)
             function_id += 1
-    _make_chaser("Effect - Random Strobe", rstrobe_steps, 125, "Effect_Random_Strobe")
+    _make_chaser("Effect - Random Stroke", rstrobe_steps, 125, "Effect_Random_Stroke")
 
-    # --- Twinkle: each fixture gets random intensity 30%-100% per step ---
-    twinkle_steps = []
+    # --- Sparkle: each fixture gets random intensity 30%-100% per step ---
+    sparkle_steps = []
     for i in range(16):
         fixture_values = []
         for j, (fixture_id, fixture) in enumerate(all_fixtures):
@@ -1048,10 +1048,10 @@ def create_master_presets(
                 channel_str = ",".join(f"{ch},{intensity}" for ch in dimmer_chs)
                 fixture_values.append((fixture_id, channel_str))
         if fixture_values:
-            create_scene_function(engine, function_id, f"Twinkle Step {i+1}", fixture_values, hidden=True)
-            twinkle_steps.append(function_id)
+            create_scene_function(engine, function_id, f"Sparkle Step {i+1}", fixture_values, hidden=True)
+            sparkle_steps.append(function_id)
             function_id += 1
-    _make_chaser("Effect - Twinkle", twinkle_steps, 200, "Effect_Twinkle")
+    _make_chaser("Effect - Sparkle", sparkle_steps, 200, "Effect_Sparkle")
 
     # --- Starfall: sequential cascade across all fixtures with exponential tail ---
     total_fixtures = len(all_fixtures)

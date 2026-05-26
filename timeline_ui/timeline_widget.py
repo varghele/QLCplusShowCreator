@@ -27,6 +27,13 @@ class TimelineWidget(QWidget):
         self.base_pixels_per_second = 60  # Base: 60 pixels per second
         self.pixels_per_second = self.base_pixels_per_second
         self.snap_to_grid = True
+        # Number of snap points per beat. 1=on-beat, 2=half-beat, 4=quarter-beat.
+        # Subdivision lines are visually rendered fainter than beat lines and
+        # are zoom-gated (hidden when too small to read — see draw_*_grid).
+        self.grid_subdivision = 1
+        # Below this many pixels per subdivision step, the extra grid lines
+        # become visual noise rather than guidance. Snap targets stay active.
+        self.min_subdivision_pixels = 12
         self.playhead_position = 0.0  # Position in seconds
         self.dragging_playhead = False
         self.min_zoom = 0.1
@@ -45,7 +52,12 @@ class TimelineWidget(QWidget):
 
         self.setMinimumHeight(60)
         self.update_timeline_width()
-        self.setStyleSheet("background-color: #f8f8f8; border: 1px solid #ddd;")
+        # Background and border come from the active theme via the
+        # `TimelineWidget` selector. No inline setStyleSheet here — it
+        # would override the theme. WA_StyledBackground is required for
+        # QSS background rules to render on plain QWidget subclasses;
+        # without it, super().paintEvent() leaves the widget transparent.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
     def update_timeline_width(self):
         """Update timeline width based on zoom level and song structure."""
@@ -91,6 +103,13 @@ class TimelineWidget(QWidget):
     def set_snap_to_grid(self, snap: bool):
         """Enable/disable snap to grid."""
         self.snap_to_grid = snap
+
+    def set_grid_subdivision(self, subdivision: int):
+        """Set how many snap steps fit in one beat. 1/2/4 are the supported
+        UI choices; values outside that range still work mathematically.
+        """
+        self.grid_subdivision = max(1, int(subdivision))
+        self.update()
 
     def set_playhead_position(self, position: float):
         """Set playhead position and update display."""
@@ -203,15 +222,20 @@ class TimelineWidget(QWidget):
         self.update()
 
     def find_nearest_beat_time(self, target_time: float) -> float:
-        """Find the nearest beat position using song structure if available."""
+        """Find the nearest snap position using song structure if available.
+
+        Honours ``self.grid_subdivision`` so half/quarter-beat snapping works
+        identically whether or not a song structure is loaded.
+        """
+        subdivision = max(1, int(self.grid_subdivision))
         if not (self.song_structure and hasattr(self.song_structure, 'parts') and self.song_structure.parts):
             # Fallback to simple beat snapping with default BPM
-            beat_duration = 60.0 / self.bpm
-            nearest_beat = round(target_time / beat_duration)
-            return nearest_beat * beat_duration
+            step_duration = (60.0 / self.bpm) / subdivision
+            nearest_step = round(target_time / step_duration)
+            return nearest_step * step_duration
 
-        # Use song structure's snap function
-        return self.song_structure.find_nearest_beat_time(target_time)
+        # Use song structure's snap function with current subdivision
+        return self.song_structure.find_nearest_beat_time(target_time, subdivision=subdivision)
 
     def draw_grid(self, painter, width, height):
         """Draw grid with song structure awareness."""
@@ -225,16 +249,27 @@ class TimelineWidget(QWidget):
             self.draw_basic_grid(painter, width, height)
 
     def draw_song_structure_grid(self, painter, width, height):
-        """Draw grid based on song structure."""
-        beat_pen = QPen(QColor("#cccccc"), 1)
-        bar_pen = QPen(QColor("#999999"), 2)
-        part_pen = QPen(QColor("#666666"), 3)
+        """Draw grid based on song structure, with optional sub-beat lines."""
+        # Semi-transparent neutral gray reads on both dark and light themes
+        # without needing explicit theme detection.
+        sub_pen = QPen(QColor(127, 127, 127, 40), 1, Qt.PenStyle.DotLine)
+        beat_pen = QPen(QColor(127, 127, 127, 80), 1)
+        bar_pen = QPen(QColor(127, 127, 127, 160), 2)
+        part_pen = QPen(QColor(127, 127, 127, 220), 3)
+
+        subdivision = max(1, int(self.grid_subdivision))
 
         num_parts = len(self.song_structure.parts)
         for part_idx, part in enumerate(self.song_structure.parts):
             beats_per_bar = self._get_beats_per_bar(part.signature)
             total_beats_in_part = int(part.num_bars * beats_per_bar)
             seconds_per_beat = 60.0 / part.bpm
+
+            # Pixels per subdivision step govern whether sub-beat lines are
+            # visible at the current zoom — under min_subdivision_pixels they
+            # smear together into noise, so we draw beats only.
+            pixels_per_step = (seconds_per_beat / subdivision) * self.pixels_per_second
+            draw_subs = subdivision > 1 and pixels_per_step >= self.min_subdivision_pixels
 
             # Draw part boundary
             start_x = round(self.time_to_pixel(part.start_time))
@@ -246,35 +281,51 @@ class TimelineWidget(QWidget):
             is_last_part = (part_idx == num_parts - 1)
             max_beat = total_beats_in_part if is_last_part else total_beats_in_part - 1
 
-            # Draw beat lines within this part
-            for beat_index in range(max_beat + 1):
-                beat_time = part.start_time + (beat_index * seconds_per_beat)
-                beat_x = round(self.time_to_pixel(beat_time))
+            steps_per_beat = subdivision if draw_subs else 1
+            seconds_per_step = seconds_per_beat / steps_per_beat
+            total_steps = max_beat * steps_per_beat + (steps_per_beat if is_last_part else 1)
 
-                if 0 <= beat_x <= width:
+            for step_index in range(total_steps + 1):
+                step_time = part.start_time + (step_index * seconds_per_step)
+                step_x = round(self.time_to_pixel(step_time))
+
+                if not (0 <= step_x <= width):
+                    continue
+
+                is_beat = (step_index % steps_per_beat == 0)
+                if not is_beat:
+                    painter.setPen(sub_pen)
+                else:
+                    beat_index = step_index // steps_per_beat
                     painter.setPen(bar_pen if beat_index % beats_per_bar == 0 else beat_pen)
-                    painter.drawLine(beat_x, 0, beat_x, height)
+                painter.drawLine(step_x, 0, step_x, height)
 
     def draw_basic_grid(self, painter, width, height):
         """Draw basic grid without song structure (time-based)."""
-        beat_pen = QPen(QColor("#cccccc"), 1)
-        bar_pen = QPen(QColor("#999999"), 2)
+        sub_pen = QPen(QColor(127, 127, 127, 40), 1, Qt.PenStyle.DotLine)
+        beat_pen = QPen(QColor(127, 127, 127, 80), 1)
+        bar_pen = QPen(QColor(127, 127, 127, 160), 2)
 
+        subdivision = max(1, int(self.grid_subdivision))
         seconds_per_beat = 60.0 / self.bpm
-        beat_count = 0
-        beat_time = 0.0
+        pixels_per_step = (seconds_per_beat / subdivision) * self.pixels_per_second
+        draw_subs = subdivision > 1 and pixels_per_step >= self.min_subdivision_pixels
+        steps_per_beat = subdivision if draw_subs else 1
+        seconds_per_step = seconds_per_beat / steps_per_beat
+
         max_time = width / self.pixels_per_second
-
-        while beat_time <= max_time:
-            x = round(self.time_to_pixel(beat_time))
-            if beat_count % 4 == 0:
-                painter.setPen(bar_pen)
+        step_count = 0
+        step_time = 0.0
+        while step_time <= max_time:
+            x = round(self.time_to_pixel(step_time))
+            if step_count % steps_per_beat != 0:
+                painter.setPen(sub_pen)
             else:
-                painter.setPen(beat_pen)
-
+                beat_index = step_count // steps_per_beat
+                painter.setPen(bar_pen if beat_index % 4 == 0 else beat_pen)
             painter.drawLine(x, 0, x, height)
-            beat_count += 1
-            beat_time = beat_count * seconds_per_beat
+            step_count += 1
+            step_time = step_count * seconds_per_step
 
     def draw_playhead(self, painter, width, height):
         """Draw playhead at time position."""
@@ -311,7 +362,7 @@ class TimelineWidget(QWidget):
         if self.num_sublanes <= 1:
             return
 
-        separator_pen = QPen(QColor("#666666"), 1, Qt.PenStyle.DashLine)
+        separator_pen = QPen(QColor(127, 127, 127, 200), 1, Qt.PenStyle.DashLine)
         painter.setPen(separator_pen)
 
         for i in range(1, self.num_sublanes):

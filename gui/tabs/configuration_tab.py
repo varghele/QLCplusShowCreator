@@ -1,11 +1,40 @@
 # gui/tabs/configuration_tab.py
 
 from PyQt6 import QtWidgets, QtCore
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QBrush, QColor, QFont
 from PyQt6.QtCore import Qt
 from config.models import Configuration, Universe
 from utils.dmx_device_detection import get_device_display_names, get_device_port_by_display_name
 from .base_tab import BaseTab
+
+
+# Mid-grey applied to the *foreground* of disabled cells so the dim
+# state is visible in both light and dark themes. We can't paint the
+# background (the previous ``Qt.GlobalColor.lightGray`` looked bright
+# in dark mode and broke `setBackground` row-tinting elsewhere via the
+# ``QTableView::item`` QSS gotcha if we tried to fix it that way), and
+# QSS has no `QTableView::item:disabled` selector for the same reason.
+# A neutral 127-grey is dimmer than the primary text in dark mode
+# (#e0e0e0) and dimmer than the primary text in light mode (#222222),
+# so the disabled affordance reads consistently in both. Applied via
+# `setForeground` because per-item brushes still work — only the
+# `QTableView::item` selector would block them.
+_DISABLED_FG = QBrush(QColor(127, 127, 127))
+
+# Shared toolbar icon-button width for the +/-/duplicate buttons in
+# this tab and FixturesTab. We deliberately do NOT use
+# ``density="compact"`` — at this size the default theme padding
+# (``QPushButton { padding: 6px 14px; min-height: 22px; }``) renders
+# the glyph with the same proportions as the surrounding text
+# buttons (Refresh / Update), so a row of mixed icon-and-text
+# buttons reads as a uniform set. Compact-density buttons sat
+# snugly with 2×4 padding which made them look like a different
+# class of widget. Width is fixed at 40 to give the wider ``⎘``
+# glyph a little headroom; height is left free so the natural
+# ~36 px from the QSS min-height + padding wins.
+TOOLBAR_BTN_WIDTH = 40
+TOOLBAR_BTN_SIZE = TOOLBAR_BTN_WIDTH  # back-compat alias for tests
+_TOOLBAR_BTN_WIDTH = TOOLBAR_BTN_WIDTH
 
 
 class ConfigurationTab(BaseTab):
@@ -50,15 +79,20 @@ class ConfigurationTab(BaseTab):
         toolbar = QtWidgets.QHBoxLayout()
         toolbar.setSpacing(8)
 
-        # Add Universe button
+        # Add Universe button. Width is fixed (so the icon buttons
+        # line up uniformly), height is left to the theme's natural
+        # ~36 px so the icon buttons share the same row height as the
+        # Refresh / Update text buttons next to them. We deliberately
+        # don't use ``density="compact"`` — see TOOLBAR_BTN_WIDTH for
+        # the rationale.
         self.add_universe_btn = QtWidgets.QPushButton("+")
-        self.add_universe_btn.setFixedSize(31, 31)
+        self.add_universe_btn.setFixedWidth(_TOOLBAR_BTN_WIDTH)
         self.add_universe_btn.setToolTip("Add Universe")
         toolbar.addWidget(self.add_universe_btn)
 
         # Remove Universe button
         self.remove_universe_btn = QtWidgets.QPushButton("-")
-        self.remove_universe_btn.setFixedSize(31, 31)
+        self.remove_universe_btn.setFixedWidth(_TOOLBAR_BTN_WIDTH)
         self.remove_universe_btn.setToolTip("Remove Universe")
         toolbar.addWidget(self.remove_universe_btn)
 
@@ -115,13 +149,10 @@ class ConfigurationTab(BaseTab):
                 "  etc."
             )
 
-        # Set table properties
-        self.universe_list.setSelectionBehavior(
-            QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
-        )
-        self.universe_list.setSelectionMode(
-            QtWidgets.QAbstractItemView.SelectionMode.SingleSelection
-        )
+        # Modern table styling (alternating rows, no grid, row selection,
+        # padded headers). Visuals come from the active theme stylesheet.
+        from gui.widgets.modern_table import apply_modern_table_style
+        apply_modern_table_style(self.universe_list)
 
         # Make table stretch to fill available space
         self.universe_list.setSizePolicy(
@@ -260,14 +291,19 @@ class ConfigurationTab(BaseTab):
     def _update_row_visibility(self, row: int, protocol: str):
         """Update which columns are visible/enabled for a row based on protocol"""
 
-        # Reset all items to enabled state first
+        # Reset all items to enabled state first. Clearing the brushes
+        # (``QBrush()`` is the default invalid brush) lets the active
+        # theme paint the cell — previously this hardcoded
+        # ``Qt.GlobalColor.white`` which made the dark theme look like
+        # a checker-board of glaring white cells.
         for col in range(self.COL_MULTICAST, self.COL_DMX_DEVICE + 1):
             item = self.universe_list.item(row, col)
             widget = self.universe_list.cellWidget(row, col)
 
             if item:
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsEditable)
-                item.setBackground(Qt.GlobalColor.white)
+                item.setBackground(QBrush())
+                item.setForeground(QBrush())
             if widget:
                 widget.setEnabled(True)
 
@@ -294,7 +330,7 @@ class ConfigurationTab(BaseTab):
                     ip_item = self.universe_list.item(row, self.COL_IP_ADDRESS)
                     if ip_item:
                         ip_item.setFlags(ip_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                        ip_item.setBackground(QtCore.Qt.GlobalColor.lightGray)
+                        ip_item.setForeground(_DISABLED_FG)
 
         elif protocol == "DMX USB":
             # Show: DMX Device
@@ -312,7 +348,11 @@ class ConfigurationTab(BaseTab):
 
         if item:
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable & ~Qt.ItemFlag.ItemIsEnabled)
-            item.setBackground(QtCore.Qt.GlobalColor.lightGray)
+            # Theme-neutral dim. Background stays at the theme's default
+            # so we don't punch a bright hole in the dark theme's table;
+            # the foreground tint plus Qt's flag-based unclickable state
+            # are enough to communicate "disabled".
+            item.setForeground(_DISABLED_FG)
             item.setText("")  # Clear irrelevant data
 
         if widget:
@@ -367,12 +407,12 @@ class ConfigurationTab(BaseTab):
                 if ip_item:
                     ip_item.setText(multicast_ip)
                     ip_item.setFlags(ip_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                    ip_item.setBackground(QtCore.Qt.GlobalColor.lightGray)
+                    ip_item.setForeground(_DISABLED_FG)
         else:
             # Allow manual IP entry
             if ip_item:
                 ip_item.setFlags(ip_item.flags() | Qt.ItemFlag.ItemIsEditable)
-                ip_item.setBackground(Qt.GlobalColor.white)
+                ip_item.setForeground(QBrush())
 
         # Update config
         universe_id_item = self.universe_list.item(row, self.COL_UNIVERSE_ID)

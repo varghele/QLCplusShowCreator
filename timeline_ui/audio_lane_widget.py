@@ -90,13 +90,7 @@ class AudioLaneWidget(QFrame):
         self.setLineWidth(1)
         self.setMinimumHeight(100)
         self.setMaximumHeight(140)
-        self.setStyleSheet("""
-            AudioLaneWidget {
-                background-color: #1a2a3a;
-                border: 1px solid #3d5a7a;
-                border-radius: 4px;
-            }
-        """)
+        # Background tint from `AudioLaneWidget` selector in the active theme.
 
         self.setup_ui()
 
@@ -105,11 +99,12 @@ class AudioLaneWidget(QFrame):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Lane controls section (left side)
-        controls_widget = self.create_controls_widget()
-        main_layout.addWidget(controls_widget)
+        # Build the two pieces — controls on the left, timeline on the right.
+        # When this widget is embedded in TimelineGrid, detach_pieces() will
+        # tear this layout down and hand both children to the grid.
+        self.controls_widget = self.create_controls_widget()
+        main_layout.addWidget(self.controls_widget)
 
-        # Timeline section (right side) - scrollable
         self.timeline_scroll = QScrollArea()
         self.timeline_widget = AudioTimelineWidget()
         self.timeline_widget.zoom_changed.connect(self.zoom_changed.emit)
@@ -129,11 +124,30 @@ class AudioLaneWidget(QFrame):
 
         main_layout.addWidget(self.timeline_scroll, 1)
 
+    def detach_pieces(self):
+        """Return (header_widget, stripe_widget) for embedding in TimelineGrid.
+
+        After this call ``self`` no longer renders its own UI — the inner
+        scrollarea is gone and ``controls_widget`` / ``timeline_widget`` are
+        free to be re-parented. Signals on ``self`` keep working because
+        they're wired to the timeline widget directly.
+        """
+        if hasattr(self, "timeline_scroll") and self.timeline_scroll is not None:
+            self.timeline_scroll.takeWidget()
+            self.timeline_scroll.setParent(None)
+            self.timeline_scroll = None
+        return self.controls_widget, self.timeline_widget
+
     def create_controls_widget(self):
-        """Create the lane controls section."""
+        """Create the lane controls section. All visuals come from the
+        active theme — only structural styling stays inline."""
         widget = QWidget()
+        # Object-name + WA_StyledBackground so the theme's
+        # `QWidget#AudioLaneHeader` rule paints the bg after the
+        # controls widget is detached and re-parented into TimelineGrid.
+        widget.setObjectName("AudioLaneHeader")
+        widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         widget.setFixedWidth(320)
-        widget.setStyleSheet("background-color: #1a2a3a;")
         layout = QVBoxLayout(widget)
         layout.setSpacing(4)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -141,7 +155,7 @@ class AudioLaneWidget(QFrame):
         # Row 1: Audio label
         title_layout = QHBoxLayout()
         title_label = QLabel("Audio Track")
-        title_label.setStyleSheet("color: #7eb8ff; font-weight: bold; font-size: 13px;")
+        title_label.setStyleSheet("font-weight: bold; font-size: 13px;")
         title_layout.addWidget(title_label)
         title_layout.addStretch()
         layout.addLayout(title_layout)
@@ -152,34 +166,15 @@ class AudioLaneWidget(QFrame):
         self.file_path_edit = QLineEdit()
         self.file_path_edit.setPlaceholderText("No audio file loaded")
         self.file_path_edit.setReadOnly(True)
-        self.file_path_edit.setStyleSheet("""
-            QLineEdit {
-                background-color: #2d3d4d;
-                color: #aabbcc;
-                border: 1px solid #3d5a7a;
-                border-radius: 3px;
-                padding: 3px 5px;
-                font-size: 10px;
-            }
-        """)
         file_layout.addWidget(self.file_path_edit, 1)
 
         self.load_button = QPushButton("Load")
         self.load_button.setFixedWidth(50)
+        # density=compact tightens padding so "Load" fits in 50 px wide;
+        # the global 6×14 padding leaves only 22 px for the text and
+        # crushes it.
+        self.load_button.setProperty("density", "compact")
         self.load_button.clicked.connect(self._on_load_clicked)
-        self.load_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4a6a8a;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 3px;
-                padding: 4px 8px;
-            }
-            QPushButton:hover {
-                background-color: #5a7a9a;
-            }
-        """)
         file_layout.addWidget(self.load_button)
 
         layout.addLayout(file_layout)
@@ -187,62 +182,36 @@ class AudioLaneWidget(QFrame):
         # Row 3: Volume and mute controls
         controls_layout = QHBoxLayout()
 
-        # Mute button
+        # Mute button — :checked state is data-driven; theme handles base look,
+        # the inline :checked rule colors it red when engaged.
+        # density=compact gives tight padding so "M" fits the 30×25 fixed size.
+        # (Don't use "size" as the property name — collides with Qt's
+        # built-in QSize geometry property and is silently ignored.)
         self.mute_button = QPushButton("M")
         self.mute_button.setFixedSize(30, 25)
         self.mute_button.setCheckable(True)
+        self.mute_button.setProperty("density", "compact")
         self.mute_button.toggled.connect(self._on_mute_toggled)
-        self.mute_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3d5a7a;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #4d6a8a;
-            }
-            QPushButton:checked {
-                background-color: #d32f2f;
-            }
-        """)
+        self.mute_button.setStyleSheet(
+            "QPushButton:checked { background-color: #d32f2f; color: white; "
+            "border-color: #b71c1c; }"
+        )
         controls_layout.addWidget(self.mute_button)
 
-        # Volume icon
         vol_label = QLabel("Vol:")
-        vol_label.setStyleSheet("color: #aabbcc; font-size: 11px;")
+        vol_label.setStyleSheet("font-size: 11px;")
         controls_layout.addWidget(vol_label)
 
-        # Volume slider
         self.volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.volume_slider.setRange(0, 100)
         self.volume_slider.setValue(100)
         self.volume_slider.setFixedWidth(100)
         self.volume_slider.valueChanged.connect(self._on_volume_changed)
-        self.volume_slider.setStyleSheet("""
-            QSlider::groove:horizontal {
-                background: #2d3d4d;
-                height: 6px;
-                border-radius: 3px;
-            }
-            QSlider::handle:horizontal {
-                background: #7eb8ff;
-                width: 12px;
-                margin: -3px 0;
-                border-radius: 6px;
-            }
-            QSlider::sub-page:horizontal {
-                background: #4a6a8a;
-                border-radius: 3px;
-            }
-        """)
         controls_layout.addWidget(self.volume_slider)
 
-        # Volume percentage label
         self.volume_label = QLabel("100%")
         self.volume_label.setFixedWidth(35)
-        self.volume_label.setStyleSheet("color: #aabbcc; font-size: 10px;")
+        self.volume_label.setStyleSheet("font-size: 10px;")
         controls_layout.addWidget(self.volume_label)
 
         controls_layout.addStretch()
@@ -340,30 +309,9 @@ class AudioLaneWidget(QFrame):
         # Volume control will be connected to audio engine by parent
 
     def _on_mute_toggled(self, checked: bool):
-        """Handle mute button toggle."""
-        if checked:
-            self.mute_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #d32f2f;
-                    color: white;
-                    font-weight: bold;
-                    border: none;
-                    border-radius: 3px;
-                }
-            """)
-        else:
-            self.mute_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #3d5a7a;
-                    color: white;
-                    font-weight: bold;
-                    border: none;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #4d6a8a;
-                }
-            """)
+        """Handle mute button toggle. Visuals are driven by the :checked
+        rule on the button's persistent stylesheet; this slot only forwards
+        the state to whatever consumer the parent has wired up."""
         # Mute state will be connected to audio engine by parent
 
     def is_muted(self) -> bool:

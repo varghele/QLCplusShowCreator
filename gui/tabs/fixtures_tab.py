@@ -4,7 +4,7 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 from PyQt6 import QtWidgets, QtCore, QtGui
-from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLineEdit
+from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QFormLayout, QLineEdit, QComboBox
 from PyQt6.QtGui import QFont
 from config.models import Configuration, Fixture, FixtureMode, FixtureGroup
 from utils.fixture_utils import determine_fixture_type, get_cached_fixture_definitions
@@ -98,21 +98,29 @@ class FixturesTab(BaseTab):
         toolbar = QtWidgets.QHBoxLayout()
         toolbar.setSpacing(8)
 
-        # Add Fixture button
+        # Toolbar +/-/duplicate buttons share styling with
+        # ConfigurationTab via TOOLBAR_BTN_WIDTH. Default theme
+        # padding (no compact-density) so the icon buttons render
+        # with the same proportions as default text buttons elsewhere
+        # — when the user compared this tab to ConfigurationTab the
+        # compact-density flavour was reading as a different class
+        # of widget than the Refresh / Update buttons that share
+        # ConfigurationTab's toolbar. Default styling everywhere is
+        # the simplest way to keep them visually consistent.
+        from gui.tabs.configuration_tab import TOOLBAR_BTN_WIDTH
+
         self.add_btn = QtWidgets.QPushButton("+")
-        self.add_btn.setFixedSize(31, 31)
+        self.add_btn.setFixedWidth(TOOLBAR_BTN_WIDTH)
         self.add_btn.setToolTip("Add Fixture")
         toolbar.addWidget(self.add_btn)
 
-        # Remove Fixture button
         self.remove_btn = QtWidgets.QPushButton("-")
-        self.remove_btn.setFixedSize(31, 31)
+        self.remove_btn.setFixedWidth(TOOLBAR_BTN_WIDTH)
         self.remove_btn.setToolTip("Remove Fixture")
         toolbar.addWidget(self.remove_btn)
 
-        # Duplicate Fixture button
         self.duplicate_btn = QtWidgets.QPushButton("⎘")
-        self.duplicate_btn.setFixedSize(31, 31)
+        self.duplicate_btn.setFixedWidth(TOOLBAR_BTN_WIDTH)
         self.duplicate_btn.setToolTip("Duplicate Fixture")
         toolbar.addWidget(self.duplicate_btn)
 
@@ -124,8 +132,13 @@ class FixturesTab(BaseTab):
         self.label.setFont(QFont("", 14, QFont.Weight.Bold))
         main_layout.addWidget(self.label)
 
-        # Fixtures table
-        self.table = QtWidgets.QTableWidget()
+        # Fixtures table — RowOutlineTableWidget paints a continuous
+        # selection outline around the entire row, including across cells
+        # that host widgets via setCellWidget (Universe spin, Address spin,
+        # Mode/Group/Role combos). See gui/widgets/row_outline_table.py and
+        # docs/qt-gotchas.md for why a per-cell delegate can't do this.
+        from gui.widgets.row_outline_table import RowOutlineTableWidget
+        self.table = RowOutlineTableWidget()
 
         # Setup table structure
         self._setup_table()
@@ -138,7 +151,7 @@ class FixturesTab(BaseTab):
     def _setup_table(self):
         """Initialize table structure and properties"""
         headers = ['Universe', 'Address', 'Manufacturer', 'Model', 'Channels',
-                   'Mode', 'Name', 'Group']
+                   'Mode', 'Name', 'Group', 'Role']
         self.table.setColumnCount(len(headers))
         self.table.setHorizontalHeaderLabels(headers)
 
@@ -153,20 +166,29 @@ class FixturesTab(BaseTab):
         )
 
         # Set initial column widths (these are now resizable)
-        self.table.setColumnWidth(0, 70)   # Universe
-        self.table.setColumnWidth(1, 70)   # Address
+        self.table.setColumnWidth(0, 80)   # Universe
+        self.table.setColumnWidth(1, 80)   # Address
         self.table.setColumnWidth(2, 180)  # Manufacturer
         self.table.setColumnWidth(3, 180)  # Model
-        self.table.setColumnWidth(4, 70)   # Channels
-        self.table.setColumnWidth(5, 140)  # Mode
+        self.table.setColumnWidth(4, 80)   # Channels
+        self.table.setColumnWidth(5, 170)  # Mode (wider — values like "14-Channel" + dropdown arrow)
         self.table.setColumnWidth(6, 140)  # Name
-        self.table.setColumnWidth(7, 140)  # Group
+        self.table.setColumnWidth(7, 190)  # Group (wider — editable combo + dropdown arrow + group name)
 
-        # Table properties
+        # Modern table styling — alternating rows, no grid, padded headers.
+        # Visuals come from the active theme stylesheet.
+        from gui.widgets.modern_table import apply_modern_table_style
+        apply_modern_table_style(self.table)
+        # Selection delegate — strips State_Selected before super().paint
+        # so Qt doesn't fill the cell with the opaque selection brush and
+        # cover the per-row group tint. The visible selection outline is
+        # drawn by RowOutlineTableWidget at the table (overlay) level.
+        from gui.widgets.group_row_delegate import GroupRowDelegate
+        self._group_row_delegate = GroupRowDelegate(self.table)
+        self.table.setItemDelegate(self._group_row_delegate)
         self.table.setSortingEnabled(True)
-        self.table.setShowGrid(True)
-        self.table.setAlternatingRowColors(True)
-        self.table.horizontalHeader().setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
+        # Header alignment now comes from apply_modern_table_style so
+        # every table in the app reads the same.
 
     def connect_signals(self):
         """Connect widget signals to handlers"""
@@ -240,13 +262,12 @@ class FixturesTab(BaseTab):
             address_spin.valueChanged.connect(self.save_to_config)
             self.table.setCellWidget(row, 1, address_spin)
 
-            # Manufacturer and Model
+            # Manufacturer and Model — no inline background; theme + the
+            # group-tint logic in _update_row_colors set it.
             manufacturer_item = QtWidgets.QTableWidgetItem(fixture.manufacturer)
-            manufacturer_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
             self.table.setItem(row, 2, manufacturer_item)
 
             model_item = QtWidgets.QTableWidgetItem(fixture.model)
-            model_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
             self.table.setItem(row, 3, model_item)
 
             # Mode combo box
@@ -266,9 +287,18 @@ class FixturesTab(BaseTab):
                 if index >= 0:
                     mode_combo.setCurrentIndex(index)
                     channels = fixture.available_modes[index].channels
-                    channels_item = QtWidgets.QTableWidgetItem(str(channels))
-                    channels_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
-                    self.table.setItem(row, 4, channels_item)
+                else:
+                    # current_mode doesn't exactly match any available_modes
+                    # entry — fall back to the first mode rather than leaving
+                    # the cell empty. This path triggered the "channels lost
+                    # on duplicate" bug whenever stored current_mode drifted
+                    # out of sync with available_modes (e.g. saved + reloaded
+                    # configs, or any path that mutates one without the other).
+                    channels = fixture.available_modes[0].channels
+                # Always set the channels item; never leave it empty when the
+                # fixture has any modes at all.
+                channels_item = QtWidgets.QTableWidgetItem(str(channels))
+                self.table.setItem(row, 4, channels_item)
 
                 # Create closure for mode change handler
                 def create_mode_handler(current_row, modes):
@@ -276,7 +306,6 @@ class FixturesTab(BaseTab):
                         if 0 <= index < len(modes):
                             channels = modes[index].channels
                             channels_item = QtWidgets.QTableWidgetItem(str(channels))
-                            channels_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
                             self.table.setItem(current_row, 4, channels_item)
                             self.config.fixtures[current_row].current_mode = modes[index].name
                             self._update_row_colors()
@@ -292,14 +321,12 @@ class FixturesTab(BaseTab):
             else:
                 mode_combo.addItem(fixture.current_mode)
                 channels_item = QtWidgets.QTableWidgetItem("0")
-                channels_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
                 self.table.setItem(row, 4, channels_item)
 
             self.table.setCellWidget(row, 5, mode_combo)
 
-            # Name
+            # Name — theme + group-tint handle background.
             name_item = QtWidgets.QTableWidgetItem(fixture.name)
-            name_item.setBackground(QtGui.QColor(255, 255, 255))  # White background
             self.table.setItem(row, 6, name_item)
 
             # Group combo box
@@ -333,6 +360,30 @@ class FixturesTab(BaseTab):
 
             group_combo.currentTextChanged.connect(create_group_handler(row, group_combo))
             self.table.setCellWidget(row, 7, group_combo)
+
+            # Role combo box (per group — all fixtures in the same group share a role)
+            role_combo = QComboBox()
+            role_combo.addItems(["", "wash", "key", "texture", "accent"])
+            # Read current role from group if fixture has one
+            if fixture.group and fixture.group in self.config.groups:
+                current_role = self.config.groups[fixture.group].lighting_role or ""
+                idx = role_combo.findText(current_role)
+                if idx >= 0:
+                    role_combo.setCurrentIndex(idx)
+
+            def create_role_handler(current_row):
+                def handle_role_change(text):
+                    if self._is_rebuilding:
+                        return
+                    fix = self.config.fixtures[current_row]
+                    if fix.group and fix.group in self.config.groups:
+                        self.config.groups[fix.group].lighting_role = text
+                        # Update all other rows in the same group
+                        self._sync_role_combos(fix.group, text)
+                return handle_role_change
+
+            role_combo.currentTextChanged.connect(create_role_handler(row))
+            self.table.setCellWidget(row, 8, role_combo)
 
         # Re-enable signals and update colors
         self.table.blockSignals(False)
@@ -404,7 +455,10 @@ class FixturesTab(BaseTab):
             main_window.on_groups_changed()
 
     def _update_groups(self):
-        """Rebuild groups from fixtures, preserving colors and orientation defaults"""
+        """Rebuild groups from fixtures, preserving colors, orientation defaults, and lighting roles"""
+        # Apply any pending role from new group creation
+        pending_role = getattr(self, '_pending_group_role', None)
+
         # Store existing group properties (colors and orientation defaults)
         existing_props = {
             name: {
@@ -414,6 +468,7 @@ class FixturesTab(BaseTab):
                 'default_pitch': getattr(group, 'default_pitch', 0.0),
                 'default_roll': getattr(group, 'default_roll', 0.0),
                 'default_z_height': getattr(group, 'default_z_height', 3.0),
+                'lighting_role': getattr(group, 'lighting_role', ''),
             }
             for name, group in self.config.groups.items()
         }
@@ -434,19 +489,31 @@ class FixturesTab(BaseTab):
                         default_pitch=props.get('default_pitch', 0.0),
                         default_roll=props.get('default_roll', 0.0),
                         default_z_height=props.get('default_z_height', 3.0),
+                        lighting_role=props.get('lighting_role', ''),
                     )
                 self.config.groups[fixture.group].fixtures.append(fixture)
+
+        # Apply pending lighting role from new group creation
+        if pending_role:
+            group_name, role = pending_role
+            if group_name in self.config.groups:
+                self.config.groups[group_name].lighting_role = role
+            self._pending_group_role = None
 
         # Update existing groups set
         self.existing_groups = set(self.config.groups.keys())
 
     def _handle_new_group(self, group_combo):
-        """Show dialog to create new group"""
+        """Show dialog to create new group with optional lighting role"""
         dialog = QDialog(self)
         dialog.setWindowTitle("Add New Group")
         layout = QFormLayout()
         new_group_input = QLineEdit()
         layout.addRow("Group Name:", new_group_input)
+
+        role_combo = QComboBox()
+        role_combo.addItems(["", "wash", "key", "texture", "accent"])
+        layout.addRow("Lighting Role:", role_combo)
 
         button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok |
@@ -461,6 +528,9 @@ class FixturesTab(BaseTab):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_group = new_group_input.text().strip()
             if new_group:
+                # Store the role for when the group gets created in _update_groups
+                self._pending_group_role = (new_group, role_combo.currentText())
+
                 # Update the current fixture's group combobox
                 current_index = group_combo.findText("Add New...")
                 group_combo.removeItem(current_index)
@@ -487,6 +557,20 @@ class FixturesTab(BaseTab):
                     add_new_index = combo.findText("Add New...")
                     if add_new_index != -1:
                         combo.insertItem(add_new_index, group_name)
+
+    def _sync_role_combos(self, group_name: str, role: str):
+        """Sync all role combos for fixtures in the same group."""
+        for row in range(self.table.rowCount()):
+            if row >= len(self.config.fixtures):
+                continue
+            if self.config.fixtures[row].group == group_name:
+                combo = self.table.cellWidget(row, 8)
+                if combo and isinstance(combo, QComboBox):
+                    combo.blockSignals(True)
+                    idx = combo.findText(role)
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+                    combo.blockSignals(False)
 
     def _update_row_colors(self):
         """Apply group colors to table rows"""
@@ -530,35 +614,59 @@ class FixturesTab(BaseTab):
                                     self.color_index += 1
 
                         color = self.group_colors[group_name]
+                        # Pick text foreground from background luminance so
+                        # readability survives any group color (predefined
+                        # pastels resolve to black; a dark custom color
+                        # would automatically flip to white).
+                        luminance = (
+                            0.299 * color.red()
+                            + 0.587 * color.green()
+                            + 0.114 * color.blue()
+                        ) / 255.0
+                        fg = QtGui.QColor(0, 0, 0) if luminance > 0.5 else QtGui.QColor(255, 255, 255)
+                        fg_hex = fg.name()
 
-                        # Apply color to all cells in row
+                        # Iterate every column once; text cells get
+                        # item.setBackground / setForeground (Qt paints those
+                        # via the delegate now that the QTableView::item rule
+                        # is gone), widget cells get a per-widget stylesheet
+                        # that overrides only background-color + color while
+                        # the global theme still supplies border / padding.
+                        widget_qss = (
+                            f"background-color: {color.name()}; color: {fg_hex};"
+                        )
                         for col in range(self.table.columnCount()):
                             item = self.table.item(row, col)
-                            if not item and not self.table.cellWidget(row, col):
-                                self.table.setItem(row, col, QtWidgets.QTableWidgetItem(""))
-
-                            if item:
+                            if item is not None:
                                 item.setBackground(color)
-
+                                item.setForeground(fg)
                             cell_widget = self.table.cellWidget(row, col)
-                            if cell_widget:
-                                cell_widget.setStyleSheet(f"background-color: {color.name()};")
+                            if cell_widget is not None:
+                                cell_widget.setStyleSheet(widget_qss)
 
-                        # Update group color in configuration
                         if group_name in self.config.groups:
                             self.config.groups[group_name].color = color.name()
                     else:
-                        # Reset color to white if no group
-                        white_color = QtGui.QColor(255, 255, 255)
+                        # Ungrouped — clear every per-cell override so theme
+                        # defaults apply on both items and cell widgets.
+                        empty_brush = QtGui.QBrush()
                         for col in range(self.table.columnCount()):
                             item = self.table.item(row, col)
-                            if item:
-                                item.setBackground(white_color)
+                            if item is not None:
+                                item.setBackground(empty_brush)
+                                item.setForeground(empty_brush)
                             cell_widget = self.table.cellWidget(row, col)
-                            if cell_widget:
-                                cell_widget.setStyleSheet("background-color: white;")
+                            if cell_widget is not None:
+                                cell_widget.setStyleSheet("")
         finally:
-            pass  # setUpdatesEnabled removed to avoid Qt stack overflow
+            # Force a viewport repaint. Cell widgets repaint themselves
+            # synchronously when their stylesheet changes, but
+            # QTableWidgetItem.setBackground / setForeground only mark
+            # cells dirty — Qt batches the actual repaint, which can lag
+            # a frame behind interactive events like typing in a combo.
+            # Without this, text cells would only catch up once another
+            # event triggered the next paint cycle.
+            self.table.viewport().update()
 
     def _add_fixture(self):
         """Show dialog to add fixture from QLC+ definitions"""

@@ -2,6 +2,7 @@
 # Fixture rendering for the 3D visualizer
 
 import math
+import os
 import numpy as np
 import moderngl
 import glm
@@ -9,6 +10,24 @@ from typing import Dict, List, Any, Optional, Tuple
 from abc import ABC, abstractmethod
 
 from utils.geometry import GeometryBuilder
+
+
+# ---------------------------------------------------------------------------
+# Feature flag — Phase D fixture-rewrite cutover.
+# ---------------------------------------------------------------------------
+#
+# Default is now the composable renderer
+# (:mod:`visualizer.renderer.composable_fixtures`). Visual regression
+# tests (tests/visual/test_fixture_renderer_parity.py) pass for all 6
+# custom fixtures with the cone properly oriented along the head's local
+# +X for moving yokes.
+#
+# Set ``FIXTURE_RENDERER=legacy`` in the environment to fall back to the
+# original 6-subclass dispatch (kept available for parity comparison
+# and rollback during the v1.0 transition).
+
+FIXTURE_RENDERER_MODE = os.environ.get('FIXTURE_RENDERER', 'composable').lower()
+USE_COMPOSABLE_RENDERER = FIXTURE_RENDERER_MODE == 'composable'
 
 
 # Warm white color temperature (~2700K)
@@ -112,7 +131,7 @@ uniform float beam_intensity;
 
 void main() {
     // Fade out toward edges and along length
-    float alpha = v_alpha * beam_intensity * 0.3;
+    float alpha = v_alpha * beam_intensity * 0.8;
     fragColor = vec4(beam_color, alpha);
 }
 """
@@ -500,6 +519,9 @@ class FixtureRenderer(ABC):
         # Beam properties
         self.beam_angle = fixture_data.get('beam_angle', 25.0)
 
+        # Brightness scaling (set by FixtureManager based on lumen normalization)
+        self.brightness_scale = 1.0
+
         # Current DMX state
         self.dmx_values: Dict[str, int] = {}
         self.segment_values: List[int] = []  # Per-segment DMX values
@@ -664,8 +686,7 @@ class FixtureRenderer(ABC):
 
             self.beam_program['mvp'].write(mvp_bytes)
             self.beam_program['beam_color'].value = color
-            # Lower intensity than MH beams for subtlety
-            self.beam_program['beam_intensity'].value = dimmer * 0.6
+            self.beam_program['beam_intensity'].value = dimmer * self.brightness_scale
 
             self.beam_vao.render(moderngl.TRIANGLES)
 
@@ -901,7 +922,7 @@ class LEDBarRenderer(FixtureRenderer):
             fragment_shader=BEAM_FRAGMENT_SHADER
         )
 
-        beam_length = 0.3  # Max 0.3m as specified
+        beam_length = 0.3  # Short glow near fixture face
         beam_width = self.segment_width * 0.7
         beam_height = self.segment_height * 0.7
 
@@ -991,7 +1012,7 @@ class LEDBarRenderer(FixtureRenderer):
 
         self.program['base_color'].value = (0.1, 0.1, 0.1)
         self.program['emissive_color'].value = emissive
-        self.program['emissive_strength'].value = 1.0
+        self.program['emissive_strength'].value = 1.0 * self.brightness_scale
 
         self.segment_vao.render(moderngl.TRIANGLES)
 
@@ -1015,7 +1036,7 @@ class LEDBarRenderer(FixtureRenderer):
 
         self.beam_program['mvp'].write(mvp_bytes)
         self.beam_program['beam_color'].value = color
-        self.beam_program['beam_intensity'].value = dimmer * 0.6
+        self.beam_program['beam_intensity'].value = dimmer * self.brightness_scale
 
         # Render all segment beams at once (same color for all)
         self.segment_beam_vao.render(moderngl.TRIANGLES)
@@ -1274,7 +1295,7 @@ class PixelBarRenderer(FixtureRenderer):
             fragment_shader=BEAM_FRAGMENT_SHADER
         )
 
-        beam_length = 0.3  # Max 0.3m
+        beam_length = 0.3  # Short glow near fixture face
         beam_width = self.segment_width * 0.7
         beam_height = self.segment_height * 0.7
 
@@ -1403,7 +1424,7 @@ class PixelBarRenderer(FixtureRenderer):
 
             self.program['base_color'].value = (0.1, 0.1, 0.1)
             self.program['emissive_color'].value = color
-            self.program['emissive_strength'].value = intensity
+            self.program['emissive_strength'].value = intensity * self.brightness_scale
             vao.render(moderngl.TRIANGLES)
 
         # Render beams for segments that are lit
@@ -1440,7 +1461,7 @@ class PixelBarRenderer(FixtureRenderer):
                 continue  # Skip dark segments
 
             self.beam_program['beam_color'].value = color
-            self.beam_program['beam_intensity'].value = intensity * 0.6
+            self.beam_program['beam_intensity'].value = intensity * self.brightness_scale
             vao.render(moderngl.TRIANGLES)
 
         # Restore state
@@ -1678,7 +1699,7 @@ class SunstripRenderer(FixtureRenderer):
             fragment_shader=BEAM_FRAGMENT_SHADER
         )
 
-        beam_length = 0.3  # Max 0.3m as specified
+        beam_length = 0.3  # Short glow near fixture face
         beam_radius = self.lamp_radius * 0.8  # Slightly smaller than lamp
 
         # Create beam geometry for all segments
@@ -1770,7 +1791,7 @@ class SunstripRenderer(FixtureRenderer):
             )
 
             self.program['emissive_color'].value = emissive
-            self.program['emissive_strength'].value = 1.5 if dimmer > 0.1 else 0.0
+            self.program['emissive_strength'].value = (1.5 if dimmer > 0.1 else 0.0) * self.brightness_scale
 
             # Render just this lamp's vertices
             first_vertex = i * self.vertices_per_lamp
@@ -1806,7 +1827,7 @@ class SunstripRenderer(FixtureRenderer):
 
             if dimmer > 0.01:
                 self.beam_program['beam_color'].value = WARM_WHITE_COLOR
-                self.beam_program['beam_intensity'].value = dimmer * 0.7
+                self.beam_program['beam_intensity'].value = dimmer * self.brightness_scale
 
                 first_vertex = i * self.vertices_per_beam
                 self.segment_beam_vao.render(
@@ -2577,7 +2598,7 @@ class MovingHeadRenderer(FixtureRenderer):
 
         self.program['base_color'].value = (0.2, 0.2, 0.2)
         self.program['emissive_color'].value = emissive
-        self.program['emissive_strength'].value = 1.0
+        self.program['emissive_strength'].value = 1.0 * self.brightness_scale
 
         self.lens_vao.render(moderngl.TRIANGLES)
 
@@ -2627,7 +2648,7 @@ class MovingHeadRenderer(FixtureRenderer):
 
         self.beam_program['mvp'].write(mvp_bytes)
         self.beam_program['beam_color'].value = color
-        self.beam_program['beam_intensity'].value = intensity
+        self.beam_program['beam_intensity'].value = intensity * self.brightness_scale
 
         # Pass gobo pattern and rotation
         gobo_pattern = self.get_gobo_pattern()
@@ -2664,7 +2685,7 @@ class MovingHeadRenderer(FixtureRenderer):
             if prism_active:
                 # Render 3 beams for 3-facet prism
                 # Each beam rotated 120° around beam axis, tilted outward ~10°
-                prism_intensity = dimmer * 0.4  # 40% each, combined ~120%
+                prism_intensity = dimmer * 0.4 * self.brightness_scale  # 40% each, combined ~120%
                 prism_tilt = 10.0  # Degrees outward tilt
 
                 for i, offset_angle in enumerate([0.0, 120.0, 240.0]):
@@ -2798,7 +2819,7 @@ class MovingHeadRenderer(FixtureRenderer):
 
         self.floor_proj_program['mvp'].write(mvp_bytes)
         self.floor_proj_program['projection_color'].value = color
-        self.floor_proj_program['projection_intensity'].value = intensity
+        self.floor_proj_program['projection_intensity'].value = intensity * self.brightness_scale
         self.floor_proj_program['distance_falloff'].value = distance_falloff
 
         # Pass gobo pattern and rotation
@@ -2825,8 +2846,11 @@ class MovingHeadRenderer(FixtureRenderer):
             self.ctx.enable(moderngl.BLEND)
             self.ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
 
-            # Disable depth test for projection (renders on top of floor)
-            self.ctx.disable(moderngl.DEPTH_TEST)
+            # Keep depth-test on (with depth WRITE off) so closer chassis
+            # geometry (e.g. a floor PAR sitting under this MH's spot)
+            # correctly occludes the projection ellipse. The projection
+            # plane at y=0.03 still draws over the stage floor because
+            # it sits above the floor's depth.
             self.ctx.depth_mask = False
 
             # Calculate distance falloff
@@ -2846,7 +2870,7 @@ class MovingHeadRenderer(FixtureRenderer):
 
             if prism_active:
                 # Render 3 floor projections for 3-facet prism
-                prism_intensity = dimmer * 0.4  # 40% each
+                prism_intensity = dimmer * 0.4 * self.brightness_scale  # 40% each
                 prism_tilt = 10.0
 
                 for offset_angle in [0.0, 120.0, 240.0]:
@@ -3070,7 +3094,7 @@ class WashRenderer(FixtureRenderer):
             fragment_shader=BEAM_FRAGMENT_SHADER
         )
 
-        beam_length = 0.3  # Max 0.3m as specified
+        beam_length = 0.3  # Short glow near fixture face
         beam_width = self.lens_width * 0.8
         beam_height = self.lens_height * 0.8
 
@@ -3144,7 +3168,7 @@ class WashRenderer(FixtureRenderer):
 
         self.program['base_color'].value = (0.15, 0.15, 0.15)
         self.program['emissive_color'].value = emissive
-        self.program['emissive_strength'].value = 1.0
+        self.program['emissive_strength'].value = 1.0 * self.brightness_scale
 
         self.lens_vao.render(moderngl.TRIANGLES)
 
@@ -3168,7 +3192,7 @@ class WashRenderer(FixtureRenderer):
 
         self.beam_program['mvp'].write(mvp_bytes)
         self.beam_program['beam_color'].value = color
-        self.beam_program['beam_intensity'].value = dimmer * 0.6
+        self.beam_program['beam_intensity'].value = dimmer * self.brightness_scale
 
         self.wash_beam_vao.render(moderngl.TRIANGLES)
 
@@ -3406,7 +3430,7 @@ class PARRenderer(FixtureRenderer):
             fragment_shader=BEAM_FRAGMENT_SHADER
         )
 
-        beam_length = 0.3  # Max 0.3m as specified
+        beam_length = 0.3  # Short glow near fixture face
         beam_radius = self.lens_radius * 0.8
 
         # Beam already extends along +Z, just translate to lens position
@@ -3483,7 +3507,7 @@ class PARRenderer(FixtureRenderer):
 
         self.program['base_color'].value = (0.15, 0.15, 0.15)
         self.program['emissive_color'].value = emissive
-        self.program['emissive_strength'].value = 1.0
+        self.program['emissive_strength'].value = 1.0 * self.brightness_scale
 
         self.lens_vao.render(moderngl.TRIANGLES)
 
@@ -3507,7 +3531,7 @@ class PARRenderer(FixtureRenderer):
 
         self.beam_program['mvp'].write(mvp_bytes)
         self.beam_program['beam_color'].value = color
-        self.beam_program['beam_intensity'].value = dimmer * 0.6
+        self.beam_program['beam_intensity'].value = dimmer * self.brightness_scale
 
         self.par_beam_vao.render(moderngl.TRIANGLES)
 
@@ -3538,6 +3562,44 @@ class PARRenderer(FixtureRenderer):
             obj = getattr(self, attr, None)
             if obj:
                 obj.release()
+
+
+def _detect_capabilities_from_payload(fixture_data: Dict[str, Any]):
+    """Re-detect :class:`FixtureCapabilities` from the TCP payload's keys.
+
+    The show-creator side computes capabilities via the same QXF
+    detection pass; the standalone TCP visualizer strips the live
+    dataclass during JSON serialization (capabilities are full of
+    nested dataclasses + enums + a sealed-union emitter). Rather than
+    teach the serializer about each subtype, we just re-run detection
+    locally — it's deterministic from the ``(manufacturer, model, mode)``
+    triple, all three of which travel in the JSON payload, and the
+    standalone has access to the same ``custom_fixtures/`` QXF library.
+    """
+    try:
+        from utils.fixture_capabilities import get_capabilities_for_fixture
+    except ImportError:
+        return None
+
+    mfr = fixture_data.get('manufacturer')
+    model = fixture_data.get('model')
+    mode = fixture_data.get('mode') or fixture_data.get('current_mode')
+    if not (mfr and model and mode):
+        return None
+
+    class _CapsLookupProxy:
+        __slots__ = ('manufacturer', 'model', 'current_mode')
+
+        def __init__(self, mfr_, model_, mode_):
+            self.manufacturer = mfr_
+            self.model = model_
+            self.current_mode = mode_
+
+    try:
+        return get_capabilities_for_fixture(_CapsLookupProxy(mfr, model, mode))
+    except Exception as e:  # pragma: no cover — environment / QXF issue
+        print(f"Capability re-detection failed for {mfr}/{model}: {e}")
+        return None
 
 
 class FixtureManager:
@@ -3595,6 +3657,22 @@ class FixtureManager:
                 self.fixtures[name].release()
                 del self.fixtures[name]
 
+        # Normalize brightness based on estimated lumens
+        max_lumens = 0.0
+        for fixture_data in fixtures_data:
+            lumens = fixture_data.get('lumens', 10000.0)
+            if lumens > max_lumens:
+                max_lumens = lumens
+
+        if max_lumens > 0:
+            for fixture_data in fixtures_data:
+                name = fixture_data.get('name', '')
+                if name in self.fixtures:
+                    lumens = fixture_data.get('lumens', 10000.0)
+                    # Use sqrt compression to prevent extreme dimming of low-wattage fixtures
+                    self.fixtures[name].brightness_scale = math.sqrt(lumens / max_lumens)
+                    print(f"  Brightness: {name} = {lumens:.0f} lm -> scale {self.fixtures[name].brightness_scale:.2f}")
+
         print(f"FixtureManager: {len(self.fixtures)} fixtures loaded")
         for name, fix in self.fixtures.items():
             extra_info = ""
@@ -3609,16 +3687,37 @@ class FixtureManager:
                 extra_info = f", pan={pan_ch}, tilt={tilt_ch}, dim={dimmer_ch}, color={color_ch}, wheel_colors={cw_count}"
             print(f"  - {name}: type={fix.__class__.__name__}, U{fix.universe}@{fix.address}{extra_info}")
 
-    def _create_fixture(self, fixture_data: Dict[str, Any]) -> FixtureRenderer:
+    def _create_fixture(self, fixture_data: Dict[str, Any]):
         """
         Create appropriate renderer for fixture type.
+
+        With ``FIXTURE_RENDERER=composable``, constructs the new composable
+        :class:`visualizer.renderer.composable_fixtures.FixtureRenderer`
+        from the ``capabilities`` payload key. The standalone TCP path
+        strips that key during JSON serialization (the dataclass tree
+        isn't JSON-friendly), so when it's absent we re-detect the
+        capabilities locally from ``(manufacturer, model, mode)`` — same
+        deterministic lookup the show-creator side runs.
 
         Args:
             fixture_data: Fixture data dictionary
 
         Returns:
-            FixtureRenderer instance
+            FixtureRenderer instance (either composable or legacy)
         """
+        if USE_COMPOSABLE_RENDERER:
+            capabilities = fixture_data.get('capabilities')
+            if capabilities is None:
+                capabilities = _detect_capabilities_from_payload(fixture_data)
+            if capabilities is not None:
+                # Lazy import — avoids a circular dependency with composable_fixtures
+                # (which would otherwise have to know about the legacy renderer).
+                from visualizer.renderer.composable_fixtures import (
+                    FixtureRenderer as ComposableFixtureRenderer,
+                )
+                return ComposableFixtureRenderer(self.ctx, fixture_data, capabilities)
+            # Detection failed (QXF not findable) — fall through to legacy.
+
         fixture_type = fixture_data.get('fixture_type', 'PAR')
 
         if fixture_type == 'MH':
@@ -3659,12 +3758,38 @@ class FixtureManager:
 
     def render(self, mvp: glm.mat4):
         """
-        Render all fixtures.
+        Render all fixtures in two passes (composable only).
+
+        Composable fixtures expose ``render_lighting`` (additive beams +
+        floor projections, no depth write) and ``render_chassis`` (opaque
+        body, with depth). Drawing all lighting first and then all chassis
+        on top guarantees fixture silhouettes stay readable at native
+        color regardless of how bright or overlapping the surrounding
+        beams are. Legacy fixtures (without the split methods) fall back
+        to single-pass.
 
         Args:
             mvp: View-projection matrix
         """
-        for fixture in self.fixtures.values():
+        two_pass = [
+            f for f in self.fixtures.values()
+            if hasattr(f, 'render_lighting') and hasattr(f, 'render_chassis')
+        ]
+        single_pass = [
+            f for f in self.fixtures.values()
+            if f not in two_pass
+        ]
+
+        # Pass 1: additive light volumes for all composable fixtures.
+        for fixture in two_pass:
+            fixture.render_lighting(mvp)
+
+        # Pass 2: opaque chassis on top.
+        for fixture in two_pass:
+            fixture.render_chassis(mvp)
+
+        # Legacy fixtures keep their old chassis-then-beam single pass.
+        for fixture in single_pass:
             fixture.render(mvp)
 
     def get_fixture(self, name: str) -> Optional[FixtureRenderer]:

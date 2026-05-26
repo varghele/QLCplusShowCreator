@@ -177,51 +177,48 @@ class CollapsedRiffBar(QWidget):
         layout.addStretch()
 
 
-class RiffBrowserWidget(QDockWidget):
-    """Dockable panel for browsing and selecting riffs."""
+class RiffBrowserPanel(QWidget):
+    """Reusable browser panel — search bar + category tree + status line.
 
-    # Signal emitted when a riff drag starts (for UI feedback)
+    The QDockWidget version (`RiffBrowserWidget`) wraps an instance of
+    this panel; embedded uses (e.g. inline under the Shows-tab visualizer)
+    instantiate it directly. All the riff-browsing logic lives here so
+    both call sites stay in sync without code duplication.
+    """
+
     riff_drag_started = pyqtSignal(object)  # Riff object
 
-    def __init__(self, riff_library: RiffLibrary = None, parent=None):
-        super().__init__("Riff Library", parent)
-
+    def __init__(
+        self,
+        riff_library: RiffLibrary = None,
+        parent=None,
+        *,
+        show_collapse_button: bool = False,
+        on_collapse_clicked=None,
+    ):
+        """
+        Args:
+            riff_library: Shared :class:`RiffLibrary` instance. The panel
+                does not own the library — pass the same instance when
+                building multiple views.
+            show_collapse_button: When True, prepend a ▶ button in the
+                header that calls ``on_collapse_clicked``. Used by the
+                dock wrapper; embedded panels leave it off.
+            on_collapse_clicked: Callable invoked when the collapse
+                button is clicked. Required iff ``show_collapse_button``.
+        """
+        super().__init__(parent)
         self.riff_library = riff_library or RiffLibrary()
         self._fixture_filter: FixtureGroup = None
-        self._category_items: dict = {}  # category name -> QTreeWidgetItem
-        self._is_collapsed = False
-
+        self._category_items: dict = {}
+        self._show_collapse_button = show_collapse_button
+        self._on_collapse_clicked = on_collapse_clicked
         self._setup_ui()
         self._populate_tree()
 
     def _setup_ui(self):
-        """Create the browser UI."""
-        self.setAllowedAreas(
-            Qt.DockWidgetArea.LeftDockWidgetArea |
-            Qt.DockWidgetArea.RightDockWidgetArea
-        )
-
-        # Use stacked widget to switch between expanded and collapsed views
-        self._stacked = QStackedWidget()
-        self.setWidget(self._stacked)
-
-        # Expanded view (full browser)
-        self._expanded_widget = QWidget()
-        self._setup_expanded_ui()
-        self._stacked.addWidget(self._expanded_widget)
-
-        # Collapsed view (thin bar)
-        self._collapsed_bar = CollapsedRiffBar()
-        self._collapsed_bar.expand_clicked.connect(self.expand)
-        self._stacked.addWidget(self._collapsed_bar)
-
-        # Start expanded
-        self._stacked.setCurrentIndex(0)
-        self._update_size_for_state()
-
-    def _setup_expanded_ui(self):
-        """Set up the expanded (full) UI."""
-        layout = QVBoxLayout(self._expanded_widget)
+        """Set up the panel UI."""
+        layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(4)
 
@@ -229,24 +226,24 @@ class RiffBrowserWidget(QDockWidget):
         header_layout = QHBoxLayout()
         header_layout.setSpacing(4)
 
-        # Collapse button
-        self._collapse_btn = QPushButton("▶")
-        self._collapse_btn.setFixedSize(24, 24)
-        self._collapse_btn.setToolTip("Collapse Riff Library")
-        self._collapse_btn.clicked.connect(self.collapse)
-        self._collapse_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3c3c3c;
-                border: 1px solid #555;
-                border-radius: 4px;
-                color: #fff;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #4a4a4a;
-            }
-        """)
-        header_layout.addWidget(self._collapse_btn)
+        if self._show_collapse_button and self._on_collapse_clicked is not None:
+            self._collapse_btn = QPushButton("▶")
+            self._collapse_btn.setFixedSize(24, 24)
+            self._collapse_btn.setToolTip("Collapse Riff Library")
+            self._collapse_btn.clicked.connect(self._on_collapse_clicked)
+            self._collapse_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #3c3c3c;
+                    border: 1px solid #555;
+                    border-radius: 4px;
+                    color: #fff;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #4a4a4a;
+                }
+            """)
+            header_layout.addWidget(self._collapse_btn)
 
         # Search bar
         self.search_input = QLineEdit()
@@ -329,46 +326,6 @@ class RiffBrowserWidget(QDockWidget):
         layout.addWidget(self.status_label)
 
         self._update_status()
-
-    def _update_size_for_state(self):
-        """Update widget size based on collapsed state."""
-        if self._is_collapsed:
-            self.setMinimumWidth(28)
-            self.setMaximumWidth(28)
-        else:
-            self.setMinimumWidth(200)
-            self.setMaximumWidth(16777215)  # QWIDGETSIZE_MAX
-
-    def collapse(self):
-        """Collapse the riff browser to a thin bar."""
-        if self._is_collapsed:
-            return
-        self._is_collapsed = True
-        self._stacked.setCurrentIndex(1)
-        self._update_size_for_state()
-        # Hide title bar when collapsed
-        self.setTitleBarWidget(QWidget())
-
-    def expand(self):
-        """Expand the riff browser to full view."""
-        if not self._is_collapsed:
-            return
-        self._is_collapsed = False
-        self._stacked.setCurrentIndex(0)
-        self._update_size_for_state()
-        # Restore title bar
-        self.setTitleBarWidget(None)
-
-    def is_collapsed(self) -> bool:
-        """Return whether the browser is currently collapsed."""
-        return self._is_collapsed
-
-    def set_collapsed(self, collapsed: bool):
-        """Set the collapsed state."""
-        if collapsed:
-            self.collapse()
-        else:
-            self.expand()
 
     def _populate_tree(self):
         """Populate the tree with categories and riffs."""
@@ -509,3 +466,91 @@ class RiffBrowserWidget(QDockWidget):
     def get_riff_library(self) -> RiffLibrary:
         """Get the riff library instance."""
         return self.riff_library
+
+
+class RiffBrowserWidget(QDockWidget):
+    """Dockable wrapper around :class:`RiffBrowserPanel`.
+
+    The dock supports a collapsed-to-thin-bar mode used to claw back
+    horizontal space when the user wants the timeline full-width. The
+    actual riff-browsing UI lives inside the panel so the Shows tab can
+    embed the same panel inline (under the visualizer) without having to
+    fight the dock plumbing.
+    """
+
+    riff_drag_started = pyqtSignal(object)
+
+    def __init__(self, riff_library: RiffLibrary = None, parent=None):
+        super().__init__("Riff Library", parent)
+        self.riff_library = riff_library or RiffLibrary()
+        self._is_collapsed = False
+
+        self.setAllowedAreas(
+            Qt.DockWidgetArea.LeftDockWidgetArea |
+            Qt.DockWidgetArea.RightDockWidgetArea
+        )
+
+        # Stacked widget toggles between full panel and a thin bar.
+        self._stacked = QStackedWidget()
+        self.setWidget(self._stacked)
+
+        self._panel = RiffBrowserPanel(
+            self.riff_library, self,
+            show_collapse_button=True,
+            on_collapse_clicked=self.collapse,
+        )
+        self._panel.riff_drag_started.connect(self.riff_drag_started.emit)
+        self._stacked.addWidget(self._panel)
+
+        self._collapsed_bar = CollapsedRiffBar()
+        self._collapsed_bar.expand_clicked.connect(self.expand)
+        self._stacked.addWidget(self._collapsed_bar)
+
+        self._stacked.setCurrentIndex(0)
+        self._update_size_for_state()
+
+    # ── Collapse / expand (dock-only chrome) ──────────────────────────
+
+    def _update_size_for_state(self):
+        if self._is_collapsed:
+            self.setMinimumWidth(28)
+            self.setMaximumWidth(28)
+        else:
+            self.setMinimumWidth(200)
+            self.setMaximumWidth(16777215)
+
+    def collapse(self):
+        if self._is_collapsed:
+            return
+        self._is_collapsed = True
+        self._stacked.setCurrentIndex(1)
+        self._update_size_for_state()
+        self.setTitleBarWidget(QWidget())
+
+    def expand(self):
+        if not self._is_collapsed:
+            return
+        self._is_collapsed = False
+        self._stacked.setCurrentIndex(0)
+        self._update_size_for_state()
+        self.setTitleBarWidget(None)
+
+    def is_collapsed(self) -> bool:
+        return self._is_collapsed
+
+    def set_collapsed(self, collapsed: bool):
+        if collapsed:
+            self.collapse()
+        else:
+            self.expand()
+
+    # ── Pass-through to the panel for back-compat ─────────────────────
+
+    def set_fixture_filter(self, fixture_group: FixtureGroup):
+        self._panel.set_fixture_filter(fixture_group)
+
+    def clear_fixture_filter(self):
+        self._panel.clear_fixture_filter()
+
+    def get_riff_library(self) -> RiffLibrary:
+        return self._panel.get_riff_library()

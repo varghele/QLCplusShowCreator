@@ -58,22 +58,18 @@ class LightLaneWidget(QFrame):
         self.setMinimumHeight(total_height)
         self.setMaximumHeight(total_height)
 
-        self.setStyleSheet("""
-            LightLaneWidget {
-                background-color: #2d2d2d;
-                border: 1px solid #444;
-                border-radius: 4px;
-            }
-        """)
+        # Background tint from `LightLaneWidget` selector in the active theme.
 
         self.setup_ui()
 
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
 
-        # Lane controls section (left side)
-        controls_widget = self.create_controls_widget()
-        main_layout.addWidget(controls_widget)
+        # Build the two pieces — controls on the left, timeline on the right.
+        # When this widget is embedded in TimelineGrid, detach_pieces() tears
+        # this layout down and hands both children over.
+        self.controls_widget = self.create_controls_widget()
+        main_layout.addWidget(self.controls_widget)
 
         # Timeline section (right side) - scrollable
         self.timeline_scroll = QScrollArea()
@@ -109,48 +105,52 @@ class LightLaneWidget(QFrame):
 
         main_layout.addWidget(self.timeline_scroll, 1)
 
+    def detach_pieces(self):
+        """Return (header_widget, stripe_widget) for embedding in TimelineGrid.
+
+        After this call ``self`` no longer renders its own UI — the inner
+        scrollarea is gone and ``controls_widget`` / ``timeline_widget`` are
+        free to be re-parented. The lane's logic (block widgets, signals,
+        riff drop, paste, undo) keeps working because it lives on the
+        timeline widget and on ``self`` itself.
+        """
+        if hasattr(self, "timeline_scroll") and self.timeline_scroll is not None:
+            self.timeline_scroll.takeWidget()
+            self.timeline_scroll.setParent(None)
+            self.timeline_scroll = None
+        return self.controls_widget, self.timeline_widget
+
     def create_controls_widget(self):
         """Create the lane controls section."""
         widget = QWidget()
+        # Object-name + WA_StyledBackground so the theme's
+        # `QWidget#LightLaneHeader` rule paints the bg after the
+        # controls widget is detached and re-parented into TimelineGrid.
+        widget.setObjectName("LightLaneHeader")
+        widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         widget.setFixedWidth(320)
         layout = QVBoxLayout(widget)
         layout.setSpacing(4)
 
-        # Row 1: Name and remove button
+        # Row 1: Name and remove button — visuals from active theme.
         name_layout = QHBoxLayout()
 
         name_label = QLabel("Name:")
-        name_label.setStyleSheet("color: white; font-weight: bold; font-size: 12px;")
+        name_label.setStyleSheet("font-weight: bold; font-size: 12px;")
         name_layout.addWidget(name_label)
 
         self.name_edit = QLineEdit(self.lane.name)
         self.name_edit.textChanged.connect(self.on_name_changed)
-        self.name_edit.setStyleSheet("""
-            QLineEdit {
-                background-color: #3d3d3d;
-                color: white;
-                border: 1px solid #555;
-                border-radius: 3px;
-                padding: 2px 5px;
-            }
-        """)
         name_layout.addWidget(self.name_edit)
 
         self.remove_button = QPushButton("×")
         self.remove_button.setFixedSize(25, 25)
+        # density=compact gives tight padding so "×" fits in 25×25; role
+        # still drives the destructive color. Two independent property axes.
+        # ("size" would collide with Qt's QSize Q_PROPERTY — don't use it.)
+        self.remove_button.setProperty("density", "compact")
+        self.remove_button.setProperty("role", "destructive")
         self.remove_button.clicked.connect(lambda: self.remove_requested.emit(self))
-        self.remove_button.setStyleSheet("""
-            QPushButton {
-                background-color: #d32f2f;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #f44336;
-            }
-        """)
         name_layout.addWidget(self.remove_button)
 
         layout.addLayout(name_layout)
@@ -159,35 +159,18 @@ class LightLaneWidget(QFrame):
         targets_layout = QHBoxLayout()
 
         targets_label = QLabel("Targets:")
-        targets_label.setStyleSheet("color: white; font-weight: bold; font-size: 12px;")
+        targets_label.setStyleSheet("font-weight: bold; font-size: 12px;")
         targets_layout.addWidget(targets_label)
 
+        # Read-only display label — give it an objectName so the theme can
+        # style it like a disabled lineedit if we want to refine later.
         self.targets_display = QLabel()
-        self.targets_display.setStyleSheet("""
-            QLabel {
-                background-color: #3d3d3d;
-                color: white;
-                border: 1px solid #555;
-                border-radius: 3px;
-                padding: 2px 5px;
-            }
-        """)
+        self.targets_display.setObjectName("LightLaneTargets")
         self._update_targets_display()
         targets_layout.addWidget(self.targets_display, 1)
 
         self.edit_targets_btn = QPushButton("...")
         self.edit_targets_btn.setFixedWidth(30)
-        self.edit_targets_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3d3d3d;
-                color: white;
-                border: 1px solid #555;
-                border-radius: 3px;
-            }
-            QPushButton:hover {
-                background-color: #4d4d4d;
-            }
-        """)
         self.edit_targets_btn.clicked.connect(self.open_target_selection)
         targets_layout.addWidget(self.edit_targets_btn)
 
@@ -196,22 +179,31 @@ class LightLaneWidget(QFrame):
         # Row 3: Mute, Solo, Add Block
         controls_layout = QHBoxLayout()
 
-        # Mute button
+        # Mute button — base look from theme; :checked goes red.
+        # density=compact gives tight padding so "M" fits 30×25.
         self.mute_button = QPushButton("M")
         self.mute_button.setFixedSize(30, 25)
         self.mute_button.setCheckable(True)
         self.mute_button.setChecked(self.lane.muted)
+        self.mute_button.setProperty("density", "compact")
+        self.mute_button.setStyleSheet(
+            "QPushButton:checked { background-color: #d32f2f; color: white; "
+            "border-color: #b71c1c; }"
+        )
         self.mute_button.toggled.connect(self.on_mute_toggled)
-        self.update_mute_button_style()
         controls_layout.addWidget(self.mute_button)
 
-        # Solo button
+        # Solo button — base look from theme; :checked goes amber.
         self.solo_button = QPushButton("S")
         self.solo_button.setFixedSize(30, 25)
         self.solo_button.setCheckable(True)
         self.solo_button.setChecked(self.lane.solo)
+        self.solo_button.setProperty("density", "compact")
+        self.solo_button.setStyleSheet(
+            "QPushButton:checked { background-color: #FFC107; color: #222; "
+            "border-color: #FFA000; }"
+        )
         self.solo_button.toggled.connect(self.on_solo_toggled)
-        self.update_solo_button_style()
         controls_layout.addWidget(self.solo_button)
 
         controls_layout.addSpacing(10)
@@ -219,7 +211,7 @@ class LightLaneWidget(QFrame):
         # Snap checkbox
         self.snap_checkbox = QCheckBox("Snap")
         self.snap_checkbox.setChecked(True)
-        self.snap_checkbox.setStyleSheet("color: white; font-size: 12px;")
+        self.snap_checkbox.setStyleSheet("font-size: 12px;")
         self.snap_checkbox.toggled.connect(self.on_snap_toggled)
         controls_layout.addWidget(self.snap_checkbox)
 
@@ -228,20 +220,8 @@ class LightLaneWidget(QFrame):
         # Add Block button
         self.add_block_button = QPushButton("Add Block")
         self.add_block_button.setMinimumHeight(25)
+        self.add_block_button.setProperty("role", "success")
         self.add_block_button.clicked.connect(self.add_light_block)
-        self.add_block_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 3px;
-                padding: 3px 10px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-            }
-        """)
         controls_layout.addWidget(self.add_block_button)
 
         layout.addLayout(controls_layout)
@@ -543,56 +523,12 @@ class LightLaneWidget(QFrame):
             block_widget.set_snap_to_grid(checked)
 
     def update_mute_button_style(self):
-        """Update mute button appearance based on state."""
-        if self.mute_button.isChecked():
-            self.mute_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #d32f2f;
-                    color: white;
-                    font-weight: bold;
-                    border: none;
-                    border-radius: 3px;
-                }
-            """)
-        else:
-            self.mute_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #555;
-                    color: white;
-                    font-weight: bold;
-                    border: none;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #666;
-                }
-            """)
+        """Backwards-compat no-op; the :checked CSS handles state visuals."""
+        pass
 
     def update_solo_button_style(self):
-        """Update solo button appearance based on state."""
-        if self.solo_button.isChecked():
-            self.solo_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #FFC107;
-                    color: black;
-                    font-weight: bold;
-                    border: none;
-                    border-radius: 3px;
-                }
-            """)
-        else:
-            self.solo_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #555;
-                    color: white;
-                    font-weight: bold;
-                    border: none;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #666;
-                }
-            """)
+        """Backwards-compat no-op; the :checked CSS handles state visuals."""
+        pass
 
     def paste_effect_at_time(self, target_time: float):
         """Paste copied effect at the specified time.

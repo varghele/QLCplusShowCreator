@@ -3,7 +3,7 @@
 # Adapted from midimaker_and_show_structure/ui/midi_block_widget.py
 
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
-from PyQt6.QtCore import Qt, pyqtSignal, QPoint
+from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QRect
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QMouseEvent
 from config.models import LightBlock
 
@@ -21,6 +21,11 @@ class LightBlockWidget(QWidget):
 
     RESIZE_HANDLE_WIDTH = 8  # Pixels for resize handle area
     HEADER_HEIGHT = 24  # Pixels reserved for header/handle area (drag entire effect)
+    # Minimum duration for a sublane block created by drag — anything shorter
+    # is treated as an accidental mouse slip and rejected.
+    MIN_SUBLANE_BLOCK_DURATION = 0.05  # seconds
+    # Hit-test buffer (in pixels) so very narrow sublane blocks remain clickable.
+    SUBLANE_HIT_BUFFER = 3
 
     def __init__(self, block: LightBlock, timeline_widget, lane_widget, parent=None):
         """Create a light block widget.
@@ -48,10 +53,10 @@ class LightBlockWidget(QWidget):
         # Sublane interaction state
         self.clicked_sublane_type = None  # Which sublane type was clicked (if any)
         self.selected_sublane_type = None  # Which sublane type is currently selected (for highlighting)
-        self.selected_sublane_block = None  # Which specific sublane block is selected (CHANGED: now a reference)
-        self.resizing_sublane = None  # Which sublane is being resized (CHANGED: now stores block reference)
+        self.selected_sublane_block = None  # Which specific sublane block is selected
+        self.resizing_sublane = None  # Block being resized (block reference)
         self.resizing_sublane_edge = None  # 'left' or 'right'
-        self.dragging_sublane = None  # Which sublane is being dragged (CHANGED: now stores block reference)
+        self.dragging_sublane = None  # Block being dragged (block reference)
         self.drag_start_sublane_start = None  # Start time of sublane being resized/dragged
         self.drag_start_sublane_end = None  # End time of sublane being resized/dragged
 
@@ -69,6 +74,17 @@ class LightBlockWidget(QWidget):
 
         # Multi-selection state
         self._is_multi_selected = False
+
+        # Right-button marquee selection of sublane blocks within this effect.
+        # Pending = right-button down but drag hasn't crossed threshold yet.
+        # Active = drawing the marquee. On release with active marquee, the
+        # native contextMenuEvent is suppressed once via _suppress_next_context_menu.
+        self._sublane_marquee_pending = False
+        self._sublane_marquee_active = False
+        self._sublane_marquee_start = QPoint()
+        self._sublane_marquee_current = QPoint()
+        self._suppress_next_context_menu = False
+        self.MARQUEE_DRAG_THRESHOLD = 6  # pixels
 
         self.setMinimumHeight(30)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -181,6 +197,13 @@ class LightBlockWidget(QWidget):
         # Draw riff indicator if this block came from a riff
         if self.block.riff_source:
             self._draw_riff_indicator(painter)
+
+        # Draw the sublane marquee rectangle on top of everything else.
+        if self._sublane_marquee_active:
+            rect = self._compute_sublane_marquee_rect()
+            painter.setBrush(QBrush(QColor(0, 120, 215, 40)))
+            painter.setPen(QPen(QColor(0, 120, 215, 200), 2))
+            painter.drawRect(rect)
 
     def _draw_envelope(self, painter):
         """Draw the effect envelope as a subtle border/background."""
@@ -363,7 +386,7 @@ class LightBlockWidget(QWidget):
         # Draw the sublane block
         painter.setBrush(QBrush(color))
 
-        # Use thicker, brighter border if THIS SPECIFIC BLOCK is selected (CHANGED: check block reference)
+        # Thicker, brighter border if this specific block is selected.
         is_selected = (sublane_block is self.selected_sublane_block)
         if is_selected:
             painter.setPen(QPen(QColor(255, 255, 255), 3))  # Bright white border when selected
@@ -398,7 +421,7 @@ class LightBlockWidget(QWidget):
         # Draw text label if block is wide enough
         self._draw_sublane_block_label(painter, sublane_block, sublane_type, x_offset, y_offset, width, sublane_height, margin)
 
-        # Draw resize handles if THIS SPECIFIC BLOCK is selected (CHANGED: check block reference)
+        # Draw resize handles if this specific block is selected.
         if is_selected:
             handle_color = QColor(255, 255, 255, 150)
             painter.setBrush(QBrush(handle_color))
@@ -969,7 +992,11 @@ class LightBlockWidget(QWidget):
             if not (y_min <= pos.y() <= y_max):
                 continue
 
-            # Check each block in this sublane row
+            # Two-pass hit test: first try strict bounds (cheaper, preferred when
+            # multiple narrow blocks sit close together), then fall back to a
+            # buffered test so tiny blocks below the buffer width remain clickable.
+            strict_match = None
+            buffered_match = None
             for sublane_block in sublane_blocks:
                 # Calculate x bounds relative to envelope
                 block_start_pixel = self.timeline_widget.time_to_pixel(sublane_block.start_time)
@@ -979,9 +1006,18 @@ class LightBlockWidget(QWidget):
                 x_min = block_start_pixel - envelope_start_pixel
                 x_max = block_end_pixel - envelope_start_pixel
 
-                # Check if position is within this sublane block
                 if x_min <= pos.x() <= x_max:
-                    return (sublane_type, sublane_block)
+                    strict_match = (sublane_type, sublane_block)
+                    break
+
+                if (x_min - self.SUBLANE_HIT_BUFFER) <= pos.x() <= (x_max + self.SUBLANE_HIT_BUFFER):
+                    if buffered_match is None:
+                        buffered_match = (sublane_type, sublane_block)
+
+            if strict_match is not None:
+                return strict_match
+            if buffered_match is not None:
+                return buffered_match
 
         return (None, None)
 
@@ -1085,6 +1121,15 @@ class LightBlockWidget(QWidget):
 
     def mousePressEvent(self, event: QMouseEvent):
         """Handle mouse press for dragging/resizing envelope or sublane blocks."""
+        if event.button() == Qt.MouseButton.RightButton:
+            # Track press position. If the user drags, mouseMoveEvent activates
+            # a marquee for sublane blocks. A plain right-click (no drag) falls
+            # through to the existing contextMenuEvent.
+            self._sublane_marquee_pending = True
+            self._sublane_marquee_start = event.pos()
+            self._sublane_marquee_current = event.pos()
+            return
+
         if event.button() == Qt.MouseButton.LeftButton:
             pos = event.pos()
 
@@ -1124,7 +1169,7 @@ class LightBlockWidget(QWidget):
             # (sublane_type and sublane_block already retrieved above)
 
             if sublane_block is not None:
-                # Clicked on a sublane block - select it (CHANGED: store block reference)
+                # Clicked on a sublane block - select it.
                 self.clicked_sublane_type = sublane_type
                 self.selected_sublane_type = sublane_type
                 self.selected_sublane_block = sublane_block  # Store block reference
@@ -1137,12 +1182,12 @@ class LightBlockWidget(QWidget):
                 # Check if clicking on edge for resizing
                 # (intensity handle is already checked at the top of this function)
                 if self._is_on_sublane_block_edge(pos, sublane_type, sublane_block):
-                    # Start resizing sublane block (CHANGED: store block reference)
+                    # Start resizing sublane block.
                     self.resizing_sublane = sublane_block
                     edge = self._is_on_sublane_block_edge(pos, sublane_type, sublane_block)
                     self.resizing_sublane_edge = edge
                 else:
-                    # Clicked on sublane block body - enable dragging (CHANGED: store block reference)
+                    # Clicked on sublane block body - enable dragging.
                     self.dragging_sublane = sublane_block
 
             else:
@@ -1183,6 +1228,19 @@ class LightBlockWidget(QWidget):
 
     def mouseMoveEvent(self, event: QMouseEvent):
         """Handle mouse move for dragging/resizing."""
+        # Right-button drag: start or continue the sublane marquee.
+        if (self._sublane_marquee_pending or self._sublane_marquee_active) and \
+                (event.buttons() & Qt.MouseButton.RightButton):
+            pos = event.pos()
+            if self._sublane_marquee_pending:
+                if (pos - self._sublane_marquee_start).manhattanLength() >= self.MARQUEE_DRAG_THRESHOLD:
+                    self._sublane_marquee_pending = False
+                    self._sublane_marquee_active = True
+            if self._sublane_marquee_active:
+                self._sublane_marquee_current = pos
+                self.update()
+            return
+
         if not (self.dragging or self.resizing_left or self.resizing_right or self.resizing_sublane or self.dragging_sublane or self.creating_sublane or self.dragging_intensity_handle):
             # Update cursor based on position
             pos = event.pos()
@@ -1285,7 +1343,7 @@ class LightBlockWidget(QWidget):
                 self.duration_changed.emit(self, new_duration)
 
         elif self.resizing_sublane:
-            # Resize sublane block (CHANGED: self.resizing_sublane is now the block reference)
+            # Resize sublane block.
             sublane_block = self.resizing_sublane
 
             if self.resizing_sublane_edge == 'left':
@@ -1321,7 +1379,7 @@ class LightBlockWidget(QWidget):
                     self.update()  # Redraw
 
         elif self.dragging_sublane:
-            # Drag sublane block (CHANGED: self.dragging_sublane is now the block reference)
+            # Drag sublane block.
             sublane_block = self.dragging_sublane
 
             # Calculate new start time
@@ -1464,13 +1522,17 @@ class LightBlockWidget(QWidget):
         """
         from config.models import DimmerBlock, ColourBlock, MovementBlock, SpecialBlock
 
+        # Reject mouse-slip-tiny blocks that would be near-impossible to grab afterward.
+        if (end_time - start_time) < self.MIN_SUBLANE_BLOCK_DURATION:
+            return
+
         # Check for overlaps in Movement/Special sublanes (prevent conflicts)
         if sublane_type in ["movement", "special"]:
             if self._check_overlap(sublane_type, start_time, end_time):
                 print(f"Warning: Cannot create {sublane_type} block - overlaps with existing block")
                 return  # Abort creation
 
-        # Create the appropriate sublane block and APPEND to list (CHANGED: was replacing single block)
+        # Create the appropriate sublane block and append to its list.
         if sublane_type == "dimmer":
             new_block = DimmerBlock(
                 start_time=start_time,
@@ -1511,6 +1573,22 @@ class LightBlockWidget(QWidget):
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         """Handle mouse release to stop dragging/resizing."""
+        if event.button() == Qt.MouseButton.RightButton:
+            if self._sublane_marquee_active:
+                # Drag-marquee was active. Find sublane blocks inside the rect
+                # and offer a bulk-delete menu. Suppress the native context menu
+                # that would otherwise fire on right-button release.
+                rect = self._compute_sublane_marquee_rect()
+                hits = self._sublane_blocks_in_rect(rect)
+                self._sublane_marquee_active = False
+                self._suppress_next_context_menu = True
+                self.update()  # Clear the marquee rendering
+                self._show_sublane_marquee_menu(event.globalPosition().toPoint(), hits)
+                return
+            # No drag — clear pending state and let contextMenuEvent fire.
+            self._sublane_marquee_pending = False
+            return
+
         if event.button() == Qt.MouseButton.LeftButton:
             # Handle shift+drag copy completion
             if self.shift_drag_copying and self.dragging:
@@ -1572,6 +1650,11 @@ class LightBlockWidget(QWidget):
 
     def contextMenuEvent(self, event):
         """Handle right-click context menu."""
+        # Suppressed once after a marquee release — the marquee shows its own menu.
+        if self._suppress_next_context_menu:
+            self._suppress_next_context_menu = False
+            return
+
         from PyQt6.QtWidgets import QMenu
         menu = QMenu(self)
 
@@ -1771,6 +1854,84 @@ class LightBlockWidget(QWidget):
                 self.selected_sublane_type = None
             self.block.modified = True
             self.update_display()
+
+    # ── Right-click sublane marquee helpers ───────────────────────────────
+
+    def _compute_sublane_marquee_rect(self) -> QRect:
+        """Return the marquee rectangle in widget-local coordinates, normalised."""
+        x1 = min(self._sublane_marquee_start.x(), self._sublane_marquee_current.x())
+        y1 = min(self._sublane_marquee_start.y(), self._sublane_marquee_current.y())
+        x2 = max(self._sublane_marquee_start.x(), self._sublane_marquee_current.x())
+        y2 = max(self._sublane_marquee_start.y(), self._sublane_marquee_current.y())
+        return QRect(x1, y1, x2 - x1, y2 - y1)
+
+    def _sublane_blocks_in_rect(self, rect: QRect):
+        """Find all sublane blocks whose bounding box intersects the rect.
+
+        Returns:
+            List of (sublane_type, sublane_block) tuples.
+        """
+        sublane_height = self.lane_widget.sublane_height
+        caps = self.lane_widget.capabilities
+
+        sublane_lists = []
+        if caps.has_dimmer or caps.has_colour:
+            sublane_lists.append(("dimmer", self.block.dimmer_blocks))
+        if caps.has_colour:
+            sublane_lists.append(("colour", self.block.colour_blocks))
+        if caps.has_movement:
+            sublane_lists.append(("movement", self.block.movement_blocks))
+        if caps.has_special:
+            sublane_lists.append(("special", self.block.special_blocks))
+
+        envelope_start_pixel = self.timeline_widget.time_to_pixel(self.block.start_time)
+        results = []
+
+        for sublane_type, sublane_blocks in sublane_lists:
+            sublane_index = self.lane_widget.get_sublane_index(sublane_type)
+            row_top = sublane_index * sublane_height
+            row_bottom = row_top + sublane_height
+            # Vertical overlap with marquee rect.
+            if rect.bottom() < row_top or rect.top() > row_bottom:
+                continue
+
+            for sb in sublane_blocks:
+                start_px = self.timeline_widget.time_to_pixel(sb.start_time) - envelope_start_pixel
+                end_px = self.timeline_widget.time_to_pixel(sb.end_time) - envelope_start_pixel
+                # Horizontal overlap with marquee rect.
+                if end_px < rect.left() or start_px > rect.right():
+                    continue
+                results.append((sublane_type, sb))
+
+        return results
+
+    def _show_sublane_marquee_menu(self, global_pos: QPoint, hits):
+        """Show the bulk-action menu after a sublane marquee finalises."""
+        from PyQt6.QtWidgets import QMenu
+
+        menu = QMenu(self)
+        count = len(hits)
+        if count == 0:
+            empty = menu.addAction("No blocks in selection")
+            empty.setEnabled(False)
+        else:
+            label = "Delete Block" if count == 1 else f"Delete {count} Blocks"
+            delete = menu.addAction(label)
+            delete.triggered.connect(lambda: self._bulk_delete_sublane_blocks(hits))
+            menu.addSeparator()
+            cancel = menu.addAction("Cancel")
+            cancel.triggered.connect(lambda: None)
+        menu.exec(global_pos)
+
+    def _bulk_delete_sublane_blocks(self, hits):
+        """Delete every (sublane_type, sublane_block) in the list."""
+        for sublane_type, sb in hits:
+            self._delete_sublane_block(sublane_type, sb)
+        # Update envelope bounds in case deletions shrank the effect.
+        self.block.update_envelope_bounds()
+        self.update_position()
+        self.update()
+        self.block_edited.emit()
 
     def _restore_sublane_times(self):
         """Restore all sublane block times to match the original envelope position.

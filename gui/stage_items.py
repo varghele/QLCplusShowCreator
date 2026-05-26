@@ -3,11 +3,19 @@ from PyQt6.QtCore import Qt, QRectF, QPointF
 from PyQt6.QtGui import QPen, QBrush, QColor, QPainter, QFontMetrics, QFont
 from math import sin, cos, radians, atan2, sqrt
 
+from utils.fixture_capabilities import chassis_from_legacy_type
+from gui.widgets.fixture_icons import (
+    ACCENT_LAMPS,
+    ACCENT_PIXELS,
+    paint_fixture_icon,
+)
+
 
 class FixtureItem(QGraphicsItem):
-    # Class-level settings for orientation display (controlled by stage_tab.py)
+    # Class-level toggle for orientation-axis overlay (controlled by
+    # stage_tab.py's "Show orientation axes" checkbox). When True every
+    # FixtureItem draws its XYZ axes on top of the fixture symbol.
     show_orientation_axes = False
-    show_all_axes = False
 
     def __init__(self, fixture_name, fixture_type, channel_color, parent=None):
         super().__init__(parent)
@@ -110,66 +118,17 @@ class FixtureItem(QGraphicsItem):
             painter.setPen(QPen(Qt.GlobalColor.black, 2))
             painter.setBrush(QBrush(QColor(self.channel_color)))
 
-        # Draw different symbols based on fixture type
-        if self.fixture_type == "PAR":
-            painter.drawEllipse(QRectF(-self.size / 2, -self.size / 2, self.size, self.size))
-        elif self.fixture_type == "BAR":
-            # LED Bar - simple elongated rectangle
-            bar_height = self.size / 3
-            bar_width = self.size * 2
-            painter.drawRect(QRectF(-self.size, -bar_height / 2, bar_width, bar_height))
-        elif self.fixture_type == "PIXELBAR":
-            # Pixel Bar - elongated rectangle with colored segment squares (like LED bar but with visible pixels)
-            bar_height = self.size / 3
-            bar_width = self.size * 2
-            painter.drawRect(QRectF(-self.size, -bar_height / 2, bar_width, bar_height))
-            # Draw pixel segment squares inside the bar
-            segment_count = 6  # Simplified visual representation
-            segment_spacing = (bar_width * 0.85) / segment_count
-            start_x = -self.size * 0.85 + segment_spacing / 2
-            segment_size = segment_spacing * 0.7
-            # Use alternating colors to indicate per-pixel control capability
-            colors = [QColor(255, 100, 100), QColor(100, 255, 100), QColor(100, 100, 255),
-                     QColor(255, 255, 100), QColor(255, 100, 255), QColor(100, 255, 255)]
-            for i in range(segment_count):
-                seg_x = start_x + i * segment_spacing - segment_size / 2
-                painter.setBrush(QBrush(colors[i % len(colors)]))
-                painter.drawRect(QRectF(seg_x, -segment_size / 2, segment_size, segment_size))
-            # Restore original brush
-            if self.isSelected():
-                selected_color = QColor(self.channel_color)
-                selected_color.setAlpha(160)
-                painter.setBrush(QBrush(selected_color))
-            else:
-                painter.setBrush(QBrush(QColor(self.channel_color)))
+        # Draw the chassis-keyed icon. PIXELBAR / SUNSTRIP are both
+        # Chassis.BAR; the legacy fixture_type string still drives the
+        # accent so visual fidelity is preserved.
+        chassis = chassis_from_legacy_type(self.fixture_type)
+        if self.fixture_type == "PIXELBAR":
+            accent = ACCENT_PIXELS
         elif self.fixture_type == "SUNSTRIP":
-            # Sunstrip - elongated rectangle with lamp circles
-            bar_height = self.size / 3
-            bar_width = self.size * 2
-            painter.drawRect(QRectF(-self.size, -bar_height / 2, bar_width, bar_height))
-            # Draw lamp circles inside the bar
-            bulb_count = 5
-            bulb_spacing = (bar_width * 0.85) / bulb_count
-            start_x = -self.size * 0.85 + bulb_spacing / 2
-            bulb_radius = 3
-            for i in range(bulb_count):
-                bulb_x = start_x + i * bulb_spacing
-                painter.drawEllipse(QRectF(bulb_x - bulb_radius, -bulb_radius,
-                                          bulb_radius * 2, bulb_radius * 2))
-        elif self.fixture_type == "WASH":
-            painter.drawRoundedRect(QRectF(-self.size / 2, -self.size / 2, self.size, self.size),
-                                    self.size / 4, self.size / 4)
-        elif self.fixture_type == "MH":
-            # Draw the base circle
-            painter.drawEllipse(QRectF(-self.size / 2, -self.size / 2, self.size, self.size))
-
-            # Draw triangle pointing in the same direction as rotation handle
-            triangle = [
-                QPointF(self.size / 2, 0),  # Bot point
-                QPointF(0, -self.size / 4),  # Left point
-                QPointF(0, self.size / 4)  # Right point
-            ]
-            painter.drawPolygon(triangle)
+            accent = ACCENT_LAMPS
+        else:
+            accent = None
+        paint_fixture_icon(painter, chassis, self.size, accent=accent)
 
         # Draw mounting indicator (colored dot/ring in center)
         self._draw_mounting_indicator(painter)
@@ -178,8 +137,10 @@ class FixtureItem(QGraphicsItem):
         painter.restore()  # Restore the original painter state
         painter.save()
 
-        # Draw orientation axes if enabled
-        if FixtureItem.show_orientation_axes and (FixtureItem.show_all_axes or self.isSelected()):
+        # Draw orientation axes if enabled (single class-level toggle
+        # — see show_orientation_axes for the rationale behind not
+        # gating on selection).
+        if FixtureItem.show_orientation_axes:
             self._draw_orientation_axes(painter)
 
         painter.restore()
@@ -202,12 +163,19 @@ class FixtureItem(QGraphicsItem):
         else:
             text_y_offset = self.size / 2
 
-        # Draw fixture name (regular font)
+        # Draw fixture name (regular font). Text colour comes from
+        # the parent StageView's ``fixtureTextColor`` qproperty, which
+        # the active QSS theme drives via
+        # ``StageView { qproperty-fixtureTextColor: #...; }`` —
+        # hardcoding black left the labels invisible on the dark-mode
+        # stage fill.
+        text_color = self._theme_text_color()
+
         font = painter.font()
         font.setPointSize(8)
         font.setBold(False)
         painter.setFont(font)
-        painter.setPen(Qt.GlobalColor.black)
+        painter.setPen(QPen(text_color))
 
         name_rect = QRectF(-text_width / 2, text_y_offset, text_width, 12)
         painter.drawText(name_rect, Qt.AlignmentFlag.AlignCenter, self.fixture_name)
@@ -384,6 +352,26 @@ class FixtureItem(QGraphicsItem):
         angle = atan2(-z3, x3) * 180.0 / 3.14159265359
 
         return angle
+
+    def _theme_text_color(self):
+        """Return the theme-driven label colour from the parent
+        StageView's ``fixtureTextColor`` qproperty.
+
+        Falls back to black if the item isn't yet attached to a scene
+        (e.g. during early construction or in unit tests). The active
+        QSS theme writes this property via the ``StageView { ... }``
+        rule, so adding a new theme is just a matter of adding the
+        right ``qproperty-fixtureTextColor`` line.
+        """
+        scene = self.scene()
+        if scene is not None:
+            views = scene.views()
+            if views:
+                view = views[0]
+                color = getattr(view, "fixtureTextColor", None)
+                if color is not None and color.isValid():
+                    return color
+        return QColor(0, 0, 0)
 
     def _draw_orientation_axes(self, painter):
         """Draw orientation coordinate axes for the fixture.

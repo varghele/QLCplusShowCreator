@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional, Tuple
 from utils.effects_utils import get_channels_by_property, find_closest_color_dmx
 from utils.orientation import calculate_pan_tilt, pan_tilt_to_dmx
+from utils.to_xml.step_compaction import compact_step_values
 
 
 def _map_rgb_to_color_wheel(r: int, g: int, b: int) -> int:
@@ -133,21 +134,21 @@ def calculate_unified_step_grid(
             # Strobe needs fast steps - half beat per toggle
             step_interval = (ms_per_beat / speed_mult) / 2
             min_step_interval_ms = min(min_step_interval_ms, step_interval)
-        elif block.effect_type == "hit":
-            # Hit effects need fine steps to show exponential decay
-            # At minimum, 8 steps per hit cycle for decent decay curve
-            hit_cycle_ms = ms_per_beat / speed_mult  # one beat per hit
-            step_interval = hit_cycle_ms / 8  # 8 steps per hit for smooth decay
+        elif block.effect_type == "stroke":
+            # Stroke effects need fine steps to show exponential decay
+            # At minimum, 8 steps per stroke cycle for decent decay curve
+            stroke_cycle_ms = ms_per_beat / speed_mult  # one beat per stroke
+            step_interval = stroke_cycle_ms / 8  # 8 steps per stroke for smooth decay
             step_interval = max(step_interval, MIN_STEP_DURATION_MS)
             min_step_interval_ms = min(min_step_interval_ms, step_interval)
-        elif block.effect_type in ("ping_pong_smooth", "random_strobe", "snake", "zigzag"):
-            # Ping pong smooth, random strobe, snake, and zigzag have smooth animations that need fine steps
-            # Similar to hit, use 8-10 steps per fixture transition for smooth animation
+        elif block.effect_type in ("ping_pong", "random_stroke", "chase"):
+            # Ping pong, random stroke, and chase have smooth animations that need fine steps
+            # Similar to stroke, use 8-10 steps per fixture transition for smooth animation
             beat_ms = ms_per_beat / speed_mult  # one beat per fixture
             step_interval = beat_ms / 10  # 10 steps per beat for smooth animation
             step_interval = max(step_interval, MIN_STEP_DURATION_MS)
             min_step_interval_ms = min(min_step_interval_ms, step_interval)
-        elif block.effect_type in ("breathing_sync", "wave_travel", "heartbeat_pulse"):
+        elif block.effect_type in ("pulse", "wave", "heartbeat"):
             # Smooth animated effects need fine steps for visual quality
             # Use ~16 steps per bar for smooth sine waves and heartbeat pattern
             bar_ms = ms_per_beat * 4  # Assuming 4/4 time
@@ -155,15 +156,15 @@ def calculate_unified_step_grid(
             step_interval = cycle_ms / 16  # 16 steps per cycle
             step_interval = max(step_interval, MIN_STEP_DURATION_MS)
             min_step_interval_ms = min(min_step_interval_ms, step_interval)
-        elif block.effect_type == "twinkle":
-            # Twinkle needs ~2 samples per twinkle transition for smooth interpolation
-            # Twinkle step duration = 200ms / speed_mult; sample at half that
+        elif block.effect_type == "sparkle":
+            # Sparkle needs ~2 samples per sparkle transition for smooth interpolation
+            # Sparkle step duration = 200ms / speed_mult; sample at half that
             step_interval = (0.1 / speed_mult) * 1000  # 100ms / speed_mult
             step_interval = max(step_interval, MIN_STEP_DURATION_MS)
             min_step_interval_ms = min(min_step_interval_ms, step_interval)
-        elif block.effect_type in ("waterfall", "waterfall_down", "waterfall_up"):
+        elif block.effect_type == "waterfall":
             # Waterfall needs fine steps to capture smooth drift animation
-            # Same resolution as ping_pong_smooth: 10 steps per beat
+            # Same resolution as ping_pong: 10 steps per beat
             beat_ms_wf = ms_per_beat / speed_mult
             step_interval = beat_ms_wf / 10
             step_interval = max(step_interval, MIN_STEP_DURATION_MS)
@@ -210,7 +211,8 @@ def sample_dimmer_at_time(
     total_fixtures: int,
     step_idx: int,
     total_steps: int,
-    bpm: float = 120.0
+    bpm: float = 120.0,
+    max_intensity: int = 255
 ) -> Optional[int]:
     """
     Sample the dimmer intensity at a given time.
@@ -223,6 +225,7 @@ def sample_dimmer_at_time(
         step_idx: Current step index (for animated effects)
         total_steps: Total number of steps
         bpm: Beats per minute for timing calculations
+        max_intensity: Maximum intensity for this group (0-255), scales proportionally
 
     Returns:
         Intensity value (0-255) or None if no dimmer block at this time
@@ -237,7 +240,7 @@ def sample_dimmer_at_time(
     if not active_block:
         return None
 
-    base_intensity = int(active_block.intensity)
+    base_intensity = int(int(active_block.intensity) * max_intensity / 255)
     effect_type = active_block.effect_type
 
     # Calculate relative position within the block
@@ -267,8 +270,8 @@ def sample_dimmer_at_time(
         else:
             return 0
 
-    elif effect_type == "twinkle":
-        # Twinkle effect: smooth random intensity variations per fixture
+    elif effect_type == "sparkle":
+        # Sparkle effect: smooth random intensity variations per fixture
         # Matches ArtNet implementation in dmx_manager.py
         import random
         import hashlib
@@ -313,8 +316,8 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * variation)
 
-    elif effect_type == "ping_pong_smooth":
-        # Ping pong smooth: one fixture lights up at a time, bouncing back and forth
+    elif effect_type == "ping_pong":
+        # Ping pong: one fixture lights up at a time, bouncing back and forth
         # INSTANT attack (on the beat), smooth fade out until next fixture
         speed = active_block.effect_speed
         if '/' in speed:
@@ -386,8 +389,8 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * intensity_multiplier)
 
-    elif effect_type == "random_strobe":
-        # Random strobe: one fixture lights up at a time in shuffled order
+    elif effect_type == "random_stroke":
+        # Random stroke: one fixture lights up at a time in shuffled order
         # When all fixtures have been lit, reshuffle (like a deck of cards)
         import random
 
@@ -442,9 +445,10 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * intensity_multiplier)
 
-    elif effect_type == "snake":
-        # Snake effect: a "snake" with fading tail moves through fixtures
-        # Bounces back and forth like classic Snake game
+    elif effect_type == "chase":
+        # Chase effect: a light with fading tail moves through fixtures, bouncing back and forth
+        # chase_scope="fixture" (was snake): runs per fixture group
+        # chase_scope="global" (was zigzag): treats ALL fixtures as one continuous chain
         # 4 beats = full cycle (forward + backward)
         # Tail spans approximately half the fixtures
         speed = active_block.effect_speed
@@ -457,7 +461,6 @@ def sample_dimmer_at_time(
         time_in_block = time_s - active_block.start_time
 
         if total_fixtures <= 1:
-            # Single fixture - just stay on
             return base_intensity
 
         # Tail spans half the fixtures
@@ -506,63 +509,9 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * intensity_multiplier)
 
-    elif effect_type == "zigzag":
-        # Zigzag effect: snake moves across ALL fixtures as one continuous chain
-        # Unlike 'snake' which runs independently per fixture, 'zigzag' treats all
-        # fixtures as one long strip
-        speed = active_block.effect_speed
-        if '/' in speed:
-            num, denom = map(int, speed.split('/'))
-            speed_mult = num / denom
-        else:
-            speed_mult = float(speed)
-
-        time_in_block = time_s - active_block.start_time
-
-        if total_fixtures <= 1:
-            return base_intensity
-
-        # Tail spans half the fixtures
-        tail_length = max(1, total_fixtures // 2)
-
-        # 4 beats = full cycle (forward + backward)
-        seconds_per_beat = 60.0 / bpm
-        time_per_pass = (seconds_per_beat * 2) / speed_mult
-        cycle_time = time_per_pass * 2
-
-        time_in_cycle = time_in_block % cycle_time
-
-        # Calculate head position (0 to total_fixtures-1, bouncing)
-        if time_in_cycle < time_per_pass:
-            progress = time_in_cycle / time_per_pass
-            head_position = progress * (total_fixtures - 1)
-            going_forward = True
-        else:
-            progress = (time_in_cycle - time_per_pass) / time_per_pass
-            head_position = (total_fixtures - 1) * (1.0 - progress)
-            going_forward = False
-
-        # Calculate distance from head for this fixture
-        if going_forward:
-            distance = head_position - fixture_idx
-        else:
-            distance = fixture_idx - head_position
-
-        # Calculate intensity based on distance
-        if distance < -0.5:
-            intensity_multiplier = 0.0
-        elif distance < 0.5:
-            intensity_multiplier = 1.0
-        elif distance <= tail_length:
-            fade_factor = 1.0 - (distance / (tail_length + 1))
-            intensity_multiplier = fade_factor * 0.8
-        else:
-            intensity_multiplier = 0.0
-
-        return int(base_intensity * intensity_multiplier)
-
-    elif effect_type in ("waterfall_down", "waterfall_up"):
+    elif effect_type == "waterfall":
         # Waterfall effect: light cascades through fixtures with smooth tail
+        # Uses block.direction ("down" or "up") to determine cascade direction
         # Matches ArtNet implementation in dmx_manager.py
         import hashlib
 
@@ -603,17 +552,18 @@ def sample_dimmer_at_time(
         cycle_progress = (time_in_block / cycle_time + total_offset) % 1.0
         head_position = cycle_progress * total_fixtures  # 0 to total_fixtures
 
-        # For waterfall_down: head moves from last fixture (N-1) to first (0)
-        # For waterfall_up: head moves from first fixture (0) to last (N-1)
-        if effect_type == "waterfall_down":
+        # For direction="down": head moves from last fixture (N-1) to first (0)
+        # For direction="up": head moves from first fixture (0) to last (N-1)
+        direction = getattr(active_block, 'direction', 'down')
+        if direction == "down":
             head_position = (total_fixtures - 1) - head_position
-        # For waterfall_up, head_position is already 0 to N-1
+        # For direction="up", head_position is already 0 to N-1
 
         # Calculate distance from head using circular/wrapped distance
         # This creates a continuous seamless loop where the tail wraps around
-        if effect_type == "waterfall_down":
+        if direction == "down":
             raw_distance = fixture_idx - head_position
-        else:  # waterfall_up
+        else:  # direction="up"
             raw_distance = head_position - fixture_idx
 
         # Use modulo to wrap the distance for continuous effect
@@ -625,9 +575,9 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * intensity_multiplier)
 
-    elif effect_type == "hit":
-        # Hit effect: instant attack, decay over the beat duration
-        # One hit per beat at speed 1, decay takes the full beat
+    elif effect_type == "stroke":
+        # Stroke effect: instant attack, decay over the beat duration
+        # One stroke per beat at speed 1, decay takes the full beat
         speed = active_block.effect_speed
         if '/' in speed:
             num, denom = map(int, speed.split('/'))
@@ -639,14 +589,14 @@ def sample_dimmer_at_time(
 
         seconds_per_beat = 60.0 / bpm
 
-        # Time between hits (one beat at speed 1)
-        time_per_hit = seconds_per_beat / speed_mult
+        # Time between strokes (one beat at speed 1)
+        time_per_stroke = seconds_per_beat / speed_mult
 
         # Decay takes the full beat duration
-        decay_time = time_per_hit
+        decay_time = time_per_stroke
 
-        # Calculate position within current hit cycle
-        time_in_cycle = time_in_block % time_per_hit
+        # Calculate position within current stroke cycle
+        time_in_cycle = time_in_block % time_per_stroke
 
         # Calculate intensity based on decay (full beat duration)
         decay_progress = time_in_cycle / decay_time
@@ -655,9 +605,9 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * intensity_multiplier)
 
-    elif effect_type == "breathing_sync":
-        # Breathing effect: all fixtures fade in/out together smoothly in a sine curve
-        # One full breath cycle per bar at speed 1
+    elif effect_type == "pulse":
+        # Pulse effect: all fixtures fade in/out together smoothly in a sine curve
+        # One full pulse cycle per bar at speed 1
         speed = active_block.effect_speed
         if '/' in speed:
             num, denom = map(int, speed.split('/'))
@@ -684,7 +634,7 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * brightness)
 
-    elif effect_type == "wave_travel":
+    elif effect_type == "wave":
         # Wave effect: intensity wave travels across fixtures like a stadium wave
         # One wave cycle per bar at speed 1
         speed = active_block.effect_speed
@@ -723,7 +673,7 @@ def sample_dimmer_at_time(
 
         return int(base_intensity * brightness)
 
-    elif effect_type == "heartbeat_pulse":
+    elif effect_type == "heartbeat":
         # Heartbeat effect: double-pulse pattern (bump-bump... pause... bump-bump)
         # One heartbeat cycle per bar at speed 1
         # Timing: Beat1 up (10%), Beat1 down (10%), Beat2 up (10%), Beat2 down (20%), Rest (50%)
@@ -1069,7 +1019,8 @@ def build_unified_step(
     all_lane_fixtures: List = None,  # Full fixture list for cross-group effects
     bpm: float = 120.0,  # BPM for timing calculations
     signature: str = "4/4",  # Time signature for movement calculations
-    config: Any = None  # Configuration object for spot targeting
+    config: Any = None,  # Configuration object for spot targeting
+    export_overrides: dict = None
 ) -> ET.Element:
     """
     Build a single unified step with all channel values for all fixtures.
@@ -1151,7 +1102,8 @@ def build_unified_step(
 
         # Sample all effect types at this time
         # Use global_fixture_idx and total_fixtures_for_effects for cross-group effects
-        dimmer_value = sample_dimmer_at_time(time_s, dimmer_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm)
+        _max_intensity = export_overrides.get('group_max_intensity', 255) if export_overrides else 255
+        dimmer_value = sample_dimmer_at_time(time_s, dimmer_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm, max_intensity=_max_intensity)
         movement_values = sample_movement_at_time(time_s, movement_blocks, global_fixture_idx, total_fixtures_for_effects, step_idx, total_steps, bpm, signature, config, fixture)
         colour_values = sample_colour_at_time(time_s, colour_blocks)
         special_values = sample_special_at_time(time_s, special_blocks)
@@ -1205,17 +1157,17 @@ def build_unified_step(
         )
         num_rgb_segments = len(channels_dict.get("IntensityRed", [])) if "IntensityRed" in channels_dict else 0
 
-        # For pixelbars with twinkle or waterfall effect: set master dimmer to full intensity
+        # For pixelbars with sparkle or waterfall effect: set master dimmer to full intensity
         # The effect modulation is applied to the color channels instead
-        is_pixelbar_twinkle = (
+        is_pixelbar_sparkle = (
             active_dimmer_block and
-            active_dimmer_block.effect_type == "twinkle" and
+            active_dimmer_block.effect_type == "sparkle" and
             has_rgb_channels and
             num_rgb_segments > 1
         )
         is_pixelbar_waterfall = (
             active_dimmer_block and
-            active_dimmer_block.effect_type in ("waterfall_down", "waterfall_up") and
+            active_dimmer_block.effect_type == "waterfall" and
             has_rgb_channels and
             num_rgb_segments > 1
         )
@@ -1226,8 +1178,8 @@ def build_unified_step(
                 for ch in channels_dict[preset]:
                     # For pixelbar twinkle/waterfall, set dimmer to block's base intensity
                     # (effect modulation happens in color channels)
-                    if is_pixelbar_twinkle or is_pixelbar_waterfall:
-                        dimmer_to_use = int(active_dimmer_block.intensity)
+                    if is_pixelbar_sparkle or is_pixelbar_waterfall:
+                        dimmer_to_use = int(int(active_dimmer_block.intensity) * _max_intensity / 255)
                     else:
                         dimmer_to_use = dimmer_value
                     channel_values.append(f"{ch['channel']},{dimmer_to_use}")
@@ -1277,7 +1229,7 @@ def build_unified_step(
                 ]
 
                 # For pixelbar twinkle, each segment gets an independent random intensity
-                if is_pixelbar_twinkle:
+                if is_pixelbar_sparkle:
                     # Calculate per-segment twinkle intensities (matches ArtNet implementation)
                     import random
                     import hashlib
@@ -1364,19 +1316,20 @@ def build_unified_step(
                     cycle_progress = (time_in_block / cycle_time + total_offset) % 1.0
                     head_position = cycle_progress * num_rgb_segments  # 0 to num_segments
 
-                    # For waterfall_down: head moves from last segment (N-1) to first (0)
-                    # For waterfall_up: head moves from first segment (0) to last (N-1)
-                    if effect_type == "waterfall_down":
+                    # For direction="down": head moves from last segment (N-1) to first (0)
+                    # For direction="up": head moves from first segment (0) to last (N-1)
+                    direction = getattr(active_dimmer_block, 'direction', 'down')
+                    if direction == "down":
                         head_position = (num_rgb_segments - 1) - head_position
-                    # For waterfall_up, head_position is already 0 to N-1
+                    # For direction="up", head_position is already 0 to N-1
 
                     # Calculate intensity for each segment using circular/wrapped distance
                     segment_intensities = []
                     for seg_idx in range(num_rgb_segments):
                         # Calculate distance from head to this segment
-                        if effect_type == "waterfall_down":
+                        if direction == "down":
                             raw_distance = seg_idx - head_position
-                        else:  # waterfall_up
+                        else:  # direction="up"
                             raw_distance = head_position - seg_idx
 
                         # Use modulo to wrap the distance for continuous effect
@@ -1488,8 +1441,12 @@ def build_unified_step(
         else:
             values.append(f"{fixture_id}:")
 
-    step.set("Values", str(total_channel_count))
-    step.text = ":".join(values)
+    # Drop zero-valued channels to match QLC+'s native saver convention
+    # (engine/src/chaserstep.cpp:293). Absent channels render as 0 in the
+    # scene, so playback is byte-identical and the file is ~30% smaller.
+    compacted_values, nonzero_count = compact_step_values(values)
+    step.set("Values", str(nonzero_count))
+    step.text = ":".join(compacted_values)
 
     return step
 
@@ -1502,7 +1459,8 @@ def generate_unified_sequence_steps(
     bpm: float,
     signature: str = "4/4",
     all_lane_fixtures: List = None,  # All fixtures in the lane for cross-group effects
-    config: Any = None  # Configuration object for spot targeting
+    config: Any = None,  # Configuration object for spot targeting
+    export_overrides: dict = None
 ) -> List[ET.Element]:
     """
     Generate unified sequence steps for a light block.
@@ -1567,7 +1525,8 @@ def generate_unified_sequence_steps(
             all_lane_fixtures=all_lane_fixtures,  # Pass full fixture list for cross-group effects
             bpm=bpm,  # Pass BPM for timing-based effects like ping-pong
             signature=signature,  # Pass signature for movement timing
-            config=config  # Pass config for spot targeting
+            config=config,  # Pass config for spot targeting
+            export_overrides=export_overrides
         )
 
         steps.append(step)

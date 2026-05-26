@@ -416,7 +416,7 @@ class TestFullRoundtrip:
         lb1 = _make_lightblock(
             2.31, 23.18,
             effect_name="bars.static",
-            dimmer_blocks=[_make_dimmer(2.31, 23.18, intensity=200.0, effect_type="ping_pong_smooth")],
+            dimmer_blocks=[_make_dimmer(2.31, 23.18, intensity=200.0, effect_type="ping_pong")],
             colour_blocks=[_make_colour(2.31, 23.18, red=128.0, green=64.0, blue=32.0)],
             movement_blocks=[_make_movement(2.31, 23.18, pan=100.0, tilt=80.0, effect_type="lissajous")],
             special_blocks=[_make_special(2.31, 23.18, gobo_index=3, focus=200.0)],
@@ -427,7 +427,7 @@ class TestFullRoundtrip:
         lb2 = _make_lightblock(
             41.73, 53.33,
             effect_name="bars.static",
-            dimmer_blocks=[_make_dimmer(41.73, 53.33, intensity=200.0, effect_type="ping_pong_smooth")],
+            dimmer_blocks=[_make_dimmer(41.73, 53.33, intensity=200.0, effect_type="ping_pong")],
             colour_blocks=[_make_colour(41.73, 53.33, red=128.0, green=64.0, blue=32.0)],
             movement_blocks=[_make_movement(41.73, 53.33, pan=100.0, tilt=80.0, effect_type="lissajous")],
             special_blocks=[_make_special(41.73, 53.33, gobo_index=3, focus=200.0)],

@@ -7,6 +7,10 @@ from typing import Dict, List, Optional, Tuple, Any
 from config.models import Configuration, Fixture, LightBlock, DimmerBlock, ColourBlock, MovementBlock, SpecialBlock
 from utils.effects_utils import get_channels_by_property
 from utils.orientation import calculate_pan_tilt, pan_tilt_to_dmx
+from effects import (
+    DimmerContext, DimmerResult, MovementContext, MovementResult,
+    DIMMER_REGISTRY, MOVEMENT_REGISTRY, parse_speed, get_bpm,
+)
 
 # Debug flag - set to False to disable verbose prints (improves performance significantly)
 DEBUG_PRINTS = False
@@ -157,7 +161,23 @@ class DMXManager:
         # fixtures is a list of Fixture objects resolved from the lane's targets
         self.active_blocks: Dict[str, Dict[str, Tuple[List[Fixture], object, float]]] = {}
 
+        # Movement speed limiting
+        self._max_pan_tilt_speed: float = 0.0  # degrees/sec, 0 = unlimited
+        self._prev_pan: Dict[str, float] = {}  # fixture_key -> last pan DMX
+        self._prev_tilt: Dict[str, float] = {}  # fixture_key -> last tilt DMX
+
+        # Stage planes for world-space movement (set by live mode)
+        self._stage_planes: Dict[str, 'StagePlane'] = {}
+
         print(f"DMX Manager initialized with {len(self.dmx_state)} universes")
+
+    def set_max_pan_tilt_speed(self, degrees_per_sec: float):
+        """Set maximum pan/tilt speed in degrees/second. 0 = unlimited."""
+        self._max_pan_tilt_speed = max(0.0, degrees_per_sec)
+
+    def set_stage_planes(self, planes: dict):
+        """Set stage planes dict (name -> StagePlane) for world-space movement."""
+        self._stage_planes = planes
 
     def set_song_structure(self, song_structure):
         """
@@ -399,7 +419,7 @@ class DMXManager:
 
             # Apply dimmer block to its resolved fixtures
             if dimmer_block and dimmer_fixtures:
-                # Sort fixtures by x-position for spatial effects like ping_pong_smooth
+                # Sort fixtures by x-position for spatial effects like ping_pong
                 sorted_fixtures = sorted(dimmer_fixtures, key=lambda f: f.x)
                 total_fixtures = len(sorted_fixtures)
 
@@ -506,65 +526,21 @@ class DMXManager:
             fixture_index: This fixture's index within the group (for group effects)
             total_fixtures: Total fixtures in the group (for group effects)
         """
-        # Clear any previous twinkle segment intensities
-        # (will be set again if effect_type is twinkle)
-        if hasattr(fixture_map, '_twinkle_segment_intensities'):
-            delattr(fixture_map, '_twinkle_segment_intensities')
+        # Clear any previous segment intensities
+        # (will be set again if the effect produces segment intensities)
+        if hasattr(fixture_map, '_segment_intensities'):
+            delattr(fixture_map, '_segment_intensities')
 
-        # Calculate current intensity based on effect type
-        intensity = block.intensity
+        # Determine fixture type and segment info
+        fixture_type = getattr(fixture_map.fixture, 'type', '')
+        is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
+        is_segmented_type = fixture_type in ('PIXELBAR', 'BAR', 'SUNSTRIP')
+        has_color_segments = bool(fixture_map.red_channels or fixture_map.white_channels)
+        has_dimmer_segments = len(fixture_map.dimmer_channels) > 1
+        is_segmented = is_segmented_type and (has_color_segments or has_dimmer_segments)
 
-        if block.effect_type == "strobe":
-            # Strobe effect: alternate between intensity and 0
-            # Calculate strobe frequency from effect_speed
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            # Strobe at (2 * speed_multiplier) Hz
-            strobe_hz = 2.0 * speed_multiplier
-            # Calculate phase
-            time_in_block = current_time - block.start_time
-            phase = (time_in_block * strobe_hz) % 1.0
-            # 50% duty cycle
-            intensity = block.intensity if phase < 0.5 else 0
-
-            # Set all dimmer channels to same intensity for strobe
-            for ch_offset in fixture_map.dimmer_channels:
-                universe, channel = fixture_map.get_absolute_address(ch_offset)
-                self.set_dmx_value(universe, channel, int(intensity))
-
-        elif block.effect_type == "twinkle":
-            # Twinkle: each segment/channel gets independent random intensity
-            # With SMOOTH transitions between intensity values
-            import random
-            import hashlib
-
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Time per "twinkle step" - how often a new random target is chosen
-            twinkle_step_duration = 0.2 / speed_multiplier  # 200ms base, adjusted by speed
-
-            # Calculate current and next step for interpolation
-            step_float = time_in_block / twinkle_step_duration
-            current_step = int(step_float)
-            next_step = current_step + 1
-            # How far through the transition (0.0 to 1.0)
-            transition_progress = step_float - current_step
-
-            # Check if this is a pixelbar type (has RGBW segments but limited dimmers)
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
-
-            # For pixelbars: control RGBW segments, keep master dimmer at set intensity
-            # For other fixtures: control dimmer channels
-            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
-                # Set master dimmer to full intensity
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, int(block.intensity))
-
-                # Twinkle each SEGMENT independently (not individual RGBW channels)
-                # Each segment's R,G,B,W should scale together to maintain color
-                # Determine number of segments from the color channels
+        if is_segmented:
+            if has_color_segments:
                 num_segments = max(
                     len(fixture_map.red_channels),
                     len(fixture_map.green_channels),
@@ -572,1104 +548,108 @@ class DMXManager:
                     len(fixture_map.white_channels),
                     1
                 )
-
-                # Calculate intensity multiplier for each segment
-                segment_intensities = []
-                for seg_idx in range(num_segments):
-                    # Get current target intensity for this segment
-                    seed_str = f"{fixture_map.fixture.name}_seg{seg_idx}_{current_step}"
-                    seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
-                    random.seed(seed_hash)
-                    current_variation = random.random() * 0.7 + 0.3
-
-                    # Get next target intensity for this segment
-                    seed_str = f"{fixture_map.fixture.name}_seg{seg_idx}_{next_step}"
-                    seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
-                    random.seed(seed_hash)
-                    next_variation = random.random() * 0.7 + 0.3
-
-                    # Smooth interpolation
-                    t = transition_progress
-                    smooth_t = t * t * (3 - 2 * t)
-                    variation = current_variation + (next_variation - current_variation) * smooth_t
-                    segment_intensities.append(variation)
-
-                # Store segment intensities in fixture_map for use by colour_block
-                # This allows the colour block to scale its values by the twinkle factor
-                fixture_map._twinkle_segment_intensities = segment_intensities
+                is_dimmer_only = False
             else:
-                # Regular fixtures: twinkle the dimmer channels
-                for idx, ch_offset in enumerate(fixture_map.dimmer_channels):
-                    # Get current target intensity (seeded by step)
-                    seed_str = f"{fixture_map.fixture.name}_{idx}_{current_step}"
-                    seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
-                    random.seed(seed_hash)
-                    current_variation = random.random() * 0.7 + 0.3
-
-                    # Get next target intensity
-                    seed_str = f"{fixture_map.fixture.name}_{idx}_{next_step}"
-                    seed_hash = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
-                    random.seed(seed_hash)
-                    next_variation = random.random() * 0.7 + 0.3
-
-                    # Smooth interpolation between current and next
-                    t = transition_progress
-                    smooth_t = t * t * (3 - 2 * t)  # Smoothstep function
-                    variation = current_variation + (next_variation - current_variation) * smooth_t
-
-                    channel_intensity = int(block.intensity * variation)
-
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, channel_intensity)
-
-        elif block.effect_type == "ping_pong_smooth":
-            # Ping pong smooth: one fixture lights up at a time, bouncing back and forth
-            # INSTANT attack (on the beat), smooth fade out until next fixture
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            # Calculate timing: each fixture gets one beat at speed 1
-            seconds_per_beat = 60.0 / bpm
-            time_per_fixture = seconds_per_beat / speed_multiplier
-
-            # Calculate intensity multiplier (0.0 to 1.0) for this fixture
-            if total_fixtures <= 1:
-                # Single fixture - just stay on
-                intensity_multiplier = 1.0
-            else:
-                # Total time for one full ping-pong cycle (0→N-1→0)
-                # For N fixtures: N-1 steps forward, N-1 steps back = 2*(N-1) beats
-                steps_in_cycle = (total_fixtures - 1) * 2
-                cycle_time = time_per_fixture * steps_in_cycle
-
-                # Get current time within the cycle
-                time_in_cycle = time_in_block % cycle_time
-
-                # Which "step" are we on? (each step = one fixture's turn)
-                current_step = time_in_cycle / time_per_fixture
-                step_index = int(current_step)
-                time_within_step = (current_step - step_index) * time_per_fixture
-
-                # Convert step index to fixture index (ping-pong pattern)
-                # Steps 0,1,2,...,N-2 go forward (fixtures 0,1,2,...,N-1)
-                # Steps N-1,N,...,2N-3 go backward (fixtures N-2,N-3,...,1)
-                if step_index < (total_fixtures - 1):
-                    # Going forward
-                    active_fixture = step_index
-                else:
-                    # Going backward
-                    active_fixture = steps_in_cycle - step_index
-
-                # Calculate intensity multiplier for this fixture
-                if fixture_index == active_fixture:
-                    # This is the active fixture - instant full brightness
-                    # with smooth decay over the beat
-                    # Decay: start at 100%, end at ~20% by end of beat
-                    decay_progress = time_within_step / time_per_fixture
-                    # Use exponential decay for smooth falloff
-                    intensity_multiplier = 0.2 + 0.8 * math.exp(-decay_progress * 3)
-                elif fixture_index == (active_fixture - 1) or fixture_index == (active_fixture + 1):
-                    # Adjacent fixture - might have residual glow from previous beat
-                    # Only show tail if we just left this fixture
-                    prev_fixture = active_fixture - 1 if step_index < (total_fixtures - 1) else active_fixture + 1
-                    if fixture_index == prev_fixture and time_within_step < time_per_fixture * 0.3:
-                        # Short tail from previous fixture (first 30% of beat only)
-                        tail_progress = time_within_step / (time_per_fixture * 0.3)
-                        intensity_multiplier = 0.3 * (1.0 - tail_progress)
-                    else:
-                        intensity_multiplier = 0.0
-                else:
-                    # Not active, not adjacent - off
-                    intensity_multiplier = 0.0
-
-            # Check if this is a pixelbar type (has RGBW segments but may lack master dimmer)
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
-
-            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
-                # For pixelbars: set master dimmer to full, control brightness via color scaling
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, int(block.intensity))
-
-                # Store uniform intensity for all segments - colour_block will use this to scale colors
-                num_segments = max(
-                    len(fixture_map.red_channels),
-                    len(fixture_map.green_channels),
-                    len(fixture_map.blue_channels),
-                    len(fixture_map.white_channels),
-                    1
-                )
-                # All segments get the same intensity multiplier for ping_pong
-                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
-            else:
-                # For regular fixtures (moving heads, sunstrips): control via dimmer channels
-                intensity = int(block.intensity * intensity_multiplier)
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, intensity)
-
-        elif block.effect_type == "random_strobe":
-            # Random strobe: one fixture lights up at a time in shuffled order
-            # When all fixtures have been lit, reshuffle (like a deck of cards)
-            import random
-
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            # Calculate timing: each fixture gets one beat at speed 1
-            seconds_per_beat = 60.0 / bpm
-            time_per_fixture = seconds_per_beat / speed_multiplier
-
-            # Calculate intensity multiplier (0.0 to 1.0) for this fixture
-            if total_fixtures <= 1:
-                # Single fixture - just stay on
-                intensity_multiplier = 1.0
-            else:
-                # Time for one full cycle (all fixtures once)
-                cycle_time = time_per_fixture * total_fixtures
-
-                # Which cycle are we in?
-                cycle_number = int(time_in_block / cycle_time)
-
-                # Time within current cycle
-                time_in_cycle = time_in_block % cycle_time
-
-                # Which step within the cycle?
-                current_step = time_in_cycle / time_per_fixture
-                step_index = int(current_step)
-                time_within_step = (current_step - step_index) * time_per_fixture
-
-                # Generate shuffled order deterministically based on block start time + cycle
-                # Use block start time as base seed for consistency across all fixtures
-                seed = int(block.start_time * 1000) + cycle_number
-                rng = random.Random(seed)
-                shuffled_indices = list(range(total_fixtures))
-                rng.shuffle(shuffled_indices)
-
-                # Which fixture is active at this step?
-                active_fixture = shuffled_indices[step_index % total_fixtures]
-
-                # Calculate intensity multiplier for this fixture
-                if fixture_index == active_fixture:
-                    # This is the active fixture - instant full brightness with smooth decay
-                    decay_progress = time_within_step / time_per_fixture
-                    # Use exponential decay for smooth falloff
-                    intensity_multiplier = 0.2 + 0.8 * math.exp(-decay_progress * 3)
-                else:
-                    # Not active - off
-                    intensity_multiplier = 0.0
-
-            # Check if this is a pixelbar type
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
-
-            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
-                # For pixelbars: set master dimmer to full, control brightness via color scaling
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, int(block.intensity))
-
-                # Store uniform intensity for all segments
-                num_segments = max(
-                    len(fixture_map.red_channels),
-                    len(fixture_map.green_channels),
-                    len(fixture_map.blue_channels),
-                    len(fixture_map.white_channels),
-                    1
-                )
-                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
-            else:
-                # For regular fixtures: control via dimmer channels
-                intensity = int(block.intensity * intensity_multiplier)
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, intensity)
-
-        elif block.effect_type in ("waterfall_down", "waterfall_up"):
-            # Waterfall effect: light cascades down (or up) through segments
-            # Each segment-to-segment transition takes one beat
-            # Tail spans the entire fixture with smooth falloff
-            # Each fixture has a slowly drifting random offset
-            import hashlib
-
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            seconds_per_beat = 60.0 / bpm
-            # Each segment transition takes one beat, adjusted by speed
-            time_per_step = seconds_per_beat / speed_multiplier
-
-            # Check fixture type for segment-based control
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_segmented = fixture_type in ('PIXELBAR', 'BAR', 'SUNSTRIP')
-
-            # Determine if this is an RGBW pixelbar or a dimmer-only sunstrip
-            has_color_segments = fixture_map.red_channels or fixture_map.white_channels
-            has_dimmer_segments = len(fixture_map.dimmer_channels) > 1
-
-            if is_segmented and (has_color_segments or has_dimmer_segments):
-                # Determine number of segments based on fixture type
-                if has_color_segments:
-                    # Pixelbar: segments are RGBW channels
-                    num_segments = max(
-                        len(fixture_map.red_channels),
-                        len(fixture_map.green_channels),
-                        len(fixture_map.blue_channels),
-                        len(fixture_map.white_channels),
-                        1
-                    )
-                    is_dimmer_only = False
-                else:
-                    # Sunstrip: segments are individual dimmer channels
-                    num_segments = len(fixture_map.dimmer_channels)
-                    is_dimmer_only = True
-
-                # Calculate random offset for this fixture (slowly drifting)
-                # Base offset from fixture name hash
-                name_hash = int(hashlib.md5(fixture_map.fixture.name.encode()).hexdigest()[:8], 16)
-                base_offset = (name_hash % 1000) / 1000.0  # 0.0 to 1.0
-
-                # Slowly drifting component (changes over ~30 seconds)
-                drift_period = 30.0
-                drift_phase = (current_time / drift_period) * 2 * math.pi
-                # Use fixture-specific phase for the drift
-                drift_seed = (name_hash % 997) / 997.0 * 2 * math.pi
-                drift_amount = 0.3 * math.sin(drift_phase + drift_seed)  # +/- 0.3 cycle drift
-
-                total_offset = base_offset + drift_amount
-
-                # Full cycle time = num_segments beats
-                cycle_time = time_per_step * num_segments
-
-                # Current position in cycle (0 to num_segments), with offset
-                cycle_progress = (time_in_block / cycle_time + total_offset) % 1.0
-                head_position = cycle_progress * num_segments  # 0 to num_segments
-
-                # For waterfall_down: head moves from last segment (N-1) to first (0)
-                # For waterfall_up: head moves from first segment (0) to last (N-1)
-                if block.effect_type == "waterfall_down":
-                    head_position = (num_segments - 1) - head_position
-                # For waterfall_up, head_position is already 0 to N-1
-
-                # Calculate intensity for each segment using circular/wrapped distance
-                # This creates a continuous seamless loop where the tail wraps around
-                segment_intensities = []
-                for seg_idx in range(num_segments):
-                    # Calculate distance from head to this segment
-                    # For waterfall_down: tail extends upward (higher indices), head moves down
-                    # For waterfall_up: tail extends downward (lower indices), head moves up
-                    if block.effect_type == "waterfall_down":
-                        raw_distance = seg_idx - head_position
-                    else:  # waterfall_up
-                        raw_distance = head_position - seg_idx
-
-                    # Use modulo to wrap the distance for continuous effect
-                    # This means segments "ahead" of the head are actually at the far end of the tail
-                    circular_distance = raw_distance % num_segments
-
-                    # Normalize and apply exponential decay
-                    normalized_dist = circular_distance / num_segments
-                    intensity_factor = math.exp(-1.5 * normalized_dist)
-
-                    segment_intensities.append(intensity_factor)
-
-                if is_dimmer_only:
-                    # Sunstrip: apply intensities directly to dimmer channels
-                    for seg_idx, ch_offset in enumerate(fixture_map.dimmer_channels):
-                        if seg_idx < len(segment_intensities):
-                            seg_intensity = int(block.intensity * segment_intensities[seg_idx])
-                            universe, channel = fixture_map.get_absolute_address(ch_offset)
-                            self.set_dmx_value(universe, channel, seg_intensity)
-                else:
-                    # Pixelbar: set master dimmer to full, store intensities for colour_block
-                    for ch_offset in fixture_map.dimmer_channels:
-                        universe, channel = fixture_map.get_absolute_address(ch_offset)
-                        self.set_dmx_value(universe, channel, int(block.intensity))
-                    # Store segment intensities for colour_block to use
-                    fixture_map._twinkle_segment_intensities = segment_intensities
-            else:
-                # For non-segmented fixtures, just set static intensity
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, int(block.intensity))
-
-        elif block.effect_type == "snake":
-            # Snake effect: a "snake" with fading tail moves through fixtures/segments
-            # Bounces back and forth like classic Snake game
-            # 4 beats = full cycle (forward + backward)
-            # Tail spans approximately half the fixtures/segments
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            seconds_per_beat = 60.0 / bpm
-
-            # Check fixture type for segment-based control
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_segmented = fixture_type in ('PIXELBAR', 'BAR', 'SUNSTRIP')
-
-            # Determine if this is an RGBW pixelbar or a dimmer-only sunstrip
-            has_color_segments = fixture_map.red_channels or fixture_map.white_channels
-            has_dimmer_segments = len(fixture_map.dimmer_channels) > 1
-
-            if is_segmented and (has_color_segments or has_dimmer_segments):
-                # SEGMENT-BASED: Snake moves through segments within this fixture
-                if has_color_segments:
-                    num_segments = max(
-                        len(fixture_map.red_channels),
-                        len(fixture_map.green_channels),
-                        len(fixture_map.blue_channels),
-                        len(fixture_map.white_channels),
-                        1
-                    )
-                    is_dimmer_only = False
-                else:
-                    num_segments = len(fixture_map.dimmer_channels)
-                    is_dimmer_only = True
-
-                # Tail spans half the segments
-                tail_length = max(1, num_segments // 2)
-
-                # 4 beats = full cycle, so snake traverses all segments twice (forward + back)
-                # Time to traverse all segments once = 2 beats
-                time_per_pass = (seconds_per_beat * 2) / speed_multiplier
-                cycle_time = time_per_pass * 2  # Full cycle = 2 passes
-
-                # Current position in cycle
-                time_in_cycle = time_in_block % cycle_time
-
-                # Calculate head position (0 to num_segments-1, bouncing)
-                if time_in_cycle < time_per_pass:
-                    # Forward pass (0 to num_segments-1)
-                    progress = time_in_cycle / time_per_pass
-                    head_position = progress * (num_segments - 1)
-                    going_forward = True
-                else:
-                    # Backward pass (num_segments-1 to 0)
-                    progress = (time_in_cycle - time_per_pass) / time_per_pass
-                    head_position = (num_segments - 1) * (1.0 - progress)
-                    going_forward = False
-
-                # Calculate intensity for each segment
-                segment_intensities = []
-                for seg_idx in range(num_segments):
-                    # Calculate distance from head (considering direction)
-                    if going_forward:
-                        # Tail extends backward (lower indices)
-                        distance = head_position - seg_idx
-                    else:
-                        # Tail extends forward (higher indices)
-                        distance = seg_idx - head_position
-
-                    # Calculate intensity based on distance
-                    if distance < -0.5:
-                        # Ahead of head - off
-                        intensity_factor = 0.0
-                    elif distance < 0.5:
-                        # At head - full intensity (with smooth transition)
-                        intensity_factor = 1.0
-                    elif distance <= tail_length:
-                        # In tail - fade based on distance
-                        fade_factor = 1.0 - (distance / (tail_length + 1))
-                        intensity_factor = fade_factor * 0.8  # Max 80% for tail
-                    else:
-                        # Beyond tail - off
-                        intensity_factor = 0.0
-
-                    segment_intensities.append(intensity_factor)
-
-                if is_dimmer_only:
-                    # Sunstrip: apply intensities directly to dimmer channels
-                    for seg_idx, ch_offset in enumerate(fixture_map.dimmer_channels):
-                        if seg_idx < len(segment_intensities):
-                            seg_intensity = int(block.intensity * segment_intensities[seg_idx])
-                            universe, channel = fixture_map.get_absolute_address(ch_offset)
-                            self.set_dmx_value(universe, channel, seg_intensity)
-                else:
-                    # Pixelbar: set master dimmer to full, store intensities for colour_block
-                    for ch_offset in fixture_map.dimmer_channels:
-                        universe, channel = fixture_map.get_absolute_address(ch_offset)
-                        self.set_dmx_value(universe, channel, int(block.intensity))
-                    fixture_map._twinkle_segment_intensities = segment_intensities
-
-            else:
-                # FIXTURE-BASED: Snake moves through fixtures in the group
-                # Tail spans half the fixtures
-                tail_length = max(1, total_fixtures // 2)
-
-                # 4 beats = full cycle
-                time_per_pass = (seconds_per_beat * 2) / speed_multiplier
-                cycle_time = time_per_pass * 2
-
-                # Current position in cycle
-                time_in_cycle = time_in_block % cycle_time
-
-                # Calculate head position
-                if time_in_cycle < time_per_pass:
-                    # Forward pass
-                    progress = time_in_cycle / time_per_pass
-                    head_position = progress * (total_fixtures - 1)
-                    going_forward = True
-                else:
-                    # Backward pass
-                    progress = (time_in_cycle - time_per_pass) / time_per_pass
-                    head_position = (total_fixtures - 1) * (1.0 - progress)
-                    going_forward = False
-
-                # Calculate distance from head for this fixture
-                if going_forward:
-                    distance = head_position - fixture_index
-                else:
-                    distance = fixture_index - head_position
-
-                # Calculate intensity based on distance
-                if distance < -0.5:
-                    intensity_multiplier = 0.0
-                elif distance < 0.5:
-                    intensity_multiplier = 1.0
-                elif distance <= tail_length:
-                    fade_factor = 1.0 - (distance / (tail_length + 1))
-                    intensity_multiplier = fade_factor * 0.8
-                else:
-                    intensity_multiplier = 0.0
-
-                # Apply to dimmer channels
-                intensity = int(block.intensity * intensity_multiplier)
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, intensity)
-
-        elif block.effect_type == "fill_unfill":
-            # Fill/unfill effect: fills from center outward, then unfills back to center
-            # 4 beats = full cycle (2 beats fill, 2 beats unfill) at speed "1"
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            seconds_per_beat = 60.0 / bpm
-
-            # Check fixture type for segment-based control
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_segmented = fixture_type in ('PIXELBAR', 'BAR', 'SUNSTRIP')
-
-            # Determine if this has segments
-            has_color_segments = fixture_map.red_channels or fixture_map.white_channels
-            has_dimmer_segments = len(fixture_map.dimmer_channels) > 1
-
-            if is_segmented and (has_color_segments or has_dimmer_segments):
-                # SEGMENT-BASED: Fill/unfill segments from center outward
-                if has_color_segments:
-                    num_segments = max(
-                        len(fixture_map.red_channels),
-                        len(fixture_map.green_channels),
-                        len(fixture_map.blue_channels),
-                        len(fixture_map.white_channels),
-                        1
-                    )
-                    is_dimmer_only = False
-                else:
-                    num_segments = len(fixture_map.dimmer_channels)
-                    is_dimmer_only = True
-
-                # 4 beats = full cycle (2 beats fill, 2 beats unfill)
-                time_per_phase = (seconds_per_beat * 2) / speed_multiplier
-                cycle_time = time_per_phase * 2
-
-                # Current position in cycle
-                time_in_cycle = time_in_block % cycle_time
-
-                # Calculate fill progress (0 to 1 for fill, 1 to 0 for unfill)
-                if time_in_cycle < time_per_phase:
-                    # Fill phase: expanding from center
-                    fill_progress = time_in_cycle / time_per_phase
-                else:
-                    # Unfill phase: contracting to center
-                    fill_progress = 1.0 - ((time_in_cycle - time_per_phase) / time_per_phase)
-
-                # Calculate center index (or indices for even number of segments)
-                center = (num_segments - 1) / 2.0
-
-                # Calculate how far the fill has expanded from center
-                # At progress=0, only center is lit; at progress=1, all segments lit
-                max_distance = center  # Maximum distance from center to edge
-                current_fill_distance = fill_progress * max_distance
-
-                # Calculate intensity for each segment based on distance from center
-                segment_intensities = []
-                for seg_idx in range(num_segments):
-                    distance_from_center = abs(seg_idx - center)
-
-                    if distance_from_center <= current_fill_distance:
-                        # Within filled area - full intensity
-                        # Add smooth edge transition
-                        if current_fill_distance > 0 and distance_from_center > current_fill_distance - 1:
-                            # Near the edge - smooth transition
-                            edge_progress = current_fill_distance - distance_from_center
-                            intensity_factor = min(1.0, edge_progress + 0.2)
-                        else:
-                            intensity_factor = 1.0
-                    else:
-                        # Outside filled area - off
-                        intensity_factor = 0.0
-
-                    segment_intensities.append(intensity_factor)
-
-                if is_dimmer_only:
-                    # Sunstrip: apply intensities directly to dimmer channels
-                    for seg_idx, ch_offset in enumerate(fixture_map.dimmer_channels):
-                        if seg_idx < len(segment_intensities):
-                            seg_intensity = int(block.intensity * segment_intensities[seg_idx])
-                            universe, channel = fixture_map.get_absolute_address(ch_offset)
-                            self.set_dmx_value(universe, channel, seg_intensity)
-                else:
-                    # Pixelbar: set master dimmer to full, store intensities for colour_block
-                    for ch_offset in fixture_map.dimmer_channels:
-                        universe, channel = fixture_map.get_absolute_address(ch_offset)
-                        self.set_dmx_value(universe, channel, int(block.intensity))
-                    fixture_map._twinkle_segment_intensities = segment_intensities
-
-            else:
-                # NON-SEGMENTED: Pulse behavior (on during fill, off during unfill)
-                time_per_phase = (seconds_per_beat * 2) / speed_multiplier
-                cycle_time = time_per_phase * 2
-                time_in_cycle = time_in_block % cycle_time
-
-                # On during fill phase, off during unfill phase
-                if time_in_cycle < time_per_phase:
-                    intensity_multiplier = 1.0
-                else:
-                    intensity_multiplier = 0.0
-
-                intensity = int(block.intensity * intensity_multiplier)
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, intensity)
-
-        elif block.effect_type == "zigzag":
-            # Zigzag effect: snake moves across ALL fixtures as one continuous chain
-            # Unlike 'snake' which runs independently per fixture, 'zigzag' treats all
-            # segments across all fixtures as one long strip
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            seconds_per_beat = 60.0 / bpm
-
-            # Check fixture type for segment-based control
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_segmented = fixture_type in ('PIXELBAR', 'BAR', 'SUNSTRIP')
-
-            # Determine segment info for THIS fixture
-            has_color_segments = fixture_map.red_channels or fixture_map.white_channels
-            has_dimmer_segments = len(fixture_map.dimmer_channels) > 1
-
-            if is_segmented and (has_color_segments or has_dimmer_segments):
-                # SEGMENT-BASED ZIGZAG
-                if has_color_segments:
-                    num_segments = max(
-                        len(fixture_map.red_channels),
-                        len(fixture_map.green_channels),
-                        len(fixture_map.blue_channels),
-                        len(fixture_map.white_channels),
-                        1
-                    )
-                    is_dimmer_only = False
-                else:
-                    num_segments = len(fixture_map.dimmer_channels)
-                    is_dimmer_only = True
-
-                # Calculate total segments across ALL fixtures
-                # Assume all fixtures have the same number of segments
-                total_segments = num_segments * total_fixtures
-
-                # Calculate global segment offset for this fixture
-                # (which segment index does this fixture start at?)
-                global_segment_offset = fixture_index * num_segments
-
-                # Tail spans half the total segments
-                tail_length = max(1, total_segments // 2)
-
-                # 4 beats = full cycle (forward + backward through all segments)
-                time_per_pass = (seconds_per_beat * 2) / speed_multiplier
-                cycle_time = time_per_pass * 2
-
-                # Current position in cycle
-                time_in_cycle = time_in_block % cycle_time
-
-                # Calculate head position (0 to total_segments-1, bouncing)
-                if time_in_cycle < time_per_pass:
-                    # Forward pass
-                    progress = time_in_cycle / time_per_pass
-                    head_position = progress * (total_segments - 1)
-                    going_forward = True
-                else:
-                    # Backward pass
-                    progress = (time_in_cycle - time_per_pass) / time_per_pass
-                    head_position = (total_segments - 1) * (1.0 - progress)
-                    going_forward = False
-
-                # Calculate intensity for each segment of THIS fixture
-                segment_intensities = []
-                for seg_idx in range(num_segments):
-                    # Global position of this segment
-                    global_seg_pos = global_segment_offset + seg_idx
-
-                    # Calculate distance from head (considering direction)
-                    if going_forward:
-                        distance = head_position - global_seg_pos
-                    else:
-                        distance = global_seg_pos - head_position
-
-                    # Calculate intensity based on distance
-                    if distance < -0.5:
-                        intensity_factor = 0.0
-                    elif distance < 0.5:
-                        intensity_factor = 1.0
-                    elif distance <= tail_length:
-                        fade_factor = 1.0 - (distance / (tail_length + 1))
-                        intensity_factor = fade_factor * 0.8
-                    else:
-                        intensity_factor = 0.0
-
-                    segment_intensities.append(intensity_factor)
-
-                if is_dimmer_only:
-                    # Sunstrip: apply intensities directly to dimmer channels
-                    for seg_idx, ch_offset in enumerate(fixture_map.dimmer_channels):
-                        if seg_idx < len(segment_intensities):
-                            seg_intensity = int(block.intensity * segment_intensities[seg_idx])
-                            universe, channel = fixture_map.get_absolute_address(ch_offset)
-                            self.set_dmx_value(universe, channel, seg_intensity)
-                else:
-                    # Pixelbar: set master dimmer to full, store intensities for colour_block
-                    for ch_offset in fixture_map.dimmer_channels:
-                        universe, channel = fixture_map.get_absolute_address(ch_offset)
-                        self.set_dmx_value(universe, channel, int(block.intensity))
-                    fixture_map._twinkle_segment_intensities = segment_intensities
-
-            else:
-                # FIXTURE-BASED ZIGZAG (non-segmented fixtures)
-                # Each fixture is treated as one unit in the chain
-                tail_length = max(1, total_fixtures // 2)
-
-                # 4 beats = full cycle
-                time_per_pass = (seconds_per_beat * 2) / speed_multiplier
-                cycle_time = time_per_pass * 2
-
-                time_in_cycle = time_in_block % cycle_time
-
-                if time_in_cycle < time_per_pass:
-                    progress = time_in_cycle / time_per_pass
-                    head_position = progress * (total_fixtures - 1)
-                    going_forward = True
-                else:
-                    progress = (time_in_cycle - time_per_pass) / time_per_pass
-                    head_position = (total_fixtures - 1) * (1.0 - progress)
-                    going_forward = False
-
-                if going_forward:
-                    distance = head_position - fixture_index
-                else:
-                    distance = fixture_index - head_position
-
-                if distance < -0.5:
-                    intensity_multiplier = 0.0
-                elif distance < 0.5:
-                    intensity_multiplier = 1.0
-                elif distance <= tail_length:
-                    fade_factor = 1.0 - (distance / (tail_length + 1))
-                    intensity_multiplier = fade_factor * 0.8
-                else:
-                    intensity_multiplier = 0.0
-
-                intensity = int(block.intensity * intensity_multiplier)
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, intensity)
-
-        elif block.effect_type == "pulse":
-            # Pulse effect: like hit but with a minimum intensity floor
-            # Sharp attack to full, exponential decay to ~30%, synced to BPM
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            seconds_per_beat = 60.0 / bpm
-            time_per_pulse = seconds_per_beat / speed_multiplier
-
-            # Calculate position within current pulse cycle
-            time_in_cycle = time_in_block % time_per_pulse
-
-            # Calculate intensity: exponential decay from 1.0 to min_intensity
-            min_intensity = 0.7  # Floor at 70% - keeps fixtures bright between pulses
-            decay_progress = time_in_cycle / time_per_pulse
-            # Exponential decay that bottoms out at min_intensity
-            intensity_multiplier = min_intensity + (1.0 - min_intensity) * math.exp(-decay_progress * 4)
-
-            # Check if this is a pixelbar type
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
-
-            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
-                # For pixelbars: set master dimmer to full, control via color scaling
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, int(block.intensity))
-
-                num_segments = max(
-                    len(fixture_map.red_channels),
-                    len(fixture_map.green_channels),
-                    len(fixture_map.blue_channels),
-                    len(fixture_map.white_channels),
-                    1
-                )
-                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
-            else:
-                # For regular fixtures: control via dimmer channels
-                final_intensity = int(block.intensity * intensity_multiplier)
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, final_intensity)
-
-        elif block.effect_type == "pulse_staggered":
-            # Pulse staggered: same as pulse but with phase offset per fixture
-            # Creates a wave effect across multiple fixtures
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            seconds_per_beat = 60.0 / bpm
-            time_per_pulse = seconds_per_beat / speed_multiplier
-
-            # Calculate phase offset based on fixture index
-            # Spread fixtures evenly across one pulse cycle
-            if total_fixtures > 1:
-                phase_offset = (fixture_index / total_fixtures) * time_per_pulse
-            else:
-                phase_offset = 0.0
-
-            # Calculate position within current pulse cycle (with phase offset)
-            time_in_cycle = (time_in_block + phase_offset) % time_per_pulse
-
-            # Calculate intensity: exponential decay from 1.0 to min_intensity
-            min_intensity = 0.7  # Floor at 70% - keeps fixtures bright between pulses
-            decay_progress = time_in_cycle / time_per_pulse
-            intensity_multiplier = min_intensity + (1.0 - min_intensity) * math.exp(-decay_progress * 4)
-
-            # Check if this is a pixelbar type
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
-
-            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
-                # For pixelbars: set master dimmer to full, control via color scaling
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, int(block.intensity))
-
-                num_segments = max(
-                    len(fixture_map.red_channels),
-                    len(fixture_map.green_channels),
-                    len(fixture_map.blue_channels),
-                    len(fixture_map.white_channels),
-                    1
-                )
-                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
-            else:
-                # For regular fixtures: control via dimmer channels
-                final_intensity = int(block.intensity * intensity_multiplier)
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, final_intensity)
-
-        elif block.effect_type == "hit":
-            # Hit effect: instant attack to full intensity, decay over the beat
-            # One hit per beat at speed "1", scales with speed multiplier
-            # Decay takes the full beat duration
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            seconds_per_beat = 60.0 / bpm
-
-            # Time between hits (one beat at speed 1)
-            time_per_hit = seconds_per_beat / speed_multiplier
-
-            # Decay takes the full beat duration
-            decay_time = time_per_hit
-
-            # Calculate position within current hit cycle
-            time_in_cycle = time_in_block % time_per_hit
-
-            # Calculate intensity based on decay (full beat duration)
-            decay_progress = time_in_cycle / decay_time
-            # Exponential decay: e^(-3) ≈ 0.05, so multiply by 3 for ~95% decay
-            intensity_multiplier = math.exp(-decay_progress * 3)
-
-            # Check if this is a pixelbar type
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
-
-            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
-                # For pixelbars: set master dimmer to full, control via color scaling
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, int(block.intensity))
-
-                # Store uniform intensity for all segments
-                num_segments = max(
-                    len(fixture_map.red_channels),
-                    len(fixture_map.green_channels),
-                    len(fixture_map.blue_channels),
-                    len(fixture_map.white_channels),
-                    1
-                )
-                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
-            else:
-                # For regular fixtures: control via dimmer channels
-                final_intensity = int(block.intensity * intensity_multiplier)
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, final_intensity)
-
-        elif block.effect_type == "breathing_sync":
-            # Breathing effect: all fixtures fade in/out together smoothly in a sine curve
-            # One full breath cycle per bar at speed 1
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            # Calculate timing: one breath cycle per bar at speed 1
-            seconds_per_beat = 60.0 / bpm
-            seconds_per_bar = seconds_per_beat * 4  # Assuming 4/4 time
-            cycle_time = seconds_per_bar / speed_multiplier
-
-            # Calculate phase in the breathing cycle (0 to 2*pi)
-            phase = (time_in_block / cycle_time) * 2 * math.pi
-
-            # Minimum intensity floor (30% of max)
-            floor = 0.3
-
-            # Sine wave for smooth breathing: floor + (1-floor) * (sin(phase) + 1) / 2
-            brightness = floor + (1 - floor) * (math.sin(phase) + 1) / 2
-            intensity_multiplier = brightness
-
-            # Check if this is a pixelbar type
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
-
-            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
-                # For pixelbars: set master dimmer to full, control via color scaling
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, int(block.intensity))
-
-                num_segments = max(
-                    len(fixture_map.red_channels),
-                    len(fixture_map.green_channels),
-                    len(fixture_map.blue_channels),
-                    len(fixture_map.white_channels),
-                    1
-                )
-                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
-            else:
-                # For regular fixtures: control via dimmer channels
-                final_intensity = int(block.intensity * intensity_multiplier)
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, final_intensity)
-
-        elif block.effect_type == "wave_travel":
-            # Wave effect: intensity wave travels across fixtures like a stadium wave
-            # One wave cycle per bar at speed 1
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            # Calculate timing: one wave cycle per bar at speed 1
-            seconds_per_beat = 60.0 / bpm
-            seconds_per_bar = seconds_per_beat * 4  # Assuming 4/4 time
-            cycle_time = seconds_per_bar / speed_multiplier
-
-            # Wavelength: how many fixtures the wave spans (half the fixtures)
-            wavelength = max(2, total_fixtures / 2)
-
-            # Calculate wave position for this fixture at this time
-            # Wave moves from left to right
-            time_progress = time_in_block / cycle_time
-            wave_pos = 2 * math.pi * (fixture_index / wavelength - time_progress)
-
-            # Sine wave intensity (0 to 1)
-            intensity_multiplier = (math.sin(wave_pos) + 1) / 2
-
-            # Check if this is a pixelbar type
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
-
-            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
-                # For pixelbars: set master dimmer to full, control via color scaling
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, int(block.intensity))
-
-                num_segments = max(
-                    len(fixture_map.red_channels),
-                    len(fixture_map.green_channels),
-                    len(fixture_map.blue_channels),
-                    len(fixture_map.white_channels),
-                    1
-                )
-                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
-            else:
-                # For regular fixtures: control via dimmer channels
-                final_intensity = int(block.intensity * intensity_multiplier)
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, final_intensity)
-
-        elif block.effect_type == "heartbeat_pulse":
-            # Heartbeat effect: double-pulse pattern (bump-bump... pause... bump-bump)
-            # One heartbeat cycle per bar at speed 1
-            # Timing: Beat1 up (10%), Beat1 down (10%), Beat2 up (10%), Beat2 down (20%), Rest (50%)
-            speed_multiplier = self._parse_speed(block.effect_speed)
-            time_in_block = current_time - block.start_time
-
-            # Get BPM for timing
-            if self.song_structure:
-                bpm = self.song_structure.get_bpm_at_time(current_time)
-            else:
-                bpm = 120.0
-
-            # Calculate timing: one heartbeat cycle per bar at speed 1
-            seconds_per_beat = 60.0 / bpm
-            seconds_per_bar = seconds_per_beat * 4  # Assuming 4/4 time
-            cycle_time = seconds_per_bar / speed_multiplier
-
-            # Position within current cycle (0 to 1)
-            cycle_pos = (time_in_block % cycle_time) / cycle_time
-
-            # Minimum intensity floor (20% of max)
-            floor = 0.2
-
-            # Calculate beat level based on position in cycle
-            if cycle_pos < 0.10:
-                # Beat 1 up: quick fade up to 100%
-                beat_level = floor + (1.0 - floor) * (cycle_pos / 0.10)
-            elif cycle_pos < 0.20:
-                # Beat 1 down: quick fade to 60%
-                beat_level = 1.0 - (1.0 - 0.6) * ((cycle_pos - 0.10) / 0.10)
-            elif cycle_pos < 0.30:
-                # Beat 2 up: quick fade up to 80%
-                beat_level = 0.6 + (0.8 - 0.6) * ((cycle_pos - 0.20) / 0.10)
-            elif cycle_pos < 0.50:
-                # Beat 2 down: fade down to floor
-                beat_level = 0.8 - (0.8 - floor) * ((cycle_pos - 0.30) / 0.20)
-            else:
-                # Rest: stay at floor
-                beat_level = floor
-
-            intensity_multiplier = beat_level
-
-            # Check if this is a pixelbar type
-            fixture_type = getattr(fixture_map.fixture, 'type', '')
-            is_pixelbar = fixture_type in ('PIXELBAR', 'BAR')
-
-            if is_pixelbar and (fixture_map.red_channels or fixture_map.white_channels):
-                # For pixelbars: set master dimmer to full, control via color scaling
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, int(block.intensity))
-
-                num_segments = max(
-                    len(fixture_map.red_channels),
-                    len(fixture_map.green_channels),
-                    len(fixture_map.blue_channels),
-                    len(fixture_map.white_channels),
-                    1
-                )
-                fixture_map._twinkle_segment_intensities = [intensity_multiplier] * num_segments
-            else:
-                # For regular fixtures: control via dimmer channels
-                final_intensity = int(block.intensity * intensity_multiplier)
-                for ch_offset in fixture_map.dimmer_channels:
-                    universe, channel = fixture_map.get_absolute_address(ch_offset)
-                    self.set_dmx_value(universe, channel, final_intensity)
-
+                num_segments = len(fixture_map.dimmer_channels)
+                is_dimmer_only = True
         else:
-            # Default: static intensity for all channels
-            for ch_offset in fixture_map.dimmer_channels:
-                universe, channel = fixture_map.get_absolute_address(ch_offset)
-                self.set_dmx_value(universe, channel, int(intensity))
+            # For sparkle on non-segmented fixtures, num_segments = dimmer channel count
+            num_segments = max(len(fixture_map.dimmer_channels), 1)
+            is_dimmer_only = True
+
+        # Build context
+        speed_multiplier = parse_speed(block.effect_speed)
+        bpm = get_bpm(self.song_structure, current_time)
+
+        ctx = DimmerContext(
+            time_in_block=current_time - block.start_time,
+            block_duration=block.end_time - block.start_time,
+            intensity=block.intensity,
+            speed_multiplier=speed_multiplier,
+            bpm=bpm,
+            fixture_index=fixture_index,
+            total_fixtures=total_fixtures,
+            num_segments=num_segments,
+            fixture_name=fixture_map.fixture.name,
+            block_start_time=block.start_time,
+            is_segmented=is_segmented,
+            direction=getattr(block, 'direction', 'down'),
+            chase_scope=getattr(block, 'chase_scope', 'fixture'),
+            phase_offset_per_fixture=getattr(block, 'phase_offset_per_fixture', False),
+            build_fraction=getattr(block, 'build_fraction', 0.7),
+        )
+
+        # Dispatch to effect function
+        effect_fn = DIMMER_REGISTRY.get(block.effect_type, DIMMER_REGISTRY["static"])
+        result = effect_fn(ctx)
+
+        # Apply result to DMX channels
+        self._apply_dimmer_result(fixture_map, block, result, is_segmented, is_pixelbar,
+                                   has_color_segments, is_dimmer_only)
 
         # For fixtures with shutter channels (like moving heads), ensure shutter is open
-        # Set to 255 which is typically "Open" on most fixtures
         for ch_offset in fixture_map.strobe_channels:
             universe, channel = fixture_map.get_absolute_address(ch_offset)
             self.set_dmx_value(universe, channel, 255)
 
+    def _apply_dimmer_result(self, fixture_map: FixtureChannelMap, block: DimmerBlock,
+                              result: DimmerResult, is_segmented: bool, is_pixelbar: bool,
+                              has_color_segments: bool, is_dimmer_only: bool):
+        """Apply a DimmerResult to fixture DMX channels.
+
+        Handles pixelbar vs regular fixture branching in one place.
+        """
+        if result.segment_intensities is not None:
+            if is_segmented and has_color_segments and not is_dimmer_only:
+                # Pixelbar with color segments: set master dimmer to full,
+                # store segment intensities for colour_block to scale colors
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, int(block.intensity))
+                fixture_map._segment_intensities = result.segment_intensities
+            elif is_segmented and is_dimmer_only:
+                # Sunstrip / dimmer-only segments: write each dimmer channel directly
+                for seg_idx, ch_offset in enumerate(fixture_map.dimmer_channels):
+                    if seg_idx < len(result.segment_intensities):
+                        seg_intensity = int(block.intensity * result.segment_intensities[seg_idx])
+                        universe, channel = fixture_map.get_absolute_address(ch_offset)
+                        self.set_dmx_value(universe, channel, seg_intensity)
+            else:
+                # Non-segmented fixture with per-channel intensities (e.g. sparkle)
+                for idx, ch_offset in enumerate(fixture_map.dimmer_channels):
+                    if idx < len(result.segment_intensities):
+                        channel_intensity = int(block.intensity * result.segment_intensities[idx])
+                    else:
+                        channel_intensity = int(block.intensity)
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, channel_intensity)
+        else:
+            # Single intensity multiplier for all dimmer channels
+            if is_pixelbar and has_color_segments:
+                # Pixelbar: set master dimmer to full, store uniform multiplier for colour scaling
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, int(block.intensity))
+                num_segments = max(
+                    len(fixture_map.red_channels),
+                    len(fixture_map.green_channels),
+                    len(fixture_map.blue_channels),
+                    len(fixture_map.white_channels),
+                    1
+                )
+                fixture_map._segment_intensities = [result.intensity_multiplier] * num_segments
+            else:
+                # Regular fixture: apply multiplier to dimmer channels
+                final_intensity = int(block.intensity * result.intensity_multiplier)
+                for ch_offset in fixture_map.dimmer_channels:
+                    universe, channel = fixture_map.get_absolute_address(ch_offset)
+                    self.set_dmx_value(universe, channel, final_intensity)
+
     def _apply_colour_block(self, fixture_map: FixtureChannelMap, block: ColourBlock, current_time: float):
         """Apply colour block to fixture channels."""
-        # Check if twinkle effect has stored segment intensities for this fixture
-        # If so, scale color values per segment for pixelbar twinkle effect
-        twinkle_intensities = getattr(fixture_map, '_twinkle_segment_intensities', None)
+        # Check if the dimmer effect stored per-segment intensities for this fixture
+        # If so, scale color values per segment accordingly
+        segment_intensities = getattr(fixture_map, '_segment_intensities', None)
 
         # Get base RGB values
         red_value = block.red
@@ -1699,8 +679,8 @@ class DMXManager:
         for channels, value in color_mapping:
             for idx, ch_offset in enumerate(channels):
                 # If twinkle intensities exist, scale the color value per segment
-                if twinkle_intensities and idx < len(twinkle_intensities):
-                    scaled_value = int(value * twinkle_intensities[idx])
+                if segment_intensities and idx < len(segment_intensities):
+                    scaled_value = int(value * segment_intensities[idx])
                 else:
                     scaled_value = int(value)
                 universe, channel = fixture_map.get_absolute_address(ch_offset)
@@ -1738,218 +718,156 @@ class DMXManager:
             fixture_index: This fixture's index within the group (for phase offset)
             total_fixtures: Total fixtures in the group (for phase offset)
         """
-        # Calculate current position based on effect type
         time_in_block = current_time - block.start_time
         block_duration = block.end_time - block.start_time
-
-        # Get parameters
-        effect_type = block.effect_type
-        pan_amplitude = block.pan_amplitude
-        tilt_amplitude = block.tilt_amplitude
         pan_min = block.pan_min
         pan_max = block.pan_max
         tilt_min = block.tilt_min
         tilt_max = block.tilt_max
 
-        # Check if we have a target spot - if so, calculate pan/tilt to point at it
-        if block.target_spot_name and self.config and hasattr(self.config, 'spots'):
-            spot = self.config.spots.get(block.target_spot_name)
-            if spot:
-                # Get fixture position and orientation
-                fixture = fixture_map.fixture
-
-                # Get effective orientation (considering group defaults)
-                group = self.config.groups.get(fixture.group) if fixture.group else None
-                mounting, yaw, pitch, roll = fixture.get_effective_orientation(group)
-                fixture_z = fixture.get_effective_z(group)
-
-                # Calculate pan/tilt angles to point at the spot
-                pan_degrees, tilt_degrees = calculate_pan_tilt(
-                    fixture_x=fixture.x,
-                    fixture_y=fixture.y,
-                    fixture_z=fixture_z,
-                    target_x=spot.x,
-                    target_y=spot.y,
-                    target_z=spot.z,
-                    mounting=mounting,
-                    yaw=yaw,
-                    pitch=pitch,
-                    roll=roll
-                )
-
-                # Convert to DMX values (0-255 where 127 = center)
-                pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
-
-                # Debug output - log once per fixture
-                if DEBUG_PRINTS:
-                    debug_key = f"_spot_debug_{fixture.name}"
-                    if not hasattr(self, debug_key):
-                        setattr(self, debug_key, True)
-                        print(f"[SPOT TARGET] {fixture.name} at ({fixture.x}, {fixture.y}, {fixture_z}) "
-                              f"-> Spot '{block.target_spot_name}' at ({spot.x}, {spot.y}, {spot.z})")
-                        print(f"  orientation: mounting={mounting}, yaw={yaw}, pitch={pitch}, roll={roll}")
-                        print(f"  calculated: pan={pan_degrees:.1f}°, tilt={tilt_degrees:.1f}°")
-                        print(f"  DMX: pan={pan_dmx}, tilt={tilt_dmx}")
-
-                # Use calculated values as center position
-                center_pan = float(pan_dmx)
-                center_tilt = float(tilt_dmx)
-            else:
-                # Spot not found, fall back to manual values
-                center_pan = block.pan
-                center_tilt = block.tilt
-        else:
-            # No target spot, use manual values
-            center_pan = block.pan
-            center_tilt = block.tilt
-
-        # Calculate speed multiplier
-        speed_multiplier = self._parse_speed(block.effect_speed)
-
-        # Get actual BPM from song structure if available
-        if self.song_structure:
-            bpm = self.song_structure.get_bpm_at_time(current_time)
-        else:
-            bpm = 120.0  # Fallback to default
+        # Compute timing parameters (shared by both rendering modes)
+        speed_multiplier = parse_speed(block.effect_speed)
+        bpm = get_bpm(self.song_structure, current_time)
 
         seconds_per_beat = 60.0 / bpm
-        seconds_per_bar = seconds_per_beat * 4  # Assume 4/4 time
-        total_cycles = (block_duration / seconds_per_bar) * speed_multiplier
+        seconds_per_bar = seconds_per_beat * 4
+        total_cycles = (block_duration / seconds_per_bar) * speed_multiplier if block_duration > 0 else 0
 
-        # Calculate t (angle in radians) and progress
         if block_duration > 0:
             progress = time_in_block / block_duration
         else:
             progress = 0
         t = 2 * math.pi * total_cycles * progress
 
-        # Apply phase offset if enabled
-        # Each fixture gets a phase shift based on its index
+        # Apply phase offset for t-based shapes
         if block.phase_offset_enabled and total_fixtures > 1:
-            # Convert degrees to radians and multiply by fixture index
             phase_offset_radians = block.phase_offset_degrees * math.pi / 180.0
             t = t + (fixture_index * phase_offset_radians)
 
-        # Calculate pan/tilt based on effect type
-        if effect_type == "static":
-            pan = center_pan
-            tilt = center_tilt
+        # Check for plane-based world-space rendering
+        plane = None
+        if block.target_plane_name and self._stage_planes:
+            plane = self._stage_planes.get(block.target_plane_name)
 
-        elif effect_type == "circle":
-            pan = center_pan + pan_amplitude * math.cos(t)
-            tilt = center_tilt + tilt_amplitude * math.sin(t)
-
-        elif effect_type == "diamond":
-            # Diamond: 4 corners traversed linearly
-            phase = progress * 4 * total_cycles
-            # Apply phase offset for shape effects (normalized to cycles)
-            if block.phase_offset_enabled and total_fixtures > 1:
-                phase_offset_cycles = (fixture_index * block.phase_offset_degrees / 360.0) * 4
-                phase = phase + phase_offset_cycles
-            corner = int(phase) % 4
-            local_t = phase - int(phase)
-            corners = [
-                (center_pan, center_tilt - tilt_amplitude),          # Top
-                (center_pan + pan_amplitude, center_tilt),           # Right
-                (center_pan, center_tilt + tilt_amplitude),          # Bottom
-                (center_pan - pan_amplitude, center_tilt),           # Left
-            ]
-            start = corners[corner]
-            end = corners[(corner + 1) % 4]
-            pan = start[0] + local_t * (end[0] - start[0])
-            tilt = start[1] + local_t * (end[1] - start[1])
-
-        elif effect_type == "square":
-            # Square: 4 corners traversed linearly
-            phase = progress * 4 * total_cycles
-            # Apply phase offset for shape effects (normalized to cycles)
-            if block.phase_offset_enabled and total_fixtures > 1:
-                phase_offset_cycles = (fixture_index * block.phase_offset_degrees / 360.0) * 4
-                phase = phase + phase_offset_cycles
-            corner = int(phase) % 4
-            local_t = phase - int(phase)
-            corners = [
-                (center_pan - pan_amplitude, center_tilt - tilt_amplitude),  # Top-left
-                (center_pan + pan_amplitude, center_tilt - tilt_amplitude),  # Top-right
-                (center_pan + pan_amplitude, center_tilt + tilt_amplitude),  # Bottom-right
-                (center_pan - pan_amplitude, center_tilt + tilt_amplitude),  # Bottom-left
-            ]
-            start = corners[corner]
-            end = corners[(corner + 1) % 4]
-            pan = start[0] + local_t * (end[0] - start[0])
-            tilt = start[1] + local_t * (end[1] - start[1])
-
-        elif effect_type == "triangle":
-            # Triangle: 3 corners traversed linearly
-            phase = progress * 3 * total_cycles
-            # Apply phase offset for shape effects (normalized to cycles)
-            if block.phase_offset_enabled and total_fixtures > 1:
-                phase_offset_cycles = (fixture_index * block.phase_offset_degrees / 360.0) * 3
-                phase = phase + phase_offset_cycles
-            corner = int(phase) % 3
-            local_t = phase - int(phase)
-            corners = [
-                (center_pan, center_tilt - tilt_amplitude),                           # Top
-                (center_pan + pan_amplitude * 0.866, center_tilt + tilt_amplitude * 0.5),  # Bottom-right
-                (center_pan - pan_amplitude * 0.866, center_tilt + tilt_amplitude * 0.5),  # Bottom-left
-            ]
-            start = corners[corner]
-            end = corners[(corner + 1) % 3]
-            pan = start[0] + local_t * (end[0] - start[0])
-            tilt = start[1] + local_t * (end[1] - start[1])
-
-        elif effect_type == "figure_8":
-            pan = center_pan + pan_amplitude * math.sin(t)
-            tilt = center_tilt + tilt_amplitude * math.sin(2 * t)
-
-        elif effect_type == "lissajous":
-            # Parse ratio
-            ratio_parts = block.lissajous_ratio.split(':')
-            try:
-                freq_pan = int(ratio_parts[0])
-                freq_tilt = int(ratio_parts[1])
-            except (ValueError, IndexError):
-                freq_pan, freq_tilt = 1, 2
-            pan = center_pan + pan_amplitude * math.sin(freq_pan * t)
-            tilt = center_tilt + tilt_amplitude * math.sin(freq_tilt * t)
-
-        elif effect_type == "random":
-            # Pseudo-random smooth motion using multiple sine waves
-            pan = center_pan + pan_amplitude * (
-                0.5 * math.sin(3 * t) + 0.3 * math.sin(7 * t) + 0.2 * math.sin(11 * t)
+        if plane:
+            # ── World-space plane rendering ──
+            # Run shape with normalized center/amplitude to extract offsets
+            norm_center = 127.5
+            norm_amplitude = 50.0
+            ctx = MovementContext(
+                t=t, progress=progress, total_cycles=total_cycles,
+                center_pan=norm_center, center_tilt=norm_center,
+                pan_amplitude=norm_amplitude, tilt_amplitude=norm_amplitude,
+                fixture_index=fixture_index, total_fixtures=total_fixtures,
+                phase_offset_enabled=block.phase_offset_enabled,
+                phase_offset_degrees=block.phase_offset_degrees,
+                lissajous_ratio=block.lissajous_ratio,
             )
-            tilt = center_tilt + tilt_amplitude * (
-                0.5 * math.sin(5 * t) + 0.3 * math.sin(11 * t) + 0.2 * math.sin(13 * t)
+            shape_fn = MOVEMENT_REGISTRY.get(block.effect_type, MOVEMENT_REGISTRY["static"])
+            result = shape_fn(ctx)
+
+            # Extract normalized offsets (-1 to +1)
+            if norm_amplitude > 0:
+                u_offset = (result.pan - norm_center) / norm_amplitude
+                v_offset = (result.tilt - norm_center) / norm_amplitude
+            else:
+                u_offset = 0.0
+                v_offset = 0.0
+
+            # Convert amplitude from DMX-like units to meters on plane
+            amplitude_meters = block.pan_amplitude / 20.0
+
+            # Compute world-space target on the plane
+            target_x = plane.point[0] + u_offset * amplitude_meters * plane.u_axis[0] + v_offset * amplitude_meters * plane.v_axis[0]
+            target_y = plane.point[1] + u_offset * amplitude_meters * plane.u_axis[1] + v_offset * amplitude_meters * plane.v_axis[1]
+            target_z = plane.point[2] + u_offset * amplitude_meters * plane.u_axis[2] + v_offset * amplitude_meters * plane.v_axis[2]
+
+            # Convert world target to pan/tilt for this fixture
+            fixture = fixture_map.fixture
+            group = self.config.groups.get(fixture.group) if fixture.group else None
+            mounting, yaw, pitch, roll = fixture.get_effective_orientation(group)
+            fixture_z = fixture.get_effective_z(group)
+
+            pan_degrees, tilt_degrees = calculate_pan_tilt(
+                fixture_x=fixture.x, fixture_y=fixture.y, fixture_z=fixture_z,
+                target_x=target_x, target_y=target_y, target_z=target_z,
+                mounting=mounting, yaw=yaw, pitch=pitch, roll=roll
             )
+            pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
 
-        elif effect_type == "bounce":
-            # Bouncing pattern using triangle waves
-            bounce_t = progress * 4 * total_cycles
-            # Apply phase offset for bounce effect (normalized to cycles)
-            if block.phase_offset_enabled and total_fixtures > 1:
-                phase_offset_cycles = (fixture_index * block.phase_offset_degrees / 360.0) * 4
-                bounce_t = bounce_t + phase_offset_cycles
-            pan_t = abs((bounce_t % 2) - 1)
-            tilt_t = abs(((bounce_t + 0.5) % 2) - 1)
-            pan = center_pan - pan_amplitude + 2 * pan_amplitude * pan_t
-            tilt = center_tilt - tilt_amplitude + 2 * tilt_amplitude * tilt_t
-
+            pan = max(pan_min, min(pan_max, float(pan_dmx)))
+            tilt = max(tilt_min, min(tilt_max, float(tilt_dmx)))
         else:
-            # Default to static for unknown effect types
-            pan = center_pan
-            tilt = center_tilt
+            # ── Standard DMX-space rendering ──
+            # Resolve center position (target spot or manual)
+            if block.target_spot_name and self.config and hasattr(self.config, 'spots'):
+                spot = self.config.spots.get(block.target_spot_name)
+                if spot:
+                    fixture = fixture_map.fixture
+                    group = self.config.groups.get(fixture.group) if fixture.group else None
+                    mounting, yaw, pitch, roll = fixture.get_effective_orientation(group)
+                    fixture_z = fixture.get_effective_z(group)
 
-        # Apply clipping to boundaries
-        pan = max(pan_min, min(pan_max, pan))
-        tilt = max(tilt_min, min(tilt_max, tilt))
+                    pan_degrees, tilt_degrees = calculate_pan_tilt(
+                        fixture_x=fixture.x, fixture_y=fixture.y, fixture_z=fixture_z,
+                        target_x=spot.x, target_y=spot.y, target_z=spot.z,
+                        mounting=mounting, yaw=yaw, pitch=pitch, roll=roll
+                    )
+                    pan_dmx, tilt_dmx = pan_tilt_to_dmx(pan_degrees, tilt_degrees)
 
-        # Debug output - log final DMX values once per fixture
-        if DEBUG_PRINTS and block.target_spot_name:
-            final_debug_key = f"_spot_final_debug_{fixture_map.fixture.name}"
-            if not hasattr(self, final_debug_key):
-                setattr(self, final_debug_key, True)
-                print(f"  [DMX OUTPUT] {fixture_map.fixture.name}: final pan={int(pan)}, tilt={int(tilt)} "
-                      f"(effect={effect_type}, center_pan={center_pan:.1f}, center_tilt={center_tilt:.1f})")
+                    if DEBUG_PRINTS:
+                        debug_key = f"_spot_debug_{fixture.name}"
+                        if not hasattr(self, debug_key):
+                            setattr(self, debug_key, True)
+                            print(f"[SPOT TARGET] {fixture.name} at ({fixture.x}, {fixture.y}, {fixture_z}) "
+                                  f"-> Spot '{block.target_spot_name}' at ({spot.x}, {spot.y}, {spot.z})")
+                            print(f"  orientation: mounting={mounting}, yaw={yaw}, pitch={pitch}, roll={roll}")
+                            print(f"  calculated: pan={pan_degrees:.1f}°, tilt={tilt_degrees:.1f}°")
+                            print(f"  DMX: pan={pan_dmx}, tilt={tilt_dmx}")
+
+                    center_pan = float(pan_dmx)
+                    center_tilt = float(tilt_dmx)
+                else:
+                    center_pan = block.pan
+                    center_tilt = block.tilt
+            else:
+                center_pan = block.pan
+                center_tilt = block.tilt
+
+            # Build context and dispatch to shape function
+            ctx = MovementContext(
+                t=t, progress=progress, total_cycles=total_cycles,
+                center_pan=center_pan, center_tilt=center_tilt,
+                pan_amplitude=block.pan_amplitude, tilt_amplitude=block.tilt_amplitude,
+                fixture_index=fixture_index, total_fixtures=total_fixtures,
+                phase_offset_enabled=block.phase_offset_enabled,
+                phase_offset_degrees=block.phase_offset_degrees,
+                lissajous_ratio=block.lissajous_ratio,
+            )
+
+            shape_fn = MOVEMENT_REGISTRY.get(block.effect_type, MOVEMENT_REGISTRY["static"])
+            result = shape_fn(ctx)
+
+            pan = max(pan_min, min(pan_max, result.pan))
+            tilt = max(tilt_min, min(tilt_max, result.tilt))
+
+        # Apply speed limiting (max degrees/sec)
+        if self._max_pan_tilt_speed > 0:
+            fixture_key = f"{fixture_map.fixture.universe}_{fixture_map.fixture.address}"
+            prev_pan = self._prev_pan.get(fixture_key, pan)
+            prev_tilt = self._prev_tilt.get(fixture_key, tilt)
+
+            # Convert degrees/sec to max DMX change per frame (30Hz, 540 degree pan range)
+            max_dmx_per_frame = (self._max_pan_tilt_speed / 540.0) * 255.0 / 30.0
+
+            delta_pan = max(-max_dmx_per_frame, min(max_dmx_per_frame, pan - prev_pan))
+            delta_tilt = max(-max_dmx_per_frame, min(max_dmx_per_frame, tilt - prev_tilt))
+
+            pan = prev_pan + delta_pan
+            tilt = prev_tilt + delta_tilt
+
+            self._prev_pan[fixture_key] = pan
+            self._prev_tilt[fixture_key] = tilt
 
         # Set pan/tilt channels
         for ch_offset in fixture_map.pan_channels:
@@ -1988,28 +906,6 @@ class DMXManager:
             for ch_offset in fixture_map.zoom_channels:
                 universe, channel = fixture_map.get_absolute_address(ch_offset)
                 self.set_dmx_value(universe, channel, int(block.zoom))
-
-    def _parse_speed(self, speed: str) -> float:
-        """
-        Parse speed string to multiplier.
-
-        Args:
-            speed: Speed string like "1", "2", "1/2", "1/4"
-
-        Returns:
-            Speed multiplier as float
-        """
-        if '/' in speed:
-            parts = speed.split('/')
-            try:
-                return float(parts[0]) / float(parts[1])
-            except (ValueError, ZeroDivisionError):
-                return 1.0
-        else:
-            try:
-                return float(speed)
-            except ValueError:
-                return 1.0
 
     def _rgb_to_color_wheel(self, r: float, g: float, b: float) -> int:
         """

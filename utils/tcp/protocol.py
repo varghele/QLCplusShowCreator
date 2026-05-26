@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 from enum import Enum
 from typing import Dict, List, Any, Optional, Tuple
 from config.models import Configuration, Fixture, FixtureGroup
+from utils.fixture_capabilities import get_capabilities_for_fixture
 
 
 class MessageType(Enum):
@@ -247,7 +248,10 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
         'tilt_max': 0.0,
         'fixture_type': 'PAR',
         'channel_mapping': {},
-        'modes': {}
+        'modes': {},
+        'power_consumption': 100.0,  # Default 100W
+        'is_led': False,
+        'lumens': 0.0,  # Computed after LED classification
     }
 
     qxf_path = _find_qxf_file(manufacturer, model)
@@ -309,6 +313,15 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
                     'width': int(layout.get('Width', 1)),
                     'height': int(layout.get('Height', 1))
                 }
+
+            # Parse Technical section for PowerConsumption
+            technical = _find_element(physical, 'Technical', ns)
+            if technical is not None:
+                power_str = technical.get('PowerConsumption', '100')
+                try:
+                    result['power_consumption'] = float(power_str)
+                except (ValueError, TypeError):
+                    result['power_consumption'] = 100.0
 
         # Build channel name to preset mapping and extract color wheel capabilities
         channel_presets = {}
@@ -510,6 +523,28 @@ def _parse_qxf_for_visualizer(manufacturer: str, model: str, mode_name: str) -> 
                 # No RGB = dimmer-only sunstrip
                 result['fixture_type'] = 'SUNSTRIP'
 
+        # Classify LED vs conventional for lumen estimation
+        # Heuristic 1: "LED" in model name
+        model_upper = model.upper()
+        is_led = 'LED' in model_upper
+        # Heuristic 2: Has RGBW channels (typical of LED fixtures)
+        if not is_led:
+            for mode_data in result['modes'].values():
+                funcs = set(mode_data.values())
+                if {'red', 'green', 'blue', 'white'}.issubset(funcs):
+                    is_led = True
+                    break
+        # Heuristic 3: Moving heads are nearly all LED-based
+        if not is_led and result['fixture_type'] == 'MH':
+            is_led = True
+
+        result['is_led'] = is_led
+
+        # Estimate lumens from power consumption
+        # LED: ~100 lumens/watt, Conventional (halogen): ~17.5 lumens/watt
+        efficiency = 100.0 if is_led else 17.5
+        result['lumens'] = result['power_consumption'] * efficiency
+
         _fixture_definition_cache[cache_key] = result
 
         # Return with specific mode's channel mapping
@@ -607,15 +642,11 @@ class VisualizerProtocol:
         return json.dumps(message) + "\n"
 
     @staticmethod
-    def create_fixtures_message(config: Configuration) -> str:
-        """
-        Create fixtures list message with full metadata for visualizer.
-
-        Args:
-            config: Configuration with fixtures
-
-        Returns:
-            JSON string with newline delimiter
+    def build_fixtures_payload(config: Configuration) -> list:
+        """Build the list-of-dicts payload that the visualizer's fixture
+        manager expects. Used by both :meth:`create_fixtures_message` (which
+        wraps it for TCP) and the in-process embedded visualizer (which
+        consumes it directly to skip the JSON round-trip).
         """
         fixtures_data = []
 
@@ -650,7 +681,7 @@ class VisualizerProtocol:
                     "pitch": pitch,
                     "roll": roll
                 },
-                # QXF-derived data for visualizer
+                # QXF-derived data for visualizer (legacy renderer fields).
                 "fixture_type": qxf_data.get('fixture_type', fixture.type),
                 "physical": qxf_data.get('physical', {'width': 0.3, 'height': 0.3, 'depth': 0.2}),
                 "layout": qxf_data.get('layout', {'width': 1, 'height': 1}),
@@ -661,13 +692,40 @@ class VisualizerProtocol:
                 "color_wheel": qxf_data.get('color_wheel', []),
                 "gobo_wheel": qxf_data.get('gobo_wheel', []),
                 # Per-segment channel mapping for PIXELBAR fixtures
-                "pixel_segments": qxf_data.get('pixel_segments', {}).get(fixture.current_mode, [])
+                "pixel_segments": qxf_data.get('pixel_segments', {}).get(fixture.current_mode, []),
+                # Brightness data for realistic intensity scaling
+                "lumens": qxf_data.get('lumens', 10000.0),
+                # Phase D: composable-renderer capabilities (live FixtureCapabilities
+                # object). Stripped before JSON serialization in
+                # ``create_fixtures_message``; the in-process embedded visualizer
+                # consumes this directly.
+                "capabilities": get_capabilities_for_fixture(fixture),
             }
             fixtures_data.append(fixture_info)
 
+        return fixtures_data
+
+    @staticmethod
+    def create_fixtures_message(config: Configuration) -> str:
+        """
+        Create fixtures list message with full metadata for visualizer.
+
+        Args:
+            config: Configuration with fixtures
+
+        Returns:
+            JSON string with newline delimiter
+        """
+        # Strip the live ``capabilities`` field — it's a Python dataclass
+        # (not JSON-serializable) used by the in-process composable renderer.
+        # The standalone TCP visualizer consumes only the legacy fields.
+        payload = VisualizerProtocol.build_fixtures_payload(config)
+        json_payload = [
+            {k: v for k, v in fx.items() if k != 'capabilities'} for fx in payload
+        ]
         message = {
             "type": MessageType.FIXTURES.value,
-            "fixtures": fixtures_data
+            "fixtures": json_payload,
         }
         return json.dumps(message) + "\n"
 

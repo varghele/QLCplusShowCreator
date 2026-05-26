@@ -59,6 +59,7 @@ env/
 # IDE
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 *~
@@ -69,6 +70,27 @@ binary/
 effects/effects.json
 release/
 nul
+scratch/
 
-# Old configurations (if not needed)
-# configuration4.yaml
+# Scratch / versioned project configs at the project root.
+# `config.yaml` (the active project) is intentionally tracked;
+# stash old configs / audio / renders under `archive/` (gitignored below).
+/conf_*.yaml
+
+# Local-only graveyard for old configs, scratch audio, anything you want
+# kept on disk but not in version control. Renamed from `showcreator_archive/`
+# in v1.0 release prep; the previously-tracked configs (conf_v2..v9 etc.)
+# moved here and were untracked at the same time.
+/archive/
+
+# Stray default-name show file Windows creates.
+archive/shows/New Show.csv
+
+# Local scratch shows + working-tree litter (user triages manually).
+archive/shows/NTEST.csv
+archive/shows/renders/
+archive/shows/audiofiles/voll_mit_vox_*
+archive/shows/audiofiles/backingtrack_*
+/tester.yaml
+/workspace_generated.qxw
+/workspace_saved.qxw

@@ -5,12 +5,13 @@ import sys
 import os
 
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import Qt, QTimer, QSettings
 from config.models import Configuration
 from .base_tab import BaseTab
 from gui.StageView import StageView
 from gui.stage_items import FixtureItem
-from gui.dialogs.orientation_dialog import OrientationDialog
+from gui.dialogs.orientation_dialog import OrientationDialog, OrientationPanel
+from gui.widgets.embedded_visualizer import EmbeddedVisualizer
 
 
 class StageTab(BaseTab):
@@ -65,9 +66,10 @@ class StageTab(BaseTab):
         dim_layout.addRow("Width (m):", self.stage_width)
         dim_layout.addRow("Depth (m):", self.stage_height)
 
-        # Update stage button
-        self.update_stage_btn = QtWidgets.QPushButton("Update Stage")
-        dim_layout.addRow(self.update_stage_btn)
+        # No "Update Stage" button — the spinboxes' valueChanged signal
+        # already drives _update_stage live, matching how the grid-size
+        # spinbox below works. The button used to fire the same handler
+        # and was redundant.
 
         # Grid controls group
         grid_group = QtWidgets.QGroupBox("Grid Settings")
@@ -88,6 +90,22 @@ class StageTab(BaseTab):
         grid_layout.addRow("Grid Size (m):", self.grid_size)
         grid_layout.addRow(self.snap_to_grid)
 
+        # View controls — fit the stage plot back to the viewport
+        # after the user has zoomed/panned. The 'F' shortcut below
+        # (wired in connect_signals) duplicates the button so the
+        # user can reset without moving the mouse off the plot.
+        view_group = QtWidgets.QGroupBox("View")
+        view_layout = QtWidgets.QVBoxLayout(view_group)
+        self.fit_view_btn = QtWidgets.QPushButton("Fit View (F)")
+        self.fit_view_btn.setToolTip(
+            "Reset zoom and pan to fit the whole stage.\n\n"
+            "Stage controls:\n"
+            "  • Mouse wheel — zoom (around cursor)\n"
+            "  • Space + left-drag — pan\n"
+            "  • F — fit view"
+        )
+        view_layout.addWidget(self.fit_view_btn)
+
         # Stage marks group
         spot_group = QtWidgets.QGroupBox("Stage Marks")
         spot_layout = QtWidgets.QVBoxLayout(spot_group)
@@ -102,15 +120,15 @@ class StageTab(BaseTab):
         orientation_group = QtWidgets.QGroupBox("Fixture Orientation")
         orientation_layout = QtWidgets.QVBoxLayout(orientation_group)
 
+        # Single checkbox — when on, every fixture draws its XYZ
+        # axes. The previous two-checkbox UX (selected-only by
+        # default, with a separate "Show all" toggle) was non-
+        # discoverable: checking only "Show orientation axes" with
+        # nothing selected made no visible change, so the user read
+        # the whole control as broken.
         self.show_axes_checkbox = QtWidgets.QCheckBox("Show orientation axes")
-        self.show_axes_checkbox.setToolTip("Show XYZ axes on fixtures when selected or hovered")
-
-        self.show_all_axes_checkbox = QtWidgets.QCheckBox("Show all axes")
-        self.show_all_axes_checkbox.setToolTip("Show axes on all fixtures (not just selected)")
-        self.show_all_axes_checkbox.setEnabled(False)  # Disabled until show_axes is checked
-
+        self.show_axes_checkbox.setToolTip("Show XYZ axes on every fixture")
         orientation_layout.addWidget(self.show_axes_checkbox)
-        orientation_layout.addWidget(self.show_all_axes_checkbox)
 
         # Plot stage group
         plot_group = QtWidgets.QGroupBox("Stage Plot")
@@ -151,31 +169,67 @@ class StageTab(BaseTab):
         # Add groups to control panel in order
         control_layout.addWidget(dim_group)
         control_layout.addWidget(grid_group)
+        control_layout.addWidget(view_group)
         control_layout.addWidget(spot_group)
         control_layout.addWidget(orientation_group)
         control_layout.addWidget(plot_group)
         control_layout.addWidget(visualizer_group)
         control_layout.addStretch()
 
-        # Create stage view area (right side)
-        stage_view_container = QtWidgets.QWidget()
-        stage_view_layout = QtWidgets.QVBoxLayout(stage_view_container)
-
-        # Initialize StageView with configuration
+        # Initialize StageView with configuration (the 2D top-down).
         self.stage_view = StageView(self)
         self.stage_view.set_config(self.config)
-        stage_view_layout.addWidget(self.stage_view)
 
-        # Add both panels to main layout
+        # Right pane stacks the embedded 3D preview over a persistent
+        # OrientationPanel (driven from the right-click Set Orientation flow).
+        self.embedded_visualizer = EmbeddedVisualizer(self)
+        self.embedded_visualizer.set_pop_out_callback(self._launch_visualizer)
+        self.embedded_visualizer.set_config(self.config)
+        self.embedded_visualizer.set_preview_mode("build")
+
+        # Persistent inline orientation editor — re-bound by the right-click
+        # "Set Orientation" flow on selection. Live-edits write through to
+        # the bound fixtures via the values_changed hook below.
+        self.orientation_panel = OrientationPanel([], self.config, self)
+        self.orientation_panel.values_changed.connect(self._on_inline_orientation_changed)
+
+        right_splitter = QtWidgets.QSplitter(Qt.Orientation.Vertical)
+        right_splitter.addWidget(self.embedded_visualizer)
+        right_splitter.addWidget(self.orientation_panel)
+        right_splitter.setStretchFactor(0, 6)
+        right_splitter.setStretchFactor(1, 4)
+        self._right_splitter = right_splitter
+
+        main_splitter = QtWidgets.QSplitter(Qt.Orientation.Horizontal)
+        main_splitter.addWidget(self.stage_view)
+        main_splitter.addWidget(right_splitter)
+        main_splitter.setStretchFactor(0, 2)
+        main_splitter.setStretchFactor(1, 1)
+        self._main_splitter = main_splitter
+
+        # Restore persisted splitter sizes if we have them.
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+        main_state = settings.value("stage/main_splitter")
+        if main_state is not None:
+            try:
+                main_splitter.restoreState(main_state)
+            except Exception:
+                pass
+        right_state = settings.value("stage/right_splitter")
+        if right_state is not None:
+            try:
+                right_splitter.restoreState(right_state)
+            except Exception:
+                pass
+
         main_layout.addWidget(control_panel)
-        main_layout.addWidget(stage_view_container, stretch=1)
+        main_layout.addWidget(main_splitter, stretch=1)
 
     def connect_signals(self):
         """Connect widget signals to handlers"""
-        # Stage dimension controls - auto-update on change
+        # Stage dimension controls - auto-update on change.
         self.stage_width.valueChanged.connect(self._update_stage)
         self.stage_height.valueChanged.connect(self._update_stage)
-        self.update_stage_btn.clicked.connect(self._update_stage)
 
         # Grid controls
         self.grid_toggle.stateChanged.connect(
@@ -187,7 +241,10 @@ class StageTab(BaseTab):
         )
 
         # Connect fixture changes to TCP update (for live visualizer sync)
+        # AND broadcast a refresh to every embedded visualizer (Stage,
+        # Shows, Live) so the 3D previews on other tabs follow 2D edits.
         self.stage_view.fixtures_changed.connect(self._notify_tcp_update)
+        self.stage_view.fixtures_changed.connect(self._broadcast_visualizer_refresh)
 
         # Spot/mark controls
         self.add_spot_btn.clicked.connect(lambda: self.stage_view.add_spot())
@@ -196,12 +253,26 @@ class StageTab(BaseTab):
         # Visualizer controls
         self.launch_visualizer_btn.clicked.connect(self._launch_visualizer)
 
-        # Orientation display controls
+        # Orientation display control
         self.show_axes_checkbox.stateChanged.connect(self._on_show_axes_changed)
-        self.show_all_axes_checkbox.stateChanged.connect(self._on_show_all_axes_changed)
 
         # Orientation dialog trigger from right-click menu
         self.stage_view.set_orientation_requested.connect(self._on_set_orientation_requested)
+
+        # Auto-bind the inline orientation panel whenever the user changes
+        # the selection on the 2D StageView — single-click on a fixture is
+        # enough to start editing it, no right-click required.
+        self.stage_view.scene.selectionChanged.connect(self._on_stage_selection_changed)
+
+        # Fit View — button + F shortcut. The shortcut is scoped to this
+        # tab (``WidgetWithChildrenShortcut`` on ``self``) so F doesn't
+        # collide with the same key in other tabs / inputs and only
+        # fires when the user's focus is somewhere in the Stage tab.
+        from PyQt6.QtGui import QShortcut, QKeySequence
+        self.fit_view_btn.clicked.connect(self.stage_view.fit_to_stage)
+        self._fit_shortcut = QShortcut(QKeySequence("F"), self)
+        self._fit_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self._fit_shortcut.activated.connect(self.stage_view.fit_to_stage)
 
     def update_from_config(self):
         """Refresh stage view from configuration"""
@@ -222,6 +293,23 @@ class StageTab(BaseTab):
             self.stage_width.blockSignals(False)
             self.stage_height.blockSignals(False)
             self.grid_size.blockSignals(False)
+
+            # The StageView keeps its own stage_width_m / stage_depth_m /
+            # grid_size_m attributes (defaulted in __init__). set_config
+            # above doesn't refresh them, and blockSignals(True) on the
+            # spinboxes suppresses the valueChanged → _update_stage path
+            # we'd otherwise rely on. Without the explicit calls below
+            # the 2D plot stays at the default 10 × 6 m / 0.5 m grid no
+            # matter what the loaded YAML says.
+            if self.stage_view:
+                self.stage_view.updateStage(
+                    width_m=float(self.config.stage_width),
+                    depth_m=float(self.config.stage_height),
+                )
+                if hasattr(self.config, 'grid_size'):
+                    self.stage_view.updateGrid(size_m=float(self.config.grid_size))
+
+        self._refresh_embedded_visualizer()
 
     def save_to_config(self):
         """Save fixture positions and spots back to configuration"""
@@ -244,6 +332,14 @@ class StageTab(BaseTab):
 
             # Notify TCP server if running (for live visualizer updates)
             self._notify_tcp_update()
+
+        # Push the new dimensions to every embedded 3D preview (Stage's
+        # own + Shows + Live). Without this the Shows/Live previews
+        # stay stuck on the old stage size until the user manually
+        # activates them; even the Stage tab's own preview wouldn't
+        # repaint without an explicit refresh because updateStage on
+        # its own doesn't emit fixtures_changed.
+        self._broadcast_visualizer_refresh()
 
     def _update_grid_size(self, value: float):
         """Update grid size from spin box value"""
@@ -420,6 +516,11 @@ class StageTab(BaseTab):
         self._tab_active = True
         # Send current state to visualizer when tab becomes active
         self._notify_tcp_update()
+        # Embedded preview defaults to build mode (full-on lighting) on the
+        # Stage tab — playback lives in the Shows tab.
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer is not None:
+            self.embedded_visualizer.set_preview_mode("build")
+            self._refresh_embedded_visualizer()
 
     def on_tab_deactivated(self):
         """Called when switching away from stage tab."""
@@ -427,6 +528,16 @@ class StageTab(BaseTab):
         # Stop any pending updates
         self._tcp_update_timer.stop()
         self._tcp_update_pending = False
+        self._save_splitter_state()
+
+    def _save_splitter_state(self) -> None:
+        """Persist the main + right splitter sizes via QSettings so the
+        Stage tab opens with the same proportions next session."""
+        if not hasattr(self, "_main_splitter") or not hasattr(self, "_right_splitter"):
+            return
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+        settings.setValue("stage/main_splitter", self._main_splitter.saveState())
+        settings.setValue("stage/right_splitter", self._right_splitter.saveState())
 
     def _notify_tcp_update(self):
         """Notify TCP server about configuration changes (throttled for live updates)."""
@@ -462,118 +573,156 @@ class StageTab(BaseTab):
             print(f"Error notifying TCP server: {e}")
 
     def _on_show_axes_changed(self, state):
-        """Handle show orientation axes checkbox change."""
-        show_axes = bool(state)
-        FixtureItem.show_orientation_axes = show_axes
+        """Handle show orientation axes checkbox change.
 
-        # Enable/disable "show all" checkbox based on main checkbox
-        self.show_all_axes_checkbox.setEnabled(show_axes)
-        if not show_axes:
-            self.show_all_axes_checkbox.setChecked(False)
-
-        # Trigger redraw of all fixtures
-        self.stage_view.viewport().update()
-
-    def _on_show_all_axes_changed(self, state):
-        """Handle show all axes checkbox change."""
-        FixtureItem.show_all_axes = bool(state)
-
-        # Trigger redraw of all fixtures
-        self.stage_view.viewport().update()
+        Toggling a class-level attribute doesn't dirty any individual
+        QGraphicsItem, so ``viewport().update()`` alone wasn't
+        reliably getting the items to re-paint in the live app — each
+        item keeps its own bounding-rect-based dirty tracking and
+        treats itself as "still clean" when nothing about *itself*
+        changed. Calling ``item.update()`` on every fixture is the
+        canonical way to force a per-item repaint; ``scene.update()``
+        adds the viewport-level invalidation as defence in depth.
+        """
+        FixtureItem.show_orientation_axes = bool(state)
+        scene = self.stage_view.scene
+        for item in scene.items():
+            item.update()
+        scene.update()
 
     def _on_set_orientation_requested(self, fixture_items: list):
-        """Handle request to set orientation for selected fixtures."""
+        """Handle right-click "Set Orientation" — re-bind the inline panel.
+
+        Replaces the legacy modal flow. The persistent OrientationPanel in
+        the right-side splitter rebinds to the selected fixtures and live-
+        edits write through via :meth:`_on_inline_orientation_changed`.
+        """
         if not fixture_items:
             return
+        self._inline_orientation_fixtures = list(fixture_items)
+        self.orientation_panel.set_fixtures(self._inline_orientation_fixtures)
 
-        # Store fixture items for deferred dialog opening
-        self._pending_orientation_fixtures = fixture_items
+    def _on_stage_selection_changed(self):
+        """Re-bind the inline orientation panel to whatever fixtures are
+        currently selected on the 2D StageView. Empty selection → panel
+        shows "No fixture selected" and disables its inputs.
+        """
+        selected = [
+            item for item in self.stage_view.scene.selectedItems()
+            if isinstance(item, FixtureItem)
+        ]
+        self._inline_orientation_fixtures = selected
+        self.orientation_panel.set_fixtures(selected)
 
-        # Defer dialog opening to next event loop iteration to avoid context menu issues
-        QTimer.singleShot(0, self._open_orientation_dialog)
+    def _on_inline_orientation_changed(self):
+        """Slot fired by OrientationPanel.values_changed — push edits live
+        to the currently-bound fixtures, the config, and any group default."""
+        fixture_items = getattr(self, "_inline_orientation_fixtures", None)
+        if not fixture_items:
+            return
+        values = self.orientation_panel.get_orientation_values()
+        self._apply_orientation_to_fixtures(fixture_items, values)
 
     def _open_orientation_dialog(self):
-        """Open the orientation dialog (deferred from context menu)."""
+        """Modal-dialog fallback. No longer wired to the right-click flow,
+        but kept for any future multi-edit-confirm path that wants Apply/
+        Cancel semantics."""
         fixture_items = getattr(self, '_pending_orientation_fixtures', None)
         if not fixture_items:
             return
 
         self._pending_orientation_fixtures = None
 
-        # Open orientation dialog
         dialog = OrientationDialog(fixture_items, self.config, self)
-
         if dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted:
-            # Get values from dialog
-            values = dialog.get_orientation_values()
+            self._apply_orientation_to_fixtures(fixture_items, dialog.get_orientation_values())
 
-            # Apply to all selected fixture items
-            for fixture_item in fixture_items:
-                fixture_item.mounting = values['mounting']
-                fixture_item.rotation_angle = values['yaw']  # yaw maps to rotation_angle
-                fixture_item.pitch = values['pitch']
-                fixture_item.roll = values['roll']
-                fixture_item.z_height = values['z_height']
-                fixture_item.orientation_uses_group_default = False  # User set custom orientation
-                fixture_item.z_uses_group_default = False  # User set custom Z height
-                fixture_item.update()
+    def _apply_orientation_to_fixtures(self, fixture_items: list, values: dict) -> None:
+        """Write a values dict (mounting, yaw, pitch, roll, z_height,
+        apply_to_group) back to the fixture items, the config, and group
+        defaults if requested. Shared by the inline panel and the modal."""
+        for fixture_item in fixture_items:
+            fixture_item.mounting = values['mounting']
+            fixture_item.rotation_angle = values['yaw']  # yaw maps to rotation_angle
+            fixture_item.pitch = values['pitch']
+            fixture_item.roll = values['roll']
+            fixture_item.z_height = values['z_height']
+            fixture_item.orientation_uses_group_default = False
+            fixture_item.z_uses_group_default = False
+            fixture_item.update()
 
-                # Update the config fixture
-                if self.config:
-                    config_fixture = next(
-                        (f for f in self.config.fixtures if f.name == fixture_item.fixture_name),
-                        None
-                    )
-                    if config_fixture:
-                        config_fixture.mounting = values['mounting']
-                        config_fixture.yaw = values['yaw']
-                        config_fixture.pitch = values['pitch']
-                        config_fixture.roll = values['roll']
-                        config_fixture.z = values['z_height']
-                        config_fixture.orientation_uses_group_default = False
-                        config_fixture.z_uses_group_default = False
+            if self.config:
+                config_fixture = next(
+                    (f for f in self.config.fixtures if f.name == fixture_item.fixture_name),
+                    None
+                )
+                if config_fixture:
+                    config_fixture.mounting = values['mounting']
+                    config_fixture.yaw = values['yaw']
+                    config_fixture.pitch = values['pitch']
+                    config_fixture.roll = values['roll']
+                    config_fixture.z = values['z_height']
+                    config_fixture.orientation_uses_group_default = False
+                    config_fixture.z_uses_group_default = False
 
-            # Apply to group default if checkbox was checked
-            if values['apply_to_group'] and self.config:
-                groups = set(f.group for f in fixture_items if hasattr(f, 'group') and f.group)
-                selected_fixture_names = {f.fixture_name for f in fixture_items}
+        if values.get('apply_to_group') and self.config:
+            groups = set(f.group for f in fixture_items if hasattr(f, 'group') and f.group)
+            selected_fixture_names = {f.fixture_name for f in fixture_items}
 
-                for group_name in groups:
-                    if group_name in self.config.groups:
-                        group = self.config.groups[group_name]
-                        group.default_mounting = values['mounting']
-                        group.default_yaw = values['yaw']
-                        group.default_pitch = values['pitch']
-                        group.default_roll = values['roll']
-                        group.default_z_height = values['z_height']
+            for group_name in groups:
+                if group_name in self.config.groups:
+                    group = self.config.groups[group_name]
+                    group.default_mounting = values['mounting']
+                    group.default_yaw = values['yaw']
+                    group.default_pitch = values['pitch']
+                    group.default_roll = values['roll']
+                    group.default_z_height = values['z_height']
 
-                        # Update all OTHER fixtures in the group that use group defaults
-                        for config_fixture in self.config.fixtures:
-                            if (config_fixture.group == group_name and
-                                    config_fixture.name not in selected_fixture_names):
-                                # Update orientation if fixture uses group defaults for orientation
+                    for config_fixture in self.config.fixtures:
+                        if (config_fixture.group == group_name and
+                                config_fixture.name not in selected_fixture_names):
+                            if config_fixture.orientation_uses_group_default:
+                                config_fixture.mounting = values['mounting']
+                                config_fixture.yaw = values['yaw']
+                                config_fixture.pitch = values['pitch']
+                                config_fixture.roll = values['roll']
+                            if config_fixture.z_uses_group_default:
+                                config_fixture.z = values['z_height']
+
+                            if config_fixture.name in self.stage_view.fixtures:
+                                stage_item = self.stage_view.fixtures[config_fixture.name]
                                 if config_fixture.orientation_uses_group_default:
-                                    config_fixture.mounting = values['mounting']
-                                    config_fixture.yaw = values['yaw']
-                                    config_fixture.pitch = values['pitch']
-                                    config_fixture.roll = values['roll']
-
-                                # Update z if fixture uses group defaults for z
+                                    stage_item.mounting = values['mounting']
+                                    stage_item.rotation_angle = values['yaw']
+                                    stage_item.pitch = values['pitch']
+                                    stage_item.roll = values['roll']
                                 if config_fixture.z_uses_group_default:
-                                    config_fixture.z = values['z_height']
+                                    stage_item.z_height = values['z_height']
+                                stage_item.update()
 
-                                # Update the corresponding stage view item
-                                if config_fixture.name in self.stage_view.fixtures:
-                                    stage_item = self.stage_view.fixtures[config_fixture.name]
-                                    if config_fixture.orientation_uses_group_default:
-                                        stage_item.mounting = values['mounting']
-                                        stage_item.rotation_angle = values['yaw']
-                                        stage_item.pitch = values['pitch']
-                                        stage_item.roll = values['roll']
-                                    if config_fixture.z_uses_group_default:
-                                        stage_item.z_height = values['z_height']
-                                    stage_item.update()
+        self.stage_view.save_positions_to_config()
+        self._notify_tcp_update()
+        self._broadcast_visualizer_refresh()
 
-            # Save changes and notify
-            self.stage_view.save_positions_to_config()
-            self._notify_tcp_update()
+    def _refresh_embedded_visualizer(self) -> None:
+        """Push the latest config to the embedded 3D preview. Cheap to call
+        repeatedly — RenderEngine batches GL state internally."""
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer is not None:
+            self.embedded_visualizer.set_config(self.config)
+
+    def _broadcast_visualizer_refresh(self) -> None:
+        """Ask MainWindow to refresh every embedded visualizer (Stage,
+        Shows, Live). Used after stage edits / fixture moves so all
+        three 3D previews stay in sync — without it, only Stage tab's
+        preview tracks edits made on the 2D Stage view, and the Shows /
+        Live previews go stale until the user manually activates them.
+
+        Falls back to a local-only refresh if MainWindow doesn't expose
+        the central method (e.g. tab being driven from a test harness).
+        """
+        main_window = self.window()
+        broadcast = getattr(main_window, "on_visualizer_config_changed", None)
+        if callable(broadcast):
+            broadcast()
+        else:
+            self._refresh_embedded_visualizer()

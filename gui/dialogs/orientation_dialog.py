@@ -17,6 +17,7 @@ from PyQt6.QtOpenGLWidgets import QOpenGLWidget
 from PyQt6.QtGui import QSurfaceFormat
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
+from utils.fixture_capabilities import Chassis, chassis_from_legacy_type
 from utils.geometry import GeometryBuilder
 
 
@@ -48,8 +49,11 @@ class OrientationPreviewWidget(QOpenGLWidget):
         self.pitch = 0.0
         self.roll = 0.0
 
-        # Fixture type for rendering (default to MH)
+        # Fixture type for rendering (default to MH). ``self.chassis`` is the
+        # chassis-keyed view; ``fixture_type`` is kept for sub-variant cues
+        # (SUNSTRIP vs BAR, WASH vs PAR) within a single chassis branch.
         self.fixture_type = "MH"
+        self.chassis: Chassis = Chassis.MOVING_YOKE
         self.segment_count = 8  # Default segment count for bars/sunstrips
 
         # Default colors and dimensions (will be set properly when geometry is created)
@@ -101,7 +105,10 @@ class OrientationPreviewWidget(QOpenGLWidget):
         self.render_timer.timeout.connect(self.update)
         self.render_timer.start(33)  # ~30 FPS
 
-        self.setMinimumSize(300, 300)
+        # Compact-friendly minimum so the preview can sit comfortably inside
+        # the Stage tab's right-hand splitter without forcing the whole
+        # column wide. The dialog wrapper still sets a 500x550 dialog min.
+        self.setMinimumSize(180, 160)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def initializeGL(self):
@@ -170,6 +177,7 @@ class OrientationPreviewWidget(QOpenGLWidget):
         """Update the fixture type and recreate geometry."""
         if fixture_type != self.fixture_type or segment_count != self.segment_count:
             self.fixture_type = fixture_type
+            self.chassis = chassis_from_legacy_type(fixture_type)
             self.segment_count = segment_count
             if self.ctx:
                 self._update_fixture_geometry()
@@ -190,22 +198,35 @@ class OrientationPreviewWidget(QOpenGLWidget):
                 setattr(self, attr, None)
 
     def _update_fixture_geometry(self):
-        """Create/update fixture geometry based on current fixture_type."""
-        # Release old geometry
+        """Create/update fixture geometry based on the current chassis.
+
+        Dispatches on :class:`Chassis` (Phase C). Within Chassis.BAR /
+        Chassis.PAR we still consult ``fixture_type`` for sub-variant
+        visuals (SUNSTRIP, WASH) where the existing code has a
+        dedicated mesh — keeps visual fidelity without re-introducing
+        a 6-string dispatch at the top level.
+        """
         self._release_fixture_vaos()
 
-        # Create geometry based on type
-        if self.fixture_type in ("BAR", "PIXELBAR"):
-            self._create_led_bar_geometry()
-        elif self.fixture_type == "SUNSTRIP":
-            self._create_sunstrip_geometry()
-        elif self.fixture_type == "PAR":
-            self._create_par_geometry()
-        elif self.fixture_type == "WASH":
-            self._create_wash_geometry()
-        elif self.fixture_type == "MH":
+        if self.chassis is Chassis.MOVING_YOKE:
             self._create_moving_head_geometry()
-        else:  # Default to MH
+        elif self.chassis is Chassis.PAR:
+            if self.fixture_type == "WASH":
+                self._create_wash_geometry()
+            else:
+                self._create_par_geometry()
+        elif self.chassis is Chassis.BAR:
+            if self.fixture_type == "SUNSTRIP":
+                self._create_sunstrip_geometry()
+            else:
+                self._create_led_bar_geometry()
+        elif self.chassis is Chassis.PANEL:
+            # Closest existing mesh — a flat-faced bar. Phase D may
+            # add a dedicated W×H pixel-matrix preview.
+            self._create_led_bar_geometry()
+        else:
+            # SCANNER / EFFECT / PARTICLE / LASER / OTHER — placeholder
+            # until each gets a dedicated preview mesh.
             self._create_moving_head_geometry()
 
     def _create_led_bar_geometry(self):
@@ -1322,17 +1343,22 @@ class OrientationPreviewWidget(QOpenGLWidget):
         # Render gimbal rings
         self._render_gimbal_rings(mvp, fixture_transform)
 
-        # Render fixture based on type
-        if self.fixture_type == "MH":
+        # Render fixture based on chassis (with sub-variant by fixture_type
+        # within Chassis.BAR / Chassis.PAR — keeps SUNSTRIP / WASH visuals).
+        if self.chassis is Chassis.MOVING_YOKE:
             self._render_moving_head(mvp, fixture_transform)
-        elif self.fixture_type == "PAR":
-            self._render_par(mvp, fixture_transform)
-        elif self.fixture_type in ("BAR", "PIXELBAR"):
+        elif self.chassis is Chassis.PAR:
+            if self.fixture_type == "WASH":
+                self._render_wash(mvp, fixture_transform)
+            else:
+                self._render_par(mvp, fixture_transform)
+        elif self.chassis is Chassis.BAR:
+            if self.fixture_type == "SUNSTRIP":
+                self._render_sunstrip(mvp, fixture_transform)
+            else:
+                self._render_led_bar(mvp, fixture_transform)
+        elif self.chassis is Chassis.PANEL:
             self._render_led_bar(mvp, fixture_transform)
-        elif self.fixture_type == "SUNSTRIP":
-            self._render_sunstrip(mvp, fixture_transform)
-        elif self.fixture_type == "WASH":
-            self._render_wash(mvp, fixture_transform)
         else:
             self._render_moving_head(mvp, fixture_transform)
 
@@ -1845,13 +1871,22 @@ class OrientationPreviewWidget(QOpenGLWidget):
             self.ctx = None
 
 
-class OrientationDialog(QDialog):
-    """
-    Dialog for setting fixture orientation.
+class OrientationPanel(QWidget):
+    """Embeddable orientation editor — preview + presets + fine adjustment.
 
-    Provides a 3D preview with gimbal rings, preset buttons,
-    and fine-tuning controls for yaw, pitch, roll, and Z-height.
+    Shared by the legacy ``OrientationDialog`` (which wraps it with Cancel/
+    Apply buttons) and the Stage tab's persistent inline panel (which uses
+    it directly and writes through on accept). Calling code can re-bind the
+    panel to a different fixture selection via :meth:`set_fixtures`.
+
+    Emits :attr:`values_changed` whenever the user changes any orientation
+    value via spinbox edits, gimbal drag, or preset clicks. Inline embedders
+    (Stage tab) listen on this signal to push the new values back to the
+    selected fixtures live; the modal dialog ignores it and writes back on
+    Apply only.
     """
+
+    values_changed = pyqtSignal()
 
     # Mounting preset definitions
     PRESETS = {
@@ -1878,10 +1913,10 @@ class OrientationDialog(QDialog):
 
     def __init__(self, fixtures: List, config=None, parent=None):
         """
-        Initialize orientation dialog.
-
         Args:
-            fixtures: List of FixtureItem objects to configure
+            fixtures: List of FixtureItem objects to configure (may be empty
+                      when constructed by an inline embedder; call
+                      :meth:`set_fixtures` later).
             config: Configuration object for group lookups
             parent: Parent widget
         """
@@ -1889,25 +1924,24 @@ class OrientationDialog(QDialog):
         self.fixtures = fixtures
         self.config = config
 
-        self.setWindowTitle("Set Orientation")
-        self.setMinimumSize(500, 550)
-
         self._setup_ui()
         self._connect_signals()
-        self._load_initial_values()
+        if fixtures:
+            self._load_initial_values()
+        else:
+            # Inline embedders (Stage tab) start with no selection.
+            self._set_inputs_enabled(False)
 
     def _setup_ui(self):
-        """Set up the dialog UI."""
+        """Set up the panel UI."""
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        # Info label
-        if len(self.fixtures) == 1:
-            info_text = f"Fixture: {self.fixtures[0].fixture_name}"
-        else:
-            info_text = f"Editing {len(self.fixtures)} fixtures"
-        info_label = QLabel(info_text)
-        info_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        layout.addWidget(info_label)
+        # Info label — kept as an instance attribute so set_fixtures can
+        # update it when the embedder re-binds the panel to a new selection.
+        self.info_label = QLabel(self._format_info_text(self.fixtures))
+        self.info_label.setStyleSheet("font-weight: bold; font-size: 12px;")
+        layout.addWidget(self.info_label)
 
         # 3D Preview
         preview_group = QGroupBox("3D Preview")
@@ -1916,120 +1950,248 @@ class OrientationDialog(QDialog):
         preview_layout.addWidget(self.preview_widget)
         layout.addWidget(preview_group, stretch=1)
 
-        # Presets
-        presets_group = QGroupBox("Presets")
-        presets_layout = QHBoxLayout(presets_group)
+        # Presets + Fine Adjustment live side-by-side in one row to share
+        # vertical space with the 3D preview above. Otherwise the panel
+        # would either consume most of the right-column height or
+        # squeeze the preview down to nothing.
+        body_row = QHBoxLayout()
+        body_row.setSpacing(6)
 
+        # Presets — 6 mounting presets in a 3 rows x 2 cols block, with
+        # Custom on a 4th row spanning both columns. Custom is the
+        # "this doesn't match a preset" indicator and reads naturally
+        # as a wide bottom button.
+        presets_group = QGroupBox("Presets")
+        presets_layout = QGridLayout(presets_group)
+        presets_layout.setHorizontalSpacing(4)
+        presets_layout.setVerticalSpacing(4)
+
+        # Order intentional: mounting pairs read top-to-bottom.
+        named_presets = ["hanging", "standing", "wall_left", "wall_right",
+                         "wall_back", "wall_front"]
         self.preset_buttons = {}
-        for preset_id, preset_info in self.PRESETS.items():
+        for index, preset_id in enumerate(named_presets):
+            preset_info = self.PRESETS[preset_id]
             btn = QPushButton(preset_info['label'])
             btn.setToolTip(preset_info['tooltip'])
             btn.setCheckable(True)
+            btn.setMaximumWidth(90)
             btn.clicked.connect(lambda checked, p=preset_id: self._on_preset_clicked(p))
-            presets_layout.addWidget(btn)
+            row, col = divmod(index, 2)
+            presets_layout.addWidget(btn, row, col)
             self.preset_buttons[preset_id] = btn
 
-        layout.addWidget(presets_group)
+        custom_btn = QPushButton(self.PRESETS['custom']['label'])
+        custom_btn.setToolTip(self.PRESETS['custom']['tooltip'])
+        custom_btn.setCheckable(True)
+        custom_btn.clicked.connect(lambda checked: self._on_preset_clicked('custom'))
+        # Span both columns at the bottom — visually marks Custom as the
+        # "no match" state, distinct from the 6 named presets above it.
+        presets_layout.addWidget(custom_btn, 3, 0, 1, 2)
+        self.preset_buttons['custom'] = custom_btn
 
-        # Fine adjustment
+        body_row.addWidget(presets_group)
+
+        # Fine adjustment — single QGridLayout so all four axis rows share
+        # the same column widths (label / spinbox / +90 button / stretch).
+        # Earlier per-row QHBoxLayouts let columns drift between rows,
+        # especially the Z-Height row that has no +90 button.
+        # Apply-to-group lives at the bottom of this same grid spanning
+        # every column, so the panel reads as a single block instead of
+        # leaving an orphan checkbox below.
         adjust_group = QGroupBox("Fine Adjustment")
         adjust_layout = QGridLayout(adjust_group)
+        adjust_layout.setHorizontalSpacing(4)
+        adjust_layout.setVerticalSpacing(4)
+
+        def _add_axis_row(row_index, label_text, spin, rotate_btn=None):
+            label = QLabel(label_text)
+            label.setStyleSheet("font-weight: bold;")
+            label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            adjust_layout.addWidget(label, row_index, 0)
+            spin.setMaximumWidth(90)
+            adjust_layout.addWidget(spin, row_index, 1)
+            if rotate_btn is not None:
+                # Override the theme's default 6px/14px button padding so the
+                # +90° text fits inside the 50px-wide button without clipping.
+                rotate_btn.setMinimumWidth(50)
+                rotate_btn.setMaximumWidth(60)
+                adjust_layout.addWidget(rotate_btn, row_index, 2)
 
         # Yaw
-        adjust_layout.addWidget(QLabel("Yaw:"), 0, 0)
         self.yaw_spin = QDoubleSpinBox()
         self.yaw_spin.setRange(-180, 180)
         self.yaw_spin.setSuffix("°")
         self.yaw_spin.setSingleStep(5)
         self.yaw_spin.setToolTip("Rotation around vertical axis (blue ring)")
-        adjust_layout.addWidget(self.yaw_spin, 0, 1)
-
-        # Yaw +90 button (blue)
         self.yaw_90_btn = QPushButton("+90°")
         self.yaw_90_btn.setToolTip("Rotate yaw by +90°")
-        self.yaw_90_btn.setStyleSheet("background-color: #4466CC; color: white; font-weight: bold;")
-        self.yaw_90_btn.setFixedWidth(50)
+        self.yaw_90_btn.setStyleSheet(
+            "background-color: #4466CC; color: white; font-weight: bold; "
+            "padding: 4px 6px;"
+        )
         self.yaw_90_btn.clicked.connect(lambda: self._rotate_by_90('yaw'))
-        adjust_layout.addWidget(self.yaw_90_btn, 0, 2)
+        _add_axis_row(0, "Yaw:", self.yaw_spin, self.yaw_90_btn)
 
         # Pitch
-        adjust_layout.addWidget(QLabel("Pitch:"), 0, 3)
         self.pitch_spin = QDoubleSpinBox()
         self.pitch_spin.setRange(-90, 90)
         self.pitch_spin.setSuffix("°")
         self.pitch_spin.setSingleStep(5)
         self.pitch_spin.setToolTip("Tilt angle (green ring)")
-        adjust_layout.addWidget(self.pitch_spin, 0, 4)
-
-        # Pitch +90 button (green)
         self.pitch_90_btn = QPushButton("+90°")
         self.pitch_90_btn.setToolTip("Rotate pitch by +90°")
-        self.pitch_90_btn.setStyleSheet("background-color: #44AA44; color: white; font-weight: bold;")
-        self.pitch_90_btn.setFixedWidth(50)
+        self.pitch_90_btn.setStyleSheet(
+            "background-color: #44AA44; color: white; font-weight: bold; "
+            "padding: 4px 6px;"
+        )
         self.pitch_90_btn.clicked.connect(lambda: self._rotate_by_90('pitch'))
-        adjust_layout.addWidget(self.pitch_90_btn, 0, 5)
+        _add_axis_row(1, "Pitch:", self.pitch_spin, self.pitch_90_btn)
 
         # Roll
-        adjust_layout.addWidget(QLabel("Roll:"), 1, 0)
         self.roll_spin = QDoubleSpinBox()
         self.roll_spin.setRange(-180, 180)
         self.roll_spin.setSuffix("°")
         self.roll_spin.setSingleStep(5)
         self.roll_spin.setToolTip("Rotation around beam axis (red ring)")
-        adjust_layout.addWidget(self.roll_spin, 1, 1)
-
-        # Roll +90 button (red)
         self.roll_90_btn = QPushButton("+90°")
         self.roll_90_btn.setToolTip("Rotate roll by +90°")
-        self.roll_90_btn.setStyleSheet("background-color: #CC4444; color: white; font-weight: bold;")
-        self.roll_90_btn.setFixedWidth(50)
+        self.roll_90_btn.setStyleSheet(
+            "background-color: #CC4444; color: white; font-weight: bold; "
+            "padding: 4px 6px;"
+        )
         self.roll_90_btn.clicked.connect(lambda: self._rotate_by_90('roll'))
-        adjust_layout.addWidget(self.roll_90_btn, 1, 2)
+        _add_axis_row(2, "Roll:", self.roll_spin, self.roll_90_btn)
 
-        # Z-height
-        adjust_layout.addWidget(QLabel("Z-Height:"), 1, 3)
+        # Z-height (no rotate button — column 2 stays empty for that row)
         self.z_spin = QDoubleSpinBox()
         self.z_spin.setRange(0, 50)
         self.z_spin.setSuffix(" m")
         self.z_spin.setSingleStep(0.1)
         self.z_spin.setDecimals(2)
         self.z_spin.setToolTip("Height above stage floor")
-        adjust_layout.addWidget(self.z_spin, 1, 4, 1, 2)  # Span 2 columns
+        _add_axis_row(3, "Z-Height:", self.z_spin)
 
-        layout.addWidget(adjust_group)
+        # Trailing stretch column absorbs any leftover horizontal space so
+        # spinboxes don't get pushed wide and rows align cell-for-cell.
+        adjust_layout.setColumnStretch(0, 0)
+        adjust_layout.setColumnStretch(1, 0)
+        adjust_layout.setColumnStretch(2, 0)
+        adjust_layout.setColumnStretch(3, 1)
 
-        # Apply to group checkbox
+        body_row.addWidget(adjust_group)
+
+        # Group Defaults — third box in the body row. Wrapping the
+        # apply-to-group checkbox in its own QGroupBox matches the visual
+        # weight of Presets / Fine Adjustment and keeps the panel as a
+        # single horizontal strip. Minimum width ensures the indicator
+        # and label have room — too narrow and Qt sometimes clips the
+        # click area to nothing.
+        group_defaults_group = QGroupBox("Group Defaults")
+        group_defaults_group.setMinimumWidth(140)
+        gd_layout = QVBoxLayout(group_defaults_group)
         self.apply_to_group_checkbox = QCheckBox("Apply to group default")
         self.apply_to_group_checkbox.setToolTip(
             "If checked, also updates the group's default orientation"
         )
-        # Only enable if all fixtures are in the same group
-        groups = set(f.group for f in self.fixtures if hasattr(f, 'group') and f.group)
-        self.apply_to_group_checkbox.setEnabled(len(groups) == 1)
+        gd_layout.addWidget(self.apply_to_group_checkbox)
+        gd_layout.addStretch()
+        body_row.addWidget(group_defaults_group)
+        self._refresh_apply_to_group(self.fixtures)
+
+        layout.addLayout(body_row)
+
+    @staticmethod
+    def _format_info_text(fixtures: list) -> str:
+        if not fixtures:
+            return "No fixture selected"
+        if len(fixtures) == 1:
+            return f"Fixture: {fixtures[0].fixture_name}"
+        return f"Editing {len(fixtures)} fixtures"
+
+    def _refresh_apply_to_group(self, fixtures: list) -> None:
+        """Enable the apply-to-group checkbox only when every selected
+        fixture belongs to the same group. Updates the label accordingly.
+
+        ``FixtureItem`` instances (the StageView's graphics items) don't
+        carry a ``group`` attribute directly; they only know their
+        ``fixture_name``. Resolve via ``self.config`` so the checkbox
+        actually becomes clickable when a grouped fixture is selected.
+        """
+        groups: set = set()
+        for fx in fixtures:
+            group_name = getattr(fx, "group", None)
+            if not group_name and self.config is not None:
+                fx_name = getattr(fx, "fixture_name", None) or getattr(fx, "name", None)
+                if fx_name:
+                    cf = next(
+                        (cf for cf in self.config.fixtures if cf.name == fx_name),
+                        None,
+                    )
+                    if cf is not None:
+                        group_name = cf.group
+            if group_name:
+                groups.add(group_name)
+
         if len(groups) == 1:
-            self.apply_to_group_checkbox.setText(f"Apply to group default ({list(groups)[0]})")
-        layout.addWidget(self.apply_to_group_checkbox)
+            self.apply_to_group_checkbox.setEnabled(True)
+            self.apply_to_group_checkbox.setText(
+                f"Apply to group default ({next(iter(groups))})"
+            )
+        else:
+            self.apply_to_group_checkbox.setEnabled(False)
+            self.apply_to_group_checkbox.setChecked(False)
+            self.apply_to_group_checkbox.setText("Apply to group default")
 
-        # Buttons
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
+    def set_fixtures(self, fixtures: list) -> None:
+        """Re-bind the panel to a new selection without rebuilding widgets.
 
-        self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.clicked.connect(self.reject)
-        button_layout.addWidget(self.cancel_btn)
+        Refreshes the info label, the apply-to-group checkbox, and reloads
+        the orientation spinboxes / preset selection from the first fixture.
+        When ``fixtures`` is empty (typical for the Stage tab when nothing
+        is selected on the 2D view), every input is disabled so values
+        can't be changed accidentally and the panel reads "No fixture
+        selected".
+        """
+        self.fixtures = fixtures
+        self.info_label.setText(self._format_info_text(fixtures))
+        self._refresh_apply_to_group(fixtures)
+        self._set_inputs_enabled(bool(fixtures))
+        if fixtures:
+            self._load_initial_values()
 
-        self.apply_btn = QPushButton("Apply")
-        self.apply_btn.setDefault(True)
-        self.apply_btn.clicked.connect(self.accept)
-        button_layout.addWidget(self.apply_btn)
+    def _set_inputs_enabled(self, enabled: bool) -> None:
+        """Toggle interactivity for every editing surface on the panel.
 
-        layout.addLayout(button_layout)
+        The apply-to-group checkbox has its own enable rule (only when all
+        selected fixtures share a group); ``_refresh_apply_to_group`` runs
+        after this and may override the disabled state to keep that rule
+        intact.
+        """
+        for spin in (self.yaw_spin, self.pitch_spin, self.roll_spin, self.z_spin):
+            spin.setEnabled(enabled)
+        for btn in (self.yaw_90_btn, self.pitch_90_btn, self.roll_90_btn):
+            btn.setEnabled(enabled)
+        for btn in self.preset_buttons.values():
+            btn.setEnabled(enabled)
+        if hasattr(self, "preview_widget") and self.preview_widget is not None:
+            # Disabling the QOpenGLWidget greys it out and stops mouse interaction.
+            self.preview_widget.setEnabled(enabled)
+        if not enabled:
+            # When we lose the binding, also clear any apply-to-group state
+            # so reselecting a single-group selection re-enables the box
+            # without carrying a stale checked state from elsewhere.
+            self.apply_to_group_checkbox.setChecked(False)
+            self.apply_to_group_checkbox.setEnabled(False)
 
     def _connect_signals(self):
         """Connect UI signals."""
         self.yaw_spin.valueChanged.connect(self._on_values_changed)
         self.pitch_spin.valueChanged.connect(self._on_values_changed)
         self.roll_spin.valueChanged.connect(self._on_values_changed)
+        # Z-height edits don't reshape the gimbal, but inline embedders need
+        # to know when the value changed so they can write it back.
+        self.z_spin.valueChanged.connect(lambda _v: self.values_changed.emit())
 
         # Connect preview widget's ring drag signal to update spin boxes
         self.preview_widget.orientation_changed.connect(self._on_preview_orientation_changed)
@@ -2052,6 +2214,8 @@ class OrientationDialog(QDialog):
         # Check if values match a preset and update selection
         matched_preset = self._find_matching_preset(yaw, pitch, roll)
         self._update_preset_selection(matched_preset)
+
+        self.values_changed.emit()
 
     def _load_initial_values(self):
         """Load initial values from the first fixture."""
@@ -2143,6 +2307,8 @@ class OrientationDialog(QDialog):
         # Update preview with absolute values
         self.preview_widget.set_orientation(preset_id, yaw, pitch, roll)
 
+        self.values_changed.emit()
+
     def _update_preset_selection(self, preset_id: str):
         """Update preset button checked states."""
         for pid, btn in self.preset_buttons.items():
@@ -2160,6 +2326,8 @@ class OrientationDialog(QDialog):
 
         # Update preview with absolute values
         self.preview_widget.set_orientation(matched_preset, yaw, pitch, roll)
+
+        self.values_changed.emit()
 
     def _find_matching_preset(self, yaw: float, pitch: float, roll: float) -> str:
         """Find which preset matches the given values, or 'custom' if none match."""
@@ -2215,7 +2383,65 @@ class OrientationDialog(QDialog):
             'apply_to_group': self.apply_to_group_checkbox.isChecked()
         }
 
+    def cleanup(self) -> None:
+        """Release GL resources owned by the preview widget. Called by the
+        wrapping dialog on close, or by the inline embedder on tab cleanup."""
+        if hasattr(self, "preview_widget") and self.preview_widget is not None:
+            self.preview_widget.cleanup()
+
+
+class OrientationDialog(QDialog):
+    """Modal wrapper around :class:`OrientationPanel`.
+
+    Adds Cancel / Apply buttons and standard QDialog accept/reject flow so
+    existing call sites (``stage_tab._open_orientation_dialog``) keep working
+    unchanged. Forwards ``get_selected_mounting`` / ``get_orientation_values``
+    to the embedded panel.
+    """
+
+    # Re-export presets for any caller still reading them off the dialog.
+    PRESETS = OrientationPanel.PRESETS
+    PRESET_VALUES = OrientationPanel.PRESET_VALUES
+
+    def __init__(self, fixtures: List, config=None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Set Orientation")
+        self.setMinimumSize(500, 550)
+
+        layout = QVBoxLayout(self)
+        self.panel = OrientationPanel(fixtures, config, self)
+        layout.addWidget(self.panel, stretch=1)
+
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(self.cancel_btn)
+
+        self.apply_btn = QPushButton("Apply")
+        self.apply_btn.setDefault(True)
+        self.apply_btn.clicked.connect(self.accept)
+        button_layout.addWidget(self.apply_btn)
+
+        layout.addLayout(button_layout)
+
+    # ── Pass-throughs that preserve the dialog's existing public API ──
+
+    def get_selected_mounting(self) -> str:
+        return self.panel.get_selected_mounting()
+
+    def get_orientation_values(self) -> dict:
+        return self.panel.get_orientation_values()
+
+    @property
+    def fixtures(self):
+        return self.panel.fixtures
+
+    @property
+    def preview_widget(self):
+        return self.panel.preview_widget
+
     def closeEvent(self, event):
-        """Handle dialog close."""
-        self.preview_widget.cleanup()
+        self.panel.cleanup()
         super().closeEvent(event)

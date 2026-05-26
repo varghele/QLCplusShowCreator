@@ -1,5 +1,5 @@
 """
-Synchronization bridge between Qt PlaybackEngine and PyAudio AudioEngine.
+Synchronization bridge between Qt PlaybackEngine and sounddevice AudioEngine.
 Ensures sample-accurate audio playback synchronized with UI timeline.
 """
 

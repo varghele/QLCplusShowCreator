@@ -26,6 +26,9 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
             - speed_dial: bool - Include tap BPM SpeedDial
             - master_presets: bool - Include master presets (scenes/chasers for all fixtures)
             - dark_mode: bool - Use dark/black background
+            - qlc_target_version: str - Version stamped into <Creator><Version>.
+              Cosmetic only; the workspace XML schema is identical between
+              QLC+ 4.x and 5.x. Default: "4.14.4".
     """
     # Set up base dir
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -45,9 +48,10 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
     root.set("CurrentWindow", "VirtualConsole")
 
     # Create Creator section
+    qlc_version = (vc_options or {}).get('qlc_target_version', '4.14.4')
     creator = ET.SubElement(root, "Creator")
     ET.SubElement(creator, "Name").text = "Q Light Controller Plus"
-    ET.SubElement(creator, "Version").text = "4.12.4"
+    ET.SubElement(creator, "Version").text = qlc_version
     ET.SubElement(creator, "Author").text = "Auto Generated"
 
     # Create Engine section
@@ -63,16 +67,33 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
     # Create ChannelsGroups using Configuration data and fixture ID mapping
     create_channels_groups(engine, config, fixture_id_map, fixture_definitions)
 
-    # Create Shows using Configuration data and collect show function IDs
-    function_id_counter = create_shows(engine, config, fixture_id_map, fixture_definitions)
-
-    # Detect fixture group capabilities for VC generation
+    # Detect fixture group capabilities (needed for PAUSE show and VC generation)
     capabilities_map = {}
     for group_name, group in config.groups.items():
         if group.fixtures:
             capabilities_map[group_name] = detect_fixture_group_capabilities(
                 group.fixtures, fixture_definitions
             )
+
+    # Generate PAUSE show if configured
+    _injected_pause = False
+    if config.pause_show and config.pause_show.enabled:
+        from utils.pause_show_generator import generate_pause_show
+        from utils.midi_utils import ensure_midi_device_in_config
+        pause_show = generate_pause_show(config, fixture_definitions, capabilities_map)
+        if pause_show:
+            config.shows["PAUSE"] = pause_show
+            _injected_pause = True
+            # Ensure MIDI device exists for the pause trigger
+            if config.pause_show.trigger_device:
+                ensure_midi_device_in_config(config, config.pause_show.trigger_device)
+
+    # Create Shows using Configuration data and collect show function IDs
+    export_overrides = {}
+    if vc_options and 'group_intensities' in vc_options:
+        export_overrides['group_intensities'] = vc_options['group_intensities']
+    function_id_counter = create_shows(engine, config, fixture_id_map, fixture_definitions,
+                                       export_overrides=export_overrides)
 
     # Collect show function IDs for show buttons
     show_function_ids = {}
@@ -131,6 +152,10 @@ def create_qlc_workspace(config: Configuration, vc_options: Optional[Dict[str, b
         grandmaster.set("ChannelMode", "Intensity")
         grandmaster.set("ValueMode", "Reduce")
         grandmaster.set("SliderMode", "Normal")
+
+    # Remove injected PAUSE show from config (it's ephemeral, only for export)
+    if _injected_pause:
+        del config.shows["PAUSE"]
 
     # Create SimpleDesk section
     simple_desk = ET.SubElement(engine, "SimpleDesk")

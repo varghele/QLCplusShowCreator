@@ -6,20 +6,23 @@ import csv
 from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QComboBox, QPushButton,
                              QLabel, QSlider, QScrollArea, QWidget, QFrame,
                              QSplitter, QSizePolicy, QInputDialog, QMessageBox, QCheckBox,
-                             QApplication)
+                             QApplication, QDialog)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint, QRect
 from PyQt6.QtGui import QShortcut, QKeySequence
 from config.models import Configuration, Show, ShowPart, TimelineData, LightBlock, ShowEffect
 from timeline.song_structure import SongStructure
 from timeline.light_lane import LightLane
 from utils.fixture_utils import load_fixture_definitions_from_qlc, get_cached_fixture_definitions
-from timeline_ui import (MasterTimelineContainer, LightLaneWidget, AudioLaneWidget)
+from timeline_ui import (MasterTimelineContainer, LightLaneWidget, AudioLaneWidget,
+                         TimelineGrid)
 from timeline_ui.selection_manager import SelectionManager
 from timeline_ui.selection_overlay import SelectionOverlay
 from timeline_ui.effect_clipboard import (copy_multiple_effects, paste_multiple_effects,
                                           has_multi_clipboard_data, has_clipboard_data,
                                           paste_effect)
 from gui.progress_manager import get_progress_manager
+from gui.widgets.embedded_visualizer import EmbeddedVisualizer
+from timeline_ui.riff_browser_widget import RiffBrowserPanel
 from .base_tab import BaseTab
 
 # Try to import simple audio player (pygame-based) - preferred for performance
@@ -82,7 +85,7 @@ class ShowsTab(BaseTab):
         # Simple audio player (pygame-based) - preferred for performance
         self.simple_audio_player = None
         self.use_simple_audio = SIMPLE_AUDIO_AVAILABLE  # Use pygame if available
-        # Legacy audio components (PyAudio-based) - fallback
+        # Legacy audio components (sounddevice-based) - fallback
         self.audio_engine = None
         self.audio_mixer = None
         self.playback_sync = None
@@ -106,6 +109,10 @@ class ShowsTab(BaseTab):
         self._visual_update_counter = 0
         self._visual_update_interval = 2  # Update visuals every 2 frames (~30 FPS)
 
+        # Generation inspector
+        self._generation_report = None
+        self._inspector_window = None
+
         # Selection manager for multi-select
         self.selection_manager = SelectionManager()
 
@@ -115,6 +122,16 @@ class ShowsTab(BaseTab):
         self._selection_extend = False
         self._selection_source_timeline = None
         self._selection_overlay = None
+        # Tracks which button initiated the marquee. Right-button finalisation
+        # shows a context menu with bulk-delete; left-button just selects.
+        self._selection_button = Qt.MouseButton.LeftButton
+        # For right-button marquee: defer overlay start until drag threshold met,
+        # so a plain right-click still falls through to the native context menu.
+        self._right_press_pending = False
+        self._right_press_pos = QPoint()
+        self._right_press_timeline = None
+        self._suppress_next_context_menu = False
+        self._marquee_drag_threshold_px = 6
 
         super().__init__(config, parent)
 
@@ -128,30 +145,60 @@ class ShowsTab(BaseTab):
         toolbar = self._create_toolbar()
         main_layout.addLayout(toolbar)
 
-        # Master timeline
+        # Master + audio + light lanes share a single horizontal scrollbar
+        # and a single column boundary inside TimelineGrid. We still keep
+        # references to the lane widgets themselves so signals/methods on
+        # them keep working — TimelineGrid just owns their visual layout.
         self.master_timeline = MasterTimelineContainer()
-        main_layout.addWidget(self.master_timeline)
-
-        # Audio lane
         self.audio_lane = AudioLaneWidget()
-        main_layout.addWidget(self.audio_lane)
+        self.timeline_grid = TimelineGrid()
+        self.timeline_grid.set_master(self.master_timeline)
+        self.timeline_grid.set_audio_lane(self.audio_lane)
 
-        # Light lanes scroll area
-        self.lanes_scroll = QScrollArea()
-        self.lanes_scroll.setWidgetResizable(True)
-        self.lanes_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.lanes_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.lanes_scroll.setMinimumHeight(200)
+        # Right-side embedded 3D preview. While playback is running and
+        # the ArtNet controller is wired up, the preview mirrors the show
+        # via the local_dmx_callback path (no TCP/ArtNet round-trip).
+        # When stopped, it falls back to build mode so the user always
+        # sees their fixtures lit. The standalone visualizer subprocess
+        # keeps working unchanged for QLC+ interop.
+        self.embedded_visualizer = EmbeddedVisualizer(self)
+        self.embedded_visualizer.set_pop_out_callback(self._launch_visualizer)
+        self.embedded_visualizer.set_config(self.config)
+        self.embedded_visualizer.set_preview_mode("build")
 
-        # Container for light lanes
-        self.lanes_container = QWidget()
-        self.lanes_layout = QVBoxLayout(self.lanes_container)
-        self.lanes_layout.setContentsMargins(0, 0, 0, 0)
-        self.lanes_layout.setSpacing(4)
-        self.lanes_layout.addStretch()  # Push lanes to top
+        # Inline riff browser under the visualizer. Reuses the shared
+        # RiffLibrary instance from MainWindow so we don't double-load
+        # the disk catalog. The global QDockWidget version stays for the
+        # Structure tab; gui.py hides it on the Shows tab so the user
+        # doesn't see two copies.
+        riff_library = self._get_shared_riff_library()
+        self.embedded_riff_panel = RiffBrowserPanel(riff_library, self)
 
-        self.lanes_scroll.setWidget(self.lanes_container)
-        main_layout.addWidget(self.lanes_scroll, 1)  # Takes remaining space
+        # Right pane: visualizer (~16:9 top) + riff panel (fills below).
+        right_splitter = QSplitter(Qt.Orientation.Vertical)
+        right_splitter.addWidget(self.embedded_visualizer)
+        right_splitter.addWidget(self.embedded_riff_panel)
+        right_splitter.setStretchFactor(0, 0)
+        right_splitter.setStretchFactor(1, 1)
+        right_splitter.setCollapsible(0, True)
+        right_splitter.setCollapsible(1, True)
+        self._right_splitter = right_splitter
+
+        # Outer splitter: timeline (left) | right pane. Collapsible so
+        # the user can drag the right pane shut for full timeline width.
+        # Sizes persist via QSettings under `shows/main_splitter` and
+        # `shows/right_splitter`.
+        self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._main_splitter.addWidget(self.timeline_grid)
+        self._main_splitter.addWidget(right_splitter)
+        self._main_splitter.setStretchFactor(0, 1)
+        self._main_splitter.setStretchFactor(1, 0)
+        self._main_splitter.setCollapsible(0, False)
+        self._main_splitter.setCollapsible(1, True)
+        self._restore_splitter_states()
+        self._main_splitter.splitterMoved.connect(self._save_main_splitter_state)
+        right_splitter.splitterMoved.connect(self._save_right_splitter_state)
+        main_layout.addWidget(self._main_splitter, 1)
 
         # Create selection overlay for rubber-band selection (parented to self for proper stacking)
         self._selection_overlay = SelectionOverlay(self)
@@ -179,20 +226,23 @@ class ShowsTab(BaseTab):
 
         # Add lane button
         self.add_lane_btn = QPushButton("+ Add Light Lane")
-        self.add_lane_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-            }
-        """)
+        self.add_lane_btn.setProperty("role", "success")
         toolbar.addWidget(self.add_lane_btn)
+
+        toolbar.addSpacing(10)
+
+        # Auto-generate button
+        self.autogen_btn = QPushButton("Auto-Generate")
+        self.autogen_btn.setProperty("role", "primary")
+        self.autogen_btn.setToolTip("Automatically generate light show from audio analysis")
+        toolbar.addWidget(self.autogen_btn)
+
+        # Inspector toggle (checkable — uses default theme :checked styling)
+        self.inspector_btn = QPushButton("Inspector")
+        self.inspector_btn.setCheckable(True)
+        self.inspector_btn.setEnabled(False)
+        self.inspector_btn.setToolTip("Show generation decision inspector (requires auto-generated show)")
+        toolbar.addWidget(self.inspector_btn)
 
         toolbar.addSpacing(20)
 
@@ -214,19 +264,7 @@ class ShowsTab(BaseTab):
 
         # Save button
         self.save_btn = QPushButton("Save")
-        self.save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2196F3;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 16px;
-            }
-            QPushButton:hover {
-                background-color: #42A5F5;
-            }
-        """)
+        self.save_btn.setProperty("role", "primary")
         toolbar.addWidget(self.save_btn)
 
         return toolbar
@@ -236,54 +274,22 @@ class ShowsTab(BaseTab):
         controls = QHBoxLayout()
         controls.setSpacing(10)
 
-        # Playback buttons
+        # Playback buttons (transport — colors from active theme via role props).
         self.play_btn = QPushButton("Play")
         self.play_btn.setFixedWidth(70)
-        self.play_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-            }
-        """)
+        self.play_btn.setProperty("role", "success")
         controls.addWidget(self.play_btn)
 
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.setFixedWidth(70)
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: #EF5350;
-            }
-        """)
+        self.stop_btn.setProperty("role", "destructive")
         controls.addWidget(self.stop_btn)
 
         controls.addSpacing(20)
 
-        # Time display
+        # Time display — styled by `#TimeReadout` rule in the active theme.
         self.time_label = QLabel("00:00.00")
-        self.time_label.setStyleSheet("""
-            font-family: monospace;
-            font-size: 16px;
-            font-weight: bold;
-            padding: 4px 8px;
-            background-color: #333;
-            color: #0f0;
-            border-radius: 4px;
-        """)
+        self.time_label.setObjectName("TimeReadout")
         self.time_label.setFixedWidth(100)
         controls.addWidget(self.time_label)
 
@@ -297,7 +303,7 @@ class ShowsTab(BaseTab):
 
         # Total time display
         self.total_time_label = QLabel("/ 00:00")
-        self.total_time_label.setStyleSheet("font-family: monospace; color: #666;")
+        self.total_time_label.setObjectName("TimeReadoutSecondary")
         controls.addWidget(self.total_time_label)
 
         return controls
@@ -307,6 +313,8 @@ class ShowsTab(BaseTab):
         # Toolbar
         self.show_combo.currentTextChanged.connect(self._on_show_changed)
         self.add_lane_btn.clicked.connect(self._add_new_lane)
+        self.autogen_btn.clicked.connect(self._on_autogenerate)
+        self.inspector_btn.toggled.connect(self._on_inspector_toggled)
         self.zoom_slider.valueChanged.connect(self._on_zoom_changed)
         self.save_btn.clicked.connect(self.save_to_config)
 
@@ -317,16 +325,12 @@ class ShowsTab(BaseTab):
         self.position_slider.sliderReleased.connect(self._on_position_slider_released)
         self.position_slider.valueChanged.connect(self._on_position_slider_changed)
 
-        # Master timeline sync
-        self.master_timeline.scroll_position_changed.connect(self._sync_scroll)
-        self.master_timeline.playhead_moved.connect(self._on_playhead_moved)
-        self.master_timeline.zoom_changed.connect(self._on_external_zoom_changed)
-
-        # Audio lane sync
-        self.audio_lane.scroll_position_changed.connect(self._sync_scroll)
-        self.audio_lane.zoom_changed.connect(self._on_external_zoom_changed)
-        self.audio_lane.playhead_moved.connect(self._on_playhead_moved)
-        self.audio_lane.audio_file_changed.connect(self._on_audio_file_loaded)
+        # TimelineGrid is the single source of truth for playhead/zoom/audio
+        # signals — its internals route from whichever lane originated the
+        # change. No more cross-wiring between separate scroll areas.
+        self.timeline_grid.playhead_moved.connect(self._on_playhead_moved)
+        self.timeline_grid.zoom_changed.connect(self._on_external_zoom_changed)
+        self.timeline_grid.audio_file_changed.connect(self._on_audio_file_loaded)
 
         # Keyboard shortcuts for selection operations
         self._setup_selection_shortcuts()
@@ -377,6 +381,10 @@ class ShowsTab(BaseTab):
         # Update ArtNet controller fixture mappings so new fixtures are tracked
         if self.artnet_controller:
             self.artnet_controller.update_fixtures()
+        # Refresh the embedded visualizer's fixture set so newly-added /
+        # removed fixtures appear (or vanish) in the 3D preview too.
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer:
+            self.embedded_visualizer.set_config(self.config)
 
     def _on_show_changed(self, show_name: str):
         """Handle show selection change."""
@@ -564,13 +572,12 @@ class ShowsTab(BaseTab):
         for lane_widget in self.lane_widgets:
             try:
                 lane_widget.remove_requested.disconnect()
-                lane_widget.scroll_position_changed.disconnect()
                 lane_widget.zoom_changed.disconnect()
                 lane_widget.playhead_moved.disconnect()
                 lane_widget.block_edited.disconnect()
             except (TypeError, RuntimeError):
                 pass  # Signal already disconnected or widget deleted
-            self.lanes_layout.removeWidget(lane_widget)
+            self.timeline_grid.remove_light_lane(lane_widget)
             lane_widget.deleteLater()
         self.lane_widgets.clear()
 
@@ -582,27 +589,22 @@ class ShowsTab(BaseTab):
         lane_widget = LightLaneWidget(lane, fixture_groups, self, config=self.config)
         lane_widget.set_song_structure(self.song_structure)
         lane_widget.set_zoom_factor(self.zoom_slider.value() / 100.0)
-        # Sync playhead position with existing lanes
         lane_widget.set_playhead_position(self.playhead_position)
-        # Sync scroll position with master timeline
-        master_scroll_pos = self.master_timeline.timeline_scroll.horizontalScrollBar().value()
-        lane_widget.sync_scroll_position(master_scroll_pos)
 
-        # Connect signals
+        # Connect signals — TimelineGrid handles horizontal scroll sync, so
+        # the per-lane scroll_position_changed wiring is gone.
         lane_widget.remove_requested.connect(self._remove_lane_widget)
-        lane_widget.scroll_position_changed.connect(self._sync_scroll)
         lane_widget.zoom_changed.connect(self._on_external_zoom_changed)
         lane_widget.playhead_moved.connect(self._on_playhead_moved)
         lane_widget.block_edited.connect(self.save_to_config)  # Auto-save on effect edit
 
-        # Install event filter on timeline widget for rubber-band selection
+        # Install event filter on timeline widget for rubber-band selection.
         lane_widget.timeline_widget.installEventFilter(self)
         lane_widget.timeline_widget.setMouseTracking(True)
-        # Also install on the scroll area viewport in case events go there
-        lane_widget.timeline_scroll.viewport().installEventFilter(self)
 
-        # Insert before the stretch
-        self.lanes_layout.insertWidget(len(self.lane_widgets), lane_widget)
+        # Hand the lane's pieces over to the grid; this also re-parents header
+        # and stripe and inserts a new aligned row.
+        self.timeline_grid.add_light_lane(lane_widget)
         self.lane_widgets.append(lane_widget)
 
     def _add_new_lane(self):
@@ -636,15 +638,160 @@ class ShowsTab(BaseTab):
         if progress:
             progress.finish_status()
 
+    def _on_autogenerate(self):
+        """Open auto-generation dialog and generate show."""
+        if not self.current_show_name:
+            QMessageBox.warning(self, "No Show Selected",
+                "Please select a show first.", QMessageBox.StandardButton.Ok)
+            return
+
+        show = self.config.shows.get(self.current_show_name)
+        if not show or not show.parts:
+            QMessageBox.warning(self, "No Song Structure",
+                "The show has no song parts defined. Add parts in the Structure tab first.",
+                QMessageBox.StandardButton.Ok)
+            return
+
+        # Get audio file path
+        audio_path = self.audio_lane.get_audio_file_path() if hasattr(self, 'audio_lane') else None
+        if not audio_path:
+            QMessageBox.warning(self, "No Audio File",
+                "Load an audio file first for analysis.",
+                QMessageBox.StandardButton.Ok)
+            return
+
+        # Resolve audio path
+        import os
+        if not os.path.isabs(audio_path):
+            shows_dir = self.config.shows_directory or "shows"
+            audio_path = os.path.join(shows_dir, "audiofiles", audio_path)
+
+        if not os.path.exists(audio_path):
+            QMessageBox.warning(self, "Audio File Not Found",
+                f"Cannot find audio file:\n{audio_path}",
+                QMessageBox.StandardButton.Ok)
+            return
+
+        # Check for fixture groups
+        if not self.config.groups:
+            QMessageBox.warning(self, "No Fixture Groups",
+                "Define fixture groups in the Fixtures tab first.",
+                QMessageBox.StandardButton.Ok)
+            return
+
+        # Open config dialog
+        from gui.dialogs.autogen_dialog import AutogenDialog, AutogenWorker
+        dialog = AutogenDialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        autogen_config = dialog.result_config
+        key_signature = dialog.result_key_signature
+        song_palette = dialog.result_palette
+
+        # Build song structure
+        song_structure = SongStructure()
+        song_structure.load_from_show_parts(show.parts)
+
+        # Disable button during generation
+        self.autogen_btn.setEnabled(False)
+        self.autogen_btn.setText("Generating...")
+
+        # Run in background thread
+        self._autogen_worker = AutogenWorker(
+            audio_path, song_structure, self.config, autogen_config, key_signature,
+            song_palette,
+        )
+        self._autogen_worker.finished.connect(self._on_autogen_finished)
+        self._autogen_worker.error.connect(self._on_autogen_error)
+        self._autogen_worker.start()
+
+    def _on_autogen_finished(self, lanes, report=None):
+        """Handle generated lanes from background worker."""
+        self.autogen_btn.setEnabled(True)
+        self.autogen_btn.setText("Auto-Generate")
+
+        # Store generation report for inspector
+        self._generation_report = report
+        self.inspector_btn.setEnabled(report is not None)
+
+        if not lanes:
+            QMessageBox.information(self, "Auto-Generate",
+                "No lanes were generated. Check fixture groups and song structure.",
+                QMessageBox.StandardButton.Ok)
+            return
+
+        # Ask user whether to replace or append
+        result = QMessageBox.question(
+            self, "Auto-Generate Complete",
+            f"Generated {len(lanes)} lanes with light blocks.\n\n"
+            "Replace existing lanes or append to them?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+        )
+
+        if result == QMessageBox.StandardButton.Cancel:
+            return
+
+        if result == QMessageBox.StandardButton.Yes:
+            # Replace: remove all existing lanes
+            for widget in list(self.lane_widgets):
+                self._remove_lane_widget(widget)
+
+        # Add generated lanes
+        for lane_data in lanes:
+            lane = LightLane(lane_data.name)
+            lane.fixture_targets = lane_data.fixture_targets
+            lane.light_blocks = lane_data.light_blocks
+            self._add_lane_widget(lane)
+
+        # Update ArtNet controller
+        if self.artnet_controller:
+            self.artnet_controller.set_light_lanes(
+                [widget.lane for widget in self.lane_widgets]
+            )
+
+        # Save to config
+        self.save_to_config()
+
+        QMessageBox.information(self, "Auto-Generate",
+            f"Successfully generated {len(lanes)} lanes.",
+            QMessageBox.StandardButton.Ok)
+
+    def _on_autogen_error(self, error_msg):
+        """Handle auto-generation error."""
+        self.autogen_btn.setEnabled(True)
+        self.autogen_btn.setText("Auto-Generate")
+        QMessageBox.critical(self, "Auto-Generate Error",
+            f"Generation failed:\n{error_msg}",
+            QMessageBox.StandardButton.Ok)
+
+    def _on_inspector_toggled(self, checked):
+        """Toggle the generation inspector window."""
+        if checked and self._generation_report:
+            from gui.dialogs.generation_inspector import GenerationInspector
+            audio_path = self.audio_lane.get_audio_file_path() if hasattr(self, 'audio_lane') else ""
+            if audio_path and not os.path.isabs(audio_path):
+                shows_dir = self.config.shows_directory or "shows"
+                audio_path = os.path.join(shows_dir, "audiofiles", audio_path)
+            self._inspector_window = GenerationInspector(
+                self._generation_report, audio_path=audio_path or "", parent=self
+            )
+            self._inspector_window.destroyed.connect(
+                lambda: self.inspector_btn.setChecked(False)
+            )
+            self._inspector_window.show()
+        elif self._inspector_window:
+            self._inspector_window.close()
+            self._inspector_window = None
+
     def _remove_lane_widget(self, lane_widget: LightLaneWidget):
         """Remove a lane widget."""
         if lane_widget in self.lane_widgets:
             lane_widget.remove_requested.disconnect()
-            lane_widget.scroll_position_changed.disconnect()
             lane_widget.zoom_changed.disconnect()
             lane_widget.playhead_moved.disconnect()
             lane_widget.block_edited.disconnect()
-            self.lanes_layout.removeWidget(lane_widget)
+            self.timeline_grid.remove_light_lane(lane_widget)
             self.lane_widgets.remove(lane_widget)
             lane_widget.deleteLater()
 
@@ -712,24 +859,7 @@ class ShowsTab(BaseTab):
             lane_data = lane_widget.lane.to_data_model()
             show.timeline_data.lanes.append(lane_data)
 
-    # === Scroll/Zoom Synchronization ===
-
-    def _sync_scroll(self, position: int):
-        """Synchronize scroll position across all lanes."""
-        sender = self.sender()
-
-        # Sync master timeline
-        if sender != self.master_timeline:
-            self.master_timeline.sync_scroll_position(position)
-
-        # Sync audio lane
-        if sender != self.audio_lane:
-            self.audio_lane.sync_scroll_position(position)
-
-        # Sync all light lanes
-        for lane in self.lane_widgets:
-            if sender != lane:
-                lane.sync_scroll_position(position)
+    # === Zoom Synchronization (horizontal scroll is owned by TimelineGrid) ===
 
     def _on_zoom_changed(self, value: int):
         """Handle zoom slider change."""
@@ -836,7 +966,7 @@ class ShowsTab(BaseTab):
                 except Exception as e:
                     print(f"SimpleAudioPlayer playback failed: {e}")
 
-            # Fallback to PyAudio
+            # Fallback to sounddevice engine
             elif self.playback_sync:
                 # Try to start audio playback - if it fails, fall back to timer-based
                 if not self.playback_sync.on_play_requested(self.playhead_position):
@@ -859,6 +989,12 @@ class ShowsTab(BaseTab):
                 self.artnet_controller.update_position(self.playhead_position)
                 self.artnet_controller.start_playback()
 
+        # Switch the embedded preview to live so the show drives it via
+        # local_dmx_callback. If ArtNet is off the callback never fires
+        # and the preview stays on whatever was last shown.
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer:
+            self.embedded_visualizer.set_preview_mode("live")
+
         self.playback_timer.start()
 
     def _pause_playback(self):
@@ -867,7 +1003,7 @@ class ShowsTab(BaseTab):
         self.play_btn.setText("Play")
         self.playback_timer.stop()
 
-        # Pause audio (simple player or PyAudio)
+        # Pause audio (simple player or sounddevice engine)
         if self.simple_audio_player:
             self.simple_audio_player.pause()
         elif self.playback_sync:
@@ -883,7 +1019,7 @@ class ShowsTab(BaseTab):
         self.play_btn.setText("Play")
         self.playback_timer.stop()
 
-        # Stop audio (simple player or PyAudio)
+        # Stop audio (simple player or sounddevice engine)
         if self.simple_audio_player:
             self.simple_audio_player.stop()
         elif self.playback_sync:
@@ -893,6 +1029,11 @@ class ShowsTab(BaseTab):
         if self.artnet_controller:
             self.artnet_controller.stop_playback()
 
+        # Drop the embedded preview back to build mode so every fixture
+        # is visible again instead of frozen on the last live DMX frame.
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer:
+            self.embedded_visualizer.set_preview_mode("build")
+
         self._seek_to(0.0)
 
     def _seek_to(self, position: float):
@@ -900,7 +1041,7 @@ class ShowsTab(BaseTab):
         self.playhead_position = position
         self._on_playhead_moved(position)
 
-        # Seek audio (simple player or PyAudio)
+        # Seek audio (simple player or sounddevice engine)
         if self.simple_audio_player:
             self.simple_audio_player.seek(position)
         elif self.playback_sync:
@@ -959,11 +1100,15 @@ class ShowsTab(BaseTab):
             for lane in self.lane_widgets:
                 lane.set_playhead_position(position)
 
+            # Update inspector dashboard
+            if self._inspector_window and self._inspector_window.isVisible():
+                self._inspector_window.update_position(position)
+
     def _init_audio_engine(self):
         """Initialize audio engine on first use.
 
         Prefers SimpleAudioPlayer (pygame) for better performance.
-        Falls back to PyAudio-based engine if pygame not available.
+        Falls back to sounddevice-based engine if pygame not available.
         """
         # Try simple audio player first (pygame-based, much faster)
         if self.use_simple_audio and SIMPLE_AUDIO_AVAILABLE:
@@ -1001,11 +1146,11 @@ class ShowsTab(BaseTab):
                     return  # Success with simple player
 
                 except Exception as e:
-                    print(f"SimpleAudioPlayer failed: {e}, falling back to PyAudio")
+                    print(f"SimpleAudioPlayer failed: {e}, falling back to sounddevice engine")
                     self.simple_audio_player = None
                     self.use_simple_audio = False
 
-        # Fallback to PyAudio-based engine
+        # Fallback to sounddevice-based engine
         if not AUDIO_AVAILABLE:
             return
 
@@ -1045,7 +1190,7 @@ class ShowsTab(BaseTab):
                     lambda m: self.audio_mixer.set_mute_state("audio", m) if self.audio_mixer else None
                 )
 
-                print("Using PyAudio for audio playback")
+                print("Using sounddevice for audio playback")
 
             except Exception as e:
                 print(f"Failed to initialize audio engine: {e}")
@@ -1095,12 +1240,22 @@ class ShowsTab(BaseTab):
                 models_in_config = {(f.manufacturer, f.model) for f in self.config.fixtures}
                 fixture_defs = load_fixture_definitions_from_qlc(models_in_config)
 
-                # Create controller
+                # Create controller. The local_dmx_callback feeds the
+                # embedded visualizer in-process so the right-side preview
+                # mirrors what's being broadcast over ArtNet — no TCP
+                # round-trip. Wrap in a guard so a torn-down visualizer
+                # doesn't blow up the DMX thread mid-show.
+                def _feed_embedded(universe: int, dmx_bytes: bytes) -> None:
+                    vis = getattr(self, "embedded_visualizer", None)
+                    if vis is not None:
+                        vis.feed_dmx(universe, dmx_bytes)
+
                 self.artnet_controller = ShowsArtNetController(
                     config=self.config,
                     fixture_definitions=fixture_defs,
                     song_structure=self.song_structure,
-                    target_ip="255.255.255.255"  # Broadcast
+                    target_ip="255.255.255.255",  # Broadcast
+                    local_dmx_callback=_feed_embedded,
                 )
 
                 # Set light lanes
@@ -1209,6 +1364,82 @@ class ShowsTab(BaseTab):
         """Handle TCP server error."""
         print(f"TCP server error: {error_msg}")
 
+    # ── Embedded visualizer plumbing ──────────────────────────────────
+
+    def _launch_visualizer(self):
+        """Pop-out callback for the embedded visualizer. Launches the
+        standalone visualizer subprocess via the existing Stage tab logic
+        so QLC+ interop / TCP / ArtNet to the standalone view stays the
+        same — we just delegate the heavy lifting."""
+        main_window = self.window()
+        stage_tab = getattr(main_window, "stage_tab", None) if main_window else None
+        launcher = getattr(stage_tab, "_launch_visualizer", None) if stage_tab else None
+        if callable(launcher):
+            launcher()
+            return
+        # Fallback: minimal subprocess launch in case the Stage tab is
+        # somehow unavailable. Mirrors stage_tab._launch_visualizer's core
+        # behaviour without the user prompts.
+        import subprocess
+        import sys
+        project_root = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        visualizer_path = os.path.join(project_root, "visualizer", "main.py")
+        if os.path.exists(visualizer_path):
+            subprocess.Popen([sys.executable, visualizer_path], cwd=project_root)
+
+    def _get_shared_riff_library(self):
+        """Return MainWindow's RiffLibrary instance (preferred) or build
+        a local one. Sharing avoids re-scanning the riffs/ directory
+        twice and keeps the embedded panel in sync with the global dock."""
+        main_window = self.window()
+        lib = getattr(main_window, "riff_library", None) if main_window else None
+        if lib is not None:
+            return lib
+        # Fallback: stand-alone construction (mostly for tests / dev runs
+        # that instantiate ShowsTab without a MainWindow).
+        from riffs.riff_library import RiffLibrary
+        return RiffLibrary()
+
+    def _restore_splitter_states(self) -> None:
+        """Restore both splitter sizes from QSettings.
+
+        Defaults — main: timeline ~1000 / right pane ~520; right: vis
+        ~290 / riff fills below. 520×290 is roughly 16:9 so the
+        visualizer reads as a wide preview rather than a tall column.
+        """
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+
+        main_state = settings.value("shows/main_splitter")
+        if main_state is not None:
+            try:
+                self._main_splitter.restoreState(main_state)
+            except Exception:
+                self._main_splitter.setSizes([1000, 520])
+        else:
+            self._main_splitter.setSizes([1000, 520])
+
+        right_state = settings.value("shows/right_splitter")
+        if right_state is not None:
+            try:
+                self._right_splitter.restoreState(right_state)
+            except Exception:
+                self._right_splitter.setSizes([290, 600])
+        else:
+            self._right_splitter.setSizes([290, 600])
+
+    def _save_main_splitter_state(self, *_args) -> None:
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+        settings.setValue("shows/main_splitter", self._main_splitter.saveState())
+
+    def _save_right_splitter_state(self, *_args) -> None:
+        from PyQt6.QtCore import QSettings
+        settings = QSettings("QLCShowCreator", "QLCShowCreator")
+        settings.setValue("shows/right_splitter", self._right_splitter.saveState())
+
     def cleanup(self):
         """Clean up audio and ArtNet resources."""
         self._stop_playback()
@@ -1246,6 +1477,14 @@ class ShowsTab(BaseTab):
             except Exception:
                 pass
             self.tcp_server = None
+
+        # Clean up embedded visualizer (stops its FPS timer; the GL
+        # surface is destroyed via Qt's normal child teardown).
+        if hasattr(self, "embedded_visualizer") and self.embedded_visualizer:
+            try:
+                self.embedded_visualizer.cleanup()
+            except Exception:
+                pass
 
         self.audio_lane.cleanup()
 
@@ -1406,18 +1645,42 @@ class ShowsTab(BaseTab):
         if event.type() == QEvent.Type.MouseButtonPress:
             if event.button() == Qt.MouseButton.LeftButton:
                 pos = event.position().toPoint()
-                # Map position to timeline widget coordinates if needed
                 if obj is not timeline_widget:
                     pos = timeline_widget.mapFrom(obj, pos)
-                # Check if click is on empty space (not on a block widget)
                 if self._is_click_on_empty_space_in_timeline(timeline_widget, pos):
+                    self._selection_button = Qt.MouseButton.LeftButton
                     self._start_rubber_band_selection(timeline_widget, pos, event)
-                    return True  # Consume event to prevent playhead movement
+                    return True  # Consume to prevent playhead movement
+            elif event.button() == Qt.MouseButton.RightButton:
+                pos = event.position().toPoint()
+                if obj is not timeline_widget:
+                    pos = timeline_widget.mapFrom(obj, pos)
+                # Defer marquee start — a plain right-click should still open
+                # the native Paste context menu. Track the press; activate only
+                # if the user actually drags.
+                if self._is_click_on_empty_space_in_timeline(timeline_widget, pos):
+                    self._right_press_pending = True
+                    self._right_press_pos = pos
+                    self._right_press_timeline = timeline_widget
+                # Don't consume — let contextMenuEvent fire later if no drag.
 
         elif event.type() == QEvent.Type.MouseMove:
+            # Right-button drag: lazily start the marquee once threshold is met.
+            if self._right_press_pending and (event.buttons() & Qt.MouseButton.RightButton):
+                pos = event.position().toPoint()
+                if obj is not self._right_press_timeline:
+                    pos = self._right_press_timeline.mapFromGlobal(obj.mapToGlobal(pos))
+                if (pos - self._right_press_pos).manhattanLength() >= self._marquee_drag_threshold_px:
+                    self._right_press_pending = False
+                    self._selection_button = Qt.MouseButton.RightButton
+                    self._start_rubber_band_selection(
+                        self._right_press_timeline, self._right_press_pos, event
+                    )
+                    self._update_rubber_band_selection(self._selection_source_timeline, pos)
+                    return True
+
             if self._is_selecting:
                 pos = event.position().toPoint()
-                # Map position to source timeline widget coordinates
                 if obj is not self._selection_source_timeline:
                     pos = self._selection_source_timeline.mapFromGlobal(obj.mapToGlobal(pos))
                 self._update_rubber_band_selection(self._selection_source_timeline, pos)
@@ -1426,6 +1689,21 @@ class ShowsTab(BaseTab):
         elif event.type() == QEvent.Type.MouseButtonRelease:
             if event.button() == Qt.MouseButton.LeftButton and self._is_selecting:
                 self._finish_rubber_band_selection(event)
+                return True
+            if event.button() == Qt.MouseButton.RightButton:
+                if self._is_selecting and self._selection_button == Qt.MouseButton.RightButton:
+                    # Drag-marquee was active. Finalise and show bulk-delete menu.
+                    self._finish_rubber_band_selection(event)
+                    self._suppress_next_context_menu = True
+                    self._show_marquee_context_menu(event.globalPosition().toPoint())
+                    return True
+                # No drag occurred — clear the pending state and let the
+                # native Paste contextMenuEvent fire normally.
+                self._right_press_pending = False
+
+        elif event.type() == QEvent.Type.ContextMenu:
+            if self._suppress_next_context_menu:
+                self._suppress_next_context_menu = False
                 return True
 
         return super().eventFilter(obj, event)
@@ -1479,8 +1757,8 @@ class ShowsTab(BaseTab):
         global_pos = timeline_widget.mapToGlobal(pos)
         self._selection_start_global = global_pos
 
-        # Position and show the overlay over the lanes scroll area
-        scroll_rect = self.lanes_scroll.geometry()
+        # Position the overlay over the timeline grid (covers stripes + headers).
+        scroll_rect = self.timeline_grid.geometry()
         self._selection_overlay.setGeometry(scroll_rect)
         self._selection_overlay.show()
         self._selection_overlay.raise_()
@@ -1625,19 +1903,14 @@ class ShowsTab(BaseTab):
     def _get_lane_rect_in_overlay(self, lane_widget) -> QRect:
         """Get a lane widget's rectangle in overlay coordinates.
 
-        Uses the full lane widget bounds for accurate Y-overlap detection.
-
-        Args:
-            lane_widget: LightLaneWidget instance
-
-        Returns:
-            QRect of lane widget in overlay coordinates
+        Inside TimelineGrid the LightLaneWidget itself is a hollow logical
+        container — its visual geometry now lives on its timeline widget.
+        Use the timeline widget's bounds for Y-overlap detection.
         """
-        # Get lane widget's global position
-        global_top_left = lane_widget.mapToGlobal(QPoint(0, 0))
-        global_bottom_right = lane_widget.mapToGlobal(QPoint(lane_widget.width(), lane_widget.height()))
+        timeline = lane_widget.timeline_widget
+        global_top_left = timeline.mapToGlobal(QPoint(0, 0))
+        global_bottom_right = timeline.mapToGlobal(QPoint(timeline.width(), timeline.height()))
 
-        # Convert to overlay coordinates
         overlay_top_left = self._selection_overlay.mapFromGlobal(global_top_left)
         overlay_bottom_right = self._selection_overlay.mapFromGlobal(global_bottom_right)
 
@@ -1719,6 +1992,29 @@ class ShowsTab(BaseTab):
                     target_lane.create_light_block_widget(new_block)
                     print("Pasted 1 block")
                     self.save_to_config()
+
+    def _show_marquee_context_menu(self, global_pos: QPoint):
+        """Show the bulk-action menu after a right-button marquee finalises.
+
+        Currently offers delete-N for the marquee selection. Cancel just clears.
+        """
+        from PyQt6.QtWidgets import QMenu
+
+        selected = self.selection_manager.get_selected_blocks()
+        count = len(selected)
+
+        menu = QMenu(self)
+        if count == 0:
+            empty = menu.addAction("No effects in selection")
+            empty.setEnabled(False)
+        else:
+            label = "Delete Effect" if count == 1 else f"Delete {count} Effects"
+            delete = menu.addAction(label)
+            delete.triggered.connect(self._delete_selected_blocks)
+            menu.addSeparator()
+            cancel = menu.addAction("Cancel")
+            cancel.triggered.connect(self.selection_manager.clear_selection)
+        menu.exec(global_pos)
 
     def _delete_selected_blocks(self):
         """Delete all selected blocks."""

@@ -79,3 +79,51 @@ def discover_midi_profiles() -> List[Dict[str, str]]:
     # Sort by name
     profiles.sort(key=lambda p: p['name'])
     return profiles
+
+
+def ensure_midi_device_in_config(config, profile_name, midi_profiles=None):
+    """Ensure a MidiInputDevice exists in config for the given profile name.
+
+    Args:
+        config: Configuration object
+        profile_name: MIDI profile name (e.g. "Akai APC Mini mk2")
+        midi_profiles: Optional list of discovered profiles (from discover_midi_profiles()).
+                       If None, will be discovered automatically.
+    """
+    from config.models import MidiInputDevice
+
+    # Check if already exists
+    for dev in config.midi_input_devices:
+        if dev.name == profile_name:
+            return
+
+    # Find the profile info for the UID
+    model_name = profile_name
+    if midi_profiles is None:
+        try:
+            midi_profiles = discover_midi_profiles()
+        except Exception:
+            midi_profiles = []
+    for p in midi_profiles:
+        if p['name'] == profile_name:
+            model_name = p['model']
+            break
+
+    # Assign next available universe ID (after existing output universes)
+    used_ids = set()
+    for u in config.universes.values():
+        used_ids.add(u.id - 1)  # Convert to 0-based
+    for d in config.midi_input_devices:
+        used_ids.add(d.universe_id)
+    next_id = 0
+    while next_id in used_ids:
+        next_id += 1
+
+    device = MidiInputDevice(
+        name=profile_name,
+        uid=model_name.lower(),
+        profile=profile_name,
+        universe_id=next_id,
+        line=1
+    )
+    config.midi_input_devices.append(device)

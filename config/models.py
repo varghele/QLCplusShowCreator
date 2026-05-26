@@ -1,12 +1,11 @@
 # config/models.py
 
 from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import yaml
 import xml.etree.ElementTree as ET
 import os
 import sys
-import csv
 from utils.fixture_utils import determine_fixture_type
 
 
@@ -74,6 +73,16 @@ class Spot:
 
 
 @dataclass
+class StagePlane:
+    """A face of the stage bounding cuboid for movement targeting."""
+    name: str                                    # "Floor", "Ceiling", "Front", "Back", "Left", "Right"
+    point: Tuple[float, float, float]            # Center of the face (meters)
+    normal: Tuple[float, float, float]           # Inward-facing normal
+    u_axis: Tuple[float, float, float]           # Tangent axis (pan maps to)
+    v_axis: Tuple[float, float, float]           # Tangent axis (tilt maps to)
+
+
+@dataclass
 class FixtureGroup:
     name: str
     fixtures: List[Fixture]
@@ -86,6 +95,12 @@ class FixtureGroup:
     default_pitch: float = 0.0
     default_roll: float = 0.0
     default_z_height: float = 3.0  # Default height in meters
+
+    # User-assigned lighting role for autogen activation decisions
+    lighting_role: str = ""  # "backbone", "accent", "ambient", "movement", "effect"
+
+    # Max DMX intensity for export (0-255), used for brightness balancing across groups
+    export_intensity: int = 255
 
 
 @dataclass
@@ -122,12 +137,16 @@ class DimmerBlock:
     intensity: float = 255.0  # 0-255
     strobe_speed: float = 0.0  # 0 = no strobe, >0 = strobe speed
     iris: float = 255.0  # 0-255, if applicable
-    effect_type: str = "static"  # Effect type: "static", "twinkle", "strobe", etc.
+    effect_type: str = "static"  # Rudiment effect type
     effect_speed: str = "1"  # Speed multiplier: "1/4", "1/2", "1", "2", "4", etc.
+    direction: str = "down"  # Direction: "down"/"up" (waterfall), "in"/"out" (fade)
+    chase_scope: str = "fixture"  # Chase scope: "fixture" (per-fixture) or "global" (cross-fixture)
+    phase_offset_per_fixture: bool = False  # Per-fixture phase spread (pulse)
+    build_fraction: float = 0.7  # Build portion of cascade (0.0-1.0)
     modified: bool = False  # True if user edited this block after riff insertion
 
     def to_dict(self) -> Dict:
-        return {
+        d = {
             "start_time": self.start_time,
             "end_time": self.end_time,
             "intensity": self.intensity,
@@ -135,8 +154,18 @@ class DimmerBlock:
             "iris": self.iris,
             "effect_type": self.effect_type,
             "effect_speed": self.effect_speed,
-            "modified": self.modified
+            "modified": self.modified,
         }
+        # Only serialize non-default values to keep files clean
+        if self.direction != "down":
+            d["direction"] = self.direction
+        if self.chase_scope != "fixture":
+            d["chase_scope"] = self.chase_scope
+        if self.phase_offset_per_fixture:
+            d["phase_offset_per_fixture"] = self.phase_offset_per_fixture
+        if self.build_fraction != 0.7:
+            d["build_fraction"] = self.build_fraction
+        return d
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'DimmerBlock':
@@ -148,7 +177,11 @@ class DimmerBlock:
             iris=data.get("iris", 255.0),
             effect_type=data.get("effect_type", "static"),
             effect_speed=data.get("effect_speed", "1"),
-            modified=data.get("modified", False)
+            direction=data.get("direction", "down"),
+            chase_scope=data.get("chase_scope", "fixture"),
+            phase_offset_per_fixture=data.get("phase_offset_per_fixture", False),
+            build_fraction=data.get("build_fraction", 0.7),
+            modified=data.get("modified", False),
         )
 
 
@@ -269,6 +302,9 @@ class MovementBlock:
     # Target spot for automatic pan/tilt calculation
     target_spot_name: Optional[str] = None  # Name of spot to point at (None = use manual pan/tilt)
 
+    # Target plane for world-space movement (takes priority over target_spot_name)
+    target_plane_name: Optional[str] = None  # Name of stage plane ("Floor", "Front", etc.)
+
     modified: bool = False  # True if user edited this block after riff insertion
 
     def to_dict(self) -> Dict:
@@ -293,6 +329,7 @@ class MovementBlock:
             "phase_offset_enabled": self.phase_offset_enabled,
             "phase_offset_degrees": self.phase_offset_degrees,
             "target_spot_name": self.target_spot_name,
+            "target_plane_name": self.target_plane_name,
             "modified": self.modified
         }
 
@@ -319,6 +356,7 @@ class MovementBlock:
             phase_offset_enabled=data.get("phase_offset_enabled", False),
             phase_offset_degrees=data.get("phase_offset_degrees", 0.0),
             target_spot_name=data.get("target_spot_name"),
+            target_plane_name=data.get("target_plane_name"),
             modified=data.get("modified", False)
         )
 
@@ -661,6 +699,20 @@ class Riff:
     def is_compatible_with(self, fixture_group: 'FixtureGroup') -> tuple:
         """Check if riff can be used with fixture group.
 
+        Compatibility is checked at the :class:`Chassis` level — both
+        the riff's required ``fixture_types`` and the group's fixtures
+        are normalised to Chassis enum values before intersecting.
+
+        ``fixture_types`` entries may be either:
+        - Legacy 6-string types (``"MH"``, ``"PAR"``, ``"BAR"``,
+          ``"PIXELBAR"``, ``"SUNSTRIP"``, ``"WASH"``) — for backward
+          compatibility with existing riff JSON.
+        - :class:`Chassis` enum names (``"moving_yoke"``, ``"par"``,
+          ``"bar"``, ``"panel"``, ``"scanner"``, ``"effect"``,
+          ``"particle"``, ``"laser"``, ``"other"``) — for new riffs
+          targeting capability archetypes the legacy enum can't express.
+        Case-insensitive on both sides.
+
         Returns:
             tuple: (is_compatible: bool, reason_if_not: str)
         """
@@ -668,11 +720,22 @@ class Riff:
         if not self.fixture_types:
             return (True, "")
 
-        # Check if group has any fixture with matching type
         if fixture_group.fixtures:
-            group_types = set(f.type for f in fixture_group.fixtures)
-            matching_types = group_types.intersection(set(self.fixture_types))
-            if matching_types:
+            from utils.fixture_capabilities import Chassis, chassis_from_legacy_type
+
+            group_chassis = {
+                chassis_from_legacy_type(f.type) for f in fixture_group.fixtures
+            }
+            required: set = set()
+            for entry in self.fixture_types:
+                if not entry:
+                    continue
+                try:
+                    required.add(Chassis(entry.lower()))
+                except ValueError:
+                    required.add(chassis_from_legacy_type(entry))
+
+            if group_chassis & required:
                 return (True, "")
             return (False, f"Requires fixture types: {', '.join(self.fixture_types)}")
 
@@ -1039,6 +1102,65 @@ class Show:
     trigger_device: str = ""    # MIDI input profile name (e.g. "Akai APC Mini mk2"), empty = no trigger
     trigger_channel: int = -1   # MIDI channel number (-1 = no trigger)
 
+    def to_dict(self) -> Dict:
+        """Serialize this show's contents (excludes `name`; that's the key in
+        Configuration.shows). For a standalone show file, include the name
+        at the caller: ``{'name': show.name, **show.to_dict()}``."""
+        return {
+            'parts': [
+                {k: v for k, v in asdict(part).items() if k not in ('start_time', 'duration')}
+                for part in self.parts
+            ],
+            'effects': [asdict(effect) for effect in self.effects],
+            'timeline_data': self.timeline_data.to_dict() if self.timeline_data else None,
+            'trigger_device': self.trigger_device if self.trigger_device else None,
+            'trigger_channel': self.trigger_channel if self.trigger_channel >= 0 else None,
+        }
+
+    @classmethod
+    def from_dict(cls, name: str, data: Dict) -> 'Show':
+        """Deserialize a show. `name` is supplied externally (usually the
+        mapping key in Configuration.shows, or the `name:` field of a
+        standalone show YAML)."""
+        parts = [
+            ShowPart(
+                name=p['name'],
+                color=p['color'],
+                signature=p['signature'],
+                bpm=p['bpm'],
+                num_bars=p['num_bars'],
+                transition=p['transition'],
+            )
+            for p in data.get('parts', [])
+        ]
+        effects = [
+            ShowEffect(
+                show_part=e['show_part'],
+                fixture_group=e['fixture_group'],
+                effect=e['effect'],
+                speed=e['speed'],
+                color=e['color'],
+                intensity=e['intensity'],
+                spot=e['spot'],
+            )
+            for e in data.get('effects', [])
+        ]
+        timeline_data = (
+            TimelineData.from_dict(data['timeline_data'])
+            if data.get('timeline_data') else None
+        )
+        return cls(
+            name=name,
+            parts=parts,
+            effects=effects,
+            timeline_data=timeline_data,
+            trigger_device=data.get('trigger_device', '') or '',
+            trigger_channel=(
+                data.get('trigger_channel', -1)
+                if data.get('trigger_channel') is not None else -1
+            ),
+        )
+
 
 @dataclass
 class MidiInputDevice:
@@ -1048,6 +1170,15 @@ class MidiInputDevice:
     profile: str           # Profile reference for QLC+ (same as name)
     universe_id: int       # QLC+ universe ID (0-based) this device is assigned to
     line: int = 1          # MIDI line number
+
+
+@dataclass
+class PauseShowConfig:
+    """Settings for the auto-generated PAUSE show."""
+    enabled: bool = False
+    color: str = "#0000FF"
+    trigger_device: str = ""
+    trigger_channel: int = -1
 
 
 @dataclass
@@ -1078,6 +1209,7 @@ class Configuration:
     workspace_path: Optional[str] = None
     shows_directory: Optional[str] = None  # Directory where show CSV files and audio are stored
     midi_input_devices: List[MidiInputDevice] = field(default_factory=list)
+    pause_show: PauseShowConfig = field(default_factory=PauseShowConfig)
     stage_width: float = 10.0  # Stage width in meters
     stage_height: float = 6.0  # Stage depth in meters (called height for compatibility)
     grid_size: float = 0.5  # Grid spacing in meters
@@ -1134,88 +1266,40 @@ class Configuration:
 
         return config
 
-    @classmethod
-    def import_show_structure(cls, config: 'Configuration', project_root: str) -> 'Configuration':
-        """Import show structure from CSV files into existing Configuration"""
-        try:
-            shows_dir = os.path.join(project_root, "shows")
+    def audio_bundle_dir(self, create: bool = False) -> Optional[str]:
+        """Resolve the directory audio files live in for this config.
 
-            # Scan for all show structure files
-            for show_dir in os.listdir(shows_dir):
-                show_path = os.path.join(shows_dir, show_dir)
-                if os.path.isdir(show_path):
-                    structure_file = os.path.join(show_path, f"{show_dir}_structure.csv")
-                    if os.path.exists(structure_file):
-                        # Check if show already exists in configuration
-                        if show_dir in config.shows:
-                            show = config.shows[show_dir]
-                            # Clear existing parts to reload from CSV
-                            show.parts.clear()
-                        else:
-                            # Create new Show object
-                            show = Show(name=show_dir)
-                            config.shows[show_dir] = show
+        Resolution order:
+        1. ``<dir of self._loaded_from>/audiofiles/`` - the new v1.0 layout
+           where audio bundles next to the config.
+        2. ``<self.shows_directory>/audiofiles/`` - the legacy layout from
+           when ``shows_directory`` was authoritative; kept as a fallback
+           so existing configs keep finding their audio files.
 
-                        with open(structure_file, 'r') as f:
-                            reader = csv.DictReader(f)
-                            for row in reader:
-                                # Create ShowPart with all available information
-                                show_part = ShowPart(
-                                    name=row['showpart'],
-                                    color=row['color'],
-                                    signature=row['signature'],
-                                    bpm=int(row['bpm']),
-                                    num_bars=int(row['num_bars']),
-                                    transition=row['transition']
-                                )
-                                # Add part to show
-                                show.parts.append(show_part)
+        Returns ``None`` when neither path is resolvable (a config that
+        has never been saved AND has no shows_directory hint).
 
-                                # Create empty effects for each group, but only if they don't already exist
-                                for group_name in config.groups.keys():
-                                    # Check if an effect already exists for this show part and group
-                                    existing_effect = None
-                                    for effect in show.effects:
-                                        if (effect.show_part == show_part.name and
-                                                effect.fixture_group == group_name):
-                                            existing_effect = effect
-                                            break
-
-                                    # Only create new effect if none exists or if existing effect is empty
-                                    if existing_effect is None:
-                                        # No existing effect found, create a new empty one
-                                        effect = ShowEffect(
-                                            show_part=show_part.name,
-                                            fixture_group=group_name,
-                                            effect="",
-                                            speed="1",
-                                            color="",  # Leave color blank for effects
-                                            intensity=200  # Default intensity
-                                        )
-                                        show.effects.append(effect)
-                                    elif (existing_effect.effect == "" and
-                                          existing_effect.color == "" and
-                                          existing_effect.speed == "1" and
-                                          existing_effect.intensity == 200):
-                                        # Existing effect is empty (default values), keep it as is
-                                        pass
-                                    else:
-                                        # Existing effect has non-empty values, preserve it
-                                        print(f"Preserving existing effect for {show_part.name} - {group_name}: "
-                                              f"effect='{existing_effect.effect}', color='{existing_effect.color}'")
-
-            return config
-
-        except Exception as e:
-            print(f"Error importing show structure: {e}")
-            return config
-
-
-        except Exception as e:
-            print(f"Error importing show structure: {e}")
-            import traceback
-            traceback.print_exc()
-            return config
+        With ``create=True``, ensures the directory exists (for the
+        primary path only). Used when copying a freshly loaded audio file
+        into the bundle.
+        """
+        loaded_from = getattr(self, '_loaded_from', None)
+        if loaded_from:
+            primary = os.path.join(os.path.dirname(loaded_from), 'audiofiles')
+            if create:
+                os.makedirs(primary, exist_ok=True)
+                return primary
+            if os.path.exists(primary):
+                return primary
+        if self.shows_directory:
+            legacy = os.path.join(self.shows_directory, 'audiofiles')
+            if os.path.exists(legacy):
+                return legacy
+        if loaded_from and create:
+            # Caller explicitly asked us to create; return the primary
+            # path even though we already returned it above (defensive).
+            return os.path.join(os.path.dirname(loaded_from), 'audiofiles')
+        return None
 
     def save(self, filename: str):
         """Save configuration to YAML file"""
@@ -1230,6 +1314,8 @@ class Configuration:
                     'default_pitch': group.default_pitch,
                     'default_roll': group.default_roll,
                     'default_z_height': group.default_z_height,
+                    'lighting_role': group.lighting_role,
+                    'export_intensity': group.export_intensity,
                     'fixtures': [asdict(f) for f in group.fixtures]
                 }
                 for name, group in self.groups.items()
@@ -1242,22 +1328,24 @@ class Configuration:
                 for universe in self.universes.values()
             },
             'shows': {
-                show.name: {
-                    'parts': [{k: v for k, v in asdict(part).items() if k not in ('start_time', 'duration')} for part in show.parts],
-                    'effects': [asdict(effect) for effect in show.effects],
-                    'timeline_data': show.timeline_data.to_dict() if show.timeline_data else None,
-                    'trigger_device': show.trigger_device if show.trigger_device else None,
-                    'trigger_channel': show.trigger_channel if show.trigger_channel >= 0 else None,
-                }
+                show.name: show.to_dict()
                 for show in self.shows.values()
             },
             'midi_input_devices': [asdict(d) for d in self.midi_input_devices] if self.midi_input_devices else None,
+            'pause_show': asdict(self.pause_show) if self.pause_show and self.pause_show.enabled else None,
             'spots': {
                 name: asdict(spot)
                 for name, spot in self.spots.items()
             },
             'workspace_path': self.workspace_path,
-            'shows_directory': self.shows_directory
+            'shows_directory': self.shows_directory,
+            # Stage geometry — historically lost on round-trip because
+            # save() didn't emit and load() didn't read these. The
+            # Stage tab's stage-size spinboxes effectively reset on
+            # every config load. Persist them now.
+            'stage_width': self.stage_width,
+            'stage_height': self.stage_height,
+            'grid_size': self.grid_size,
         }
 
         from config.compact_serializer import compact_serialize
@@ -1265,6 +1353,10 @@ class Configuration:
 
         with open(filename, 'w') as f:
             yaml.dump(data, f, default_flow_style=False)
+
+        # Track save location so audio_bundle_dir resolves correctly after
+        # Save As (file moved relative to where audio was last written).
+        self._loaded_from = os.path.abspath(filename)
 
     @classmethod
     def load(cls, filename: str) -> 'Configuration':
@@ -1310,52 +1402,16 @@ class Configuration:
                 default_yaw=group_data.get('default_yaw', 0.0),
                 default_pitch=group_data.get('default_pitch', 0.0),
                 default_roll=group_data.get('default_roll', 0.0),
-                default_z_height=group_data.get('default_z_height', 3.0)
+                default_z_height=group_data.get('default_z_height', 3.0),
+                lighting_role=group_data.get('lighting_role', ''),
+                export_intensity=group_data.get('export_intensity', 255),
             )
 
         # Handle shows
         shows = {}
         if 'shows' in data:
             for show_name, show_data in data['shows'].items():
-                # Convert show parts
-                parts = []
-                for part_data in show_data.get('parts', []):
-                    parts.append(ShowPart(
-                        name=part_data['name'],
-                        color=part_data['color'],
-                        signature=part_data['signature'],
-                        bpm=part_data['bpm'],
-                        num_bars=part_data['num_bars'],
-                        transition=part_data['transition']
-                    ))
-
-                # Convert show effects
-                effects = []
-                for effect_data in show_data.get('effects', []):
-                    effects.append(ShowEffect(
-                        show_part=effect_data['show_part'],
-                        fixture_group=effect_data['fixture_group'],
-                        effect=effect_data['effect'],
-                        speed=effect_data['speed'],
-                        color=effect_data['color'],
-                        intensity=effect_data['intensity'],
-                        spot=effect_data['spot']
-                    ))
-
-                # Load timeline data if present
-                timeline_data = None
-                if show_data.get('timeline_data'):
-                    timeline_data = TimelineData.from_dict(show_data['timeline_data'])
-
-                # Create show
-                shows[show_name] = Show(
-                    name=show_name,
-                    parts=parts,
-                    effects=effects,
-                    timeline_data=timeline_data,
-                    trigger_device=show_data.get('trigger_device', '') or '',
-                    trigger_channel=show_data.get('trigger_channel', -1) if show_data.get('trigger_channel') is not None else -1,
-                )
+                shows[show_name] = Show.from_dict(show_name, show_data)
 
         # Handle universes
         universes = {}
@@ -1389,6 +1445,10 @@ class Configuration:
             for dev_data in data['midi_input_devices']:
                 midi_input_devices.append(MidiInputDevice(**dev_data))
 
+        # Handle pause show config
+        pause_show_data = data.get('pause_show')
+        pause_show = PauseShowConfig(**pause_show_data) if pause_show_data else PauseShowConfig()
+
         config = cls(
             fixtures=fixtures,
             groups=groups,
@@ -1396,9 +1456,21 @@ class Configuration:
             shows=shows,
             spots=spots,
             midi_input_devices=midi_input_devices,
+            pause_show=pause_show,
             workspace_path=data.get('workspace_path'),
-            shows_directory=data.get('shows_directory')
+            shows_directory=data.get('shows_directory'),
+            # Stage geometry; fall back to dataclass defaults when the
+            # YAML predates the field (older saved configs).
+            stage_width=data.get('stage_width', 10.0),
+            stage_height=data.get('stage_height', 6.0),
+            grid_size=data.get('grid_size', 0.5),
         )
+
+        # Transient attribute (not persisted): the path the config was loaded
+        # from. Used by audio-bundle-dir resolution so audio files referenced
+        # by filename land under <config_dir>/audiofiles/ regardless of where
+        # the user copied the config from.
+        config._loaded_from = os.path.abspath(filename)
 
         return config
 

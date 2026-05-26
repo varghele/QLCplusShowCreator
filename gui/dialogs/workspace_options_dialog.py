@@ -3,18 +3,31 @@
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QCheckBox, QGroupBox,
-    QDialogButtonBox, QLabel
+    QDialogButtonBox, QLabel, QSpinBox, QGridLayout, QComboBox
 )
 from PyQt6.QtCore import Qt
+
+# QLC+ target versions for the cosmetic <Creator><Version> stamp.
+# The workspace XML schema is identical across these (verified: stock
+# Sample.qxw and engine/src/doc.cpp are byte-identical between QLC+_4.14.4
+# and QLC+_5.2.1), so this only changes the version field on import to
+# silence QLC+'s built-in version-mismatch banner. See ROADMAP v1.0.
+QLC_TARGET_VERSIONS = [
+    ("QLC+ 4.x (latest stable, 4.14.4)", "4.14.4"),
+    ("QLC+ 5.x (latest stable, 5.2.1)", "5.2.1"),
+]
+DEFAULT_QLC_TARGET_VERSION = "4.14.4"
 
 
 class WorkspaceOptionsDialog(QDialog):
     """Dialog for configuring Virtual Console generation options when exporting workspace."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, config=None):
         super().__init__(parent)
         self.setWindowTitle("Workspace Export Options")
         self.setMinimumWidth(400)
+        self._config = config
+        self._group_spinboxes = {}  # group_name -> QSpinBox
         self._setup_ui()
 
     def _setup_ui(self):
@@ -117,6 +130,66 @@ class WorkspaceOptionsDialog(QDialog):
         vc_layout.addWidget(self.sub_options_widget)
         layout.addWidget(vc_group)
 
+        # Export overrides group — per-group intensity scaling
+        overrides_group = QGroupBox("Export Intensity per Group")
+        overrides_layout = QVBoxLayout(overrides_group)
+
+        overrides_desc = QLabel(
+            "Set the max DMX intensity (0-255) for each fixture group.\n"
+            "All dimmer values are scaled proportionally to balance brightness."
+        )
+        overrides_desc.setWordWrap(True)
+        overrides_desc.setStyleSheet("color: #888; margin-bottom: 5px;")
+        overrides_layout.addWidget(overrides_desc)
+
+        if self._config and self._config.groups:
+            grid = QGridLayout()
+            grid.setColumnStretch(1, 1)
+            for row, (group_name, group) in enumerate(self._config.groups.items()):
+                label = QLabel(group_name)
+                spinbox = QSpinBox()
+                spinbox.setRange(0, 255)
+                spinbox.setValue(group.export_intensity)
+                spinbox.setToolTip(
+                    f"Max export intensity for {group_name}.\n"
+                    "255 = no scaling, lower values dim this group proportionally."
+                )
+                grid.addWidget(label, row, 0)
+                grid.addWidget(spinbox, row, 1)
+                self._group_spinboxes[group_name] = spinbox
+            overrides_layout.addLayout(grid)
+        else:
+            no_groups_label = QLabel("No fixture groups configured.")
+            no_groups_label.setStyleSheet("color: #666; font-style: italic;")
+            overrides_layout.addWidget(no_groups_label)
+
+        layout.addWidget(overrides_group)
+
+        # QLC+ target version (cosmetic stamp; schema is identical 4.x/5.x)
+        version_group = QGroupBox("QLC+ Target Version")
+        version_layout = QVBoxLayout(version_group)
+        version_desc = QLabel(
+            "Target QLC+ version stamped into the workspace file. The XML\n"
+            "schema is identical across 4.x and 5.x, so this only affects the\n"
+            "version banner QLC+ shows on import."
+        )
+        version_desc.setWordWrap(True)
+        version_desc.setStyleSheet("color: #888; margin-bottom: 5px;")
+        version_layout.addWidget(version_desc)
+
+        self.qlc_version_combo = QComboBox()
+        for label, value in QLC_TARGET_VERSIONS:
+            self.qlc_version_combo.addItem(label, userData=value)
+        # Default to latest stable 4.x.
+        default_idx = next(
+            (i for i, (_, v) in enumerate(QLC_TARGET_VERSIONS)
+             if v == DEFAULT_QLC_TARGET_VERSION),
+            0,
+        )
+        self.qlc_version_combo.setCurrentIndex(default_idx)
+        version_layout.addWidget(self.qlc_version_combo)
+        layout.addWidget(version_group)
+
         # Dark mode option
         appearance_group = QGroupBox("Appearance")
         appearance_layout = QVBoxLayout(appearance_group)
@@ -147,6 +220,13 @@ class WorkspaceOptionsDialog(QDialog):
         self.sub_options_widget.setEnabled(checked)
         self.dark_mode_checkbox.setEnabled(checked)
 
+    def save_group_intensities(self):
+        """Write spinbox values back to config for persistence."""
+        if self._config:
+            for group_name, spinbox in self._group_spinboxes.items():
+                if group_name in self._config.groups:
+                    self._config.groups[group_name].export_intensity = spinbox.value()
+
     def get_options(self) -> dict:
         """Get the selected export options.
 
@@ -160,7 +240,14 @@ class WorkspaceOptionsDialog(QDialog):
                 - speed_dial: bool - Include tap BPM SpeedDial
                 - master_presets: bool - Include master presets for all fixtures
                 - dark_mode: bool - Use dark/black background
+                - group_intensities: dict[str, int] - Per-group max intensity (0-255)
+                - qlc_target_version: str - Version string stamped into
+                  <Creator><Version> (cosmetic; e.g. "4.14.4" or "5.2.1")
         """
+        group_intensities = {
+            name: spinbox.value()
+            for name, spinbox in self._group_spinboxes.items()
+        }
         return {
             'generate_vc': self.generate_vc_checkbox.isChecked(),
             'group_controls': self.group_controls_checkbox.isChecked(),
@@ -170,4 +257,6 @@ class WorkspaceOptionsDialog(QDialog):
             'speed_dial': self.speed_dial_checkbox.isChecked(),
             'master_presets': self.master_presets_checkbox.isChecked(),
             'dark_mode': self.dark_mode_checkbox.isChecked(),
+            'group_intensities': group_intensities,
+            'qlc_target_version': self.qlc_version_combo.currentData() or DEFAULT_QLC_TARGET_VERSION,
         }

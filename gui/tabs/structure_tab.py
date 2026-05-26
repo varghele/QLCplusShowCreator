@@ -8,13 +8,14 @@ from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QWidget, QLabel,
                              QLineEdit, QSpinBox, QDoubleSpinBox, QColorDialog,
                              QMessageBox, QSplitter, QInputDialog, QSlider,
                              QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
-                             QSizePolicy, QMenu, QFileDialog, QProgressDialog)
+                             QSizePolicy, QMenu, QFileDialog, QProgressDialog,
+                             QGroupBox, QCheckBox)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QRectF, QPointF
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont, QAction
 import shutil
-from config.models import Configuration, Show, ShowPart, TimelineData, MidiInputDevice
+from config.models import Configuration, Show, ShowPart, TimelineData, MidiInputDevice, PauseShowConfig
 from timeline.song_structure import SongStructure
-from timeline_ui import AudioLaneWidget, MasterTimelineContainer
+from timeline_ui import AudioLaneWidget, MasterTimelineContainer, TimelineGrid
 from .base_tab import BaseTab
 
 
@@ -189,56 +190,45 @@ class StructureTab(BaseTab):
         toolbar = self._create_toolbar()
         main_layout.addLayout(toolbar)
 
-        # Master timeline (very top - shows song structure)
+        # Master + audio share a single horizontal scrollbar inside
+        # TimelineGrid. Lane references stay so signal/method dispatch works.
         self.master_timeline = MasterTimelineContainer()
-        main_layout.addWidget(self.master_timeline)
-
-        # Audio lane
         self.audio_lane = AudioLaneWidget()
-        self.audio_lane.setSizePolicy(
+        self.timeline_grid = TimelineGrid()
+        self.timeline_grid.set_master(self.master_timeline)
+        self.timeline_grid.set_audio_lane(self.audio_lane)
+        self.timeline_grid.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed
         )
-        main_layout.addWidget(self.audio_lane)
+        # Structure tab only ever has master + audio rows — no light lanes —
+        # so vertical scrolling inside the grid makes no sense here. Force
+        # the scrollbar off; otherwise small height-budget squeezes (e.g.
+        # the master row height bump in v1.0) leave room for Qt to decide
+        # the content is one pixel too tall and pop the scrollbar in.
+        self.timeline_grid.stripes_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        # Cap the grid height so the structure table below still gets space.
+        # 200 / 240 fits the current 76-px master + 100-px audio + horizontal
+        # scrollbar + frame margins comfortably on both Windows and Linux Qt
+        # builds, with belt-and-braces headroom in case row metrics shift.
+        self.timeline_grid.setMinimumHeight(200)
+        self.timeline_grid.setMaximumHeight(240)
+        main_layout.addWidget(self.timeline_grid)
 
         # Show Structure (table view)
         structure_header = QHBoxLayout()
         structure_label = QLabel("Structure:")
-        structure_label.setStyleSheet("font-weight: bold; font-size: 10px; color: #888;")
+        structure_label.setStyleSheet("font-weight: bold; font-size: 10px;")
         structure_header.addWidget(structure_label)
 
         self.add_part_btn = QPushButton("+ Add Part")
-        self.add_part_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 3px;
-                padding: 4px 8px;
-                font-size: 10px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-            }
-        """)
+        self.add_part_btn.setProperty("role", "success")
         structure_header.addWidget(self.add_part_btn)
 
         self.delete_part_btn = QPushButton("- Delete Part")
-        self.delete_part_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 3px;
-                padding: 4px 8px;
-                font-size: 10px;
-            }
-            QPushButton:hover {
-                background-color: #EF5350;
-            }
-        """)
+        self.delete_part_btn.setProperty("role", "destructive")
         structure_header.addWidget(self.delete_part_btn)
 
         structure_header.addStretch()
@@ -267,29 +257,11 @@ class StructureTab(BaseTab):
         self.structure_table.setColumnWidth(5, 100)  # Transition
         self.structure_table.setColumnWidth(6, 100)  # Color
 
-        self.structure_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.structure_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.structure_table.setAlternatingRowColors(True)
+        # Modern table styling — alternating rows, no grid, themed header.
+        from gui.widgets.modern_table import apply_modern_table_style
+        apply_modern_table_style(self.structure_table)
         self.structure_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.structure_table.customContextMenuRequested.connect(self._show_context_menu)
-        self.structure_table.setStyleSheet("""
-            QTableWidget {
-                background-color: #2a2a2a;
-                alternate-background-color: #333333;
-                color: white;
-                gridline-color: #444444;
-            }
-            QTableWidget::item:selected {
-                background-color: #0078D7;
-            }
-            QHeaderView::section {
-                background-color: #1a1a1a;
-                color: white;
-                padding: 5px;
-                border: 1px solid #444444;
-                font-weight: bold;
-            }
-        """)
         self.structure_table.setMinimumHeight(200)
         # Remove max height to allow table to expand like lanes scroll in Shows tab
         main_layout.addWidget(self.structure_table, 1)  # Takes remaining space
@@ -299,6 +271,10 @@ class StructureTab(BaseTab):
 
         # Track current highlighted row for playback
         self.current_highlighted_row = -1
+
+        # Pause Show section
+        pause_section = self._create_pause_show_section()
+        main_layout.addWidget(pause_section)
 
         # Playback controls
         playback_bar = self._create_playback_controls()
@@ -320,53 +296,16 @@ class StructureTab(BaseTab):
 
         # New show button
         self.new_show_btn = QPushButton("+ New")
-        self.new_show_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-            }
-        """)
+        self.new_show_btn.setProperty("role", "success")
         toolbar.addWidget(self.new_show_btn)
 
-        # Rename show button
+        # Rename show button (default neutral styling — non-destructive secondary action)
         self.rename_show_btn = QPushButton("Rename")
-        self.rename_show_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FF9800;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #FFB74D;
-            }
-        """)
         toolbar.addWidget(self.rename_show_btn)
 
         # Delete show button
         self.delete_show_btn = QPushButton("Delete Show")
-        self.delete_show_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #EF5350;
-            }
-        """)
+        self.delete_show_btn.setProperty("role", "destructive")
         toolbar.addWidget(self.delete_show_btn)
 
         toolbar.addSpacing(20)
@@ -378,7 +317,8 @@ class StructureTab(BaseTab):
 
         self.trigger_device_combo = QComboBox()
         self.trigger_device_combo.setMinimumWidth(160)
-        self.trigger_device_combo.addItem("None")
+        self.trigger_device_combo.addItem("No Trigger")
+        self.trigger_device_combo.addItem("None")  # Generic MIDI (no profile)
         # Populate with discovered MIDI profiles
         self._midi_profiles = []
         try:
@@ -394,88 +334,171 @@ class StructureTab(BaseTab):
         toolbar.addWidget(ch_label)
 
         self.trigger_channel_spin = QSpinBox()
-        self.trigger_channel_spin.setRange(0, 511)
-        self.trigger_channel_spin.setValue(0)
+        self.trigger_channel_spin.setRange(1, 512)
+        self.trigger_channel_spin.setValue(1)
         self.trigger_channel_spin.setEnabled(False)
         self.trigger_channel_spin.setFixedWidth(70)
         toolbar.addWidget(self.trigger_channel_spin)
 
         toolbar.addSpacing(20)
 
-        # Set directory button
+        # Set directory button (primary action for the show toolbar)
         self.set_directory_btn = QPushButton("Set Show Directory")
-        self.set_directory_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #9C27B0;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #AB47BC;
-            }
-        """)
+        self.set_directory_btn.setProperty("role", "primary")
         toolbar.addWidget(self.set_directory_btn)
 
         toolbar.addStretch()
 
         return toolbar
 
+    def _create_pause_show_section(self):
+        """Create the Pause Show configuration section. Box styling comes
+        from the active theme's QGroupBox rules."""
+        group_box = QGroupBox("Pause Show")
+
+        layout = QHBoxLayout()
+        layout.setSpacing(10)
+
+        # Enable checkbox
+        self.pause_enable_cb = QCheckBox("Enable")
+        layout.addWidget(self.pause_enable_cb)
+
+        layout.addSpacing(10)
+
+        # Color picker
+        color_label = QLabel("Color:")
+        layout.addWidget(color_label)
+
+        self.pause_color_btn = ColorButton("#0000FF")
+        self.pause_color_btn.setFixedWidth(80)
+        self.pause_color_btn.setEnabled(False)
+        layout.addWidget(self.pause_color_btn)
+
+        layout.addSpacing(10)
+
+        # MIDI trigger device
+        trigger_label = QLabel("Trigger:")
+        layout.addWidget(trigger_label)
+
+        self.pause_trigger_device_combo = QComboBox()
+        self.pause_trigger_device_combo.setMinimumWidth(160)
+        self.pause_trigger_device_combo.addItem("No Trigger")
+        self.pause_trigger_device_combo.addItem("None")  # Generic MIDI
+        for profile in self._midi_profiles:
+            self.pause_trigger_device_combo.addItem(profile['name'])
+        self.pause_trigger_device_combo.setEnabled(False)
+        layout.addWidget(self.pause_trigger_device_combo)
+
+        # MIDI channel
+        ch_label = QLabel("Ch:")
+        layout.addWidget(ch_label)
+
+        self.pause_trigger_channel_spin = QSpinBox()
+        self.pause_trigger_channel_spin.setRange(1, 512)
+        self.pause_trigger_channel_spin.setValue(1)
+        self.pause_trigger_channel_spin.setEnabled(False)
+        self.pause_trigger_channel_spin.setFixedWidth(70)
+        layout.addWidget(self.pause_trigger_channel_spin)
+
+        layout.addStretch()
+
+        group_box.setLayout(layout)
+
+        # Connect signals
+        self.pause_enable_cb.toggled.connect(self._on_pause_enable_changed)
+        self.pause_color_btn.colorChanged.connect(self._on_pause_color_changed)
+        self.pause_trigger_device_combo.currentTextChanged.connect(self._on_pause_trigger_device_changed)
+        self.pause_trigger_channel_spin.valueChanged.connect(self._on_pause_trigger_channel_changed)
+
+        return group_box
+
+    def _on_pause_enable_changed(self, enabled):
+        """Handle pause show enable/disable toggle."""
+        self.config.pause_show.enabled = enabled
+        self.pause_color_btn.setEnabled(enabled)
+        self.pause_trigger_device_combo.setEnabled(enabled)
+        has_device = enabled and self.pause_trigger_device_combo.currentText() not in ("No Trigger", "")
+        self.pause_trigger_channel_spin.setEnabled(has_device)
+        self._auto_save()
+
+    def _on_pause_color_changed(self, color):
+        """Handle pause show color change."""
+        self.config.pause_show.color = color
+        self._auto_save()
+
+    def _on_pause_trigger_device_changed(self, device_name):
+        """Handle pause show trigger device change."""
+        if device_name == "No Trigger" or not device_name:
+            self.config.pause_show.trigger_device = ""
+            self.config.pause_show.trigger_channel = -1
+            self.pause_trigger_channel_spin.setEnabled(False)
+            self.pause_trigger_channel_spin.setValue(1)
+        else:
+            self.config.pause_show.trigger_device = device_name
+            self.pause_trigger_channel_spin.setEnabled(True)
+            if self.config.pause_show.trigger_channel < 0:
+                self.config.pause_show.trigger_channel = 1
+            self._ensure_midi_device(device_name)
+        self._auto_save()
+
+    def _on_pause_trigger_channel_changed(self, channel):
+        """Handle pause show trigger channel change."""
+        self.config.pause_show.trigger_channel = channel
+        self._auto_save()
+
+    def _update_pause_show_widgets(self):
+        """Update pause show widgets from config."""
+        self.pause_enable_cb.blockSignals(True)
+        self.pause_color_btn.blockSignals(True)
+        self.pause_trigger_device_combo.blockSignals(True)
+        self.pause_trigger_channel_spin.blockSignals(True)
+
+        ps = self.config.pause_show
+        self.pause_enable_cb.setChecked(ps.enabled)
+        self.pause_color_btn.set_color(ps.color)
+        self.pause_color_btn.setEnabled(ps.enabled)
+        self.pause_trigger_device_combo.setEnabled(ps.enabled)
+
+        if ps.trigger_device:
+            idx = self.pause_trigger_device_combo.findText(ps.trigger_device)
+            if idx >= 0:
+                self.pause_trigger_device_combo.setCurrentIndex(idx)
+            else:
+                self.pause_trigger_device_combo.addItem(ps.trigger_device)
+                self.pause_trigger_device_combo.setCurrentText(ps.trigger_device)
+            self.pause_trigger_channel_spin.setEnabled(ps.enabled)
+            self.pause_trigger_channel_spin.setValue(max(1, ps.trigger_channel))
+        else:
+            self.pause_trigger_device_combo.setCurrentIndex(0)
+            self.pause_trigger_channel_spin.setEnabled(False)
+            self.pause_trigger_channel_spin.setValue(1)
+
+        self.pause_enable_cb.blockSignals(False)
+        self.pause_color_btn.blockSignals(False)
+        self.pause_trigger_device_combo.blockSignals(False)
+        self.pause_trigger_channel_spin.blockSignals(False)
+
     def _create_playback_controls(self):
         """Create bottom playback control bar."""
         controls = QHBoxLayout()
         controls.setSpacing(10)
 
-        # Playback buttons
+        # Playback buttons (transport — colors from active theme via role props).
         self.play_btn = QPushButton("Play")
         self.play_btn.setFixedWidth(70)
-        self.play_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: #66BB6A;
-            }
-        """)
+        self.play_btn.setProperty("role", "success")
         controls.addWidget(self.play_btn)
 
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.setFixedWidth(70)
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 4px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: #EF5350;
-            }
-        """)
+        self.stop_btn.setProperty("role", "destructive")
         controls.addWidget(self.stop_btn)
 
         controls.addSpacing(20)
 
-        # Time display
+        # Time display — styled by `#TimeReadout` rule in the active theme.
         self.time_label = QLabel("00:00.00")
-        self.time_label.setStyleSheet("""
-            font-family: monospace;
-            font-size: 16px;
-            font-weight: bold;
-            padding: 4px 8px;
-            background-color: #333;
-            color: #0f0;
-            border-radius: 4px;
-        """)
+        self.time_label.setObjectName("TimeReadout")
         self.time_label.setFixedWidth(100)
         controls.addWidget(self.time_label)
 
@@ -489,7 +512,7 @@ class StructureTab(BaseTab):
 
         # Total time display
         self.total_time_label = QLabel("/ 00:00")
-        self.total_time_label.setStyleSheet("font-family: monospace; color: #666;")
+        self.total_time_label.setObjectName("TimeReadoutSecondary")
         controls.addWidget(self.total_time_label)
 
         return controls
@@ -521,36 +544,14 @@ class StructureTab(BaseTab):
         self.position_slider.sliderReleased.connect(self._on_position_slider_released)
         self.position_slider.valueChanged.connect(self._on_position_slider_changed)
 
-        # Master timeline
-        self.master_timeline.scroll_position_changed.connect(self._sync_scroll)
-        self.master_timeline.playhead_moved.connect(self._on_playhead_moved)
-        self.master_timeline.zoom_changed.connect(self._sync_zoom)
-
-        # Audio lane
-        self.audio_lane.audio_file_changed.connect(self._on_audio_file_loaded)
-        self.audio_lane.scroll_position_changed.connect(self._sync_scroll)
-        self.audio_lane.playhead_moved.connect(self._on_playhead_moved)
-        self.audio_lane.zoom_changed.connect(self._sync_zoom)
-
-    def _sync_scroll(self, position: int):
-        """Synchronize scroll position across timelines."""
-        sender = self.sender()
-
-        # Sync master timeline
-        if sender != self.master_timeline:
-            self.master_timeline.sync_scroll_position(position)
-
-        # Sync audio lane
-        if sender != self.audio_lane:
-            self.audio_lane.sync_scroll_position(position)
+        # TimelineGrid is the single source of truth for playhead/zoom/audio.
+        self.timeline_grid.playhead_moved.connect(self._on_playhead_moved)
+        self.timeline_grid.zoom_changed.connect(self._sync_zoom)
+        self.timeline_grid.audio_file_changed.connect(self._on_audio_file_loaded)
 
     def _sync_zoom(self, zoom_factor: float):
-        """Synchronize zoom level across all timeline views."""
-        sender = self.sender()
-
-        # Sync master timeline
-        if sender != self.master_timeline:
-            self.master_timeline.set_zoom_factor(zoom_factor)
+        """Apply zoom to every stripe via the grid."""
+        self.timeline_grid.set_zoom_factor(zoom_factor)
 
     def _on_playhead_moved(self, position: float):
         """Handle playhead position change from timeline click."""
@@ -599,7 +600,6 @@ class StructureTab(BaseTab):
             bpm_spinbox.setDecimals(1)
             bpm_spinbox.setSingleStep(1.0)  # Scroll/arrow increment by 1 BPM
             bpm_spinbox.setValue(part.bpm)
-            bpm_spinbox.setStyleSheet("QDoubleSpinBox { background-color: #2a2a2a; color: white; border: 1px solid #444; }")
             bpm_spinbox.valueChanged.connect(lambda value, r=row: self._on_bpm_changed(r, value))
             self.structure_table.setCellWidget(row, 1, bpm_spinbox)
 
@@ -612,7 +612,6 @@ class StructureTab(BaseTab):
             bars_spinbox = QSpinBox()
             bars_spinbox.setRange(1, 9999)
             bars_spinbox.setValue(part.num_bars)
-            bars_spinbox.setStyleSheet("QSpinBox { background-color: #2a2a2a; color: white; border: 1px solid #444; }")
             bars_spinbox.valueChanged.connect(lambda value, r=row: self._on_bars_changed(r, value))
             self.structure_table.setCellWidget(row, 3, bars_spinbox)
 
@@ -626,7 +625,6 @@ class StructureTab(BaseTab):
             trans_combo = QComboBox()
             trans_combo.addItems(["instant", "gradual"])
             trans_combo.setCurrentText(part.transition)
-            trans_combo.setStyleSheet("QComboBox { background-color: #2a2a2a; color: white; border: 1px solid #444; }")
             trans_combo.currentTextChanged.connect(lambda text, r=row: self._on_transition_changed(r, text))
             self.structure_table.setCellWidget(row, 5, trans_combo)
 
@@ -836,6 +834,9 @@ class StructureTab(BaseTab):
         # Load the current show
         self._load_show(self.show_combo.currentText())
 
+        # Update pause show widgets
+        self._update_pause_show_widgets()
+
     def _on_show_changed(self, show_name):
         """Handle show selection change."""
         self._load_show(show_name)
@@ -862,11 +863,11 @@ class StructureTab(BaseTab):
                 self.trigger_device_combo.addItem(self.current_show.trigger_device)
                 self.trigger_device_combo.setCurrentText(self.current_show.trigger_device)
             self.trigger_channel_spin.setEnabled(True)
-            self.trigger_channel_spin.setValue(max(0, self.current_show.trigger_channel))
+            self.trigger_channel_spin.setValue(max(1, self.current_show.trigger_channel))
         else:
-            self.trigger_device_combo.setCurrentIndex(0)  # "None"
+            self.trigger_device_combo.setCurrentIndex(0)  # "No Trigger"
             self.trigger_channel_spin.setEnabled(False)
-            self.trigger_channel_spin.setValue(0)
+            self.trigger_channel_spin.setValue(1)
 
         self.trigger_device_combo.blockSignals(False)
         self.trigger_channel_spin.blockSignals(False)
@@ -876,16 +877,16 @@ class StructureTab(BaseTab):
         if not self.current_show:
             return
 
-        if device_name == "None" or not device_name:
+        if device_name == "No Trigger" or not device_name:
             self.current_show.trigger_device = ""
             self.current_show.trigger_channel = -1
             self.trigger_channel_spin.setEnabled(False)
-            self.trigger_channel_spin.setValue(0)
+            self.trigger_channel_spin.setValue(1)
         else:
             self.current_show.trigger_device = device_name
             self.trigger_channel_spin.setEnabled(True)
             if self.current_show.trigger_channel < 0:
-                self.current_show.trigger_channel = 0
+                self.current_show.trigger_channel = 1
 
             # Auto-create MIDI input device in config if not already present
             self._ensure_midi_device(device_name)
@@ -901,36 +902,8 @@ class StructureTab(BaseTab):
 
     def _ensure_midi_device(self, profile_name):
         """Ensure a MidiInputDevice exists in config for the given profile name."""
-        # Check if already exists
-        for dev in self.config.midi_input_devices:
-            if dev.name == profile_name:
-                return
-
-        # Find the profile info
-        model_name = profile_name
-        for p in self._midi_profiles:
-            if p['name'] == profile_name:
-                model_name = p['model']
-                break
-
-        # Assign next available universe ID (after existing output universes)
-        used_ids = set()
-        for u in self.config.universes.values():
-            used_ids.add(u.id - 1)  # Convert to 0-based
-        for d in self.config.midi_input_devices:
-            used_ids.add(d.universe_id)
-        next_id = 0
-        while next_id in used_ids:
-            next_id += 1
-
-        device = MidiInputDevice(
-            name=profile_name,
-            uid=model_name.lower(),
-            profile=profile_name,
-            universe_id=next_id,
-            line=1
-        )
-        self.config.midi_input_devices.append(device)
+        from utils.midi_utils import ensure_midi_device_in_config
+        ensure_midi_device_in_config(self.config, profile_name, self._midi_profiles)
 
     def _create_new_show(self):
         """Create a new show with a dialog."""
@@ -1064,70 +1037,32 @@ class StructureTab(BaseTab):
 
         if custom_dir:
             self.config.shows_directory = custom_dir
-
-            # Create audiofiles subdirectory
-            audiofiles_dir = os.path.join(self.config.shows_directory, "audiofiles")
-            os.makedirs(audiofiles_dir, exist_ok=True)
-
-            # Auto-load shows and refresh
-            self._auto_load_shows()
-            self.update_from_config()
-
+            # shows_directory is just a hint now; we no longer auto-create
+            # an audiofiles/ subdir here or auto-scan for CSVs. Audio files
+            # live next to the config (config_dir/audiofiles/), and CSVs
+            # are imported explicitly via File -> Import Show Structure.
             QMessageBox.information(
                 self,
                 "Directory Set",
-                f"Shows directory set to:\n{custom_dir}\n\nLoaded {len(self.config.shows)} show(s)."
+                f"Shows directory hint set to:\n{custom_dir}\n\n"
+                "Used as the default location for File -> Import / Export "
+                "Show Structure dialogs."
             )
 
     def _ensure_shows_directory(self) -> bool:
-        """Ensure shows directory is configured. Returns True if set, False if cancelled."""
-        if self.config.shows_directory and os.path.exists(self.config.shows_directory):
-            return True
+        """Silent check: returns True iff shows_directory hint is set and exists.
 
-        print(f"DEBUG: No shows directory set, prompting user...")
-
-        # Ask user if they want to use default or choose custom directory
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        default_dir = os.path.join(project_root, "shows")
-
-        reply = QMessageBox.question(
-            self,
-            "Set Shows Directory",
-            f"No shows directory is configured.\n\n"
-            f"Default location: {default_dir}\n\n"
-            f"WARNING: The default location is in the program directory and may be overwritten during updates.\n"
-            f"It's recommended to choose your own directory.\n\n"
-            f"Do you want to use the default location?\n"
-            f"(Click 'No' to choose a custom directory)",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel
+        Used to be a prompt-and-auto-create-on-first-use path that also
+        triggered CSV scanning. v1.0 demoted ``shows_directory`` to a hint
+        (last-used import/export location) so this function no longer
+        prompts or creates. Callers that need a directory for an explicit
+        user action (Set Shows Directory button, Export Show Structure
+        dialog) use a QFileDialog at the call site instead.
+        """
+        return bool(
+            self.config.shows_directory
+            and os.path.exists(self.config.shows_directory)
         )
-
-        if reply == QMessageBox.StandardButton.Cancel:
-            return False
-        elif reply == QMessageBox.StandardButton.Yes:
-            # Use default directory
-            os.makedirs(default_dir, exist_ok=True)
-            self.config.shows_directory = default_dir
-        else:
-            # Choose custom directory
-            custom_dir = QFileDialog.getExistingDirectory(
-                self,
-                "Select Shows Directory",
-                os.path.expanduser("~"),
-                QFileDialog.Option.ShowDirsOnly
-            )
-            if not custom_dir:
-                return False
-            self.config.shows_directory = custom_dir
-
-        # Create audiofiles subdirectory
-        audiofiles_dir = os.path.join(self.config.shows_directory, "audiofiles")
-        os.makedirs(audiofiles_dir, exist_ok=True)
-
-        # Auto-load shows from the newly configured directory
-        self._auto_load_shows()
-
-        return True
 
     def _delete_show(self):
         """Delete the current show (from config and disk)."""
@@ -1152,19 +1087,14 @@ class StructureTab(BaseTab):
 
         show = self.config.shows.get(self.current_show_name)
 
-        # Delete CSV file
-        if self.config.shows_directory:
-            csv_path = os.path.join(self.config.shows_directory, f"{self.current_show_name}.csv")
-            if os.path.exists(csv_path):
-                try:
-                    os.remove(csv_path)
-                except Exception as e:
-                    print(f"Failed to delete CSV file: {e}")
-
-            # Delete audio file if it exists
-            if show and show.timeline_data and show.timeline_data.audio_file_path:
-                audio_filename = os.path.basename(show.timeline_data.audio_file_path)
-                audio_path = os.path.join(self.config.shows_directory, "audiofiles", audio_filename)
+        # Delete bundled audio file if it exists. CSVs on disk are now
+        # user-managed (exported via File -> Export Show Structure), so
+        # delete-show only touches the in-memory config and the audio bundle.
+        if show and show.timeline_data and show.timeline_data.audio_file_path:
+            audio_filename = os.path.basename(show.timeline_data.audio_file_path)
+            bundle_dir = self.config.audio_bundle_dir()
+            if bundle_dir:
+                audio_path = os.path.join(bundle_dir, audio_filename)
                 if os.path.exists(audio_path):
                     try:
                         os.remove(audio_path)
@@ -1240,22 +1170,26 @@ class StructureTab(BaseTab):
         if self.current_show.timeline_data and self.current_show.timeline_data.audio_file_path:
             audio_filename = self.current_show.timeline_data.audio_file_path
 
-            # Check if it's just a filename (new format) or a full path (old format)
-            if not os.path.isabs(audio_filename):
-                # New format: filename only, look in audiofiles folder
-                if self.config.shows_directory:
-                    audio_path = os.path.join(self.config.shows_directory, "audiofiles", audio_filename)
-                    if os.path.exists(audio_path):
-                        self.audio_lane.load_audio_file(audio_path)
-                    else:
-                        print(f"Audio file not found: {audio_path}")
-                        self.audio_lane.clear_audio()
-            else:
-                # Old format: full path
+            if os.path.isabs(audio_filename):
+                # Legacy: absolute path written before audio_bundle_dir landed.
                 if os.path.exists(audio_filename):
                     self.audio_lane.load_audio_file(audio_filename)
                 else:
                     print(f"Audio file not found: {audio_filename}")
+                    self.audio_lane.clear_audio()
+            else:
+                # New format: filename only. Resolve via Configuration's
+                # audio_bundle_dir (tries <config_dir>/audiofiles/ first,
+                # falls back to <shows_directory>/audiofiles/ for legacy).
+                bundle_dir = self.config.audio_bundle_dir()
+                audio_path = (
+                    os.path.join(bundle_dir, audio_filename) if bundle_dir else None
+                )
+                if audio_path and os.path.exists(audio_path):
+                    self.audio_lane.load_audio_file(audio_path)
+                else:
+                    print(f"Audio file not found for '{audio_filename}' "
+                          f"(bundle dir: {bundle_dir})")
                     self.audio_lane.clear_audio()
         else:
             # No audio for this show, clear it
@@ -1388,13 +1322,16 @@ class StructureTab(BaseTab):
             QMessageBox.critical(self, "Import Error", f"Failed to import CSV:\n{str(e)}")
 
     def _auto_save(self):
-        """Auto-save to config and CSV."""
-        if not self.current_show_name or not self.current_show:
-            return
+        """Hook called after in-memory edits. No-op today.
 
-        # Save to config (already updated in memory)
-        # Save to CSV
-        self._save_to_csv()
+        Edits already mutate self.config.shows in place, so nothing needs to
+        happen here for the YAML round-trip. The user persists via
+        ``File -> Save Configuration``. Previously this also wrote a CSV per
+        show on every edit, which created the parallel-filesystem problem
+        v1.0 set out to fix (config.yaml + shows/*.csv kept independently).
+        The autosave-to-yaml feature in v1.2 will land in this slot.
+        """
+        return
 
     def _save_to_csv(self):
         """Save current show structure to CSV file."""
@@ -1474,19 +1411,30 @@ class StructureTab(BaseTab):
         print(f"Successfully imported {imported_count} show(s) from {shows_dir}")
 
     def _on_audio_file_loaded(self, file_path: str):
-        """Handle audio file loaded - copy to audiofiles folder."""
+        """Handle audio file loaded - copy to <config_dir>/audiofiles/."""
         if not file_path or not self.current_show:
             return
 
-        # Ensure shows directory is configured
-        if not self._ensure_shows_directory():
+        # Resolve the bundle dir next to the config (creates it if needed).
+        # If the config has never been saved (no _loaded_from), we can't
+        # bundle - warn and keep the absolute path so playback still works.
+        audiofiles_dir = self.config.audio_bundle_dir(create=True)
+        if not audiofiles_dir:
+            QMessageBox.warning(
+                self,
+                "Audio Not Bundled",
+                "The config has not been saved yet, so the audio file path "
+                "will be stored as an absolute path.\n\n"
+                "Save the config to bundle audio under "
+                "<config_dir>/audiofiles/ on the next audio load."
+            )
+            if self.current_show.timeline_data is None:
+                self.current_show.timeline_data = TimelineData()
+            self.current_show.timeline_data.audio_file_path = os.path.abspath(file_path)
+            self._auto_save()
             return
 
-        # Copy audio file to audiofiles folder
         try:
-            audiofiles_dir = os.path.join(self.config.shows_directory, "audiofiles")
-            os.makedirs(audiofiles_dir, exist_ok=True)
-
             filename = os.path.basename(file_path)
             dest_path = os.path.join(audiofiles_dir, filename)
 
@@ -1506,7 +1454,7 @@ class StructureTab(BaseTab):
             QMessageBox.warning(
                 self,
                 "Audio Copy Error",
-                f"Failed to copy audio file to shows directory:\n{str(e)}"
+                f"Failed to copy audio file to bundle directory:\n{str(e)}"
             )
 
         # Update time display
@@ -1682,40 +1630,16 @@ class StructureTab(BaseTab):
             self.playback_sync = None
 
     def save_to_config(self):
-        """Save all show structures to configuration and CSV files."""
-        # Ensure shows directory is configured
-        if not self._ensure_shows_directory():
-            return
+        """Flush UI state into the in-memory Configuration. No-op today.
 
-        # Get all shows that have parts
-        shows_to_save = [(name, show) for name, show in self.config.shows.items()
-                         if show.parts]
-
-        if not shows_to_save:
-            print("No shows with parts to save")
-            return
-
-        # Create progress dialog
-        progress = QProgressDialog("Saving show structures...", "Cancel", 0, len(shows_to_save), self)
-        progress.setWindowTitle("Saving Shows")
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setMinimumDuration(0)  # Show immediately
-        progress.setValue(0)
-
-        saved_count = 0
-        for i, (show_name, show) in enumerate(shows_to_save):
-            if progress.wasCanceled():
-                break
-
-            progress.setLabelText(f"Saving {show_name}...")
-            progress.setValue(i)
-
-            # Save this show to CSV
-            self._save_show_to_csv(show_name, show)
-            saved_count += 1
-
-        progress.setValue(len(shows_to_save))
-        print(f"Saved {saved_count} show(s) to CSV")
+        Other tabs use this hook to copy widget state back to the config
+        object before File -> Save / Export. The structure tab's edits
+        already mutate self.config.shows in place as the user edits, so
+        nothing extra is needed here. Previously this method wrote a CSV
+        per show to disk - that behaviour moved to the explicit
+        File -> Export Show Structure action in v1.0.
+        """
+        return
 
     def _save_show_to_csv(self, show_name: str, show: Show):
         """Save a specific show structure to CSV file.
@@ -1747,33 +1671,20 @@ class StructureTab(BaseTab):
             print(f"Failed to save CSV for {show_name}: {e}")
 
     def on_tab_activated(self):
-        """Called when tab becomes visible."""
-        # Prevent recursive activation
-        if self._is_activating:
-            print("DEBUG: Skipping recursive activation")
-            return
+        """Called when tab becomes visible.
 
+        v1.0 made config.yaml the single source of truth, so this hook just
+        refreshes the UI from the in-memory config. Previously it prompted
+        for a shows_directory on first activation and silently scanned that
+        directory for CSV files; both behaviours moved out (shows_directory
+        is now a hint set via the "Set Shows Directory" button, and CSV
+        import is explicit via File -> Import Show Structure).
+        """
+        if self._is_activating:
+            return
         try:
             self._is_activating = True
-            print(f"DEBUG: Structure tab activated, shows_directory = {self.config.shows_directory}")
-
-            # Ensure shows directory is configured on first activation
-            if not self.config.shows_directory or not os.path.exists(self.config.shows_directory):
-                print("DEBUG: Prompting for shows directory...")
-                if not self._ensure_shows_directory():
-                    print("DEBUG: User cancelled directory selection")
-                    return  # User cancelled, don't proceed
-
-            # Auto-load shows and refresh the dropdown
-            print("DEBUG: Auto-loading shows...")
-            self._auto_load_shows()
-            print(f"DEBUG: After auto-load, config.shows has {len(self.config.shows)} shows")
-            print(f"DEBUG: Shows: {list(self.config.shows.keys())}")
             self.update_from_config()
-        except Exception as e:
-            print(f"ERROR in on_tab_activated: {e}")
-            import traceback
-            traceback.print_exc()
         finally:
             self._is_activating = False
 

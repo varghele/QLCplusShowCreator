@@ -16,7 +16,7 @@
       "intensity": 80,
       "strobe_speed": 0,
       "iris": 255,
-      "effect_type": "twinkle",
+      "effect_type": "sparkle",
       "effect_speed": "1"
     },
     {
@@ -25,7 +25,7 @@
       "intensity": 130,
       "strobe_speed": 0,
       "iris": 255,
-      "effect_type": "twinkle",
+      "effect_type": "sparkle",
       "effect_speed": "1"
     },
     {
@@ -34,7 +34,7 @@
       "intensity": 190,
       "strobe_speed": 0,
       "iris": 255,
-      "effect_type": "twinkle",
+      "effect_type": "sparkle",
       "effect_speed": "2"
     },
     {
@@ -43,7 +43,7 @@
       "intensity": 255,
       "strobe_speed": 0,
       "iris": 255,
-      "effect_type": "twinkle",
+      "effect_type": "sparkle",
       "effect_speed": "2"
     }
   ],

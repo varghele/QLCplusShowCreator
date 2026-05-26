@@ -2,10 +2,19 @@
 # Master timeline widget showing song structure, playhead, and grid
 # Adapted from midimaker_and_show_structure/ui/master_timeline_widget.py
 
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QScrollArea
+from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
+                             QScrollArea, QStyle, QStyleOption, QComboBox,
+                             QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QRectF
 from PyQt6.QtGui import QPainter, QPen, QColor, QPolygon, QBrush
 from .timeline_widget import TimelineWidget
+
+
+SUBDIVISION_CHOICES = [
+    ("1 (beat)", 1),
+    ("1/2 (half)", 2),
+    ("1/4 (quarter)", 4),
+]
 
 
 class MasterTimelineWidget(TimelineWidget):
@@ -27,13 +36,8 @@ class MasterTimelineWidget(TimelineWidget):
 
         self.setMinimumHeight(40)
         self.setMinimumWidth(2000)
-        self.setStyleSheet("""
-            MasterTimelineWidget {
-                background-color: #e8e8e8;
-                border: 2px solid #bbb;
-                border-radius: 4px;
-            }
-        """)
+        # Background and border come from the active theme via the
+        # `MasterTimelineWidget` selector — no inline stylesheet here.
 
     def set_playhead_position(self, position: float):
         """Set playhead position and update display."""
@@ -65,6 +69,17 @@ class MasterTimelineWidget(TimelineWidget):
         """Draw the master timeline."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Render the QSS background/border for `MasterTimelineWidget` via
+        # the canonical Qt pattern. We can't call super().paintEvent here
+        # because TimelineWidget's paintEvent also draws grid/playhead and
+        # we'd double-paint. drawPrimitive(PE_Widget) just paints the QSS
+        # box decoration so the theme actually shows up.
+        opt = QStyleOption()
+        opt.initFrom(self)
+        self.style().drawPrimitive(
+            QStyle.PrimitiveElement.PE_Widget, opt, painter, self,
+        )
 
         width = self.width()
         height = self.height()
@@ -102,9 +117,13 @@ class MasterTimelineWidget(TimelineWidget):
                 painter.setPen(border_pen)
                 painter.drawRect(int(start_x), 0, int(end_x - start_x), height)
 
-                # Draw part name if there's enough space
+                # Draw part name if there's enough space. Use the part's
+                # color luminance to pick a contrasting text color so labels
+                # stay readable regardless of the chosen part color or
+                # active theme.
                 if end_x - start_x > 50:
-                    painter.setPen(QPen(QColor("#000000"), 1))
+                    label_color = QColor("#000000") if QColor(part.color).lightness() > 140 else QColor("#ffffff")
+                    painter.setPen(QPen(label_color, 1))
                     font = painter.font()
                     font.setPointSize(9)
                     font.setBold(True)
@@ -129,13 +148,17 @@ class MasterTimelineWidget(TimelineWidget):
             print(f"Error in draw_song_structure: {e}")
 
     def draw_grid(self, painter, width, height):
-        """Draw time-based grid with beat lines."""
+        """Draw time-based grid with beat lines and optional sub-beat lines."""
         has_structure = (self.song_structure and
                         hasattr(self.song_structure, 'parts') and self.song_structure.parts)
         if has_structure:
             try:
-                bar_pen = QPen(QColor("#666666"), 1)
-                beat_pen = QPen(QColor("#aaaaaa"), 1)
+                # Semi-transparent gray reads on both dark and light themes.
+                sub_pen = QPen(QColor(127, 127, 127, 60), 1, Qt.PenStyle.DotLine)
+                bar_pen = QPen(QColor(127, 127, 127, 200), 1)
+                beat_pen = QPen(QColor(127, 127, 127, 100), 1)
+
+                subdivision = max(1, int(getattr(self, "grid_subdivision", 1)))
 
                 num_parts = len(self.song_structure.parts)
                 for part_idx, part in enumerate(self.song_structure.parts):
@@ -143,18 +166,31 @@ class MasterTimelineWidget(TimelineWidget):
                     total_beats_in_part = int(part.num_bars * beats_per_bar)
                     seconds_per_beat = 60.0 / part.bpm
 
+                    pixels_per_step = (seconds_per_beat / subdivision) * self.pixels_per_second
+                    min_px = getattr(self, "min_subdivision_pixels", 12)
+                    draw_subs = subdivision > 1 and pixels_per_step >= min_px
+                    steps_per_beat = subdivision if draw_subs else 1
+                    seconds_per_step = seconds_per_beat / steps_per_beat
+
                     is_last_part = (part_idx == num_parts - 1)
                     max_beat_index = total_beats_in_part if is_last_part else total_beats_in_part - 1
+                    total_steps = max_beat_index * steps_per_beat + (steps_per_beat if is_last_part else 1)
 
-                    for beat_index in range(max_beat_index + 1):
-                        beat_time = part.start_time + (beat_index * seconds_per_beat)
-                        beat_x = self.time_to_pixel(beat_time)
-                        beat_x_rounded = round(beat_x)
+                    for step_index in range(total_steps + 1):
+                        step_time = part.start_time + (step_index * seconds_per_step)
+                        step_x_rounded = round(self.time_to_pixel(step_time))
 
-                        if 0 <= beat_x_rounded <= width:
+                        if not (0 <= step_x_rounded <= width):
+                            continue
+
+                        is_beat = (step_index % steps_per_beat == 0)
+                        if not is_beat:
+                            painter.setPen(sub_pen)
+                        else:
+                            beat_index = step_index // steps_per_beat
                             is_bar_line = (beat_index % beats_per_bar == 0)
                             painter.setPen(bar_pen if is_bar_line else beat_pen)
-                            painter.drawLine(beat_x_rounded, 0, beat_x_rounded, height)
+                        painter.drawLine(step_x_rounded, 0, step_x_rounded, height)
 
             except Exception as e:
                 import traceback
@@ -204,6 +240,8 @@ class MasterTimelineContainer(QWidget):
     playhead_moved = pyqtSignal(float)
     scroll_position_changed = pyqtSignal(int)
     zoom_changed = pyqtSignal(float)
+    subdivision_changed = pyqtSignal(int)  # New value in {1, 2, 4}
+    snap_changed = pyqtSignal(bool)  # Master snap toggle — fan out to all lanes
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -232,8 +270,39 @@ class MasterTimelineContainer(QWidget):
         self.info_widget.setStyleSheet("color: #333; font-size: 10px; font-weight: bold;")
         self.info_widget.setText("Time: 0.00s | BPM: 120.0 | Zoom: 1.0x")
 
+        # Master snap toggle — when off, the playhead can be dragged to
+        # arbitrary times and lane block edits ignore the grid. The toggle
+        # fans out to every lane via TimelineGrid so all snapping stays in
+        # sync with what the user sees on the master ruler.
+        self.snap_checkbox = QCheckBox("Snap")
+        self.snap_checkbox.setChecked(True)
+        self.snap_checkbox.setToolTip(
+            "Snap playhead and block edits to the grid set in 'Grid' below."
+        )
+        self.snap_checkbox.toggled.connect(self._on_snap_toggled)
+
+        # Grid subdivision picker — controls how fine snap-to-grid is.
+        self.subdivision_label = QLabel("Grid:")
+        self.subdivision_label.setStyleSheet("font-size: 10px;")
+        self.subdivision_combo = QComboBox()
+        self.subdivision_combo.setToolTip(
+            "Snap-to-grid resolution. 1 = on the beat, 1/2 = half-beat, 1/4 = quarter-beat."
+        )
+        for label, value in SUBDIVISION_CHOICES:
+            self.subdivision_combo.addItem(label, value)
+        self.subdivision_combo.setCurrentIndex(0)
+        self.subdivision_combo.currentIndexChanged.connect(self._on_subdivision_changed)
+
+        # NOTE: this top_row_layout is what shows BEFORE detach_pieces() runs
+        # (e.g., if MasterTimelineContainer is used standalone). Once embedded
+        # in TimelineGrid, detach_pieces() rebuilds the header into a 2-row
+        # stack so the controls don't fight the info_widget for space inside
+        # the 320 px header column.
         top_row_layout.addWidget(timeline_label)
         top_row_layout.addWidget(self.info_widget, 1)
+        top_row_layout.addWidget(self.snap_checkbox)
+        top_row_layout.addWidget(self.subdivision_label)
+        top_row_layout.addWidget(self.subdivision_combo)
 
         # Bottom row with scrollable timeline
         bottom_row_layout = QHBoxLayout()
@@ -290,8 +359,39 @@ class MasterTimelineContainer(QWidget):
         self.update_info_display(position)
 
     def set_snap_to_grid(self, snap: bool):
-        """Set snap to grid for playhead."""
+        """Set snap to grid for playhead. Also syncs the snap checkbox so
+        programmatic toggles match the UI without re-emitting snap_changed.
+        """
         self.timeline_widget.set_snap_to_grid(snap)
+        if hasattr(self, "snap_checkbox") and self.snap_checkbox is not None:
+            self.snap_checkbox.blockSignals(True)
+            self.snap_checkbox.setChecked(snap)
+            self.snap_checkbox.blockSignals(False)
+
+    def _on_snap_toggled(self, checked: bool):
+        """User flipped the master Snap checkbox."""
+        self.timeline_widget.set_snap_to_grid(checked)
+        self.snap_changed.emit(checked)
+
+    def set_grid_subdivision(self, subdivision: int):
+        """Set the master timeline's grid subdivision and sync the combobox."""
+        self.timeline_widget.set_grid_subdivision(subdivision)
+        # Reflect on combobox without re-emitting subdivision_changed.
+        for i in range(self.subdivision_combo.count()):
+            if self.subdivision_combo.itemData(i) == subdivision:
+                self.subdivision_combo.blockSignals(True)
+                self.subdivision_combo.setCurrentIndex(i)
+                self.subdivision_combo.blockSignals(False)
+                break
+
+    def _on_subdivision_changed(self, _index: int):
+        """Combobox handler — pushes the new subdivision into the master
+        timeline and re-emits the value for the surrounding tab to fan out
+        to other lanes via TimelineGrid.
+        """
+        value = int(self.subdivision_combo.currentData())
+        self.timeline_widget.set_grid_subdivision(value)
+        self.subdivision_changed.emit(value)
 
     def sync_scroll_position(self, position: int):
         """Sync scroll position with other timelines."""
@@ -302,3 +402,71 @@ class MasterTimelineContainer(QWidget):
         self.timeline_widget.zoom_factor = zoom_factor
         self.timeline_widget.update_timeline_width()
         self.timeline_widget.update()
+
+    def detach_pieces(self):
+        """Return (header_widget, stripe_widget) for embedding in TimelineGrid.
+
+        Inside TimelineGrid the header is constrained to a 320 px column to
+        match the lane controls. Stuffing title + info_widget + Snap + Grid
+        on a single row overflows that budget — the rightmost controls get
+        pushed off-screen. This method builds a 2-row stack instead:
+
+            ┌─ MasterTimelineHeader (320 px wide) ───────────┐
+            │ Master Timeline      Snap ✓   Grid: [1 ▾]      │  ← controls
+            │ Time: 0.00s | BPM: 120.0 | Zoom: 1.0x          │  ← info
+            └────────────────────────────────────────────────┘
+
+        Signals on ``self`` remain wired (they pass through ``timeline_widget``
+        and the controls themselves), so callers keep using
+        ``self.set_playhead_position``, ``self.playhead_moved``, etc.
+        """
+        from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
+        header = QWidget()
+        # Object-name + WA_StyledBackground so the active theme's
+        # `QWidget#MasterTimelineHeader` rule paints the bg. Without these
+        # the header inherits the QScrollArea viewport's default light-gray
+        # bg in both themes.
+        header.setObjectName("MasterTimelineHeader")
+        header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
+        outer = QVBoxLayout(header)
+        outer.setContentsMargins(8, 4, 8, 4)
+        outer.setSpacing(2)
+
+        # Row 1 — title and snap/grid controls.
+        controls_row = QHBoxLayout()
+        controls_row.setContentsMargins(0, 0, 0, 0)
+        controls_row.setSpacing(6)
+        master_label = QLabel("Master")
+        master_label.setStyleSheet("font-weight: bold; font-size: 12px;")
+        controls_row.addWidget(master_label)
+        controls_row.addStretch()
+        if hasattr(self, "snap_checkbox") and self.snap_checkbox is not None:
+            self.snap_checkbox.setParent(header)
+            self.snap_checkbox.setStyleSheet("font-size: 11px;")
+            controls_row.addWidget(self.snap_checkbox)
+        if hasattr(self, "subdivision_label") and self.subdivision_label is not None:
+            self.subdivision_label.setParent(header)
+            controls_row.addWidget(self.subdivision_label)
+        if hasattr(self, "subdivision_combo") and self.subdivision_combo is not None:
+            self.subdivision_combo.setParent(header)
+            # A compact combobox keeps the controls row inside the 320 px
+            # column even when the dropdown items are wider than the field.
+            self.subdivision_combo.setMinimumWidth(70)
+            self.subdivision_combo.setMaximumWidth(110)
+            controls_row.addWidget(self.subdivision_combo)
+        outer.addLayout(controls_row)
+
+        # Row 2 — info display (Time/BPM/Zoom/Part).
+        if hasattr(self, "info_widget") and self.info_widget is not None:
+            self.info_widget.setParent(header)
+            self.info_widget.setStyleSheet("font-size: 9px; color: gray;")
+            outer.addWidget(self.info_widget)
+
+        # Detach the timeline from the scrollarea so TimelineGrid can take it.
+        if hasattr(self, "timeline_scroll") and self.timeline_scroll is not None:
+            self.timeline_scroll.takeWidget()
+            self.timeline_scroll.setParent(None)
+            self.timeline_scroll = None
+
+        return header, self.timeline_widget

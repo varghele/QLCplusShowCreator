@@ -427,6 +427,34 @@ class TestRiffCompatibility:
         is_compat, reason = sample_riff.is_compatible_with(empty_group)
         assert is_compat is False
 
+    # ----- Phase D: chassis-normalized compatibility -----
+
+    def test_chassis_keyed_riff_matches_legacy_mh_group(self, fixture_group_mh):
+        """A riff using ``moving_yoke`` (Chassis enum name) should match a
+        group whose fixtures have legacy ``type=='MH'``."""
+        riff = Riff(name="Yoke riff", fixture_types=["moving_yoke"])
+        is_compat, _ = riff.is_compatible_with(fixture_group_mh)
+        assert is_compat is True
+
+    def test_legacy_pixelbar_and_sunstrip_collapse_to_bar_chassis(self, fixture_group_par):
+        """A riff requiring ``["PIXELBAR"]`` collapses to Chassis.BAR; a PAR
+        group has Chassis.PAR fixtures and should NOT match."""
+        riff = Riff(name="Pixel riff", fixture_types=["PIXELBAR"])
+        is_compat, _ = riff.is_compatible_with(fixture_group_par)
+        assert is_compat is False
+
+    def test_wash_legacy_string_matches_par_chassis(self, fixture_group_par):
+        """Legacy ``WASH`` collapses to Chassis.PAR (per chassis_from_legacy_type),
+        so a riff requiring WASH matches a PAR group."""
+        riff = Riff(name="Wash riff", fixture_types=["WASH"])
+        is_compat, _ = riff.is_compatible_with(fixture_group_par)
+        assert is_compat is True
+
+    def test_chassis_name_case_insensitive(self, fixture_group_mh):
+        riff = Riff(name="Yoke riff upper", fixture_types=["MOVING_YOKE"])
+        is_compat, _ = riff.is_compatible_with(fixture_group_mh)
+        assert is_compat is True
+
 
 # =============================================================================
 # Beat-to-Time Conversion Tests

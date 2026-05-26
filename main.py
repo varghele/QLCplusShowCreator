@@ -20,7 +20,7 @@ if '--version' in sys.argv:
 # Performance profiling - enable with --profile flag
 PROFILING_ENABLED = '--profile' in sys.argv
 if PROFILING_ENABLED:
-    import profile_playback
+    from profiling import profile_playback
     profile_playback.install_all_patches()
     profile_playback.enable_profiling()
     print("\n*** PROFILING ENABLED - Press Ctrl+P in console to print report ***\n")
@@ -32,6 +32,8 @@ def main():
 
         # Start the application
         app = QtWidgets.QApplication(sys.argv)
+        app.setOrganizationName("QLCShowCreator")
+        app.setApplicationName("QLCShowCreator")
 
         # Set application icon
         icon_path = os.path.join(project_root, "resources", "lightbulb.png")
@@ -39,8 +41,14 @@ def main():
             app_icon = QIcon(icon_path)
             app.setWindowIcon(app_icon)
 
+        # Apply the persisted theme (or the default) before showing the window
+        # so the first paint already uses the correct palette.
+        from gui.theme_manager import ThemeManager
+        theme_manager = ThemeManager()
+        theme_manager.apply(app, theme_manager.current() or "dark")
+
         window = MainWindow()
-        window.show()
+        window.showMaximized()
 
         # If profiling, set up periodic report printing
         if PROFILING_ENABLED:

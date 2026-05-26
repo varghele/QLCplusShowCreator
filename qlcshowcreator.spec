@@ -28,11 +28,32 @@ a = Analysis(
         'visualizer.renderer.stage',
         'visualizer.tcp',
         'visualizer.tcp.client',
+        # config is a namespace package (no __init__.py)
+        'config.models',
+        'config.compact_serializer',
+        # gui subpackages
+        'gui.dialogs',
+        'gui.dialogs.autogen_dialog',
+        'gui.dialogs.generation_inspector',
+        'gui.dialogs.orientation_dialog',
+        'gui.dialogs.render_dialog',
+        'gui.dialogs.workspace_options_dialog',
+        'gui.tabs',
+        'gui.tabs.base_tab',
+        'gui.tabs.configuration_tab',
+        'gui.tabs.fixtures_tab',
+        'gui.tabs.shows_tab',
+        'gui.tabs.shows_tab_timeline',
+        'gui.tabs.stage_tab',
+        'gui.tabs.structure_tab',
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    # Test deps the runtime doesn't need. requirements.txt installs pytest
+    # for the CI test step; PyInstaller picks it up via static analysis
+    # otherwise. Excluding keeps the bundle ~5-10 MB smaller.
+    excludes=['pytest', '_pytest', 'hypothesis'],
     noarchive=False,
 )
 

@@ -173,20 +173,25 @@ class SongStructure:
         last_part = self.parts[-1]
         return last_part.start_time + last_part.duration
 
-    def find_nearest_beat_time(self, target_time: float) -> float:
-        """Find the nearest beat time for snap-to-grid functionality.
+    def find_nearest_beat_time(self, target_time: float, subdivision: int = 1) -> float:
+        """Find the nearest beat (or sub-beat) time for snap-to-grid functionality.
 
         Args:
             target_time: The time to snap
+            subdivision: Number of snap points per beat. 1=beat, 2=half-beat,
+                4=quarter-beat. Other positive ints accepted (3 = triplets).
 
         Returns:
-            Nearest beat time in seconds
+            Nearest snap time in seconds
         """
+        if subdivision < 1:
+            subdivision = 1
+
         if not self.parts:
             # No song structure, snap to default grid (120 BPM)
-            seconds_per_beat = 60.0 / self.default_bpm
-            beat_index = round(target_time / seconds_per_beat)
-            return beat_index * seconds_per_beat
+            seconds_per_step = (60.0 / self.default_bpm) / subdivision
+            step_index = round(target_time / seconds_per_step)
+            return step_index * seconds_per_step
 
         # Find which part contains the target time
         target_part = self.get_part_at_time(target_time)
@@ -196,29 +201,22 @@ class SongStructure:
                 return 0.0
             return target_time
 
-        # Calculate beat positions for this part
-        beats_per_bar = self._get_beats_per_bar(target_part.signature)
-
         if target_part.transition == "instant":
-            # Simple beat calculation
-            seconds_per_beat = 60.0 / target_part.bpm
+            seconds_per_step = (60.0 / target_part.bpm) / subdivision
             time_in_part = target_time - target_part.start_time
-            beat_in_part = time_in_part / seconds_per_beat
+            step_in_part = time_in_part / seconds_per_step
 
-            # Get floor and ceiling beats
-            floor_beat = int(beat_in_part)
-            ceil_beat = floor_beat + 1
+            floor_step = int(step_in_part)
+            ceil_step = floor_step + 1
 
-            floor_time = target_part.start_time + (floor_beat * seconds_per_beat)
-            ceil_time = target_part.start_time + (ceil_beat * seconds_per_beat)
+            floor_time = target_part.start_time + (floor_step * seconds_per_step)
+            ceil_time = target_part.start_time + (ceil_step * seconds_per_step)
 
-            # Return closest
             if abs(target_time - floor_time) <= abs(target_time - ceil_time):
                 return floor_time
             return ceil_time
         else:
-            # For gradual transitions, use simpler snap to part boundaries or mid-bar
-            # (Precise beat snapping in gradual transitions is complex)
+            # For gradual transitions, precise sub-beat snapping is complex; punt.
             return target_time
 
     def get_beat_times_in_range(self, start_time: float, end_time: float) -> List[tuple]:
