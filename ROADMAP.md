@@ -159,12 +159,12 @@ The automatic show generator runs end-to-end today, but the matcher is a black b
 
 ## v1.8 - Auto Mode hardening
 
-Auto Mode (live audio-reactive) works but is labelled "experimental" for real reasons. Source: `todo/auto_mode_patches.md`.
+Auto Mode (live audio-reactive) works but is labelled "experimental" for real reasons.
 
-- [ ] **Cross-thread signal cleanup.** `_on_riffs_updated_from_engine` is called from the DMX worker thread and currently goes through an atomic-capture-and-clear into a pending slot. Replace with a queued `pyqtSignal(object)` so Qt's event loop handles the hand-off, same pattern already used by `EmbeddedVisualizer._dmx_frame`.
-- [ ] **Engine snapshot API.** The 20 Hz UI tick currently acquires the engine lock five times per frame (one per property read). Add `AutoShowEngine.snapshot()` returning a dataclass under a single lock acquire.
-- [ ] **Move matcher work off the DMX thread.** `_select_next_riffs` runs inside the DMX-tick lock; the matcher's scoring can dent timing at bar boundaries with many groups + tight BPMs.
-- [ ] **First-class ASIO control panel.** When the user picks an ASIO host API, surface a button that launches the driver's panel via `sd.asio.show_control_panel(device_id)`, hide the misleading buffer-size + sample-rate controls, and handle exclusive-access errors when another DAW has the device open.
+- [ ] **Cross-thread signal cleanup.** `_on_riffs_updated_from_engine` (gui/tabs/auto_tab.py:1263) is called from the DMX worker thread and currently goes through an atomic capture-and-clear into `_pending_riff_update`, drained by the 20 Hz UI tick at `_update_ui`. Replace with a queued `riffs_updated = pyqtSignal(object)` on `AutoTab`, emitted from the callback, connected with `Qt.ConnectionType.QueuedConnection` to a slot that calls `self._riff_constraints.update_active_riffs(...)`. Drops the `_pending_riff_update` slot entirely. Same pattern as `EmbeddedVisualizer._dmx_frame`.
+- [ ] **Engine snapshot API.** The 20 Hz UI tick currently acquires the engine lock five times per frame (one per property read for `bpm`, `current_bar`, `is_fill`, `current_groove_name`, `cycle_bars`). Add `AutoShowEngine.snapshot()` returning a small dataclass (`bpm`, `bar_index`, `total_bars`, `is_fill`, `groove_name`) under one lock acquire. UI tick reads the fields locally.
+- [ ] **Move matcher work off the DMX thread.** `_start_new_cycle` (auto/engine.py:299) is called from `tick()` on the DMX thread with `_lock` held, and inside that it calls `_select_next_riffs` -> `match_rudiments_to_section` + `select_rudiments_per_group`. The matcher scoring under the lock blocks UI property reads and the analysis thread's `on_feature_frame`; with many groups + tight BPMs this can dent DMX timing at bar boundaries. Two options: **(a)** precompute the next cycle's selection on the analysis thread between bars and hand the result over via a `queue.Queue`; **(b)** release `_lock` around the matcher call (snapshot inputs, score unlocked, re-acquire to assign). (b) is the smaller refactor.
+- [ ] **First-class ASIO control panel.** When the user picks an ASIO host API, surface a button that launches the driver's panel via `sd.asio.show_control_panel(device_id)`, hide the misleading buffer-size + sample-rate controls, and handle exclusive-access errors when another DAW has the device open. Optional `sd.AsioSettings(channel_selectors=[…])` UI for picking specific channels of a multichannel interface. Deferred until we can test end-to-end against a real ASIO interface.
 - [ ] **Persisted Auto Mode profiles.** Colour overrides, BPM, per-group constraints, plane bias as a named profile so a busking set can be set up once and recalled.
 
 ---
@@ -211,4 +211,4 @@ These come up periodically and the answer is "not yet, but not no":
 
 - The current working branch is `v1.0.5-fixture-rewrite`.
 - Issues and progress live on GitHub (link in README once the repo is published).
-- The `todo/` directory and the theory notes in `docs/` (`autofuture.md`, `theory-algorithmic-show-generation.md`) are the working backlog: they're more detailed than this roadmap and update faster.
+- The theory notes in `docs/` (`autofuture.md`, `theory-algorithmic-show-generation.md`) are the working backlog: they're more detailed than this roadmap and update faster.

@@ -134,7 +134,7 @@ For contributors:
 
 ## Contributing
 
-The project is GPL-3.0 and developed in the open. Issues and pull requests welcome - the working backlog lives in `todo/` and the theory notes in `docs/` (`autofuture.md`, `theory-algorithmic-show-generation.md`), and the [ROADMAP](ROADMAP.md) groups it into themed milestones. Pick anything that's not in flight.
+The project is GPL-3.0 and developed in the open. Issues and pull requests welcome - the [ROADMAP](ROADMAP.md) groups the working backlog into themed milestones, with deeper theory notes in `docs/` (`autofuture.md`, `theory-algorithmic-show-generation.md`). Pick anything that's not in flight.
 
 If you find a fixture in the QLC+ library that renders incorrectly, please open an issue with the `.qxf` attached - the composable renderer is validated by a visual-regression harness (`tests/visual/`) and adding new archetypes is the most useful contribution path.
 
