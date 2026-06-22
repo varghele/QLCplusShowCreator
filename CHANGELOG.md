@@ -8,7 +8,7 @@ Versions are tagged in git as `v0.1.0-alpha`, `v0.9.0-beta`, `v0.9.5-beta`. The 
 
 ## Unreleased - toward v1.0
 
-The first community-facing release. Focus has been on a ground-up fixture rendering rewrite, an experimental live-audio Auto Mode, automatic show generation from audio, and a UI modernization that folds the standalone visualizer into the main window.
+The first community-facing release. Focus has been on a ground-up fixture rendering rewrite, an experimental live-audio Auto Mode, automatic show generation from audio, and a UI modernization that folds the standalone visualizer into the main window - plus the show-I/O, QLC+ export, and release-pipeline work that makes it shippable.
 
 ### Fixture rewrite (capabilities-based renderer)
 
@@ -62,6 +62,16 @@ The "prepared" counterpart to Auto Mode: a full pipeline that produces a complet
 - Per-device classification (host API, channel count, exclusive-mode capability) with a UI status pill that surfaces ASIO availability.
 - Live audio capture path separate from playback path.
 - Empirically tuned spectral metrics: RMS energy replaced spectral flux as the primary energy driver; spectral contrast replaced spectral richness as the secondary signal; vocal detection moved to HPSS + MFCC delta. See `docs/metric_analysis_results.md` for the validation against 8 hand-made shows.
+
+### Show I/O and QLC+ export
+
+- **Config YAML is the single source of truth.** Loading a config no longer auto-creates a `shows/` directory or keeps a parallel set of `shows/*.csv` structure files alongside the YAML timeline data. `_auto_save` stops writing CSV; audio bundles to `<config_dir>/audiofiles/` via `Configuration.audio_bundle_dir`. Explicit `File -> Import / Export Show Structure` actions cover `.csv` (structure-only) and `.yaml` (full show via `Show.to_dict` / `from_dict`). A one-shot legacy-CSV merge prompt fires on config load if stray CSVs are found.
+- **Sequence-step compaction in the QLC+ exporter.** Zero-valued `(fixture, channel, value)` triples - 44% of the total on a representative export - are no longer emitted unconditionally. Zero-skip lives in `utils/to_xml/step_compaction.py`, wired into `unified_sequence` + `shows_to_xml`, matching QLC+'s own saver convention. Compacted output is semantically identical to the uncompacted export.
+- **QLC+ target-version stamp.** The Workspace Options dialog now offers a target-version dropdown (4.14.4 default, 5.2.1), threaded through to the exported `<Creator><Version>` stamp. The XML schema is identical between the two QLC+ versions; only the stamp differs.
+
+### Release pipeline
+
+- **CI / release on tag push.** `.github/workflows/release.yml` builds via PyInstaller on a `windows-latest` + `ubuntu-22.04` matrix (22.04 pinned for glibc forward compatibility) on `push: tags: ['v*']` or manual `workflow_dispatch`, uploads the archives as artifacts, and drafts a GitHub Release on tag pushes.
 
 ### Fixes and polish (selection)
 
