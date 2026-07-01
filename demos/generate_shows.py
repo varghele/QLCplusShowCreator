@@ -26,6 +26,7 @@ Output:
 from __future__ import annotations
 
 import argparse
+import copy
 import os
 import random
 import shutil
@@ -115,13 +116,49 @@ def build_structure(duration: float, bpm: float, signature: str = DEFAULT_SIGNAT
     return parts
 
 
-def generate_for_rig(rig_name: str, audio_path: str, duration: float, bpm: float) -> Configuration:
-    """Load a rig, autogenerate a show against the clip, attach it, return the config."""
+def load_structure_parts(config_path: str, show_name: str = None, slice_spec: str = None):
+    """Take the song structure (parts) from a show in an existing config.
+
+    Returns (parts, label). Uses ``show_name`` if given, else the first show.
+    ``slice_spec`` is an optional ``START:END`` index range (Python slice, by
+    part position so duplicate part names stay unambiguous) to keep only a
+    section — e.g. ``"4:6"`` for a short build-into-chorus demo excerpt.
+    """
+    cfg = Configuration.load(config_path)
+    if not cfg.shows:
+        raise SystemExit(f"error: {config_path} has no shows to take structure from")
+    if show_name:
+        if show_name not in cfg.shows:
+            raise SystemExit(f"error: show '{show_name}' not in {config_path}. Have: {', '.join(cfg.shows)}")
+        show = cfg.shows[show_name]
+    else:
+        show_name, show = next(iter(cfg.shows.items()))
+    if not show.parts:
+        raise SystemExit(f"error: show '{show_name}' has no parts")
+
+    parts = copy.deepcopy(show.parts)
+    if slice_spec:
+        try:
+            a, b = slice_spec.split(":")
+            parts = parts[(int(a) if a else None):(int(b) if b else None)]
+        except ValueError:
+            raise SystemExit(f"error: --structure-slice must be START:END, got {slice_spec!r}")
+        if not parts:
+            raise SystemExit(f"error: --structure-slice {slice_spec} selected no parts")
+        label = f"{show_name}[{slice_spec}]"
+    else:
+        label = show_name
+    return parts, label
+
+
+def generate_for_rig(rig_name: str, audio_path: str, parts, audio_basename: str) -> Configuration:
+    """Load a rig, autogenerate a show against the clip using ``parts``, return the config."""
     cfg = Configuration.load(os.path.join(RIGS_DIR, f"{rig_name}.yaml"))
 
-    parts = build_structure(duration, bpm)
+    # Fresh copy per rig: load_from_show_parts stamps start_time/duration in place.
+    rig_parts = copy.deepcopy(parts)
     structure = SongStructure()
-    structure.load_from_show_parts(parts)
+    structure.load_from_show_parts(rig_parts)
 
     # Deterministic output across runs.
     random.seed(SEED)
@@ -131,8 +168,8 @@ def generate_for_rig(rig_name: str, audio_path: str, duration: float, bpm: float
 
     show = Show(
         name="Demo",
-        parts=parts,
-        timeline_data=TimelineData(lanes=lanes, audio_file_path=os.path.basename(audio_path)),
+        parts=rig_parts,
+        timeline_data=TimelineData(lanes=lanes, audio_file_path=audio_basename),
     )
     cfg.shows[show.name] = show
     return cfg
@@ -143,6 +180,12 @@ def main(argv=None):
     parser.add_argument("audio", help="Path to a short royalty-free audio clip (wav/flac/mp3).")
     parser.add_argument("--bpm", type=float, default=None, help="Override BPM (else auto-detected).")
     parser.add_argument("--rig", choices=RIG_NAMES, default=None, help="Only generate this rig.")
+    parser.add_argument("--structure-from", default=None,
+                        help="Config YAML to take the song structure (parts) from, instead of a generic one.")
+    parser.add_argument("--structure-show", default=None,
+                        help="Show name within --structure-from (default: first show).")
+    parser.add_argument("--structure-slice", default=None,
+                        help="START:END part-index range of --structure-show to keep (e.g. 4:6 for a short excerpt).")
     parser.add_argument("--out", default=OUT_DIR, help="Output directory (default: demos/shows).")
     args = parser.parse_args(argv)
 
@@ -150,7 +193,17 @@ def main(argv=None):
     if not os.path.exists(audio_path):
         parser.error(f"audio clip not found: {audio_path}")
 
-    duration, bpm = probe_audio(audio_path, args.bpm)
+    if args.structure_from:
+        parts, label = load_structure_parts(args.structure_from, args.structure_show, args.structure_slice)
+        struct = SongStructure()
+        struct.load_from_show_parts(parts)
+        duration, bpm = struct.get_total_duration(), parts[0].bpm
+        print(f"Structure: '{label}' from {os.path.relpath(args.structure_from, PROJECT_ROOT)} "
+              f"({len(parts)} parts, {duration:.1f}s, {bpm:g} BPM)")
+    else:
+        duration, bpm = probe_audio(audio_path, args.bpm)
+        parts = build_structure(duration, bpm)
+
     rigs = [args.rig] if args.rig else RIG_NAMES
 
     os.makedirs(args.out, exist_ok=True)
@@ -162,7 +215,7 @@ def main(argv=None):
 
     print(f"Clip: {os.path.basename(audio_path)}  ({duration:.1f}s, {bpm:g} BPM)")
     for rig_name in rigs:
-        cfg = generate_for_rig(rig_name, audio_path, duration, bpm)
+        cfg = generate_for_rig(rig_name, audio_path, parts, os.path.basename(audio_path))
         out = os.path.join(args.out, f"{rig_name}.yaml")
         cfg.save(out)
         show = cfg.shows["Demo"]
