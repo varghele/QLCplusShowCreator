@@ -60,10 +60,14 @@ def resolve_config_path(target: str) -> str:
     raise SystemExit(f"error: no config at '{target}' or '{candidate}'")
 
 
-def pick_show(config: Configuration):
-    """Prefer a show literally named 'Demo', else the first show in the config."""
+def pick_show(config: Configuration, name: str = None):
+    """Pick the show to render: explicit --show name, else 'Demo', else the first."""
     if not config.shows:
         raise SystemExit("error: config has no shows to render")
+    if name:
+        if name not in config.shows:
+            raise SystemExit(f"error: show '{name}' not in config. Have: {', '.join(config.shows)}")
+        return config.shows[name]
     if "Demo" in config.shows:
         return config.shows["Demo"]
     return next(iter(config.shows.values()))
@@ -93,6 +97,7 @@ def _validate_cameras(cameras):
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Render README media (stills + GIF/MP4) from a demo show.")
     parser.add_argument("target", help="A demo rig name (demos/shows/<name>.yaml) or a path to a config YAML.")
+    parser.add_argument("--show", default=None, help="Name of the show to render (default: 'Demo' or first).")
     parser.add_argument("--stills", action="store_true", help="Render PNG stills.")
     parser.add_argument("--gif", action="store_true", help="Render an animated GIF walkthrough.")
     parser.add_argument("--mp4", action="store_true", help="Render a full-res MP4 (needs imageio-ffmpeg).")
@@ -125,7 +130,7 @@ def main(argv=None):
     # Let the offline renderer resolve the bundled audio (audiofiles/ sits next
     # to the config); the MP4 mux needs it, stills/GIF don't.
     config.shows_directory = os.path.dirname(config_path)
-    show = pick_show(config)
+    show = pick_show(config, args.show)
 
     models = {(f.manufacturer, f.model) for g in config.groups.values() for f in g.fixtures}
     fixture_definitions = load_fixture_definitions_from_qlc(models)
