@@ -1059,19 +1059,26 @@ def build_virtual_console(
             group_frames.append((frame, frame_width, frame_height, new_widget_id))
             widget_id = new_widget_id
 
-        # Pack group frames into rows using first-fit decreasing bin packing
-        # This minimizes vertical space by fitting narrow frames alongside wide ones
-        available_height = SCREEN_HEIGHT - current_y - MARGIN
-        full_width = SCREEN_WIDTH - 2 * MARGIN  # Full screen width as fallback
-
-        # Build rows: each row is a list of (frame, width, height) that fit within left_column_width
+        # Pack group frames into rows using first-fit decreasing bin packing,
+        # fitting narrow frames alongside wide ones. Packing is constrained to
+        # the LEFT column only: the right column (Master frame + SpeedDial) is
+        # reserved at x >= right_column_x, and left_column_width already leaves
+        # a SECTION_SPACING gap before it, so frames packed here can never
+        # intrude into that band.
+        #
+        # Note: there is intentionally no full-screen-width re-pack on vertical
+        # overflow. Such a re-pack only ever changes the layout when a right
+        # column is reserved (otherwise left_column_width == full width already)
+        # -- and in exactly that case it drove group frames into the Master
+        # frame / SpeedDial, producing overlapping widgets. If the packed rows
+        # are taller than the screen, that's fine: QLC+ scrolls the VC canvas
+        # and Properties/Size below is computed from the real content bounds.
         rows = []  # [[(frame, width, height), ...], ...]
         remaining = list(group_frames)
 
         # Sort widest first for better packing
         remaining.sort(key=lambda f: f[1], reverse=True)
 
-        # First pass: try to pack using left_column_width
         while remaining:
             row = [remaining.pop(0)]
             row_used_width = row[0][1]
@@ -1087,31 +1094,6 @@ def build_virtual_console(
                     i += 1
 
             rows.append(row)
-
-        # Check if rows overflow vertically; if so, re-pack using full width
-        total_row_height = sum(max(f[2] for f in row) + SECTION_SPACING for row in rows)
-        if total_row_height > available_height:
-            # Re-pack with full screen width
-            all_frames_flat = [f for row in rows for f in row]
-            all_frames_flat.sort(key=lambda f: f[1], reverse=True)
-            rows = []
-            remaining = list(all_frames_flat)
-
-            while remaining:
-                row = [remaining.pop(0)]
-                row_used_width = row[0][1]
-
-                i = 0
-                while i < len(remaining):
-                    f = remaining[i]
-                    if row_used_width + SECTION_SPACING + f[1] <= full_width:
-                        row.append(f)
-                        row_used_width += SECTION_SPACING + f[1]
-                        remaining.pop(i)
-                    else:
-                        i += 1
-
-                rows.append(row)
 
         # Place rows
         group_y = current_y
