@@ -2,6 +2,7 @@ import os
 import xml.etree.ElementTree as ET
 from config.models import Configuration
 from utils.to_xml.step_compaction import compact_step_values
+from effects.timing import movement_total_cycles
 
 
 def add_steps_to_sequence(sequence, steps):
@@ -500,9 +501,8 @@ def _generate_movement_shape_steps(movement_block, fixture_def, mode_name, fixtu
     block_duration = movement_block.end_time - movement_block.start_time
     block_duration_ms = int(block_duration * 1000)
 
-    # Calculate number of shape cycles based on speed
-    # Speed "1" = 1 cycle per bar, Speed "2" = 2 cycles per bar, etc.
-    total_cycles = (block_duration / seconds_per_bar) * speed_multiplier
+    # Shared movement rate (matches ArtNet preview + unified_sequence export).
+    total_cycles = movement_total_cycles(block_duration, seconds_per_bar, speed_multiplier)
 
     # Step density constraints
     MAX_STEPS_PER_SECOND = 24  # Maximum to avoid QLC+ overload and jerky movements

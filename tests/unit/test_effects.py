@@ -4,7 +4,7 @@ import math
 import pytest
 
 from effects.types import DimmerContext, DimmerResult, MovementContext, MovementResult
-from effects.timing import parse_speed, get_bpm
+from effects.timing import parse_speed, get_bpm, movement_total_cycles, MOVEMENT_CYCLES_PER_BAR
 from effects.dimmer_effects import (
     DIMMER_REGISTRY, static, strobe, sparkle, ping_pong,
     random_stroke, waterfall, chase, fill,
@@ -16,6 +16,30 @@ from effects.movement_effects import (
     figure_8, lissajous, random_movement, bounce,
     static as movement_static,
 )
+
+
+class TestMovementRate:
+    """Movement runs at one cycle per 4 bars at speed 1 (rate cut 4x)."""
+
+    def test_default_is_quarter_cycle_per_bar(self):
+        assert MOVEMENT_CYCLES_PER_BAR == 0.25
+
+    def test_one_cycle_per_four_bars_at_speed_1(self):
+        # 4 bars long, 2s per bar, speed 1 -> exactly one full cycle.
+        assert movement_total_cycles(8.0, 2.0, 1.0) == pytest.approx(1.0)
+
+    def test_speed_multiplier_scales_rate(self):
+        # speed 2 doubles the rate; speed 1/2 halves it.
+        assert movement_total_cycles(8.0, 2.0, 2.0) == pytest.approx(2.0)
+        assert movement_total_cycles(8.0, 2.0, 0.5) == pytest.approx(0.5)
+
+    def test_four_times_slower_than_one_cycle_per_bar(self):
+        # A single bar at speed 1 yields a quarter cycle (was 1.0 before the fix).
+        assert movement_total_cycles(2.0, 2.0, 1.0) == pytest.approx(0.25)
+
+    def test_non_positive_duration_is_zero(self):
+        assert movement_total_cycles(0.0, 2.0, 1.0) == 0.0
+        assert movement_total_cycles(8.0, 0.0, 1.0) == 0.0
 
 
 def _make_dimmer_ctx(**overrides):

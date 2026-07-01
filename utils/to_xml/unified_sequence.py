@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from utils.effects_utils import get_channels_by_property, find_closest_color_dmx
 from utils.orientation import calculate_pan_tilt, pan_tilt_to_dmx
 from utils.to_xml.step_compaction import compact_step_values
+from effects.timing import movement_total_cycles
 
 
 def _map_rgb_to_color_wheel(r: int, g: int, b: int) -> int:
@@ -827,8 +828,8 @@ def sample_movement_at_time(
     # Calculate relative position for progress (0 to 1)
     progress = time_in_block / block_duration if block_duration > 0 else 0
 
-    # Calculate total cycles: one cycle per bar at speed 1 (matches ArtNet)
-    total_cycles = (block_duration / seconds_per_bar) * speed_mult
+    # Shared movement rate (matches ArtNet preview + shows_to_xml export).
+    total_cycles = movement_total_cycles(block_duration, seconds_per_bar, speed_mult)
 
     # Calculate phase offset for this fixture
     if active_block.phase_offset_enabled:
