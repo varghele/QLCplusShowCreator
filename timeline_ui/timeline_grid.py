@@ -206,6 +206,12 @@ class TimelineGrid(QWidget):
         # Stripes already self-size from LightLaneWidget's setMinimum/Maximum
         # height pair; mirror it so headers stay aligned.
         self._insert_row(header, stripe)
+        # The lane_widget shell is now empty — its header + stripe live in the
+        # grid rows above. It's kept alive only for signal wiring, so hide it;
+        # otherwise its themed QFrame background/border lingers at (0,0) over
+        # the tab as a stray panel. (header/stripe are already re-parented into
+        # the grid by _insert_row, so hiding the shell can't hide them.)
+        lane_widget.hide()
         self._lane_rows.append({"lane": lane_widget, "header": header, "stripe": stripe})
 
         lane_widget.playhead_moved.connect(self.playhead_moved.emit)

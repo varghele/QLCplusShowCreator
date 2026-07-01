@@ -71,6 +71,31 @@ def test_timeline_grid_add_remove_round_trip(qapp):
         QApplication.processEvents()
 
 
+def test_add_light_lane_hides_empty_shell(qapp):
+    """After add_light_lane detaches a lane's header + stripe into the grid, the
+    now-empty LightLaneWidget shell must be hidden — otherwise its themed QFrame
+    lingers at (0,0) over the tab as a stray panel (the top-left 'blob' bug)."""
+    from PyQt6.QtWidgets import QApplication
+    from gui.theme_manager import ThemeManager
+    from timeline_ui.timeline_grid import TimelineGrid
+
+    ThemeManager().apply(qapp, "dark")
+    grid = TimelineGrid()
+    try:
+        lane = _make_lane_widget(qapp, "A1")
+        lane.show()  # mimic the shell being visible as a child of the tab
+        QApplication.processEvents()
+        assert not lane.isHidden()
+
+        grid.add_light_lane(lane)
+        QApplication.processEvents()
+        assert lane.isHidden(), \
+            "emptied lane shell must be hidden after add_light_lane (blob bug)"
+    finally:
+        grid.deleteLater()
+        QApplication.processEvents()
+
+
 def test_clear_then_add_no_phantom_rows(qapp):
     """The bug fingerprint: remove all lanes, then immediately add a different
     set, and confirm only the new lanes remain in the grid. Replicates the
