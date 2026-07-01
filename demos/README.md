@@ -94,3 +94,14 @@ python -m demos.generate_media dj_edm --show Demo --cameras "Front,Wide"
 
 Output lands in `media/<rig>/`; MP4s are git-ignored (regenerate on demand),
 stills and GIFs are small enough to commit.
+
+### Gallery
+
+A hero GIF and stills committed under [`media/`](media/) (also used on the
+project's front-page README):
+
+![Festival-mainstage demo show](media/festival_mainstage.gif)
+
+| DJ / EDM | Festival mainstage | Mid-size band |
+|:---:|:---:|:---:|
+| ![DJ/EDM](media/stills/dj_edm.png) | ![Festival](media/stills/festival_mainstage.png) | ![Mid-size band](media/stills/band_midsize.png) |
