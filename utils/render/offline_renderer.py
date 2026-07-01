@@ -32,6 +32,7 @@ class OfflineRenderer:
         height: int = 1080,
         fps: int = 30,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
+        show_gizmos: bool = True,
     ):
         self.config = config
         self.show = show
@@ -42,6 +43,9 @@ class OfflineRenderer:
         self.height = height
         self.fps = fps
         self.progress_callback = progress_callback
+        # When False, per-fixture debug axis triads (moving-head chassis) are
+        # suppressed — for clean README stills/clips. See _init_renderers.
+        self.show_gizmos = show_gizmos
 
         self._ctx = None
         self._fbo = None
@@ -156,6 +160,153 @@ class OfflineRenderer:
         finally:
             self._cleanup()
 
+    def capture_stills(self, times: List[float], output_dir: str, prefix: str = "still") -> List[str]:
+        """Render PNG stills at the given show times. No FFmpeg required.
+
+        Uses a single monotonic forward pass at ``self.fps`` so the stateful
+        per-block DMX tracking matches real-time playback exactly, grabbing a
+        frame at the pass frame nearest each requested time.
+
+        Returns the list of written file paths (sorted by time).
+        """
+        from PIL import Image
+
+        os.makedirs(output_dir, exist_ok=True)
+
+        song_structure = SongStructure()
+        song_structure.load_from_show_parts(self.show.parts)
+        duration = song_structure.get_total_duration()
+        if duration <= 0:
+            print("Show has no duration, nothing to capture")
+            return []
+
+        # Clamp + de-duplicate targets, keep them ordered.
+        targets = sorted({max(0.0, min(t, duration - 1e-3)) for t in times})
+        total_frames = max(1, int(duration * self.fps))
+
+        try:
+            self._init_gl_context()
+            self._init_renderers()
+            self._init_dmx(song_structure)
+            mvp = self._setup_camera()
+
+            written: List[str] = []
+            ti = 0
+            for frame_idx in range(total_frames):
+                if self._cancelled:
+                    break
+                time_s = frame_idx / self.fps
+                self._update_dmx_at_time(time_s, song_structure)
+                self._apply_dmx_to_fixtures()
+
+                # Only pay for a GL read + encode on frames we actually keep.
+                while ti < len(targets) and targets[ti] <= time_s:
+                    self._render_frame(mvp)
+                    pixels = self._fbo.read(components=3)
+                    arr = np.frombuffer(pixels, dtype=np.uint8).reshape(self.height, self.width, 3)
+                    arr = np.flipud(arr)
+                    path = os.path.join(output_dir, f"{prefix}_{targets[ti]:06.1f}s.png")
+                    Image.fromarray(arr, "RGB").save(path)
+                    written.append(path)
+                    self._report_progress(len(written), len(targets), f"Still at {targets[ti]:.1f}s")
+                    ti += 1
+                if ti >= len(targets):
+                    break
+            return written
+        finally:
+            self._cleanup()
+
+    def render_gif(
+        self,
+        output_path: str,
+        gif_fps: int = 15,
+        max_width: int = 640,
+        colors: int = 128,
+    ) -> bool:
+        """Render the whole show to an optimized animated GIF. No FFmpeg needed.
+
+        GIFs stay small (repo-friendly) by downscaling to ``max_width``, sampling
+        at ``gif_fps`` (a fraction of the render fps), and quantizing every frame
+        to a single shared ``colors``-entry palette. One global palette (rather
+        than a per-frame one) lets GIF frame-diffing + ``optimize`` compress the
+        mostly-static dark stage far better.
+
+        Returns True on success.
+        """
+        from PIL import Image
+
+        song_structure = SongStructure()
+        song_structure.load_from_show_parts(self.show.parts)
+        duration = song_structure.get_total_duration()
+        if duration <= 0:
+            print("Show has no duration, nothing to render")
+            return False
+
+        step = max(1, round(self.fps / max(1, gif_fps)))
+        total_frames = max(1, int(duration * self.fps))
+        # Preserve aspect ratio; only ever downscale.
+        scale = min(1.0, max_width / self.width)
+        out_w = max(1, int(round(self.width * scale)))
+        out_h = max(1, int(round(self.height * scale)))
+
+        try:
+            self._init_gl_context()
+            self._init_renderers()
+            self._init_dmx(song_structure)
+            mvp = self._setup_camera()
+
+            rgb_frames = []
+            for frame_idx in range(total_frames):
+                if self._cancelled:
+                    return False
+                time_s = frame_idx / self.fps
+                self._update_dmx_at_time(time_s, song_structure)
+                self._apply_dmx_to_fixtures()
+                if frame_idx % step != 0:
+                    continue
+
+                self._render_frame(mvp)
+                pixels = self._fbo.read(components=3)
+                arr = np.frombuffer(pixels, dtype=np.uint8).reshape(self.height, self.width, 3)
+                arr = np.flipud(arr)
+                img = Image.fromarray(arr, "RGB")
+                if scale < 1.0:
+                    img = img.resize((out_w, out_h), Image.LANCZOS)
+                rgb_frames.append(img)
+
+                if (frame_idx // step) % gif_fps == 0:
+                    self._report_progress(frame_idx + 1, total_frames,
+                                          f"GIF frame {len(rgb_frames)} ({time_s:.1f}s / {duration:.1f}s)")
+
+            if not rgb_frames:
+                return False
+
+            # Build ONE global palette from frames sampled across the whole show
+            # (colours drift section to section), then map every frame onto it.
+            sample = rgb_frames[:: max(1, len(rgb_frames) // 24)]
+            stack = Image.new("RGB", (out_w, out_h * len(sample)))
+            for i, f in enumerate(sample):
+                stack.paste(f, (0, i * out_h))
+            palette_img = stack.quantize(colors=colors, method=Image.MEDIANCUT)
+            # No dithering: on a dark stage it just adds high-frequency noise that
+            # wrecks GIF/LZW compression. disposal=1 (leave prior frame) lets PIL's
+            # optimizer emit only the changed bounding box per frame — a big win for
+            # the mostly-static background with moving beams.
+            p_frames = [f.quantize(palette=palette_img, dither=Image.NONE) for f in rgb_frames]
+
+            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+            p_frames[0].save(
+                output_path, save_all=True, append_images=p_frames[1:],
+                duration=int(round(1000 / gif_fps)), loop=0, optimize=True, disposal=1,
+            )
+            size_mb = os.path.getsize(output_path) / 1e6
+            self._report_progress(total_frames, total_frames, "Done!")
+            print(f"GIF complete: {output_path}  ({len(p_frames)} frames, {out_w}x{out_h}, "
+                  f"{colors} colors, {size_mb:.1f} MB)")
+            return True
+        finally:
+            self._cleanup()
+
     def _report_progress(self, current: int, total: int, message: str):
         """Report progress via callback."""
         if self.progress_callback:
@@ -176,6 +327,18 @@ class OfflineRenderer:
         """Initialize stage and fixture renderers using the headless context."""
         from visualizer.renderer.stage import StageRenderer
         from visualizer.renderer.fixtures import FixtureManager
+
+        # Optionally suppress the debug coordinate-axis triads that some chassis
+        # geometries draw for orientation. It's a class-level global, but this
+        # renderer runs in its own one-shot (headless) process, so flipping it
+        # here doesn't leak into a running GUI. Covers any chassis exposing the
+        # documented ``show_axes`` attribute, present and future.
+        if not self.show_gizmos:
+            import inspect
+            import visualizer.renderer.chassis as chassis_mod
+            for _name, cls in inspect.getmembers(chassis_mod, inspect.isclass):
+                if hasattr(cls, "show_axes"):
+                    cls.show_axes = False
 
         # Stage
         self._stage_renderer = StageRenderer(

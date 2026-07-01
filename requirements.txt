@@ -23,6 +23,10 @@ pyserial>=3.5
 moderngl>=5.8.0
 pyglm>=2.7.0
 
+# Offline media rendering (headless visualizer -> MP4). GIF/PNG output only
+# needs Pillow (above); this is the FFmpeg backend for the optional MP4 export.
+imageio-ffmpeg>=0.4.9
+
 # Development/Testing
 pytest>=7.0.0
 

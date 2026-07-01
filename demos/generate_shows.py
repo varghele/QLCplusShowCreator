@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""Deterministic generator for the bundled demo SHOWS.
+
+For each demo rig (see ``demos/generate_rigs.py``) this loads the rig,
+auto-generates a full light show from a supplied audio clip using the project's
+own autogen pipeline (``autogen.generator.generate_show``), and writes the
+result — rig + one generated show — as a ``Configuration`` YAML under
+``demos/shows/``. The audio clip is copied next to the shows in
+``demos/shows/audiofiles/`` and referenced by basename, so a demo config loads
+and plays on any machine.
+
+The song structure is built proportionally to the clip: canonical
+intro/verse/chorus/bridge/outro sections sized from the clip's duration and
+tempo, so the autogen matcher has real per-section energy to react to. BPM is
+auto-detected (librosa) unless ``--bpm`` is given.
+
+Run:
+    python -m demos.generate_shows path/to/clip.wav          # from project root
+    python -m demos.generate_shows clip.wav --bpm 128
+    python -m demos.generate_shows clip.wav --rig dj_edm     # single rig
+Output:
+    demos/shows/<rig>.yaml
+    demos/shows/audiofiles/<clip basename>
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import random
+import shutil
+import sys
+
+import numpy as np
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from config.models import Configuration, Show, ShowPart, TimelineData  # noqa: E402
+from timeline.song_structure import SongStructure  # noqa: E402
+from autogen.generator import generate_show  # noqa: E402
+
+RIGS_DIR = os.path.join(PROJECT_ROOT, "demos", "rigs")
+OUT_DIR = os.path.join(PROJECT_ROOT, "demos", "shows")
+
+RIG_NAMES = ["club_band", "band_midsize", "festival_mainstage", "dj_edm", "theatre_static"]
+
+# (display name, structure-UI colour, relative bar weight). The first word of
+# the name is the section *type* the autogen colour/rudiment logic keys on, so
+# keep them canonical: intro / verse / chorus / bridge / outro.
+SECTION_TEMPLATE = [
+    ("Intro",    "#3a3a55", 1),
+    ("Verse 1",  "#2e6fb0", 2),
+    ("Chorus 1", "#c0522a", 2),
+    ("Verse 2",  "#2e6fb0", 2),
+    ("Chorus 2", "#c0522a", 2),
+    ("Bridge",   "#6a3d9a", 1),
+    ("Outro",    "#3a3a55", 1),
+]
+
+DEFAULT_SIGNATURE = "4/4"
+SEED = 0  # fixed so re-running the generator reproduces the same show
+
+
+def _beats_per_bar(signature: str) -> int:
+    try:
+        return int(signature.split("/")[0])
+    except (ValueError, IndexError):
+        return 4
+
+
+def probe_audio(audio_path: str, bpm_override: float | None):
+    """Return (duration_seconds, bpm) for the clip. BPM auto-detected if needed."""
+    import librosa
+
+    duration = float(librosa.get_duration(path=audio_path))
+    if bpm_override is not None:
+        return duration, float(bpm_override)
+
+    y, sr = librosa.load(audio_path, mono=True)
+    tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+    bpm = float(np.atleast_1d(tempo)[0])
+    # Keep the demo tempo sane if detection returns something extreme.
+    if not (40.0 <= bpm <= 220.0):
+        bpm = 120.0
+    return duration, round(bpm, 1)
+
+
+def build_structure(duration: float, bpm: float, signature: str = DEFAULT_SIGNATURE) -> list[ShowPart]:
+    """Lay out the canonical sections proportionally across the clip duration."""
+    bpb = _beats_per_bar(signature)
+    sec_per_bar = bpb * 60.0 / bpm
+
+    total_bars = max(len(SECTION_TEMPLATE), int(duration // sec_per_bar))
+    weight_sum = sum(w for _, _, w in SECTION_TEMPLATE)
+
+    # Proportional allocation, min 1 bar each; largest-remainder for the rest.
+    raw = [(total_bars * w / weight_sum) for _, _, w in SECTION_TEMPLATE]
+    bars = [max(1, int(r)) for r in raw]
+    leftover = total_bars - sum(bars)
+    order = sorted(range(len(raw)), key=lambda i: raw[i] - int(raw[i]), reverse=True)
+    i = 0
+    while leftover > 0:
+        bars[order[i % len(order)]] += 1
+        leftover -= 1
+        i += 1
+
+    parts = []
+    for (name, color, _weight), nbars in zip(SECTION_TEMPLATE, bars):
+        parts.append(ShowPart(
+            name=name, color=color, signature=signature,
+            bpm=bpm, num_bars=nbars, transition="instant",
+        ))
+    return parts
+
+
+def generate_for_rig(rig_name: str, audio_path: str, duration: float, bpm: float) -> Configuration:
+    """Load a rig, autogenerate a show against the clip, attach it, return the config."""
+    cfg = Configuration.load(os.path.join(RIGS_DIR, f"{rig_name}.yaml"))
+
+    parts = build_structure(duration, bpm)
+    structure = SongStructure()
+    structure.load_from_show_parts(parts)
+
+    # Deterministic output across runs.
+    random.seed(SEED)
+    np.random.seed(SEED)
+
+    lanes, _report = generate_show(audio_path, structure, cfg)
+
+    show = Show(
+        name="Demo",
+        parts=parts,
+        timeline_data=TimelineData(lanes=lanes, audio_file_path=os.path.basename(audio_path)),
+    )
+    cfg.shows[show.name] = show
+    return cfg
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Generate bundled demo shows from an audio clip.")
+    parser.add_argument("audio", help="Path to a short royalty-free audio clip (wav/flac/mp3).")
+    parser.add_argument("--bpm", type=float, default=None, help="Override BPM (else auto-detected).")
+    parser.add_argument("--rig", choices=RIG_NAMES, default=None, help="Only generate this rig.")
+    parser.add_argument("--out", default=OUT_DIR, help="Output directory (default: demos/shows).")
+    args = parser.parse_args(argv)
+
+    audio_path = os.path.abspath(args.audio)
+    if not os.path.exists(audio_path):
+        parser.error(f"audio clip not found: {audio_path}")
+
+    duration, bpm = probe_audio(audio_path, args.bpm)
+    rigs = [args.rig] if args.rig else RIG_NAMES
+
+    os.makedirs(args.out, exist_ok=True)
+    audiofiles_dir = os.path.join(args.out, "audiofiles")
+    os.makedirs(audiofiles_dir, exist_ok=True)
+    bundled = os.path.join(audiofiles_dir, os.path.basename(audio_path))
+    if os.path.abspath(bundled) != audio_path:
+        shutil.copyfile(audio_path, bundled)
+
+    print(f"Clip: {os.path.basename(audio_path)}  ({duration:.1f}s, {bpm:g} BPM)")
+    for rig_name in rigs:
+        cfg = generate_for_rig(rig_name, audio_path, duration, bpm)
+        out = os.path.join(args.out, f"{rig_name}.yaml")
+        cfg.save(out)
+        show = cfg.shows["Demo"]
+        n_lanes = len(show.timeline_data.lanes)
+        n_blocks = sum(len(l.light_blocks) for l in show.timeline_data.lanes)
+        print(f"  {rig_name:22s} {len(show.parts)} parts  {n_lanes:2d} lanes  "
+              f"{n_blocks:3d} blocks  -> {os.path.relpath(out, PROJECT_ROOT)}")
+
+
+if __name__ == "__main__":
+    print("Generating demo shows ...")
+    main()

@@ -72,6 +72,11 @@ release/
 nul
 scratch/
 
+# Generated demo media: the small stills (.png) and GIFs (.gif) are committed
+# for the README, but never the large MP4 renders — regenerate any of it with
+# `python -m demos.generate_media <rig>`.
+demos/media/**/*.mp4
+
 # Scratch / versioned project configs at the project root.
 # `config.yaml` (the active project) is intentionally tracked;
 # stash old configs / audio / renders under `archive/` (gitignored below).
