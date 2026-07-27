@@ -11,6 +11,8 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
 
 ## [Unreleased]
 
+## [1.5.0-alpha] - 2026-07-27
+
 ### Added
 
 - **The Live tab owns the SMPTE chase now: input, arm and watch.**
@@ -1639,7 +1641,8 @@ The first beta (~137 commits since the alpha).
 
 Initial public alpha - proof-of-concept timeline + export pipeline.
 
-[Unreleased]: https://github.com/varghele/dielichtmaschine/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/varghele/dielichtmaschine/compare/v1.5.0-alpha...HEAD
+[1.5.0-alpha]: https://github.com/varghele/dielichtmaschine/releases/tag/v1.5.0-alpha
 [1.4.0]: https://github.com/varghele/dielichtmaschine/releases/tag/v1.4.0
 [1.0.0]: https://github.com/varghele/dielichtmaschine/releases/tag/v1.0.0
 [0.9.5-beta]: https://github.com/varghele/dielichtmaschine/releases/tag/v0.9.5-beta
