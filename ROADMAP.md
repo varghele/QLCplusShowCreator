@@ -143,9 +143,9 @@ The code is done; these are the manual checks and the release chore that stand b
 
 **Release ritual** (user, at tag time - `docs/releasing.md`):
 
-- [ ] Drop the `-dev` suffix (`_version.py`: `1.5.0-dev` -> `1.5.0`).
-- [ ] Rename CHANGELOG `[Unreleased]` to `[1.5.0]` with the date.
-- [ ] Re-render the brand assets (`python scripts/render_brand_assets.py` - the README banner + social preview stamp the version at render time; regenerate the About dialog golden too, `test_about_dialog_golden.py`).
+- [x] Drop the pre-release suffix (`_version.py`: `1.5.0-alpha` -> `1.5.0`). The branch carried `-alpha` rather than `-dev` because the alpha was tagged off it 2026-07-27.
+- [x] CHANGELOG section for the release. Not a rename of `[Unreleased]` - that section was empty, because nothing landed after the alpha tag (branch tip **is** `v1.5.0-alpha`). Instead `[1.5.0-alpha] - 2026-07-27` was folded into `[1.5.0] - 2026-08-08`, keeping an empty `[Unreleased]` above and repointing the link lines. The alpha shipped the identical tree, so the final notes are the alpha's notes; renaming `[Unreleased]` would have shipped an empty release body.
+- [x] Re-render the brand assets (`python scripts/render_brand_assets.py` - only the README banner's rating plate stamps the version, so the social preview is unchanged) and regenerate the About dialog golden (`test_about_dialog_golden.py`; note it PASSED while stale - `-alpha` is under the 1% pixel tolerance - so it needs the explicit `QLC_REGEN_GOLDENS=1` run, not just a green test).
 - [ ] Merge `v1.5-focus-morphing` to `main` (`--no-ff`), tag `v1.5.0`, push.
 
 **Post-release hardware verification** (user, needs the rig; findings land as patch releases). Bench kit sits in the repo root (gitignored, machine-local): `bench_kit.lms` / `bench_ltc_25fps_01h.wav` / `bench_kit.qxw`.
