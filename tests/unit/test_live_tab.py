@@ -82,13 +82,20 @@ def live_tab(qapp, three_group_config):
     ThemeManager().apply(qapp, "dark")
     tab = LiveTab(three_group_config, parent=None)
     yield tab
-    # Actually FREE the widget tree, do not just schedule it: the
-    # session qapp never spins an event loop, so a bare deleteLater
-    # leaves every LiveTab's widgets alive for the rest of the worker's
-    # run - and ThemeManager.apply re-polishes app.allWidgets() on every
-    # fixture setup, so the accumulation eventually segfaults setStyleSheet
-    # on offscreen Linux. processEvents delivers the DeferredDelete now
-    # (same teardown other heavy UI fixtures use, e.g. test_stage_tab).
+    # Actually FREE the widget tree, do not just schedule it: the session
+    # qapp never spins an event loop, so a bare deleteLater leaves every
+    # LiveTab's 251 widgets alive for the rest of the worker's run - and
+    # ThemeManager.apply re-polishes app.allWidgets() on every fixture
+    # setup, so the accumulation eventually takes a native access
+    # violation inside setStyleSheet.
+    #
+    # NOTE (2026-08-08): processEvents() alone does NOT deliver
+    # DeferredDelete at this nesting level - an earlier version of this
+    # comment claimed it did, and measurement showed the teardown freeing
+    # exactly nothing (widget count grew 251 per cycle, never dropped),
+    # which is why the CI Windows workers still crashed here. The explicit
+    # flush lives in the suite-wide `_flush_deferred_deletes` autouse
+    # fixture (tests/conftest.py); the deleteLater below is what feeds it.
     tab.deleteLater()
     qapp.processEvents()
 
@@ -1934,3 +1941,53 @@ class TestShowTransportStrip:
         live_tab._refresh_show_transport()
         assert live_tab._show_combo.currentData() == "Zebra"
         assert live_tab._show_play_btn.text() == "STOP"
+
+
+class TestTeardownHygiene:
+    """Pins the 2026-08-08 CI crash: xdist workers gw1/gw2 died with a
+    native access violation inside ThemeManager.apply -> setStyleSheet,
+    reached from this file's `live_tab` fixture.
+
+    Root cause was NOT LiveTab. Every heavy UI fixture in the suite tore
+    down with `w.deleteLater(); qapp.processEvents()`, and processEvents()
+    does not deliver DeferredDelete at this nesting level, so the trees
+    were never freed. They piled up for the whole worker, and because
+    ThemeManager.apply re-polishes app.allWidgets() on every call, a later
+    apply eventually walked the pile and crashed. LiveTab is the heaviest
+    tab (251 widgets), so it died first.
+    """
+
+    def test_deleted_later_widget_is_really_gone_after_the_flush(self, qapp):
+        from PyQt6.QtWidgets import QWidget
+        from PyQt6 import sip
+        from tests.conftest import flush_deferred_deletes
+
+        widget = QWidget()
+        widget.deleteLater()
+        flush_deferred_deletes()
+        assert sip.isdeleted(widget), (
+            "flush_deferred_deletes() did not free a deleteLater()'d widget; "
+            "the suite-wide leak that crashed CI is back"
+        )
+
+    def test_live_tab_cycles_do_not_accumulate_widgets(self, qapp,
+                                                       three_group_config):
+        """The real invariant: building and tearing down LiveTab
+        repeatedly must not grow QApplication.allWidgets(). Before the
+        fix this grew by 251 per cycle and never came back down."""
+        from gui.tabs.live_tab import LiveTab
+        from tests.conftest import flush_deferred_deletes
+
+        flush_deferred_deletes()
+        baseline = len(qapp.allWidgets())
+
+        for _ in range(3):
+            tab = LiveTab(three_group_config, parent=None)
+            tab.deleteLater()
+            flush_deferred_deletes()
+
+        grew_by = len(qapp.allWidgets()) - baseline
+        assert grew_by < 251, (
+            f"LiveTab widget trees are accumulating ({grew_by} widgets left "
+            f"after 3 build/teardown cycles); one whole tab is 251"
+        )

@@ -465,6 +465,82 @@ letting the disclosure fight the layout for space).
 
 ---
 
+## 9. `processEvents()` does NOT deliver `deleteLater()`, and the leak crashes the suite
+
+### Symptom
+
+xdist workers die with a native access violation (Windows) or a
+segfault (offscreen Linux), always inside `ThemeManager.apply` ->
+`app.setStyleSheet(...)`, reached from a heavy UI fixture. The crash
+looks random: it moves between workers and test names between runs,
+and the file it lands in is whichever one happens to build the biggest
+widget tree. Bit us twice - offscreen Linux (2026-07-24) and CI
+Windows (2026-08-08).
+
+### Cause
+
+The standard teardown
+
+```python
+tab.deleteLater()
+qapp.processEvents()
+```
+
+**frees nothing.** `deleteLater()` posts a `DeferredDelete` event, and
+`QCoreApplication.processEvents()` does not deliver `DeferredDelete` at
+this nesting level - the suite never spins an event loop, so the event
+just sits in the queue forever. Measured with six `LiveTab`
+setup/teardown cycles:
+
+```
+cycle 0: after teardown=  251      <- with processEvents() alone
+cycle 1: after teardown=  502
+cycle 2: after teardown=  753 ...
+```
+
+Every widget tree the worker ever built stays alive. `ThemeManager.apply`
+re-polishes `app.allWidgets()` on **every** call, so each later theme
+apply walks a bigger pile of dead-but-referenced widgets until one of
+them takes the access violation.
+
+The crashing file is not the culprit - it is just the heaviest tab
+(`LiveTab` is 251 widgets), so it dies first while every other leaking
+fixture in the worker fed the same pile.
+
+### Fix
+
+Flush the events explicitly:
+
+```python
+QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+QApplication.processEvents()
+```
+
+Suite-wide, this is the `_flush_deferred_deletes` **autouse** fixture in
+`tests/conftest.py` (calling the importable `flush_deferred_deletes()`).
+It is autouse on purpose: patching each fixture individually is how this
+regressed the first time, since the next heavy fixture just reintroduces
+it.
+
+### The tell that it is this bug
+
+Leaked widgets are also a large hidden **time** cost, because every
+`ThemeManager.apply` walks them. Fixing the flush took the unit suite
+from **193 s to 34 s** locally (`-n auto`) and the visual+e2e pass from
+76 s to 50 s. A UI suite that is mysteriously slow AND crashes on CI is
+almost certainly leaking widget trees.
+
+### Landmarks
+
+- `tests/conftest.py::flush_deferred_deletes` + the autouse fixture
+- `tests/e2e/conftest.py` `main_window` - had the correct fix and the
+  correct diagnosis in a comment since before the unit suite did
+- `tests/unit/test_live_tab.py::TestTeardownHygiene` - pins both halves
+  (a `deleteLater()`'d widget is really gone; N tab cycles do not grow
+  `allWidgets()`)
+
+---
+
 ## In-source landmarks
 
 - `gui/widgets/group_row_delegate.py` — strips `State_Selected` so the row tint survives selection

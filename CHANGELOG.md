@@ -11,6 +11,19 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
 
 ## [Unreleased]
 
+### Fixed
+
+- **The test suite no longer leaks every widget tree it builds.** The
+  standard UI-fixture teardown (`deleteLater()` followed by
+  `processEvents()`) freed nothing: `processEvents()` does not deliver
+  `DeferredDelete` when no event loop is running, so every tab and
+  dialog a worker ever built stayed alive. Since applying a theme
+  re-polishes every widget in the application, each later theme apply
+  walked a bigger pile of dead widgets until it crashed - the CI
+  access violations in the Live tab tests, and the earlier
+  offscreen-Linux segfaults. There is now a suite-wide flush.
+  Side effect: the unit suite runs in 34 s instead of 193 s.
+
 ## [1.5.0] - 2026-08-08
 
 ### Added
