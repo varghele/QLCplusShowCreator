@@ -278,3 +278,102 @@ class TestDanglingSpotFallThrough:
             manager, fmap, _block(pan=10.0, tilt=10.0))
         assert dangling == via_point
         assert dangling != manual
+
+
+class TestLissajousFollowsTheAim:
+    """Reported 2026-08-08 from the click-to-aim desktop check: a
+    movement block running a LISSAJOUS pattern looked like it ignored a
+    re-aim. Every shape orbits ``center_pan``/``center_tilt``, which the
+    point target resolves - so this pins that lissajous is not special,
+    on the playback path AND the export sampler."""
+
+    A = [1.0, -2.0, 0.0]
+    B = [-2.5, 1.5, 0.0]
+
+    def _liss(self, point, **kw):
+        params = dict(effect_type="lissajous", target_point=list(point),
+                      lissajous_ratio="1:2", pan_amplitude=30.0,
+                      tilt_amplitude=20.0)
+        params.update(kw)
+        return _block(**params)
+
+    def test_export_centre_is_the_aim_at_t0(self):
+        """sin(0) == 0 for both axes, so at t=0 a lissajous sits exactly
+        on its centre - the cleanest read of where it is aimed."""
+        fixture = _fixture()
+        config = _config(fixture)
+        centre = _sample(config, fixture, _block(target_point=self.A))
+        pan, tilt = _sample(config, fixture, self._liss(self.A),
+                            time_s=0.0)
+        assert abs(pan - centre[0]) <= 1
+        assert abs(tilt - centre[1]) <= 1
+
+    def test_export_reaim_moves_the_whole_pattern(self):
+        fixture = _fixture()
+        config = _config(fixture)
+        for t in (0.0, 1.0, 2.5, 4.0):
+            at_a = _sample(config, fixture, self._liss(self.A), time_s=t)
+            at_b = _sample(config, fixture, self._liss(self.B), time_s=t)
+            assert at_a != at_b, f"lissajous ignored the re-aim at t={t}"
+
+    def test_playback_reaim_moves_the_whole_pattern(self, mock_fixture_def):
+        """The path the app actually renders through."""
+        from utils.artnet.dmx_manager import DMXManager
+        fixture = _fixture(manufacturer="TestMfr")
+        fixture.model = "TestModel"
+        config = _config(fixture)
+        manager = DMXManager(config, {"TestMfr_TestModel": mock_fixture_def})
+        fmap = manager.fixture_maps[fixture.name]
+
+        def pan_tilt(block, time_s):
+            manager.clear_all_dmx()
+            manager._apply_movement_block(fmap, block, time_s, 0, 1)
+            state = manager.dmx_state[fmap.fixture.universe]
+            return state[fmap.pan_channels[0]], state[fmap.tilt_channels[0]]
+
+        for t in (0.0, 1.0, 2.5, 4.0):
+            assert pan_tilt(self._liss(self.A), t) != \
+                pan_tilt(self._liss(self.B), t), \
+                f"lissajous ignored the re-aim at t={t}"
+
+    def test_playback_centre_matches_the_static_aim(self, mock_fixture_def):
+        from utils.artnet.dmx_manager import DMXManager
+        fixture = _fixture(manufacturer="TestMfr")
+        fixture.model = "TestModel"
+        config = _config(fixture)
+        manager = DMXManager(config, {"TestMfr_TestModel": mock_fixture_def})
+        fmap = manager.fixture_maps[fixture.name]
+
+        def pan_tilt(block):
+            manager.clear_all_dmx()
+            manager._apply_movement_block(fmap, block, 0.0, 0, 1)
+            state = manager.dmx_state[fmap.fixture.universe]
+            return state[fmap.pan_channels[0]], state[fmap.tilt_channels[0]]
+
+        static = pan_tilt(_block(target_point=self.A))
+        liss = pan_tilt(self._liss(self.A))
+        assert abs(liss[0] - static[0]) <= 1
+        assert abs(liss[1] - static[1]) <= 1
+
+    def test_a_narrow_clamp_can_swallow_the_reaim(self, mock_fixture_def):
+        """The one way a re-aim REALLY does nothing: the block's own
+        pan_min/pan_max window is narrower than the distance between the
+        two aims, so both clamp to the same edge. Defaults are 0-255 and
+        do not do this, but an authored block can."""
+        from utils.artnet.dmx_manager import DMXManager
+        fixture = _fixture(manufacturer="TestMfr")
+        fixture.model = "TestModel"
+        config = _config(fixture)
+        manager = DMXManager(config, {"TestMfr_TestModel": mock_fixture_def})
+        fmap = manager.fixture_maps[fixture.name]
+
+        def pan_of(block):
+            manager.clear_all_dmx()
+            manager._apply_movement_block(fmap, block, 0.0, 0, 1)
+            return manager.dmx_state[fmap.fixture.universe][
+                fmap.pan_channels[0]]
+
+        pinned = dict(pan_min=200.0, pan_max=201.0,
+                      tilt_min=200.0, tilt_max=201.0)
+        assert pan_of(self._liss(self.A, **pinned)) == \
+            pan_of(self._liss(self.B, **pinned))
