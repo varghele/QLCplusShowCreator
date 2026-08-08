@@ -164,25 +164,50 @@ class EdgeCanvas(QtWidgets.QWidget):
     def __init__(self, patchbay: "MorphPatchbay"):
         super().__init__(patchbay._board)
         self._patchbay = patchbay
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        # Clickable, unlike the in-flight overlay: clicking a wire is how
+        # you select and then unpatch it. Focusable so Delete arrives.
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         width = self.width()
-        for curve in self._patchbay.edge_curves():
-            y1, y2, colour, dashed = curve
-            pen = QtGui.QPen(QtGui.QColor(colour), 2.0)
+        selected = self._patchbay.selected_edge_id
+        for y1, y2, colour, dashed, edge_id in self._patchbay.edge_curves():
+            is_selected = edge_id == selected
+            pen = QtGui.QPen(QtGui.QColor(colour),
+                             3.5 if is_selected else 2.0)
             if dashed:
                 pen.setStyle(Qt.PenStyle.DashLine)
-                pen.setWidthF(1.5)
+                pen.setWidthF(3.0 if is_selected else 1.5)
             painter.setPen(pen)
-            path = QtGui.QPainterPath()
-            path.moveTo(0.0, float(y1))
-            path.cubicTo(width * 0.45, float(y1),
-                         width * 0.55, float(y2), float(width), float(y2))
+            path = self._patchbay.curve_path(y1, y2, width)
             painter.drawPath(path)
+            if is_selected:
+                # A halo, so the selected wire reads even where it
+                # overlaps its neighbours.
+                halo = QtGui.QPen(QtGui.QColor("#f4f1ea"), 1.0)
+                halo.setStyle(Qt.PenStyle.DotLine)
+                painter.setPen(halo)
+                painter.drawPath(path)
         painter.end()
+
+    def mousePressEvent(self, event):
+        edge_id = self._patchbay.edge_at(event.position().toPoint())
+        # A click on empty canvas clears the selection rather than
+        # leaving a wire armed for the next Delete.
+        self._patchbay.select_edge(edge_id)
+        if edge_id is not None:
+            self.setFocus(Qt.FocusReason.MouseFocusReason)
+        super().mousePressEvent(event)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+            if self._patchbay.remove_selected_edge():
+                event.accept()
+                return
+        super().keyPressEvent(event)
 
 
 class _WireOverlay(QtWidgets.QWidget):
@@ -384,6 +409,8 @@ class MorphPatchbay(QtWidgets.QWidget):
         self._drag_point: Optional[QtCore.QPoint] = None
         self._drag_timer: Optional[QtCore.QTimer] = None
         self._overlay: Optional["_WireOverlay"] = None
+        #: view state only - the wire the user clicked, armed for Delete
+        self._selected_edge_id: Optional[str] = None
         self._source_anchors: Dict[Tuple[str, Optional[str]],
                                    QtWidgets.QWidget] = {}
         self._target_anchors: Dict[str, QtWidgets.QWidget] = {}
@@ -459,6 +486,10 @@ class MorphPatchbay(QtWidgets.QWidget):
         if edge is None:
             return False
         self.plan.edges.remove(edge)
+        if self._selected_edge_id == edge_id:
+            # However it went (×, Delete, menu), a selection pointing at
+            # a gone edge would arm the next Delete against nothing.
+            self._selected_edge_id = None
         pair = (edge.source_group, edge.target_group)
         if pair in self._group_patches and not any(
                 e.source_group == pair[0] and e.target_group == pair[1]
@@ -1242,8 +1273,55 @@ class MorphPatchbay(QtWidgets.QWidget):
                                         edge.target_group)
             y1 = self._anchor_y(anchor)
             y2 = self._anchor_y(target)
-            curves.append((y1, y2, info.colour, dashed))
+            curves.append((y1, y2, info.colour, dashed, edge.edge_id))
         return curves
+
+    @staticmethod
+    def curve_path(y1: float, y2: float,
+                   width: float) -> QtGui.QPainterPath:
+        """The wire's shape. ONE definition, shared by the painter and
+        the click hit-test - two copies would drift and clicks would
+        stop landing on the line the user can see."""
+        path = QtGui.QPainterPath()
+        path.moveTo(0.0, float(y1))
+        path.cubicTo(width * 0.45, float(y1),
+                     width * 0.55, float(y2), float(width), float(y2))
+        return path
+
+    def edge_at(self, point: QtCore.QPoint,
+                tolerance: float = 6.0) -> Optional[str]:
+        """edge_id of the wire under a canvas-space point, else None."""
+        width = float(self._canvas.width())
+        for y1, y2, _colour, _dashed, edge_id in self.edge_curves():
+            stroker = QtGui.QPainterPathStroker()
+            stroker.setWidth(tolerance * 2.0)
+            if stroker.createStroke(
+                    self.curve_path(y1, y2, width)).contains(
+                        QtCore.QPointF(point)):
+                return edge_id
+        return None
+
+    def select_edge(self, edge_id: Optional[str]) -> None:
+        """Select a wire (or clear with None). Selection is view state,
+        never touches the plan."""
+        if edge_id is not None and self.edge(edge_id) is None:
+            return
+        self._selected_edge_id = edge_id
+        self._canvas.update()
+        self.hint_label.setText(
+            "Wire selected - press Delete to unpatch it."
+            if edge_id else self.HINT_IDLE)
+
+    @property
+    def selected_edge_id(self) -> Optional[str]:
+        return self._selected_edge_id
+
+    def remove_selected_edge(self) -> bool:
+        if self._selected_edge_id is None:
+            return False
+        removed = self.remove_edge(self._selected_edge_id)
+        self._selected_edge_id = None
+        return removed
 
     def eventFilter(self, obj, event):
         """Keep the overlay covering the board as it resizes/scrolls."""

@@ -608,3 +608,73 @@ class TestUnpatchByKeyboard:
         edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
         holder = _edge_holders(patchbay)[edge.edge_id]
         assert holder.focusPolicy() == Qt.FocusPolicy.StrongFocus
+
+
+class TestWireSelection:
+    """Click the wire itself to select, Delete to unpatch - the gesture
+    a patchbay implies. Hit-testing shares curve_path() with the
+    painter, so clicks land on the line that is actually drawn."""
+
+    def _wire_point(self, patchbay, edge_id, t=0.5):
+        """A point ON the given wire, in canvas coordinates."""
+        width = float(patchbay._canvas.width())
+        for y1, y2, _c, _d, eid in patchbay.edge_curves():
+            if eid == edge_id:
+                return patchbay.curve_path(y1, y2, width).pointAtPercent(t)
+        raise AssertionError(f"no curve for {edge_id}")
+
+    def test_clicking_a_wire_selects_it(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        point = self._wire_point(patchbay, edge.edge_id)
+        assert patchbay.edge_at(point.toPoint()) == edge.edge_id
+
+    def test_empty_canvas_hits_nothing(self, patchbay, rigs):
+        from PyQt6.QtCore import QPoint
+        _s, _t, pars, _m = rigs
+        patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        # Far below every row.
+        assert patchbay.edge_at(QPoint(10, 5000)) is None
+
+    def test_selection_then_delete_removes_that_wire(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        one = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        two = patchbay.add_edge(pars.fixture_targets[0], "colour", "WASH")
+        patchbay.select_edge(one.edge_id)
+        assert patchbay.remove_selected_edge()
+        assert [e.edge_id for e in patchbay.plan.edges] == [two.edge_id]
+
+    def test_delete_with_nothing_selected_is_a_no_op(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        assert not patchbay.remove_selected_edge()
+        assert len(patchbay.plan.edges) == 1
+
+    def test_selecting_an_unknown_edge_is_ignored(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        patchbay.select_edge(edge.edge_id)
+        patchbay.select_edge("nope")
+        assert patchbay.selected_edge_id == edge.edge_id
+
+    def test_removing_by_other_means_clears_the_selection(self, patchbay,
+                                                          rigs):
+        """Otherwise Delete would fire at an edge that is already gone."""
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        patchbay.select_edge(edge.edge_id)
+        patchbay.remove_edge(edge.edge_id)          # the × path
+        assert patchbay.selected_edge_id is None
+
+    def test_canvas_click_routes_through_to_selection(self, patchbay, rigs):
+        from PyQt6.QtCore import QPointF, Qt
+        from PyQt6.QtGui import QMouseEvent
+        from PyQt6.QtCore import QEvent
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        point = self._wire_point(patchbay, edge.edge_id)
+        patchbay._canvas.mousePressEvent(QMouseEvent(
+            QEvent.Type.MouseButtonPress, QPointF(point),
+            Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier))
+        assert patchbay.selected_edge_id == edge.edge_id
