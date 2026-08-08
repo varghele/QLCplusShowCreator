@@ -320,6 +320,31 @@ class _TargetRowFrame(QtWidgets.QFrame):
             event.acceptProposedAction()
 
 
+class _EdgeChipHolder(QtWidgets.QWidget):
+    """One incoming edge: its chip plus the × that unpatches it."""
+
+    UNPATCH_SIZE = 18
+
+    def __init__(self, patchbay: "MorphPatchbay", edge_id: str):
+        super().__init__()
+        self._patchbay = patchbay
+        self.edge_id = edge_id
+
+    @staticmethod
+    def make_unpatch_button(colour: str) -> QtWidgets.QToolButton:
+        button = QtWidgets.QToolButton()
+        button.setText("×")
+        button.setAutoRaise(True)
+        button.setFixedSize(_EdgeChipHolder.UNPATCH_SIZE,
+                            _EdgeChipHolder.UNPATCH_SIZE)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.setStyleSheet(
+            "QToolButton { border: none; background: transparent;"
+            f" color: {colour}; font-size: 14px; padding: 0; }}"
+            "QToolButton:hover { color: #e5484d; }")
+        return button
+
+
 class MorphPatchbay(QtWidgets.QWidget):
     """The routing editor. Owns a MorphPlan and mutates ONLY the plan
     (and its protected_target_lanes); configs are read-only here."""
@@ -984,7 +1009,14 @@ class MorphPatchbay(QtWidgets.QWidget):
         self._target_anchors[group] = head
         return frame
 
-    def _build_edge_chip(self, edge: MorphEdge) -> QtWidgets.QToolButton:
+    def _build_edge_chip(self, edge: MorphEdge) -> QtWidgets.QWidget:
+        """An edge chip plus its unpatch button.
+
+        The × is always visible, not hover-revealed: removal lived only
+        behind a right-click menu until 2026-08-08 and users reasonably
+        concluded there was no way to un-patch at all. An affordance that
+        appears on hover would not have fixed that.
+        """
         info = self._sources_by_selector.get(edge.source_group)
         colour = info.colour if info else "#8d9299"
         text = f"{edge.source_group} · {SUBLANE_LABELS[edge.sublane]}"
@@ -1000,7 +1032,21 @@ class MorphPatchbay(QtWidgets.QWidget):
         chip.customContextMenuRequested.connect(
             lambda pos, e=edge, c=chip: self._edge_menu(e, c, pos))
         chip.setToolTip("Right-click: mode, transforms, priority, delete")
-        return chip
+        chip.setProperty("edge_id", edge.edge_id)
+
+        unpatch = _EdgeChipHolder.make_unpatch_button(colour)
+        unpatch.setToolTip(f"Unpatch {text}")
+        unpatch.setProperty("unpatch_edge_id", edge.edge_id)
+        unpatch.clicked.connect(
+            lambda _=False, eid=edge.edge_id: self.remove_edge(eid))
+
+        holder = _EdgeChipHolder(self, edge.edge_id)
+        box = QtWidgets.QHBoxLayout(holder)
+        box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(2)
+        box.addWidget(chip)
+        box.addWidget(unpatch)
+        return holder
 
     # ── wiring interaction ───────────────────────────────────────────────
 

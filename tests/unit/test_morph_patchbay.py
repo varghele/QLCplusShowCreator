@@ -505,3 +505,57 @@ class TestCableInFlight:
         curve = patchbay.pending_curve()
         assert (curve[2], curve[3]) == (float(expected.x()),
                                         float(expected.y()))
+
+
+def _unpatch_buttons(patchbay):
+    """Every visible × button, by the edge it removes.
+
+    Flushes first: rebuilding rows retires the old ones with
+    deleteLater(), and without a running event loop they would still be
+    found as children - the app itself has a loop, so this is what the
+    user actually sees (see tests/conftest.flush_deferred_deletes)."""
+    from PyQt6.QtWidgets import QToolButton
+    from tests.conftest import flush_deferred_deletes
+    flush_deferred_deletes()
+    found = {}
+    for button in patchbay._board.findChildren(QToolButton):
+        edge_id = button.property("unpatch_edge_id")
+        if edge_id:
+            found[edge_id] = button
+    return found
+
+
+class TestUnpatch:
+    """Removal was reachable only through a right-click menu on the edge
+    chip, so users concluded there was no way to un-patch at all
+    (reported 2026-08-08 during the desktop checks). Every edge now
+    carries a visible ×."""
+
+    def test_every_edge_gets_an_unpatch_button(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        one = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        two = patchbay.add_edge(pars.fixture_targets[0], "colour", "WASH")
+        buttons = _unpatch_buttons(patchbay)
+        assert set(buttons) == {one.edge_id, two.edge_id}
+
+    def test_clicking_it_removes_that_edge_only(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        one = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        two = patchbay.add_edge(pars.fixture_targets[0], "colour", "WASH")
+        _unpatch_buttons(patchbay)[one.edge_id].click()
+        assert [e.edge_id for e in patchbay.plan.edges] == [two.edge_id]
+
+    def test_the_button_disappears_with_its_edge(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        _unpatch_buttons(patchbay)[edge.edge_id].click()
+        assert _unpatch_buttons(patchbay) == {}
+
+    def test_removal_emits_changed_so_the_screen_resyncs(self, patchbay,
+                                                         rigs):
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        seen = []
+        patchbay.changed.connect(lambda: seen.append(1))
+        _unpatch_buttons(patchbay)[edge.edge_id].click()
+        assert seen
