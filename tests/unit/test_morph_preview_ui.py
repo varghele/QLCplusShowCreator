@@ -97,25 +97,30 @@ def _write_png(path):
 
 
 def _stub_render_pair(monkeypatch, calls, sides=("src", "dst")):
-    """render_pair stand-in writing real tiny PNGs; None per side on
-    demand. Records every call's kwargs-of-interest."""
+    """render_strip stand-in writing real tiny PNGs, one per requested
+    time; a side can be omitted to exercise the unavailable path.
+    Records every call's arguments of interest."""
     import os
 
     def fake(source_config, source_song, target_config, morphed_song,
-             time_s, output_dir, **kwargs):
+             times, output_dir, **kwargs):
         calls.append({"source_config": source_config,
                       "source_song": source_song,
                       "target_config": target_config,
                       "morphed_song": morphed_song,
-                      "time_s": time_s,
+                      "times": list(times),
                       "output_dir": output_dir})
-        src = (_write_png(os.path.join(output_dir, "src.png"))
-               if "src" in sides else None)
-        dst = (_write_png(os.path.join(output_dir, "dst.png"))
-               if "dst" in sides else None)
-        return src, dst
 
-    monkeypatch.setattr("utils.morph.preview.render_pair", fake)
+        def frames(tag):
+            if tag not in sides:
+                return {}
+            return {t: _write_png(
+                os.path.join(output_dir, f"{tag}_{t:06.1f}.png"))
+                for t in times}
+
+        return frames("src"), frames("dst")
+
+    monkeypatch.setattr("utils.morph.preview.render_strip", fake)
     return fake
 
 
@@ -178,7 +183,11 @@ class TestRenderOnClick:
 
         assert len(calls) == 1
         call = calls[0]
-        assert call["time_s"] == pytest.approx(4.5)
+        # A STRIP of the whole song, not the one time the slider sits on
+        # - the forward pass costs the same either way (2026-08-08).
+        assert call["times"][0] == pytest.approx(0.0)
+        assert len(call["times"]) > 1
+        assert call["times"][-1] >= 15.0
         assert call["source_config"] is source
         assert call["source_song"] is source.songs["S"]
         # The morphed side renders the dry-run copy, NEVER the real
@@ -206,9 +215,9 @@ class TestRenderOnClick:
 
         def fake(*args, **kwargs):
             seen["enabled_during_render"] = wizard.preview_btn.isEnabled()
-            return None, None
+            return {}, {}
 
-        monkeypatch.setattr("utils.morph.preview.render_pair", fake)
+        monkeypatch.setattr("utils.morph.preview.render_strip", fake)
         wizard._enter_review()
         wizard.preview_btn.click()
         assert seen["enabled_during_render"] is False
@@ -235,7 +244,7 @@ class TestRenderOnClick:
         def boom(*args, **kwargs):
             raise RuntimeError("no GL")
 
-        monkeypatch.setattr("utils.morph.preview.render_pair", boom)
+        monkeypatch.setattr("utils.morph.preview.render_strip", boom)
         source, target = source_and_target
         wizard = _wizard(source, target)
         wizard._enter_review()

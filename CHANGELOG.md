@@ -43,6 +43,14 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
   auto-suggest that wired thirty patches comes back in a single press.
   This is the patchbay's own history, separate from the timeline's.
 
+- **The morph preview scrubs the whole song.** RENDER SCRUB now renders
+  a frame every 2 seconds across the selected song for both rigs, and
+  the slider flips through them instantly instead of showing the single
+  moment you happened to render. This costs barely more than the old
+  single frame did: rendering walks the song to the frame you asked
+  for, so one late frame already paid for all of them. A 4:39 song
+  renders both rigs in about 18 seconds, once.
+
 ### Fixed
 
 - **The morph review page's coverage table looks like the rest of the

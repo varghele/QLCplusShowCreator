@@ -85,3 +85,91 @@ class TestRealRender:
                                    str(tmp_path), width=320, height=180)
         assert a and os.path.getsize(a) > 0
         assert b and os.path.getsize(b) > 0
+
+
+class TestRenderStrip:
+    """Batching is the whole point: ONE renderer and ONE capture_stills
+    call per rig, carrying every requested time.
+
+    capture_stills walks the song once at render fps updating DMX on
+    every frame, and only pays for a GL read on frames it keeps - so the
+    cost tracks how far into the song you go, not how many frames you
+    want. Measured on a real 4:39 song: one still at 90% costs 7.1 s,
+    twenty spread across the song cost 7.3 s. Rendering per slider
+    position paid that walk again each time (2026-08-08).
+    """
+
+    def _fake_renderer(self, monkeypatch, calls):
+        class FakeRenderer:
+            def __init__(self, config, song, definitions, **kwargs):
+                self.kwargs = kwargs
+
+            def capture_stills(self, times, output_dir, prefix="still"):
+                calls.append({"prefix": prefix, "times": list(times)})
+                written = []
+                for t in sorted(set(times)):
+                    path = os.path.join(output_dir, f"{prefix}_{t}.png")
+                    open(path, "wb").close()
+                    written.append(path)
+                return written
+
+        monkeypatch.setattr(
+            "utils.render.offline_renderer.OfflineRenderer", FakeRenderer)
+        monkeypatch.setattr(
+            "utils.fixture_utils.load_fixture_definitions_from_qlc",
+            lambda models: {})
+
+    def test_one_batched_call_per_side(self, tmp_path, monkeypatch):
+        calls = []
+        self._fake_renderer(monkeypatch, calls)
+        a_cfg, a_song = _config_song("A")
+        b_cfg, b_song = _config_song("B")
+        times = [0.0, 2.0, 4.0, 6.0]
+
+        src, dst = preview.render_strip(a_cfg, a_song, b_cfg, b_song,
+                                        times, str(tmp_path))
+
+        assert [c["prefix"] for c in calls] == ["src", "dst"], \
+            "source first, then morphed - two live GL contexts on one " \
+            "thread are unsafe"
+        assert all(c["times"] == times for c in calls), \
+            "every frame goes in ONE call, not one call per frame"
+        assert sorted(src) == times
+        assert sorted(dst) == times
+
+    def test_times_are_sorted_and_deduped(self, tmp_path, monkeypatch):
+        calls = []
+        self._fake_renderer(monkeypatch, calls)
+        a_cfg, a_song = _config_song("A")
+        b_cfg, b_song = _config_song("B")
+
+        src, _dst = preview.render_strip(a_cfg, a_song, b_cfg, b_song,
+                                         [4.0, 0.0, 4.0, 2.0],
+                                         str(tmp_path))
+        assert sorted(src) == [0.0, 2.0, 4.0]
+
+    def test_a_failing_side_degrades_to_an_empty_map(self, tmp_path,
+                                                     monkeypatch):
+        """One rig without GL must not take the other down."""
+        def boom(config, song, times, output_dir, prefix, camera,
+                 width, height):
+            if prefix == "dst":
+                raise RuntimeError("no GL")
+            return [os.path.join(output_dir, "src.png")]
+
+        monkeypatch.setattr(preview, "_render_side", boom)
+        a_cfg, a_song = _config_song("A")
+        b_cfg, b_song = _config_song("B")
+        src, dst = preview.render_strip(a_cfg, a_song, b_cfg, b_song,
+                                        [0.0], str(tmp_path))
+        assert src and dst == {}
+
+    def test_missing_song_renders_nothing(self, tmp_path, monkeypatch):
+        calls = []
+        self._fake_renderer(monkeypatch, calls)
+        a_cfg, a_song = _config_song("A")
+        b_cfg, _b_song = _config_song("B")
+        src, dst = preview.render_strip(a_cfg, a_song, b_cfg, None,
+                                        [0.0], str(tmp_path))
+        assert src and dst == {}
+        assert [c["prefix"] for c in calls] == ["src"]

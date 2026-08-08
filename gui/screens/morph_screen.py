@@ -75,6 +75,11 @@ PREVIEW_UNAVAILABLE = "PREVIEW UNAVAILABLE (no GL / empty song)"
 #: slider resolution: one tick = 0.1 s of show time
 PREVIEW_TICKS_PER_SECOND = 10
 
+#: seconds between rendered scrub frames (user call 2026-08-08). The
+#: marginal cost of one more frame inside a batch is ~10 ms, so density
+#: is nearly free; what costs is the forward pass to the LAST frame.
+PREVIEW_STRIP_INTERVAL_S = 2.0
+
 
 class _PreviewWorker(QtCore.QThread):
     """Run one render_pair call off the GUI thread (each render is a
@@ -131,6 +136,11 @@ class MorphScreen(QtWidgets.QWidget):
         self._target_hash = None
         self._preview_worker = None
         self._preview_dir = None       # scratch dir, created on first render
+        #: rendered scrub strip for ONE song: {"song", "times", src, dst}
+        self._preview_strip: dict = {}
+        self._pending_strip: dict = {}
+        #: path -> QPixmap, so scrubbing does not re-decode a PNG per tick
+        self._preview_pixmaps: dict = {}
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(16, 12, 16, 12)
@@ -410,7 +420,10 @@ class MorphScreen(QtWidgets.QWidget):
         controls.addWidget(self.preview_slider, 1)
         self.preview_time_label = QtWidgets.QLabel("0.0 s")
         controls.addWidget(self.preview_time_label)
-        self.preview_btn = QtWidgets.QPushButton("RENDER PREVIEW")
+        self.preview_btn = QtWidgets.QPushButton("RENDER SCRUB")
+        self.preview_btn.setToolTip(
+            "Render the whole song as a strip of frames, then scrub it "
+            "with the slider")
         self.preview_btn.setEnabled(False)
         self.preview_btn.clicked.connect(self._render_preview)
         controls.addWidget(self.preview_btn)
@@ -545,19 +558,86 @@ class MorphScreen(QtWidgets.QWidget):
         self.preview_slider.setRange(
             0, max(0, int(duration * PREVIEW_TICKS_PER_SECOND)))
         self.preview_slider.setValue(0)
+        # A strip belongs to ONE song; switching songs invalidates it
+        # rather than showing the previous song's frames.
+        if self._preview_strip.get("song") != name:
+            self._preview_strip = {}
+            self._preview_pixmaps.clear()
+            self.preview_src_image.setPixmap(QtGui.QPixmap())
+            self.preview_dst_image.setPixmap(QtGui.QPixmap())
+            self.preview_src_image.setText("No preview rendered yet.")
+            self.preview_dst_image.setText("No preview rendered yet.")
         self._on_preview_time_changed(0)
 
     def _on_preview_time_changed(self, value: int) -> None:
-        # Label only - a render is a full GL pass and happens on the
-        # button, never per slider tick.
         self.preview_time_label.setText(
             f"{value / PREVIEW_TICKS_PER_SECOND:.1f} s")
+        # Scrubbing shows an ALREADY RENDERED frame; it never starts a
+        # render. Rendering stays on the button.
+        self._show_strip_frame(value / PREVIEW_TICKS_PER_SECOND)
 
     def preview_time_s(self) -> float:
         return self.preview_slider.value() / PREVIEW_TICKS_PER_SECOND
 
+    # ── the scrub strip ──────────────────────────────────────────────────
+
+    def strip_times(self, duration: float) -> List[float]:
+        """Show times to render for a scrub, every
+        PREVIEW_STRIP_INTERVAL_S plus the final moment."""
+        if duration <= 0:
+            return []
+        step = PREVIEW_STRIP_INTERVAL_S
+        times = [round(i * step, 3)
+                 for i in range(int(duration / step) + 1)]
+        last = round(max(0.0, duration - 0.05), 3)
+        if not times or times[-1] < last:
+            times.append(last)
+        return times
+
+    def nearest_strip_time(self, time_s: float) -> Optional[float]:
+        """The rendered frame closest to a scrub position, else None."""
+        times = self._preview_strip.get("times") or []
+        if not times:
+            return None
+        return min(times, key=lambda t: abs(t - time_s))
+
+    def _show_strip_frame(self, time_s: float) -> None:
+        if self._preview_strip.get("song") != self._preview_song_name():
+            return
+        nearest = self.nearest_strip_time(time_s)
+        if nearest is None:
+            return
+        for key, label in (("src", self.preview_src_image),
+                           ("dst", self.preview_dst_image)):
+            self._set_preview_pixmap(
+                label, (self._preview_strip.get(key) or {}).get(nearest))
+        self.preview_status.setText(
+            f"Frame at {nearest:.1f} s "
+            f"({len(self._preview_strip.get('times') or [])} rendered).")
+
+    def _set_preview_pixmap(self, label, path) -> None:
+        pixmap = self._preview_pixmaps.get(path) if path else None
+        if pixmap is None and path:
+            pixmap = QtGui.QPixmap(path)
+            self._preview_pixmaps[path] = pixmap
+        if pixmap is None or pixmap.isNull():
+            label.setPixmap(QtGui.QPixmap())
+            label.setText(PREVIEW_UNAVAILABLE)
+            return
+        label.setPixmap(pixmap.scaled(
+            label.size(), Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation))
+
     def _render_preview(self) -> None:
-        """RENDER PREVIEW: one render_pair call on a worker thread."""
+        """RENDER SCRUB: one batched pass per rig, on a worker thread.
+
+        Renders the whole song as a strip of frames rather than the one
+        the slider happens to sit on. Twenty frames spread across a 4:39
+        song cost the same as ONE frame near its end (7.3 s vs 7.1 s
+        measured), because the expensive part is the DMX forward walk,
+        not the pixels - so per-frame rendering was paying that walk
+        over and over. Afterwards the slider is instant.
+        """
         if self._preview_worker is not None \
                 and self._preview_worker.isRunning():
             return
@@ -567,43 +647,49 @@ class MorphScreen(QtWidgets.QWidget):
                         else {}).get(name)
         if morphed_song is None or self._dry_target is None:
             return
+        duration = _song_duration(source_song) if source_song else 0.0
+        times = self.strip_times(duration)
+        if not times:
+            return
         if self._preview_dir is None:
             self._preview_dir = tempfile.mkdtemp(prefix="lm-morph-preview-")
         # A fresh subdir per render: QPixmap caches by path, so reusing
         # file names would show the previous still.
         out_dir = tempfile.mkdtemp(dir=self._preview_dir)
-        time_s = self.preview_time_s()
         source_config, dry_target = self.source_config, self._dry_target
 
         def work():
-            return morph_preview.render_pair(
+            return morph_preview.render_strip(
                 source_config, source_song, dry_target, morphed_song,
-                time_s, out_dir)
+                times, out_dir)
 
         worker = _PreviewWorker(work, parent=self)
         worker.ok.connect(self._on_preview_rendered)
         worker.fail.connect(self._on_preview_failed)
         worker.finished.connect(self._on_preview_finished)
         self._preview_worker = worker
+        self._pending_strip = {"song": name, "times": times}
         self.preview_btn.setEnabled(False)
         self.preview_status.setText(
-            f"Rendering both rigs at {time_s:.1f} s...")
+            f"Rendering {len(times)} frames per rig across "
+            f"{duration:.0f} s (one pass each)...")
         worker.start()
 
-    def _on_preview_rendered(self, paths) -> None:
-        src, dst = paths
-        for path, label in ((src, self.preview_src_image),
-                            (dst, self.preview_dst_image)):
-            pixmap = QtGui.QPixmap(path) if path else QtGui.QPixmap()
-            if pixmap.isNull():
-                label.setPixmap(QtGui.QPixmap())
-                label.setText(PREVIEW_UNAVAILABLE)
-            else:
-                label.setPixmap(pixmap.scaled(
-                    label.size(), Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation))
-        self.preview_status.setText(
-            f"Rendered at {self.preview_time_s():.1f} s.")
+    def _on_preview_rendered(self, strip) -> None:
+        src, dst = strip
+        pending = getattr(self, "_pending_strip", {}) or {}
+        rendered = sorted(set(src) | set(dst))
+        self._preview_strip = {
+            "song": pending.get("song"),
+            "times": rendered or (pending.get("times") or []),
+            "src": src,
+            "dst": dst,
+        }
+        self._preview_pixmaps.clear()
+        if not rendered:
+            self._on_preview_failed(PREVIEW_UNAVAILABLE)
+            return
+        self._show_strip_frame(self.preview_time_s())
 
     def _on_preview_failed(self, message: str) -> None:
         self.preview_src_image.setText(PREVIEW_UNAVAILABLE)

@@ -289,3 +289,73 @@ class TestExitGate:
         fired = self._signals(screen)
         screen.request_exit()
         assert fired == {"leave": 0, "closed": 1}
+
+
+class TestScrubStrip:
+    """RENDER SCRUB batches the whole song into ONE forward pass per rig
+    instead of re-rendering per slider position (2026-08-08).
+
+    Measured on a real 4:39 song: one still 90% in costs 7.1 s and
+    twenty stills spread across the whole song cost 7.3 s, because the
+    expense is the DMX forward walk, not the pixels. Rendering per
+    slider tick paid that walk again every time."""
+
+    def test_frames_every_two_seconds_plus_the_end(self, qapp,
+                                                   source_and_target):
+        from gui.screens.morph_screen import PREVIEW_STRIP_INTERVAL_S
+        source, target, lane = source_and_target
+        screen = _screen(qapp, source, target, lane)
+        times = screen.strip_times(16.0)
+        assert times[:3] == [0.0, 2.0, 4.0]
+        assert PREVIEW_STRIP_INTERVAL_S == 2.0
+        # The last moment of the song is always covered, so the end of
+        # the slider is never a blank.
+        assert times[-1] >= 15.0
+
+    def test_empty_song_asks_for_no_frames(self, qapp, source_and_target):
+        source, target, lane = source_and_target
+        screen = _screen(qapp, source, target, lane)
+        assert screen.strip_times(0.0) == []
+
+    def test_scrub_picks_the_nearest_rendered_frame(self, qapp,
+                                                    source_and_target):
+        source, target, lane = source_and_target
+        screen = _screen(qapp, source, target, lane)
+        screen._preview_strip = {"song": "S", "times": [0.0, 2.0, 4.0],
+                                 "src": {}, "dst": {}}
+        assert screen.nearest_strip_time(2.4) == 2.0
+        assert screen.nearest_strip_time(3.1) == 4.0
+        assert screen.nearest_strip_time(99.0) == 4.0
+
+    def test_no_strip_means_no_frame(self, qapp, source_and_target):
+        source, target, lane = source_and_target
+        screen = _screen(qapp, source, target, lane)
+        assert screen.nearest_strip_time(1.0) is None
+
+    def test_switching_song_drops_the_strip(self, qapp, source_and_target):
+        """A strip belongs to one song; showing another song's frames
+        would be a quietly wrong preview."""
+        source, target, lane = source_and_target
+        screen = _screen(qapp, source, target, lane)
+        screen._preview_strip = {"song": "S", "times": [0.0], "src": {},
+                                 "dst": {}}
+        screen.preview_song_combo.addItem("Other")
+        screen.preview_song_combo.setCurrentIndex(
+            screen.preview_song_combo.count() - 1)
+        assert screen._preview_strip == {}
+
+    def test_scrubbing_never_starts_a_render(self, qapp, source_and_target,
+                                             monkeypatch):
+        """The whole point of batching: the slider reads the cache."""
+        from utils.morph import preview as morph_preview
+        source, target, lane = source_and_target
+        screen = _screen(qapp, source, target, lane)
+        called = []
+        monkeypatch.setattr(morph_preview, "render_strip",
+                            lambda *a, **k: called.append(a))
+        monkeypatch.setattr(morph_preview, "render_pair",
+                            lambda *a, **k: called.append(a))
+        screen.preview_slider.setRange(0, 200)
+        for value in (10, 50, 120, 200):
+            screen.preview_slider.setValue(value)
+        assert called == []
