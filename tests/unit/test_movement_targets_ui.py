@@ -488,3 +488,84 @@ class TestShowsTabSelection:
     def test_refresh_movement_targets_is_safe(self, shows_tab):
         self._lane_with_movement(shows_tab, [_block()])
         shows_tab.refresh_movement_targets()  # must not raise
+
+
+class TestAimTargetMarker:
+    """The plan draws where the selected movement block(s) point
+    (2026-08-08).
+
+    Added because click-to-aim had no visible result: the status line
+    disappears, the Stage tab's own 3D preview runs in BUILD mode (it
+    never shows the aim), and a wide-amplitude pattern sweeps far enough
+    that a re-centred beam reads as unchanged even in playback -
+    measured, a cross-stage re-aim moves a hung mover's tilt by ~7
+    degrees against a +/-106 degree sweep at the default amplitude.
+    """
+
+    @pytest.fixture
+    def stage_tab(self, qapp):
+        from gui.tabs.stage_tab import StageTab
+        tab = StageTab(_mover_config(), parent=None)
+        yield tab
+        tab.deleteLater()
+
+    def test_no_selection_means_no_marker(self, stage_tab):
+        stage_tab.aim_blocks_provider = lambda: []
+        stage_tab.refresh_aim_targets()
+        assert stage_tab.stage_view.aim_targets() == []
+
+    def test_marker_follows_an_aim_click(self, stage_tab):
+        blocks = [_block()]
+        stage_tab.aim_blocks_provider = lambda: blocks
+        stage_tab._on_aim_clicked(2.0, -1.5, False)
+        assert stage_tab.stage_view.aim_targets() == [(2.0, -1.5)]
+
+    def test_one_marker_per_selected_block(self, stage_tab):
+        blocks = [_block(target_point=[1.0, 1.0, 0.0]),
+                  _block(target_point=[-2.0, 0.5, 0.0])]
+        stage_tab.aim_blocks_provider = lambda: blocks
+        stage_tab.refresh_aim_targets()
+        assert stage_tab.stage_view.aim_targets() == [(1.0, 1.0),
+                                                      (-2.0, 0.5)]
+
+    def test_a_named_spot_target_also_shows(self, stage_tab):
+        """A block aimed at a spot has no target_point, but the operator
+        still wants to see where it points."""
+        blocks = [_block(target_spot_name="Mark")]
+        stage_tab.aim_blocks_provider = lambda: blocks
+        stage_tab.refresh_aim_targets()
+        spot = stage_tab.config.spots["Mark"]
+        assert stage_tab.stage_view.aim_targets() == [(spot.x, spot.y)]
+
+    def test_manual_block_contributes_no_marker(self, stage_tab):
+        blocks = [_block()]
+        stage_tab.aim_blocks_provider = lambda: blocks
+        stage_tab.refresh_aim_targets()
+        assert stage_tab.stage_view.aim_targets() == []
+
+    def test_arriving_on_the_tab_refreshes_the_marker(self, stage_tab):
+        """The Shows tab has no selection-changed signal, so activation
+        is when the marker gets corrected."""
+        blocks = [_block(target_point=[3.0, -1.0, 0.0])]
+        stage_tab.aim_blocks_provider = lambda: blocks
+        assert stage_tab.stage_view.aim_targets() == []
+        stage_tab.on_tab_activated()
+        assert stage_tab.stage_view.aim_targets() == [(3.0, -1.0)]
+
+    def test_marker_is_view_state_only(self, stage_tab):
+        """It must never write to the model."""
+        block = _block(target_point=[1.0, 2.0, 0.5])
+        stage_tab.aim_blocks_provider = lambda: [block]
+        stage_tab.refresh_aim_targets()
+        assert block.target_point == [1.0, 2.0, 0.5]
+
+    def test_setting_the_same_targets_twice_is_idempotent(self, stage_tab):
+        view = stage_tab.stage_view
+        view.set_aim_targets([(1.0, 2.0)])
+        view.set_aim_targets([(1.0, 2.0)])
+        assert view.aim_targets() == [(1.0, 2.0)]
+
+    def test_garbage_targets_are_ignored_not_crashed_on(self, stage_tab):
+        view = stage_tab.stage_view
+        view.set_aim_targets([(1.0, 2.0), None, ("x", "y"), (3.0,)])
+        assert view.aim_targets() == [(1.0, 2.0)]

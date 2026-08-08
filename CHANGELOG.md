@@ -51,7 +51,18 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
   for, so one late frame already paid for all of them. A 4:39 song
   renders both rigs in about 18 seconds, once.
 
+- **Click-to-aim shows you where you aimed.** The stage plan now draws
+  a marker at the target of every selected movement block, so an aim
+  lands visibly instead of only as a status line that fades. It also
+  shows blocks aimed at a named spot. This matters most for wide
+  patterns: a lissajous or circle at the default amplitude sweeps far
+  enough that a re-aimed beam can look unchanged even though it moved.
+
 ### Fixed
+
+- **A saved pre-flight no longer breaks New from Template.** Saving a
+  venue pre-flight next to a rig put a sidecar file in the templates
+  folder, which then listed as an empty starter project.
 
 - **The morph review page's coverage table looks like the rest of the
   app.** The area below the last row painted white under the dark

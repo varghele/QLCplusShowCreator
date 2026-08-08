@@ -17,6 +17,12 @@ _FALLBACK_GRID = QColor(200, 200, 200)
 _FALLBACK_LABEL = QColor(60, 60, 60)
 _FALLBACK_FIXTURE_TEXT = QColor(0, 0, 0)
 
+#: click-to-aim target marker. Glutorange, like the spike marks and the
+#: rest of the accent chrome, so it reads as "the thing you just did"
+#: rather than another piece of rig.
+_AIM_TARGET_COLOR = "#F0562E"
+_AIM_TARGET_RADIUS = 7.0
+
 
 # Drag-and-drop contract between the Stage tab's element palette and the
 # 2D plan: the payload is the catalog kind, UTF-8 encoded. Kept here
@@ -141,6 +147,12 @@ class StageView(QtWidgets.QGraphicsView):
 
         # Click-to-aim mode (see aim_clicked). UI state, not persisted.
         self.aim_mode = False
+        #: where the selected movement block(s) currently point, as
+        #: (x_m, y_m) in centred stage metres. Drawn over the plan so an
+        #: aim is visible WITHOUT switching tabs and playing back - a
+        #: wide-amplitude pattern sweeps far enough that a re-centred
+        #: beam reads as unchanged (reported 2026-08-08). View state.
+        self._aim_targets: list = []
 
         # List to store fixture items
         self.fixtures = {}
@@ -1045,6 +1057,54 @@ class StageView(QtWidgets.QGraphicsView):
         super().changeEvent(event)
         if event.type() == QtCore.QEvent.Type.StyleChange:
             self._on_theme_color_changed()
+
+    def set_aim_targets(self, targets) -> None:
+        """Show where the selected movement block(s) point.
+
+        ``targets`` is an iterable of (x_m, y_m) in centred stage
+        metres; empty clears. Pure view state - never written to the
+        model, and never persisted."""
+        cleaned = []
+        for target in targets or ():
+            try:
+                cleaned.append((float(target[0]), float(target[1])))
+            except (TypeError, ValueError, IndexError):
+                continue
+        if cleaned == self._aim_targets:
+            return
+        self._aim_targets = cleaned
+        self.viewport().update()
+
+    def aim_targets(self) -> list:
+        return list(self._aim_targets)
+
+    def drawForeground(self, painter, rect):
+        """Aim markers, painted OVER the fixtures so a target on top of
+        a fixture symbol is still visible."""
+        super().drawForeground(painter, rect)
+        if not self._aim_targets:
+            return
+        painter.save()
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        colour = QColor(_AIM_TARGET_COLOR)
+        for x_m, y_m in self._aim_targets:
+            x_px, y_px = self.meters_to_pixels(x_m, y_m)
+            centre = QtCore.QPointF(x_px, y_px)
+            painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
+            painter.setPen(QtGui.QPen(colour, 1.6))
+            painter.drawEllipse(centre, _AIM_TARGET_RADIUS,
+                                _AIM_TARGET_RADIUS)
+            # Crosshair through the ring: a bare circle reads as another
+            # fixture symbol on a busy plan.
+            reach = _AIM_TARGET_RADIUS * 1.8
+            painter.drawLine(QtCore.QPointF(x_px - reach, y_px),
+                             QtCore.QPointF(x_px + reach, y_px))
+            painter.drawLine(QtCore.QPointF(x_px, y_px - reach),
+                             QtCore.QPointF(x_px, y_px + reach))
+            painter.setBrush(QtGui.QBrush(colour))
+            painter.setPen(QtCore.Qt.PenStyle.NoPen)
+            painter.drawEllipse(centre, 2.0, 2.0)
+        painter.restore()
 
     def set_aim_mode(self, enabled: bool) -> None:
         """Toggle click-to-aim: left clicks report stage coordinates via

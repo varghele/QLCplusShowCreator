@@ -1382,10 +1382,31 @@ class StageTab(BaseTab):
 
     def _on_aim_mode_toggled(self, checked: bool) -> None:
         self.stage_view.set_aim_mode(checked)
+        self.refresh_aim_targets()
         if checked:
             self._show_status(
                 "AIM: click the stage plan to aim the selected movement "
                 "block(s) · Shift keeps the current target height")
+
+    def refresh_aim_targets(self) -> None:
+        """Push the selected movement block(s) targets onto the plan.
+
+        Called when aim mode is armed, after an aim click, and whenever
+        the tab is shown - the Shows tab has no selection-changed signal
+        to subscribe to, and arriving on the Stage tab is exactly when
+        the marker needs to be right."""
+        blocks = self._aim_movement_blocks()
+        targets = []
+        for block in blocks:
+            point = getattr(block, "target_point", None)
+            if point:
+                targets.append((point[0], point[1]))
+            elif getattr(block, "target_spot_name", None):
+                spot = (getattr(self.config, "spots", {}) or {}).get(
+                    block.target_spot_name)
+                if spot is not None:
+                    targets.append((spot.x, spot.y))
+        self.stage_view.set_aim_targets(targets)
 
     def _aim_movement_blocks(self) -> list:
         """The movement blocks an aim click writes to.
@@ -1427,6 +1448,7 @@ class StageTab(BaseTab):
         if shows_tab is not None and hasattr(shows_tab,
                                              "refresh_movement_targets"):
             shows_tab.refresh_movement_targets()
+        self.refresh_aim_targets()
         self._show_status(
             f"AIM: {len(blocks)} movement block(s) target "
             f"({x_m:.2f}, {y_m:.2f}) m")
@@ -1712,6 +1734,10 @@ class StageTab(BaseTab):
         if hasattr(self, "embedded_visualizer") and self.embedded_visualizer is not None:
             self.embedded_visualizer.set_preview_mode("build")
             self._refresh_embedded_visualizer()
+        # The Shows tab's selection may have changed while we were away,
+        # and arriving here is exactly when the aim marker has to be
+        # right - there is no selection-changed signal to subscribe to.
+        self.refresh_aim_targets()
 
     def on_tab_deactivated(self):
         """Called when switching away from stage tab."""
