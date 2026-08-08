@@ -50,6 +50,7 @@ plain method on the widget; painting only reads):
 
 from __future__ import annotations
 
+import contextlib
 from typing import Dict, List, Optional, Tuple
 
 from PyQt6 import QtCore, QtGui, QtWidgets
@@ -356,6 +357,36 @@ class _TargetRowFrame(QtWidgets.QFrame):
             event.acceptProposedAction()
 
 
+class _PlanEditCommand(QtGui.QUndoCommand):
+    """Snapshot-based undo for the patch plan.
+
+    Deliberately NOT a command class per mutation. The plan is a small
+    document (a real 12-song gig is 39 edges) and the patchbay mutates it
+    nine different ways; nine inverse operations would drift out of sync
+    with them, while one snapshot pair cannot. Snapshots are plain data
+    (edge dicts), so equality is free and a no-op edit pushes nothing.
+    """
+
+    def __init__(self, patchbay: "MorphPatchbay", text: str,
+                 before, after):
+        super().__init__(text)
+        self._patchbay = patchbay
+        self._before = before
+        self._after = after
+        # QUndoStack.push() calls redo() immediately, but the mutation
+        # has already run by then - the first redo must not re-apply it.
+        self._applied = True
+
+    def redo(self):
+        if self._applied:
+            self._applied = False
+            return
+        self._patchbay._restore_snapshot(self._after)
+
+    def undo(self):
+        self._patchbay._restore_snapshot(self._before)
+
+
 class _EdgeChipHolder(QtWidgets.QWidget):
     """One incoming edge: its chip plus the × that unpatches it."""
 
@@ -449,6 +480,12 @@ class MorphPatchbay(QtWidgets.QWidget):
         self._overlay: Optional["_WireOverlay"] = None
         #: view state only - the wire the user clicked, armed for Delete
         self._selected_edge_id: Optional[str] = None
+        #: the patchbay's OWN stack: Ctrl+Z here means "unpatch that
+        #: again", never "undo a timeline edit" (the app stack is a
+        #: different document).
+        self.undo_stack = QtGui.QUndoStack(self)
+        self._undo_depth = 0
+        self._restoring = False
         self._source_anchors: Dict[Tuple[str, Optional[str]],
                                    QtWidgets.QWidget] = {}
         self._target_anchors: Dict[str, QtWidgets.QWidget] = {}
@@ -498,8 +535,11 @@ class MorphPatchbay(QtWidgets.QWidget):
                 mode = "copy"
         edge = MorphEdge(source_group=selector, sublane=sublane,
                          target_group=target_group, mode=mode)
-        self.plan.edges.append(edge)
-        self._notify()
+        with self._undoable(
+                f"Patch {selector} · {SUBLANE_LABELS[sublane]} "
+                f"-> {target_group}"):
+            self.plan.edges.append(edge)
+            self._notify()
         return edge
 
     def add_group_patch(self, selector: str,
@@ -508,32 +548,35 @@ class MorphPatchbay(QtWidgets.QWidget):
         target renders, marked as one dashed fan-out."""
         added = []
         content = self.source_content(selector)
-        for sublane in SUBLANE_ORDER:
-            if not content.get(sublane):
-                continue
-            edge = self.add_edge(selector, sublane, target_group)
-            if edge is not None:
-                added.append(edge)
-        if len(added) >= 2:
-            self._group_patches.add((selector, target_group))
-            self._notify()
+        with self._undoable(f"Patch {selector} -> {target_group}"):
+            for sublane in SUBLANE_ORDER:
+                if not content.get(sublane):
+                    continue
+                edge = self.add_edge(selector, sublane, target_group)
+                if edge is not None:
+                    added.append(edge)
+            if len(added) >= 2:
+                self._group_patches.add((selector, target_group))
+                self._notify()
         return added
 
     def remove_edge(self, edge_id: str) -> bool:
         edge = self.edge(edge_id)
         if edge is None:
             return False
-        self.plan.edges.remove(edge)
-        if self._selected_edge_id == edge_id:
-            # However it went (×, Delete, menu), a selection pointing at
-            # a gone edge would arm the next Delete against nothing.
-            self._selected_edge_id = None
-        pair = (edge.source_group, edge.target_group)
-        if pair in self._group_patches and not any(
-                e.source_group == pair[0] and e.target_group == pair[1]
-                for e in self.plan.edges):
-            self._group_patches.discard(pair)
-        self._notify()
+        label = f"{edge.source_group} · {SUBLANE_LABELS[edge.sublane]}"
+        with self._undoable(f"Unpatch {label}"):
+            self.plan.edges.remove(edge)
+            if self._selected_edge_id == edge_id:
+                # However it went (×, Delete, menu), a selection pointing
+                # at a gone edge would arm the next Delete at nothing.
+                self._selected_edge_id = None
+            pair = (edge.source_group, edge.target_group)
+            if pair in self._group_patches and not any(
+                    e.source_group == pair[0] and e.target_group == pair[1]
+                    for e in self.plan.edges):
+                self._group_patches.discard(pair)
+            self._notify()
         return True
 
     def set_edge_mode(self, edge_id: str, mode: str,
@@ -541,13 +584,14 @@ class MorphPatchbay(QtWidgets.QWidget):
         edge = self.edge(edge_id)
         if edge is None:
             return
-        edge.mode = mode
-        if mode == "regenerate":
-            if strategy in REGENERATE_STRATEGIES:
-                edge.regenerate_strategy = strategy
-        elif mode == "copy":
-            edge.transforms = []
-        self._notify()
+        with self._undoable(f"Set mode {mode}"):
+            edge.mode = mode
+            if mode == "regenerate":
+                if strategy in REGENERATE_STRATEGIES:
+                    edge.regenerate_strategy = strategy
+            elif mode == "copy":
+                edge.transforms = []
+            self._notify()
 
     def set_transform(self, edge_id: str, kind: str, **params) -> None:
         """Add or replace one transform on the edge; flips the mode to
@@ -561,29 +605,32 @@ class MorphPatchbay(QtWidgets.QWidget):
         edge = self.edge(edge_id)
         if edge is None:
             return
-        edge.transforms = [t for t in edge.transforms
-                           if t.get("type") != kind]
-        edge.transforms.append({"type": kind, **params})
-        if edge.mode == "copy":
-            edge.mode = "copy_transform"
-        self._notify()
+        with self._undoable(f"Set {kind}"):
+            edge.transforms = [t for t in edge.transforms
+                               if t.get("type") != kind]
+            edge.transforms.append({"type": kind, **params})
+            if edge.mode == "copy":
+                edge.mode = "copy_transform"
+            self._notify()
 
     def clear_transform(self, edge_id: str, kind: str) -> None:
         edge = self.edge(edge_id)
         if edge is None:
             return
-        edge.transforms = [t for t in edge.transforms
-                           if t.get("type") != kind]
-        if not edge.transforms and edge.mode == "copy_transform":
-            edge.mode = "copy"
-        self._notify()
+        with self._undoable(f"Clear {kind}"):
+            edge.transforms = [t for t in edge.transforms
+                               if t.get("type") != kind]
+            if not edge.transforms and edge.mode == "copy_transform":
+                edge.mode = "copy"
+            self._notify()
 
     def bump_priority(self, edge_id: str, delta: int) -> None:
         edge = self.edge(edge_id)
         if edge is None:
             return
-        edge.priority = max(0, edge.priority + delta)
-        self._notify()
+        with self._undoable("Change priority"):
+            edge.priority = max(0, edge.priority + delta)
+            self._notify()
 
     def set_lock(self, target_group: str, locked: bool) -> None:
         """Round-trips plan.protected_target_lanes (design doc 5.5)."""
@@ -592,8 +639,10 @@ class MorphPatchbay(QtWidgets.QWidget):
             protected.add(target_group)
         else:
             protected.discard(target_group)
-        self.plan.protected_target_lanes = sorted(protected)
-        self._notify()
+        with self._undoable(
+                f"{'Lock' if locked else 'Unlock'} {target_group}"):
+            self.plan.protected_target_lanes = sorted(protected)
+            self._notify()
 
     def is_locked(self, target_group: str) -> bool:
         return target_group in self.plan.protected_target_lanes
@@ -613,32 +662,42 @@ class MorphPatchbay(QtWidgets.QWidget):
         (same lighting_role, capability overlap, name) and wire every
         compatible sublane. Adds only; never edits or removes."""
         added: List[MorphEdge] = []
-        for info in self._sources:
-            if not info.content:
-                continue
-            role = self._source_role(info)
-            candidates = []
-            for group, caps in self._caps.items():
-                overlap = len(set(info.content) & caps)
-                if not overlap:
+        # One undo step for the whole prefill: suggesting 39 wires and
+        # then pressing Ctrl+Z 39 times is not an undo.
+        with self._undoable("Auto-suggest"):
+            for info in self._sources:
+                if not info.content:
                     continue
-                target_role = getattr(
-                    self.target_config.groups.get(group), "lighting_role",
-                    "") or ""
-                role_match = 1 if role and target_role == role else 0
-                candidates.append((-role_match, -overlap, group))
-            if not candidates:
-                continue
-            candidates.sort()
-            best = candidates[0][2]
-            for sublane in SUBLANE_ORDER:
-                if info.content.get(sublane):
-                    edge = self.add_edge(info.selector, sublane, best)
-                    if edge is not None:
-                        added.append(edge)
-        if added:
-            self._notify()
+                best = self._suggest_target_for(info)
+                if best is None:
+                    continue
+                for sublane in SUBLANE_ORDER:
+                    if info.content.get(sublane):
+                        edge = self.add_edge(info.selector, sublane, best)
+                        if edge is not None:
+                            added.append(edge)
+            if added:
+                self._notify()
         return added
+
+    def _suggest_target_for(self, info: SourceInfo) -> Optional[str]:
+        """Best target group for a source: same lighting_role first,
+        capability overlap second, name third (design doc 8)."""
+        role = self._source_role(info)
+        candidates = []
+        for group, caps in self._caps.items():
+            overlap = len(set(info.content) & caps)
+            if not overlap:
+                continue
+            target_role = getattr(
+                self.target_config.groups.get(group), "lighting_role",
+                "") or ""
+            role_match = 1 if role and target_role == role else 0
+            candidates.append((-role_match, -overlap, group))
+        if not candidates:
+            return None
+        candidates.sort()
+        return candidates[0][2]
 
     def _source_role(self, info: SourceInfo) -> str:
         for song in self.source_config.songs.values():
@@ -840,6 +899,29 @@ class MorphPatchbay(QtWidgets.QWidget):
         self.unpatch_all_btn.clicked.connect(
             lambda _=False: self.confirm_and_clear(what="this plan"))
         header.addWidget(self.unpatch_all_btn)
+
+        self.undo_btn = QtWidgets.QPushButton("Undo")
+        self.undo_btn.clicked.connect(lambda _=False: self.undo())
+        header.addWidget(self.undo_btn)
+        self.redo_btn = QtWidgets.QPushButton("Redo")
+        self.redo_btn.clicked.connect(lambda _=False: self.redo())
+        header.addWidget(self.redo_btn)
+        # Buttons are the reliable path; the shortcut is scoped to this
+        # widget tree so it cannot fight the app-wide Ctrl+Z, which
+        # belongs to a different document (the timeline).
+        for keys, slot in (
+                (QtGui.QKeySequence.StandardKey.Undo, self.undo),
+                (QtGui.QKeySequence.StandardKey.Redo, self.redo)):
+            shortcut = QtGui.QShortcut(QtGui.QKeySequence(keys), self)
+            shortcut.setContext(
+                Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(slot)
+        # A BOUND METHOD, not a lambda: PyQt tracks the receiver QObject
+        # and drops the connection when this widget dies. A lambda has no
+        # receiver, so it outlives the widget and fires into the deleted
+        # QUndoStack (native crash at teardown, found 2026-08-08).
+        self.undo_stack.indexChanged.connect(self._on_undo_index_changed)
+        self._sync_undo_buttons()
         layout.addLayout(header)
 
         self._board = QtWidgets.QWidget()
@@ -1389,6 +1471,87 @@ class MorphPatchbay(QtWidgets.QWidget):
     def selected_edge_id(self) -> Optional[str]:
         return self._selected_edge_id
 
+    # ── undo / redo ──────────────────────────────────────────────────────
+
+    def _snapshot(self):
+        """The plan's whole editable state as plain data.
+
+        Serialized (not object references) so two snapshots compare with
+        ``==`` and a mutation that changed nothing pushes no command."""
+        return (
+            [e.to_dict() for e in self.plan.edges],
+            list(self.plan.protected_target_lanes),
+            sorted(self._group_patches),
+            {song: [e.to_dict() for e in edges]
+             for song, edges in self.plan.song_overrides.items()},
+        )
+
+    def _restore_snapshot(self, snap) -> None:
+        edges, protected, group_patches, overrides = snap
+        # Mutate the SHARED plan object in place - the morph screen holds
+        # the same instance (see MorphScreen.set_plan).
+        self.plan.edges = [MorphEdge.from_dict(d) for d in edges]
+        self.plan.protected_target_lanes = list(protected)
+        self.plan.song_overrides = {
+            song: [MorphEdge.from_dict(d) for d in raw]
+            for song, raw in overrides.items()}
+        self._group_patches = set(tuple(p) for p in group_patches)
+        if self._selected_edge_id is not None and \
+                self.edge(self._selected_edge_id) is None:
+            self._selected_edge_id = None
+        self._restoring = True
+        try:
+            self._notify()
+        finally:
+            self._restoring = False
+
+    @contextlib.contextmanager
+    def _undoable(self, text: str):
+        """Record one undoable edit.
+
+        Re-entrant by design: add_group_patch calls add_edge, and the
+        whole fan-out has to undo as ONE step, not four."""
+        if self._undo_depth or self._restoring:
+            yield
+            return
+        before = self._snapshot()
+        self._undo_depth += 1
+        try:
+            yield
+        finally:
+            self._undo_depth -= 1
+        after = self._snapshot()
+        if before != after:
+            self.undo_stack.push(
+                _PlanEditCommand(self, text, before, after))
+
+    def _on_undo_index_changed(self, _index: int = 0) -> None:
+        self._sync_undo_buttons()
+
+    def _sync_undo_buttons(self) -> None:
+        if getattr(self, "undo_btn", None) is None:
+            return
+        self.undo_btn.setEnabled(self.undo_stack.canUndo())
+        self.redo_btn.setEnabled(self.undo_stack.canRedo())
+        self.undo_btn.setToolTip(
+            f"Undo {self.undo_stack.undoText()}"
+            if self.undo_stack.canUndo() else "Nothing to undo")
+        self.redo_btn.setToolTip(
+            f"Redo {self.undo_stack.redoText()}"
+            if self.undo_stack.canRedo() else "Nothing to redo")
+
+    def can_undo(self) -> bool:
+        return self.undo_stack.canUndo()
+
+    def can_redo(self) -> bool:
+        return self.undo_stack.canRedo()
+
+    def undo(self) -> None:
+        self.undo_stack.undo()
+
+    def redo(self) -> None:
+        self.undo_stack.redo()
+
     def edges_matching(self, source_group: Optional[str] = None,
                        target_group: Optional[str] = None) -> List[MorphEdge]:
         """Edges in a scope. Both None = the whole plan."""
@@ -1407,17 +1570,19 @@ class MorphPatchbay(QtWidgets.QWidget):
         if not doomed:
             return 0
         doomed_ids = {e.edge_id for e in doomed}
-        self.plan.edges = [e for e in self.plan.edges
-                           if e.edge_id not in doomed_ids]
-        if self._selected_edge_id in doomed_ids:
-            self._selected_edge_id = None
-        # Drop any group-patch marker whose edges are all gone.
-        for pair in list(self._group_patches):
-            if not any(e.source_group == pair[0]
-                       and e.target_group == pair[1]
-                       for e in self.plan.edges):
-                self._group_patches.discard(pair)
-        self._notify()
+        scope = target_group or source_group or "this plan"
+        with self._undoable(f"Unpatch {len(doomed)} from {scope}"):
+            self.plan.edges = [e for e in self.plan.edges
+                               if e.edge_id not in doomed_ids]
+            if self._selected_edge_id in doomed_ids:
+                self._selected_edge_id = None
+            # Drop any group-patch marker whose edges are all gone.
+            for pair in list(self._group_patches):
+                if not any(e.source_group == pair[0]
+                           and e.target_group == pair[1]
+                           for e in self.plan.edges):
+                    self._group_patches.discard(pair)
+            self._notify()
         return len(doomed)
 
     def confirm_and_clear(self, source_group: Optional[str] = None,

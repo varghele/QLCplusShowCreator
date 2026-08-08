@@ -833,3 +833,136 @@ class TestUnpatchEverything:
         _s, _t, pars, _m = rigs
         patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
         assert controls() == {"WASH"}
+
+
+class TestUndoRedo:
+    """The patchbay has its OWN undo stack (2026-08-08). Ctrl+Z here
+    means "put that patch back", never "undo a timeline edit" - the app
+    stack is a different document.
+
+    Undo is snapshot-based rather than a command class per mutation:
+    the plan is small and there are nine ways to mutate it, so nine
+    inverse operations would drift out of sync with them."""
+
+    def test_nothing_to_undo_on_a_fresh_patchbay(self, patchbay):
+        assert not patchbay.can_undo()
+        assert not patchbay.can_redo()
+
+    def test_add_then_undo_then_redo(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        assert patchbay.can_undo()
+
+        patchbay.undo()
+        assert patchbay.plan.edges == []
+        assert patchbay.can_redo()
+
+        patchbay.redo()
+        assert [e.edge_id for e in patchbay.plan.edges] == [edge.edge_id]
+
+    def test_unpatch_is_undoable(self, patchbay, rigs):
+        """The reason this exists: × is one click and there was no way
+        back."""
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        patchbay.remove_edge(edge.edge_id)
+        assert patchbay.plan.edges == []
+        patchbay.undo()
+        assert [e.edge_id for e in patchbay.plan.edges] == [edge.edge_id]
+
+    def test_group_patch_undoes_as_one_step(self, patchbay, rigs):
+        """A fan-out that took one drop must take one Ctrl+Z, not four."""
+        _s, _t, pars, _m = rigs
+        added = patchbay.add_group_patch(pars.fixture_targets[0], "WASH")
+        assert len(added) == 2
+        patchbay.undo()
+        assert patchbay.plan.edges == []
+        assert not patchbay.can_undo(), "one step, not one per edge"
+
+    def test_auto_suggest_undoes_as_one_step(self, patchbay):
+        added = patchbay.auto_suggest()
+        assert len(added) > 1
+        patchbay.undo()
+        assert patchbay.plan.edges == []
+        assert not patchbay.can_undo()
+
+    def test_bulk_unpatch_undoes_as_one_step(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        patchbay.auto_suggest()
+        before = len(patchbay.plan.edges)
+        patchbay.clear_edges()
+        assert patchbay.plan.edges == []
+        patchbay.undo()
+        assert len(patchbay.plan.edges) == before
+
+    def test_group_patch_marker_comes_back_with_the_edges(self, patchbay,
+                                                          rigs):
+        _s, _t, pars, _m = rigs
+        selector = pars.fixture_targets[0]
+        patchbay.add_group_patch(selector, "WASH")
+        patchbay.clear_edges()
+        patchbay.undo()
+        assert patchbay.is_group_patch(selector, "WASH"), \
+            "the dashed fan-out marker is part of the state, not a cache"
+
+    def test_lock_is_undoable(self, patchbay):
+        patchbay.set_lock("WASH", True)
+        assert patchbay.plan.protected_target_lanes == ["WASH"]
+        patchbay.undo()
+        assert patchbay.plan.protected_target_lanes == []
+
+    def test_transform_is_undoable(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        patchbay.set_transform(edge.edge_id, "intensity_scale", factor=0.5)
+        assert patchbay.edge(edge.edge_id).mode == "copy_transform"
+        patchbay.undo()
+        assert patchbay.edge(edge.edge_id).mode == "copy"
+        assert patchbay.edge(edge.edge_id).transforms == []
+
+    def test_a_no_op_edit_pushes_nothing(self, patchbay, rigs):
+        """A refused dock must not leave an empty step on the stack, or
+        the first Ctrl+Z would appear to do nothing."""
+        _s, _t, pars, _m = rigs
+        patchbay.add_edge(pars.fixture_targets[0], "colour", "STROBE")
+        assert not patchbay.can_undo()
+
+    def test_undo_keeps_the_shared_plan_object(self, patchbay, rigs):
+        """The morph screen holds the SAME MorphPlan instance; rebinding
+        it would leave the screen editing an orphan."""
+        _s, _t, pars, _m = rigs
+        plan = patchbay.plan
+        patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        patchbay.undo()
+        assert patchbay.plan is plan
+
+    def test_redo_is_dropped_by_a_new_edit(self, patchbay, rigs):
+        _s, _t, pars, movers = rigs
+        patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        patchbay.undo()
+        patchbay.add_edge(movers.fixture_targets[0], "movement", "SPOT")
+        assert not patchbay.can_redo()
+
+    def test_buttons_track_the_stack(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        assert not patchbay.undo_btn.isEnabled()
+        patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        assert patchbay.undo_btn.isEnabled()
+        assert not patchbay.redo_btn.isEnabled()
+        patchbay.undo()
+        assert patchbay.redo_btn.isEnabled()
+
+    def test_stack_signal_does_not_outlive_the_widget(self, qapp, rigs):
+        """indexChanged was connected to a lambda, which has no receiver
+        for PyQt to track - it fired after teardown into the deleted
+        QUndoStack and took a native access violation."""
+        from gui.dialogs.morph_patchbay import MorphPatchbay
+        from tests.conftest import flush_deferred_deletes
+        import gc
+        source, target, pars, _m = rigs
+        bay = MorphPatchbay(source, target)
+        bay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        bay.deleteLater()
+        del bay
+        flush_deferred_deletes()
+        gc.collect()          # crashed here before the fix

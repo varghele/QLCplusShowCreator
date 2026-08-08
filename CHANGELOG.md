@@ -32,7 +32,16 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
   incoming patches grows an **UNPATCH** button that clears just that
   row; and right-clicking a source group offers to unpatch everything
   it feeds, however many targets it fans out to. Removing more than one
-  patch at a time asks first, since the patchbay has no undo.
+  patch at a time asks first.
+
+- **Undo and redo in the patchbay.** Every patch edit can be taken back:
+  wiring, unpatching, auto-suggest, unpatch-all, locks, modes,
+  transforms and priorities. Undo and Redo buttons sit in the patchbay
+  header (with Ctrl+Z / Ctrl+Y while the patchbay has focus), and each
+  button says what it will undo. Actions that feel like one gesture undo
+  as one step: a fan-out that took one drop takes one Ctrl+Z, and an
+  auto-suggest that wired thirty patches comes back in a single press.
+  This is the patchbay's own history, separate from the timeline's.
 
 ## [1.5.0] - 2026-08-08
 
