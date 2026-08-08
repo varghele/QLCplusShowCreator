@@ -180,6 +180,30 @@ The stage tools all shipped a working first pass (v1.1) but were built ahead of 
 
 ---
 
+## v1.6b - Matrix effects and pixel mapping
+
+Festival LDs concatenate rows of moving heads, washes or bars into a **matrix** and run content across it: a roll over the grid, a 2D wave, or a video sampled onto the fixtures (observed live, 2026-08). None of that is expressible today. Every effect in `effects/` phases off a single scalar - `fixture_index` out of `total_fixtures` (`effects/types.py`) - so an effect can only travel along one axis: the group's 1D order. There is no second dimension anywhere in the effect path.
+
+A survey of how the consoles model this (2026-08-08; grandMA3 MAtricks + phasers, ChamSys MagicQ, Avolites Pixel Mapper, Pharos / Lightjams / ELM) shows **two different paradigms**, both blocked here, and they need different plumbing:
+
+- **(a) Grid distribution of parametric effects** (MAtricks-style). The grid is an *index space*: phase / delay / speed offsets are spread across its axes, and the effect itself stays parametric. This is the "roll over the matrix" case, and because it never touches colour it works for pan/tilt too - the answer to rows of moving heads behaving as one surface.
+- **(b) Pixel mapping proper.** Content (procedural pattern, text, image, video) is rendered to a raster and *sampled* per cell. Colour-first. This is the "matrix of washes responds to a video" case.
+
+Lettered insert after v1.6 to avoid renumbering v1.7-v1.12 again (same reasoning as v1.8b). Ordering is provisional and the grid rework is foundational: the longer it waits, the more effect code gets written against the 1D index.
+
+- [ ] **Grid coordinates in the effect contexts (the rework).** `DimmerContext` / `MovementContext` carry `fixture_index` + `total_fixtures` and nothing else spatial, which is exactly why `chase`, `waterfall`, `wave` and `fan` can only travel along the group order. Add cell coordinates and extents alongside the existing scalars (keeping `fixture_index`, so all 15 dimmer + 11 movement effects keep working untouched and 1D becomes the degenerate 1xN case). Blast radius is small: the contexts are built in exactly three places, all in `utils/artnet/dmx_manager.py` (~715, ~932, ~1036).
+- [ ] **Matrix definition on a group.** Assign fixtures to cells: explicit rows x cols, manual grid entry (MagicQ-style, sparse - holes must be legal, real rigs are not rectangles), and auto-derive from placed stage positions (Avolites "grid fit": project the rig onto rows/cols). This is the 2D generalisation of the topology that already shipped in v1.5 (`fixture_order` / `order_mode` "manual" | "spatial", `config/models.py`), so it should extend that model rather than open a parallel one.
+- [ ] **Sub-fixture pixels from GDTF.** Segmentation today is a hardcoded name guess - `fixture_type in ('PIXELBAR', 'BAR', 'SUNSTRIP')` (`dmx_manager.py:688`) with segment counts inferred from channel lists. GDTF carries the truth: `Beam` geometries referenced repeatedly with a DMX offset per pixel, where the sequence of geometry references *is* the sub-fixture order - and the app already parses that tree for meshes (`utils/gdtf_mesh.py`, `visualizer/renderer/gdtf_draw_plan.py`). Derive real pixels with real positions from it, so a bar contributes N cells instead of one, and retire the name guess.
+- [ ] **Distribution primitives.** The MAtricks vocabulary, which is what turns one parametric effect into a matrix look: per-axis phase / delay / speed spread, blocks (chunk the grid, e.g. 2x2), groups (interleave into N teams), wings (mirror-fold for symmetric rigs), width, and shuffle. Applies to movement as much as intensity.
+- [ ] **Matrix-native effect types.** The ones that genuinely need two axes: roll / scroll along any axis or diagonal, 2D wave and ripple, radial from an origin cell, expand-contract, plasma and noise fields, rain, per-cell random.
+- [ ] **A colour effect registry.** There isn't one - `effects/` exposes `DIMMER_REGISTRY` + `MOVEMENT_REGISTRY` only, and the newest colour FX is a single hardcoded `_rainbow_rgb(now, index, total)` in `utils/artnet/live_layer.py`, itself 1D-indexed. A matrix of washes is colour-first, so this is a prerequisite rather than a nice-to-have: a `ColourContext` + registry in the same shape as the other two, fed by the v1.5 palette-role work.
+- [ ] **Pixel-mapping content sources** (the (b) half). Render to an offscreen raster, sample per cell. Order by dependency cost: procedural generators and gradients, then text, then still images, then video. Video may want its own milestone - decide once the raster-and-sample path is real. Not from scratch: the app already has a ModernGL stack and an offscreen render path (the morph preview).
+- [ ] **Authoring and live surfaces.** A matrix editor (assign cells, see the grid), matrix blocks in the timeline, and a Live pool that fires a matrix look on the selected groups. Follow the v1.5 composite-macro pattern in `gui/tabs/live_tab.py` - a macro writes several per-group state slots and renders through the existing binders - rather than adding another engine slot.
+- [ ] **Export and interop scope decision, early.** QLC+ has no matrix concept, so `.qxw` export would have to bake a matrix look into per-fixture sequence steps, which can explode step counts. Decide up front whether matrix effects are native-playback-only (like the live pools are today) or bake on export, and write the decision down - the byte-identical export invariant makes this a design decision, not an afterthought.
+- [ ] **Visualizer preview.** Matrix looks are the class of effect nobody can judge from a timeline block; the 3D view needs to show the grid running.
+
+---
+
 ## v1.7 - Timeline ergonomics (post-morphing)
 
 Once morphing has settled the question of how shows are structured across rigs, the timeline ergonomics become worth the investment. Doing this before v1.5b risks redoing the work after the data model shifts.
