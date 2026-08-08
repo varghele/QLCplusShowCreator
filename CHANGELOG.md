@@ -11,6 +11,21 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
 
 ## [Unreleased]
 
+### Added
+
+- **The patch cable follows your cursor.** Pulling a wire in Morph to
+  Venue used to show nothing until you had already dropped it; now the
+  cable is drawn from the source chip to the cursor for the whole drag,
+  so you can see what you are about to connect.
+
+- **Four ways to un-patch, three of them new.** Removing a connection
+  was only possible by right-clicking an edge chip, which nobody found.
+  Every patch now carries a visible **×**; a patch can be focused and
+  removed with Delete or Backspace; the wire itself can be clicked to
+  select it (it highlights) and removed with Delete; and a patch can be
+  dragged off its row to pull it out, the way you would unplug a cable.
+  The right-click menu is unchanged.
+
 ## [1.5.0] - 2026-08-08
 
 ### Added

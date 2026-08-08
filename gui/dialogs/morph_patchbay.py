@@ -82,6 +82,10 @@ FILTER_MARK = "◐"   # the mockup's "capability filter active" glyph
 #: drag payload: "<selector>\n<sublane>" ('' = whole lane)
 WIRE_MIME = "application/x-lm-morph-wire"
 
+#: drag payload for pulling an existing patch OUT: the edge id. Nothing
+#: in the patchbay accepts it, on purpose - see _EdgeChipHolder.
+UNPATCH_MIME = "application/x-lm-morph-unpatch"
+
 
 def encode_wire_mime(selector: str,
                      sublane: Optional[str]) -> QtCore.QMimeData:
@@ -306,7 +310,11 @@ class _TargetChip(QtWidgets.QToolButton):
     def dragMoveEvent(self, event):
         # Feeds the in-flight cable. This path is guaranteed to fire over
         # a target (where precision matters); the patchbay's cursor timer
-        # covers the gaps in between.
+        # covers the gaps in between. Only wire drags: accepting anything
+        # would swallow an unpatch drag and turn it into a no-op.
+        if decode_wire_mime(event.mimeData()) is None:
+            event.ignore()
+            return
         self._patchbay.report_drag_position(self, event.position().toPoint())
         event.acceptProposedAction()
 
@@ -335,6 +343,9 @@ class _TargetRowFrame(QtWidgets.QFrame):
             event.acceptProposedAction()
 
     def dragMoveEvent(self, event):
+        if decode_wire_mime(event.mimeData()) is None:
+            event.ignore()
+            return
         self._patchbay.report_drag_position(self, event.position().toPoint())
         event.acceptProposedAction()
 
@@ -357,6 +368,33 @@ class _EdgeChipHolder(QtWidgets.QWidget):
         # Focusable so the edge can be reached and removed from the
         # keyboard, not only by hitting an 18px target with the mouse.
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._press_pos: Optional[QtCore.QPoint] = None
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._press_pos = event.pos()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        """Drag the patch off its row to unplug it - the physical
+        gesture. Nothing in the patchbay accepts this mime, so the drag
+        always ends in IgnoreAction; that IS the signal that it was
+        pulled out rather than dropped somewhere meaningful."""
+        if (self._press_pos is None
+                or not event.buttons() & Qt.MouseButton.LeftButton
+                or (event.pos() - self._press_pos).manhattanLength()
+                < QtWidgets.QApplication.startDragDistance()):
+            super().mouseMoveEvent(event)
+            return
+        self._press_pos = None
+        drag = QtGui.QDrag(self)
+        mime = QtCore.QMimeData()
+        mime.setData(UNPATCH_MIME, self.edge_id.encode("utf-8"))
+        drag.setMimeData(mime)
+        drag.setPixmap(self.grab())
+        action = drag.exec(Qt.DropAction.MoveAction)
+        self._patchbay.finish_unpatch_drag(
+            self.edge_id, action == Qt.DropAction.IgnoreAction)
 
     def keyPressEvent(self, event):
         if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
@@ -1315,6 +1353,17 @@ class MorphPatchbay(QtWidgets.QWidget):
     @property
     def selected_edge_id(self) -> Optional[str]:
         return self._selected_edge_id
+
+    def finish_unpatch_drag(self, edge_id: str, pulled_out: bool) -> bool:
+        """Resolve a patch dragged off its row.
+
+        ``pulled_out`` is whether the drag ended unaccepted - i.e. the
+        cable was pulled clear rather than dropped on something. Split
+        out from the widget so the outcome is testable: QDrag.exec runs
+        a platform loop that cannot be synthesized offscreen."""
+        if not pulled_out:
+            return False
+        return self.remove_edge(edge_id)
 
     def remove_selected_edge(self) -> bool:
         if self._selected_edge_id is None:

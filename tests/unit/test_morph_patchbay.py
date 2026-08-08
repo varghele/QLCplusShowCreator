@@ -678,3 +678,48 @@ class TestWireSelection:
             Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton,
             Qt.KeyboardModifier.NoModifier))
         assert patchbay.selected_edge_id == edge.edge_id
+
+
+class TestUnpatchByDragging:
+    """Pull the patch off its row and it comes out - the physical
+    gesture. QDrag.exec runs a platform loop that cannot be synthesized
+    offscreen, so the outcome lives in finish_unpatch_drag()."""
+
+    def test_pulled_clear_removes_the_edge(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        assert patchbay.finish_unpatch_drag(edge.edge_id, pulled_out=True)
+        assert patchbay.plan.edges == []
+
+    def test_dropped_on_something_keeps_it(self, patchbay, rigs):
+        """A drag that landed somewhere meaningful is not an unplug."""
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        assert not patchbay.finish_unpatch_drag(edge.edge_id,
+                                                pulled_out=False)
+        assert [e.edge_id for e in patchbay.plan.edges] == [edge.edge_id]
+
+    def test_unpatch_mime_is_distinct_from_the_wire_mime(self):
+        from gui.dialogs.morph_patchbay import UNPATCH_MIME, WIRE_MIME
+        assert UNPATCH_MIME != WIRE_MIME
+
+    def test_targets_ignore_an_unpatch_drag(self, patchbay, rigs):
+        """If a target chip accepted it, the drag would end in
+        AcceptAction and the cable would never come out."""
+        from PyQt6.QtCore import QMimeData, QPointF, Qt
+        from PyQt6.QtGui import QDragMoveEvent
+        from gui.dialogs.morph_patchbay import UNPATCH_MIME
+        _s, _t, pars, _m = rigs
+        patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        mime = QMimeData()
+        mime.setData(UNPATCH_MIME, b"whatever")
+        target = patchbay._target_anchors["WASH"]
+        event = QDragMoveEvent(QPointF(1.0, 1.0).toPoint(),
+                               Qt.DropAction.MoveAction, mime,
+                               Qt.MouseButton.LeftButton,
+                               Qt.KeyboardModifier.NoModifier)
+        event.accept()
+        row = target.parent()
+        if hasattr(row, "dragMoveEvent"):
+            row.dragMoveEvent(event)
+            assert not event.isAccepted()
