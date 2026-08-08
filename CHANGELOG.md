@@ -43,6 +43,12 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
   auto-suggest that wired thirty patches comes back in a single press.
   This is the patchbay's own history, separate from the timeline's.
 
+### Fixed
+
+- **The morph review page's coverage table looks like the rest of the
+  app.** The area below the last row painted white under the dark
+  theme, and the columns left dead space instead of filling the width.
+
 ## [1.5.0] - 2026-08-08
 
 ### Added

@@ -139,3 +139,22 @@ def test_morph_screen_patchbay_golden(qapp, morph_window):
     )
     compare_to_golden(window.grab().toImage(),
                       "morph_screen_patchbay_dark")
+
+
+def test_morph_screen_review_golden(qapp, morph_window):
+    """The REVIEW page's coverage table.
+
+    Pins the 2026-08-08 report: the bare QTableWidget painted the
+    palette's default base under the last row, which read as a block of
+    WHITE under the dark theme, and resizeColumnsToContents() left dead
+    space to the right of the last column instead of filling the width.
+    """
+    window, screen = morph_window
+    screen._go_next()                       # TARGET -> PATCH
+    screen.patchbay.auto_suggest()
+    screen._go_next()                       # PATCH -> REVIEW
+    _flush(qapp)
+    assert (window.width(), window.height()) == (1280, 800), (
+        "grab size drifted - golden invalid"
+    )
+    compare_to_golden(window.grab().toImage(), "morph_screen_review_dark")

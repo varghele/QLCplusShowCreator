@@ -61,6 +61,7 @@ from utils.morph.plan import MorphPlan, PlanError, config_hash
 
 from gui.dialogs.morph_patchbay import SUBLANE_LABELS, MorphPatchbay
 from gui.typography import DisplayLabel
+from gui.widgets.modern_table import apply_modern_table_style
 
 PLAN_FILTER = "Morph plans (*.morphplan.yaml);;All files (*)"
 
@@ -359,7 +360,18 @@ class MorphScreen(QtWidgets.QWidget):
         self.coverage_table = QtWidgets.QTableWidget()
         self.coverage_table.setEditTriggers(
             QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.coverage_table.verticalHeader().setVisible(False)
+        # Go through the shared helper like every other table in the app:
+        # a bare QTableWidget shows the palette's default base below the
+        # last row, which reads as a block of WHITE under the dark theme
+        # (reported 2026-08-08). It also carries the row height, header
+        # alignment and alternating tints (see qt-gotchas #1 for why the
+        # theme deliberately has no QTableView::item rule).
+        apply_modern_table_style(self.coverage_table)
+        # ...and the viewport itself, which the helper does not cover:
+        # the empty area under the rows is painted by the viewport, not
+        # by any item delegate.
+        self.coverage_table.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        self.coverage_table.viewport().setAutoFillBackground(True)
         layout.addWidget(self.coverage_table, 2)
 
         self.destroyed_label = QtWidgets.QLabel("")
@@ -466,6 +478,15 @@ class MorphScreen(QtWidgets.QWidget):
                     item.setForeground(Qt.GlobalColor.red)
                 self.coverage_table.setItem(r, c, item)
         self.coverage_table.resizeColumnsToContents()
+        # Fill the width instead of leaving dead space to the right of
+        # the last column: size to content first (so nothing is elided),
+        # then let the widest text column absorb the slack.
+        header = self.coverage_table.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(
+            1, QtWidgets.QHeaderView.ResizeMode.Stretch)   # Target group
+        header.setSectionResizeMode(
+            0, QtWidgets.QHeaderView.ResizeMode.Stretch)   # Song
 
         errors = len(report.of_kind("error"))
         pieces = [f"{len(self._dry_result.songs)} song(s) compiled",
