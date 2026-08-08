@@ -723,3 +723,113 @@ class TestUnpatchByDragging:
         if hasattr(row, "dragMoveEvent"):
             row.dragMoveEvent(event)
             assert not event.isAccepted()
+
+
+class TestUnpatchEverything:
+    """Bulk removal at three scopes: the whole plan, one target row, one
+    source group. clear_edges() is pure model; the confirmation lives at
+    the UI entry points (QMessageBox is blocked in the suite)."""
+
+    def _wire_a_few(self, patchbay, rigs):
+        _s, _t, pars, movers = rigs
+        p, m = pars.fixture_targets[0], movers.fixture_targets[0]
+        return {
+            "pars_wash_dim": patchbay.add_edge(p, "dimmer", "WASH"),
+            "pars_wash_col": patchbay.add_edge(p, "colour", "WASH"),
+            "pars_strobe": patchbay.add_edge(p, "dimmer", "STROBE"),
+            "movers_spot": patchbay.add_edge(m, "movement", "SPOT"),
+        }
+
+    def test_clearing_the_whole_plan(self, patchbay, rigs):
+        self._wire_a_few(patchbay, rigs)
+        assert patchbay.clear_edges() == 4
+        assert patchbay.plan.edges == []
+
+    def test_clearing_one_target_row_leaves_the_others(self, patchbay, rigs):
+        edges = self._wire_a_few(patchbay, rigs)
+        assert patchbay.clear_edges(target_group="WASH") == 2
+        assert {e.edge_id for e in patchbay.plan.edges} == {
+            edges["pars_strobe"].edge_id, edges["movers_spot"].edge_id}
+
+    def test_clearing_one_source_leaves_the_others(self, patchbay, rigs):
+        edges = self._wire_a_few(patchbay, rigs)
+        _s, _t, pars, _m = rigs
+        removed = patchbay.clear_edges(source_group=pars.fixture_targets[0])
+        assert removed == 3
+        assert [e.edge_id for e in patchbay.plan.edges] == [
+            edges["movers_spot"].edge_id]
+
+    def test_clearing_an_empty_scope_removes_nothing(self, patchbay, rigs):
+        self._wire_a_few(patchbay, rigs)
+        assert patchbay.clear_edges(target_group="SPOT",
+                                    source_group="PARS") == 0
+        assert len(patchbay.plan.edges) == 4
+
+    def test_group_patch_markers_go_with_their_edges(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        selector = pars.fixture_targets[0]
+        patchbay.add_group_patch(selector, "WASH")
+        assert patchbay.is_group_patch(selector, "WASH")
+        patchbay.clear_edges()
+        assert not patchbay.is_group_patch(selector, "WASH")
+
+    def test_a_stale_selection_does_not_survive(self, patchbay, rigs):
+        edges = self._wire_a_few(patchbay, rigs)
+        patchbay.select_edge(edges["pars_wash_dim"].edge_id)
+        patchbay.clear_edges()
+        assert patchbay.selected_edge_id is None
+
+    def test_clearing_emits_changed_once(self, patchbay, rigs):
+        self._wire_a_few(patchbay, rigs)
+        seen = []
+        patchbay.changed.connect(lambda: seen.append(1))
+        patchbay.clear_edges()
+        assert len(seen) == 1, "one rebuild for the whole bulk removal"
+
+    def test_confirm_asks_before_a_bulk_removal(self, patchbay, rigs,
+                                                monkeypatch):
+        from PyQt6.QtWidgets import QMessageBox
+        self._wire_a_few(patchbay, rigs)
+        asked = []
+        monkeypatch.setattr(
+            QMessageBox, "question",
+            staticmethod(lambda *a, **k: (asked.append(a),
+                                          QMessageBox.StandardButton.No)[1]))
+        assert patchbay.confirm_and_clear(what="this plan") == 0
+        assert asked, "a bulk removal must ask first - there is no undo"
+        assert len(patchbay.plan.edges) == 4, "declining keeps everything"
+
+    def test_confirm_yes_clears(self, patchbay, rigs, monkeypatch):
+        from PyQt6.QtWidgets import QMessageBox
+        self._wire_a_few(patchbay, rigs)
+        monkeypatch.setattr(
+            QMessageBox, "question",
+            staticmethod(lambda *a, **k: QMessageBox.StandardButton.Yes))
+        assert patchbay.confirm_and_clear(what="this plan") == 4
+        assert patchbay.plan.edges == []
+
+    def test_single_edge_does_not_nag(self, patchbay, rigs):
+        """One wire is not a bulk removal; asking every time trains the
+        user to click through the dialog."""
+        _s, _t, pars, _m = rigs
+        patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        # QMessageBox.question is blocked by the suite guard, so this
+        # passing at all proves no dialog was raised.
+        assert patchbay.confirm_and_clear(target_group="WASH") == 1
+        assert patchbay.plan.edges == []
+
+    def test_target_row_grows_an_unpatch_control_only_when_patched(
+            self, patchbay, rigs):
+        from PyQt6.QtWidgets import QToolButton
+        from tests.conftest import flush_deferred_deletes
+
+        def controls():
+            flush_deferred_deletes()
+            return {b.property("unpatch_target_group")
+                    for b in patchbay._board.findChildren(QToolButton)
+                    if b.property("unpatch_target_group")}
+
+        assert controls() == set()
+        _s, _t, pars, _m = rigs
+        patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        assert controls() == {"WASH"}

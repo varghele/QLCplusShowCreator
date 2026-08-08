@@ -831,6 +831,15 @@ class MorphPatchbay(QtWidgets.QWidget):
             "Only adds wires - delete any you do not want.")
         self.suggest_btn.clicked.connect(self.auto_suggest)
         header.addWidget(self.suggest_btn)
+
+        # Sits next to Auto-suggest on purpose: prefilling 39 wires you
+        # did not want is exactly when you need to start over.
+        self.unpatch_all_btn = QtWidgets.QPushButton("Unpatch all")
+        self.unpatch_all_btn.setToolTip(
+            "Remove every patch in this plan and start over")
+        self.unpatch_all_btn.clicked.connect(
+            lambda _=False: self.confirm_and_clear(what="this plan"))
+        header.addWidget(self.unpatch_all_btn)
         layout.addLayout(header)
 
         self._board = QtWidgets.QWidget()
@@ -910,7 +919,24 @@ class MorphPatchbay(QtWidgets.QWidget):
                      colour: str, ghost: bool = False) -> _SourceChip:
         chip = _SourceChip(self, key)
         self._style_chip(chip, text, colour, ghost)
+        # The third scope: everything this source feeds, however many
+        # targets it fans out to.
+        chip.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        chip.customContextMenuRequested.connect(
+            lambda pos, s=key[0], c=chip: self._source_menu(s, c, pos))
         return chip
+
+    def _source_menu(self, selector: str, chip: QtWidgets.QWidget,
+                     pos: QtCore.QPoint) -> None:
+        menu = QtWidgets.QMenu(self)
+        count = len(self.edges_matching(source_group=selector))
+        action = menu.addAction(f"Unpatch everything from {selector}"
+                                f" ({count})")
+        action.setEnabled(bool(count))
+        action.triggered.connect(
+            lambda _=False: self.confirm_and_clear(source_group=selector,
+                                                   what=selector))
+        menu.exec(chip.mapToGlobal(pos))
 
     def _row_frame(self, colour: str,
                    frame: Optional[QtWidgets.QFrame] = None
@@ -1060,6 +1086,15 @@ class MorphPatchbay(QtWidgets.QWidget):
         lock.toggled.connect(
             lambda checked, g=group: self.set_lock(g, checked))
         row.addWidget(lock)
+        if any(e.target_group == group for e in self.plan.edges):
+            clear = self._chip("UNPATCH", "#8d9299")
+            clear.setCheckable(False)
+            clear.setToolTip(f"Remove every patch feeding {group}")
+            clear.setProperty("unpatch_target_group", group)
+            clear.clicked.connect(
+                lambda _=False, g=group: self.confirm_and_clear(
+                    target_group=g, what=g))
+            row.addWidget(clear)
         vbox.addWidget(head)
 
         chip_holder = QtWidgets.QWidget()
@@ -1353,6 +1388,60 @@ class MorphPatchbay(QtWidgets.QWidget):
     @property
     def selected_edge_id(self) -> Optional[str]:
         return self._selected_edge_id
+
+    def edges_matching(self, source_group: Optional[str] = None,
+                       target_group: Optional[str] = None) -> List[MorphEdge]:
+        """Edges in a scope. Both None = the whole plan."""
+        return [e for e in self.plan.edges
+                if (source_group is None or e.source_group == source_group)
+                and (target_group is None or e.target_group == target_group)]
+
+    def clear_edges(self, source_group: Optional[str] = None,
+                    target_group: Optional[str] = None) -> int:
+        """Unpatch a whole scope at once; returns how many went.
+
+        Pure model, no dialogs - the confirmation lives at the UI entry
+        points so tests can drive this directly (QMessageBox is blocked
+        in the suite, see tests/conftest)."""
+        doomed = self.edges_matching(source_group, target_group)
+        if not doomed:
+            return 0
+        doomed_ids = {e.edge_id for e in doomed}
+        self.plan.edges = [e for e in self.plan.edges
+                           if e.edge_id not in doomed_ids]
+        if self._selected_edge_id in doomed_ids:
+            self._selected_edge_id = None
+        # Drop any group-patch marker whose edges are all gone.
+        for pair in list(self._group_patches):
+            if not any(e.source_group == pair[0]
+                       and e.target_group == pair[1]
+                       for e in self.plan.edges):
+                self._group_patches.discard(pair)
+        self._notify()
+        return len(doomed)
+
+    def confirm_and_clear(self, source_group: Optional[str] = None,
+                          target_group: Optional[str] = None,
+                          what: str = "every patch") -> int:
+        """UI entry point: ask first when more than one wire would go.
+
+        There is no undo in the patchbay, so a bulk removal that took one
+        click to trigger should take one more to mean it."""
+        doomed = self.edges_matching(source_group, target_group)
+        if not doomed:
+            self.hint_label.setText("Nothing patched there yet.")
+            return 0
+        if len(doomed) > 1:
+            answer = QtWidgets.QMessageBox.question(
+                self, "Unpatch",
+                f"Remove {len(doomed)} patches from {what}?\n"
+                f"This cannot be undone.",
+                QtWidgets.QMessageBox.StandardButton.Yes
+                | QtWidgets.QMessageBox.StandardButton.No,
+                QtWidgets.QMessageBox.StandardButton.No)
+            if answer != QtWidgets.QMessageBox.StandardButton.Yes:
+                return 0
+        return self.clear_edges(source_group, target_group)
 
     def finish_unpatch_drag(self, edge_id: str, pulled_out: bool) -> bool:
         """Resolve a patch dragged off its row.

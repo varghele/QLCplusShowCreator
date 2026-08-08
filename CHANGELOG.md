@@ -26,6 +26,14 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
   dragged off its row to pull it out, the way you would unplug a cable.
   The right-click menu is unchanged.
 
+- **Unpatch everything, at three scopes.** An **Unpatch all** button
+  beside Auto-suggest clears the whole plan (handy when a suggestion
+  prefills wiring you did not want); each target group that has
+  incoming patches grows an **UNPATCH** button that clears just that
+  row; and right-clicking a source group offers to unpatch everything
+  it feeds, however many targets it fans out to. Removing more than one
+  patch at a time asks first, since the patchbay has no undo.
+
 ## [1.5.0] - 2026-08-08
 
 ### Added
