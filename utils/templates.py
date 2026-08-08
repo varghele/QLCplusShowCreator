@@ -24,6 +24,10 @@ import yaml
 
 # Display metadata per rig file stem. Anything on disk that isn't listed
 # here still shows up, with a generic description.
+#: files the app writes NEXT TO a project, which are not projects
+#: themselves and must never list as starter rigs
+_SIDECAR_SUFFIXES = ('.preflight.yaml', '.morphplan.yaml')
+
 _TEMPLATE_INFO = {
     'club_band': (
         "Club band",
@@ -87,17 +91,28 @@ def list_templates() -> List[ProjectTemplate]:
         # accepted so a user-provided legacy rig dropped in still lists.
         if not filename.endswith(('.lms', '.yaml')):
             continue
+        # ...but the app writes its own SIDECARS next to a project, and
+        # a pre-flight checklist saved beside a demo rig used to list as
+        # a broken 0-fixture template (found 2026-08-08 during the
+        # desktop checks).
+        if filename.endswith(_SIDECAR_SUFFIXES):
+            continue
         key = os.path.splitext(filename)[0]
         rig_path = os.path.join(rigs_dir, filename)
         show_path = os.path.join(shows_dir, filename)
         name, description = _TEMPLATE_INFO.get(
             key, (key.replace('_', ' ').title(), "Starter rig")
         )
+        fixture_count = _count_fixtures(rig_path)
+        if not fixture_count:
+            # A rig you cannot start from is not a template. Catches any
+            # other stray .yaml a user drops in, not just our sidecars.
+            continue
         templates.append(ProjectTemplate(
             key=key,
             name=name,
             description=description,
-            fixture_count=_count_fixtures(rig_path),
+            fixture_count=fixture_count,
             rig_path=rig_path,
             show_path=show_path if os.path.exists(show_path) else None,
         ))
