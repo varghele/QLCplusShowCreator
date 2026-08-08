@@ -329,6 +329,16 @@ class _EdgeChipHolder(QtWidgets.QWidget):
         super().__init__()
         self._patchbay = patchbay
         self.edge_id = edge_id
+        # Focusable so the edge can be reached and removed from the
+        # keyboard, not only by hitting an 18px target with the mouse.
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+            self._patchbay.remove_edge(self.edge_id)
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     @staticmethod
     def make_unpatch_button(colour: str) -> QtWidgets.QToolButton:

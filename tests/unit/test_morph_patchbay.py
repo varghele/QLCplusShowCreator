@@ -559,3 +559,52 @@ class TestUnpatch:
         patchbay.changed.connect(lambda: seen.append(1))
         _unpatch_buttons(patchbay)[edge.edge_id].click()
         assert seen
+
+
+def _edge_holders(patchbay):
+    """Edge chip containers by edge id."""
+    from gui.dialogs.morph_patchbay import _EdgeChipHolder
+    from tests.conftest import flush_deferred_deletes
+    flush_deferred_deletes()
+    return {h.edge_id: h
+            for h in patchbay._board.findChildren(_EdgeChipHolder)}
+
+
+class TestUnpatchByKeyboard:
+    """Delete / Backspace on a focused edge, so removal does not depend
+    on landing the mouse on an 18px ×."""
+
+    def _press(self, widget, key):
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+        widget.keyPressEvent(
+            QKeyEvent(QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier))
+
+    def test_delete_removes_the_focused_edge(self, patchbay, rigs):
+        from PyQt6.QtCore import Qt
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        self._press(_edge_holders(patchbay)[edge.edge_id], Qt.Key.Key_Delete)
+        assert patchbay.plan.edges == []
+
+    def test_backspace_removes_it_too(self, patchbay, rigs):
+        from PyQt6.QtCore import Qt
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        self._press(_edge_holders(patchbay)[edge.edge_id],
+                    Qt.Key.Key_Backspace)
+        assert patchbay.plan.edges == []
+
+    def test_other_keys_are_left_alone(self, patchbay, rigs):
+        from PyQt6.QtCore import Qt
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        self._press(_edge_holders(patchbay)[edge.edge_id], Qt.Key.Key_A)
+        assert [e.edge_id for e in patchbay.plan.edges] == [edge.edge_id]
+
+    def test_holders_are_focusable(self, patchbay, rigs):
+        from PyQt6.QtCore import Qt
+        _s, _t, pars, _m = rigs
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        holder = _edge_holders(patchbay)[edge.edge_id]
+        assert holder.focusPolicy() == Qt.FocusPolicy.StrongFocus
