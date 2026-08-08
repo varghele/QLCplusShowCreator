@@ -185,6 +185,46 @@ class EdgeCanvas(QtWidgets.QWidget):
         painter.end()
 
 
+class _WireOverlay(QtWidgets.QWidget):
+    """Paints the cable that follows the cursor while a wire is in flight.
+
+    A separate widget from EdgeCanvas on purpose. EdgeCanvas is a LAYOUT
+    COLUMN between the source and target columns, so it can only paint in
+    the gap; a cable that follows the cursor has to reach over the target
+    column too. This one spans the whole board and paints nothing else,
+    which keeps committed-wire painting (and its golden) untouched.
+    """
+
+    def __init__(self, patchbay: "MorphPatchbay"):
+        super().__init__(patchbay._board)
+        self._patchbay = patchbay
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+    def paintEvent(self, event):
+        curve = self._patchbay.pending_curve()
+        if curve is None:
+            return
+        x1, y1, x2, y2, colour = curve
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        pen = QtGui.QPen(QtGui.QColor(colour), 2.0)
+        pen.setStyle(Qt.PenStyle.DashLine)
+        painter.setPen(pen)
+        path = QtGui.QPainterPath()
+        path.moveTo(x1, y1)
+        # Same cubic shape as a committed wire, so the cable in flight
+        # reads as the wire it is about to become.
+        span = max(abs(x2 - x1), 1.0)
+        path.cubicTo(x1 + span * 0.45, y1, x2 - span * 0.45, y2, x2, y2)
+        painter.drawPath(path)
+        # A blob on the free end: without it the cable looks like it ends
+        # in nothing rather than in the cursor.
+        painter.setBrush(QtGui.QBrush(QtGui.QColor(colour)))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(QtCore.QPointF(x2, y2), 4.0, 4.0)
+        painter.end()
+
+
 class _SourceChip(QtWidgets.QToolButton):
     """A wireable source chip: click sets the pending wire, dragging it
     carries the same key as a QDrag (both paths meet in the patchbay's
@@ -238,6 +278,13 @@ class _TargetChip(QtWidgets.QToolButton):
                 wire[0], wire[1], self._group, self._sublane):
             event.acceptProposedAction()
 
+    def dragMoveEvent(self, event):
+        # Feeds the in-flight cable. This path is guaranteed to fire over
+        # a target (where precision matters); the patchbay's cursor timer
+        # covers the gaps in between.
+        self._patchbay.report_drag_position(self, event.position().toPoint())
+        event.acceptProposedAction()
+
     def dropEvent(self, event):
         wire = decode_wire_mime(event.mimeData())
         if wire is not None and self._patchbay.handle_wire_drop(
@@ -261,6 +308,10 @@ class _TargetRowFrame(QtWidgets.QFrame):
         if wire is not None and self._patchbay.wire_drop_allowed(
                 wire[0], wire[1], self._group, None):
             event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        self._patchbay.report_drag_position(self, event.position().toPoint())
+        event.acceptProposedAction()
 
     def dropEvent(self, event):
         wire = decode_wire_mime(event.mimeData())
@@ -294,6 +345,10 @@ class MorphPatchbay(QtWidgets.QWidget):
         self._group_patches: set = set()
         self._pending: Optional[Tuple[str, Optional[str]]] = None
         self._dragging = False
+        #: free end of the cable in flight, in BOARD coordinates
+        self._drag_point: Optional[QtCore.QPoint] = None
+        self._drag_timer: Optional[QtCore.QTimer] = None
+        self._overlay: Optional["_WireOverlay"] = None
         self._source_anchors: Dict[Tuple[str, Optional[str]],
                                    QtWidgets.QWidget] = {}
         self._target_anchors: Dict[str, QtWidgets.QWidget] = {}
@@ -575,17 +630,81 @@ class MorphPatchbay(QtWidgets.QWidget):
 
     def begin_wire_drag(self, key: Tuple[str, Optional[str]]) -> None:
         """Gate targets while the drag is in flight - same visual
-        language as a pending click."""
+        language as a pending click - and start the cable following the
+        cursor."""
         self._dragging = True
         self._pending = key
+        self._start_drag_tracking()
         self._refresh_gating()
         self._sync_pending_checks()
 
     def end_wire_drag(self) -> None:
         self._dragging = False
         self._pending = None
+        self._stop_drag_tracking()
         self._refresh_gating()
         self._sync_pending_checks()
+
+    # ── the cable in flight ──────────────────────────────────────────────
+
+    def set_drag_position(self, point: Optional[QtCore.QPoint]) -> None:
+        """Move the cable's free end (BOARD coordinates), or clear it.
+
+        The testable seam: tests call this directly instead of
+        synthesizing drag events, the same way ``handle_wire_drop``
+        stands in for a real drop."""
+        self._drag_point = point
+        if self._overlay is not None:
+            self._overlay.update()
+
+    def report_drag_position(self, widget: QtWidgets.QWidget,
+                             point: QtCore.QPoint) -> None:
+        """A drop target relaying a dragMoveEvent position in ITS own
+        coordinates."""
+        self.set_drag_position(widget.mapTo(self._board, point))
+
+    def pending_curve(self):
+        """(x1, y1, x2, y2, colour) for the cable in flight, else None.
+        Board coordinates. Painting reads this; nothing else."""
+        if self._pending is None or self._drag_point is None:
+            return None
+        info = self._sources_by_selector.get(self._pending[0])
+        if info is None:
+            return None
+        anchor = self._source_anchors.get(self._pending)
+        if anchor is None:
+            return None
+        start = anchor.mapTo(self._board, QtCore.QPoint(
+            anchor.width(), anchor.height() // 2))
+        return (float(start.x()), float(start.y()),
+                float(self._drag_point.x()), float(self._drag_point.y()),
+                info.colour)
+
+    def _start_drag_tracking(self) -> None:
+        """Poll the cursor for the duration of the drag.
+
+        QDrag.exec runs its own event loop and the source widget stops
+        getting mouse moves, while the overlay is mouse-transparent by
+        necessity (an overlay that accepted drag events would swallow the
+        drops meant for the chips underneath). Drop targets relay their
+        own dragMoveEvent - this covers the gaps between them."""
+        self.set_drag_position(
+            self._board.mapFromGlobal(QtGui.QCursor.pos()))
+        if self._drag_timer is None:
+            self._drag_timer = QtCore.QTimer(self)
+            self._drag_timer.setInterval(16)
+            self._drag_timer.timeout.connect(self._poll_cursor)
+        self._drag_timer.start()
+
+    def _stop_drag_tracking(self) -> None:
+        if self._drag_timer is not None:
+            self._drag_timer.stop()
+        self.set_drag_position(None)
+
+    def _poll_cursor(self) -> None:
+        if self._dragging:
+            self.set_drag_position(
+                self._board.mapFromGlobal(QtGui.QCursor.pos()))
 
     # ── UI scaffolding ───────────────────────────────────────────────────
 
@@ -637,6 +756,13 @@ class MorphPatchbay(QtWidgets.QWidget):
         board_layout.addWidget(source_holder, 2)
         board_layout.addWidget(self._canvas, 1)
         board_layout.addWidget(target_holder, 3)
+
+        # Spans the whole board (not a layout item) so the cable in
+        # flight can reach across the target column to the cursor.
+        self._overlay = _WireOverlay(self)
+        self._overlay.setGeometry(self._board.rect())
+        self._overlay.raise_()
+        self._board.installEventFilter(self)
 
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
@@ -725,6 +851,10 @@ class MorphPatchbay(QtWidgets.QWidget):
         self._refresh_gating()
         self._refresh_checker()
         self._canvas.update()
+        if self._overlay is not None:
+            # Rebuilt rows are new children; the cable must stay on top.
+            self._overlay.raise_()
+            self._overlay.update()
 
     def _build_source_row(self, info: SourceInfo) -> QtWidgets.QWidget:
         holder = QtWidgets.QWidget()
@@ -1058,6 +1188,15 @@ class MorphPatchbay(QtWidgets.QWidget):
             y2 = self._anchor_y(target)
             curves.append((y1, y2, info.colour, dashed))
         return curves
+
+    def eventFilter(self, obj, event):
+        """Keep the overlay covering the board as it resizes/scrolls."""
+        if obj is self._board and event.type() in (
+                QtCore.QEvent.Type.Resize, QtCore.QEvent.Type.Show):
+            if self._overlay is not None:
+                self._overlay.setGeometry(self._board.rect())
+                self._overlay.raise_()
+        return super().eventFilter(obj, event)
 
     def _anchor_y(self, widget: QtWidgets.QWidget) -> float:
         point = widget.mapTo(self._board,

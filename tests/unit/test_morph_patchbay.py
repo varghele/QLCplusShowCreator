@@ -429,3 +429,79 @@ class TestDragAndDropWiring:
         patchbay.end_wire_drag()
         assert self._target_chip(patchbay, "WASH", "dimmer").isEnabled()
         assert patchbay.HINT_IDLE in patchbay.hint_label.text()
+
+
+class TestCableInFlight:
+    """The cable that follows the cursor while a wire is being pulled
+    (2026-08-08). Painting reads pending_curve(); tests drive
+    set_drag_position() directly, the same way handle_wire_drop stands in
+    for a real drop - a QDrag runs its own event loop and cannot be
+    synthesized meaningfully offscreen."""
+
+    def test_no_cable_when_nothing_is_pending(self, patchbay):
+        assert patchbay.pending_curve() is None
+
+    def test_no_cable_until_the_cursor_has_a_position(self, patchbay, rigs):
+        _s, _t, pars, _m = rigs
+        patchbay.begin_wire_drag((pars.fixture_targets[0], "dimmer"))
+        patchbay.set_drag_position(None)
+        assert patchbay.pending_curve() is None
+
+    def test_cable_runs_from_the_source_anchor_to_the_cursor(self, patchbay,
+                                                             rigs):
+        from PyQt6.QtCore import QPoint
+        _s, _t, pars, _m = rigs
+        selector = pars.fixture_targets[0]
+        patchbay.set_expanded(selector, True)
+        patchbay.begin_wire_drag((selector, "dimmer"))
+        patchbay.set_drag_position(QPoint(640, 400))
+
+        curve = patchbay.pending_curve()
+        assert curve is not None
+        x1, y1, x2, y2, colour = curve
+        assert (x2, y2) == (640.0, 400.0), "free end follows the cursor"
+        # Fixed end is the anchor row's right-middle, in board coords.
+        # Asserted against the anchor itself rather than a magnitude:
+        # nothing is laid out offscreen, so real geometry is meaningless.
+        from PyQt6.QtCore import QPoint
+        anchor = patchbay._source_anchors[(selector, "dimmer")]
+        want = anchor.mapTo(patchbay._board,
+                            QPoint(anchor.width(), anchor.height() // 2))
+        assert (x1, y1) == (float(want.x()), float(want.y()))
+        assert colour == patchbay._sources_by_selector[selector].colour
+
+    def test_cable_clears_when_the_drag_ends(self, patchbay, rigs):
+        from PyQt6.QtCore import QPoint
+        _s, _t, pars, _m = rigs
+        # Collapsed row, so the wireable key is the whole-GROUP one.
+        patchbay.begin_wire_drag((pars.fixture_targets[0], None))
+        patchbay.set_drag_position(QPoint(100, 100))
+        assert patchbay.pending_curve() is not None
+        patchbay.end_wire_drag()
+        assert patchbay.pending_curve() is None
+
+    def test_drag_tracking_timer_stops_with_the_drag(self, patchbay, rigs):
+        """A polling timer left running would burn a wakeup every 16 ms
+        for the rest of the session."""
+        _s, _t, pars, _m = rigs
+        patchbay.begin_wire_drag((pars.fixture_targets[0], "dimmer"))
+        assert patchbay._drag_timer is not None
+        assert patchbay._drag_timer.isActive()
+        patchbay.end_wire_drag()
+        assert not patchbay._drag_timer.isActive()
+
+    def test_target_relays_its_position_in_board_coordinates(self, patchbay,
+                                                             rigs):
+        """report_drag_position takes the widget's OWN coordinates and
+        maps them - a target reporting raw local coords would put the
+        cable in the wrong place."""
+        from PyQt6.QtCore import QPoint
+        _s, _t, pars, _m = rigs
+        selector = pars.fixture_targets[0]
+        patchbay.begin_wire_drag((selector, None))
+        target = patchbay._target_anchors["WASH"]
+        patchbay.report_drag_position(target, QPoint(3, 5))
+        expected = target.mapTo(patchbay._board, QPoint(3, 5))
+        curve = patchbay.pending_curve()
+        assert (curve[2], curve[3]) == (float(expected.x()),
+                                        float(expected.y()))
