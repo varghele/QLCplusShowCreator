@@ -291,9 +291,17 @@ class MorphScreen(QtWidgets.QWidget):
         """Adopt an existing plan file; hash mismatches warn, never
         block."""
         plan = MorphPlan.load(path)
+        # Collapse a format-1 (lane-keyed) plan before the patchbay draws
+        # it, so the user sees the rig-level wiring they will edit rather
+        # than one wire per song.
+        migrated = ""
+        if plan.needs_migration() and self.source_config is not None:
+            dropped = plan.migrate_legacy_edges(self.source_config)
+            migrated = f", migrated: {dropped} per-song duplicate(s) collapsed"
         self.set_plan(plan)
         self.plan_label.setText(
-            f"Plan: {os.path.basename(path)} ({len(plan.edges)} edge(s))")
+            f"Plan: {os.path.basename(path)} "
+            f"({len(plan.edges)} edge(s){migrated})")
 
     def set_plan(self, plan: MorphPlan) -> None:
         """ONE plan object is shared by screen and patchbay - both

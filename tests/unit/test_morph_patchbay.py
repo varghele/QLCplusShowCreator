@@ -96,72 +96,72 @@ def patchbay(qapp, rigs):
 class TestCapabilityGating:
     def test_matching_capability_docks(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
-        edge = patchbay.add_edge(pars.lane_id, "colour", "WASH")
+        edge = patchbay.add_edge(pars.fixture_targets[0], "colour", "WASH")
         assert edge is not None
         assert edge.mode == "copy"
         assert patchbay.plan.edges == [edge]
 
     def test_missing_target_capability_is_refused(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
-        assert patchbay.add_edge(pars.lane_id, "colour", "STROBE") is None
+        assert patchbay.add_edge(pars.fixture_targets[0], "colour", "STROBE") is None
         assert patchbay.plan.edges == []
 
     def test_empty_source_stream_is_refused(self, patchbay, rigs):
         # The PARS lane carries no special blocks; BEAM cannot wire.
         _s, _t, pars, _m = rigs
-        assert patchbay.add_edge(pars.lane_id, "special", "WASH") is None
+        assert patchbay.add_edge(pars.fixture_targets[0], "special", "WASH") is None
 
     def test_duplicate_edge_is_refused(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
-        assert patchbay.add_edge(pars.lane_id, "dimmer", "WASH")
-        assert patchbay.add_edge(pars.lane_id, "dimmer", "WASH") is None
+        assert patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
+        assert patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH") is None
         assert len(patchbay.plan.edges) == 1
 
     def test_empty_movement_wires_as_regenerate(self, patchbay, rigs):
         # PARS has no movement -> the ghost POSITION chip's contract.
         _s, _t, pars, movers = rigs
-        ghost = patchbay.add_edge(pars.lane_id, "movement", "SPOT")
+        ghost = patchbay.add_edge(pars.fixture_targets[0], "movement", "SPOT")
         assert ghost.mode == "regenerate"
         assert ghost.regenerate_strategy == "manual"
-        real = patchbay.add_edge(movers.lane_id, "movement", "SPOT")
+        real = patchbay.add_edge(movers.fixture_targets[0], "movement", "SPOT")
         assert real.mode == "copy"
 
 
 class TestLanePatch:
     def test_fans_out_to_shared_capabilities_only(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
-        added = patchbay.add_lane_patch(pars.lane_id, "WASH")
+        added = patchbay.add_group_patch(pars.fixture_targets[0], "WASH")
         assert sorted(e.sublane for e in added) == ["colour", "dimmer"]
-        assert patchbay.is_lane_patch(pars.lane_id, "WASH")
+        assert patchbay.is_group_patch(pars.fixture_targets[0], "WASH")
 
     def test_single_stream_patch_is_not_marked(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
-        added = patchbay.add_lane_patch(pars.lane_id, "STROBE")
+        added = patchbay.add_group_patch(pars.fixture_targets[0], "STROBE")
         assert [e.sublane for e in added] == ["dimmer"]
-        assert not patchbay.is_lane_patch(pars.lane_id, "STROBE")
+        assert not patchbay.is_group_patch(pars.fixture_targets[0], "STROBE")
 
     def test_marker_clears_with_the_last_edge(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
-        added = patchbay.add_lane_patch(pars.lane_id, "WASH")
+        added = patchbay.add_group_patch(pars.fixture_targets[0], "WASH")
         for edge in added:
             patchbay.remove_edge(edge.edge_id)
-        assert not patchbay.is_lane_patch(pars.lane_id, "WASH")
+        assert not patchbay.is_group_patch(pars.fixture_targets[0], "WASH")
         assert patchbay.plan.edges == []
 
     def test_loaded_plan_derives_the_marker(self, qapp, rigs):
         from gui.dialogs.morph_patchbay import MorphPatchbay
         source, target, pars, _m = rigs
         first = MorphPatchbay(source, target)
-        first.add_lane_patch(pars.lane_id, "WASH")
+        first.add_group_patch(pars.fixture_targets[0], "WASH")
         second = MorphPatchbay(source, target, plan=first.plan)
-        assert second.is_lane_patch(pars.lane_id, "WASH")
+        assert second.is_group_patch(pars.fixture_targets[0], "WASH")
 
 
 class TestEdgeOperations:
     def test_transform_flips_mode_and_replaces_same_kind(self, patchbay,
                                                          rigs):
         _s, _t, pars, _m = rigs
-        edge = patchbay.add_edge(pars.lane_id, "dimmer", "WASH")
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
         patchbay.set_transform(edge.edge_id, "intensity_scale", factor=0.5)
         assert edge.mode == "copy_transform"
         patchbay.set_transform(edge.edge_id, "intensity_scale", factor=0.8)
@@ -170,7 +170,7 @@ class TestEdgeOperations:
 
     def test_transform_vocabulary_is_enforced(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
-        edge = patchbay.add_edge(pars.lane_id, "dimmer", "WASH")
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
         with pytest.raises(ValueError):
             patchbay.set_transform(edge.edge_id, "warp")
         with pytest.raises(ValueError):
@@ -179,7 +179,7 @@ class TestEdgeOperations:
     def test_clearing_the_last_transform_restores_copy(self, patchbay,
                                                        rigs):
         _s, _t, pars, _m = rigs
-        edge = patchbay.add_edge(pars.lane_id, "dimmer", "WASH")
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
         patchbay.set_transform(edge.edge_id, "mirror")
         patchbay.clear_transform(edge.edge_id, "mirror")
         assert edge.transforms == []
@@ -187,7 +187,7 @@ class TestEdgeOperations:
 
     def test_priority_bumps_and_floors_at_zero(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
-        edge = patchbay.add_edge(pars.lane_id, "dimmer", "WASH")
+        edge = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "WASH")
         patchbay.bump_priority(edge.edge_id, +1)
         patchbay.bump_priority(edge.edge_id, +1)
         assert edge.priority == 2
@@ -197,7 +197,7 @@ class TestEdgeOperations:
 
     def test_regenerate_mode_with_strategy(self, patchbay, rigs):
         _s, _t, _pars, movers = rigs
-        edge = patchbay.add_edge(movers.lane_id, "movement", "SPOT")
+        edge = patchbay.add_edge(movers.fixture_targets[0], "movement", "SPOT")
         patchbay.set_edge_mode(edge.edge_id, "regenerate",
                                "derive_from_intensity")
         assert edge.mode == "regenerate"
@@ -220,24 +220,25 @@ class TestAutoSuggest:
     def test_prefers_matching_role_then_overlap(self, patchbay, rigs):
         _s, _t, pars, movers = rigs
         added = patchbay.auto_suggest()
-        wires = {(e.source_lane_name, e.sublane, e.target_group)
+        wires = {(e.source_group, e.sublane, e.target_group)
                  for e in added}
-        assert wires == {("Pars", "dimmer", "WASH"),
-                         ("Pars", "colour", "WASH"),
-                         ("Movers", "dimmer", "SPOT"),
-                         ("Movers", "movement", "SPOT")}
+        # Keyed by GROUP SELECTOR now, not the lane's display name.
+        assert wires == {("PARS", "dimmer", "WASH"),
+                         ("PARS", "colour", "WASH"),
+                         ("MOVERS", "dimmer", "SPOT"),
+                         ("MOVERS", "movement", "SPOT")}
 
     def test_only_valid_edges(self, patchbay):
         from utils.morph.checker import group_capabilities
         caps = group_capabilities(patchbay.target_config)
         for edge in patchbay.auto_suggest():
             assert edge.sublane in caps[edge.target_group]
-            assert patchbay.lane_content(
-                edge.source_lane_id).get(edge.sublane)
+            assert patchbay.source_content(
+                edge.source_group).get(edge.sublane)
 
     def test_adds_only_and_never_repeats(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
-        manual = patchbay.add_edge(pars.lane_id, "dimmer", "STROBE")
+        manual = patchbay.add_edge(pars.fixture_targets[0], "dimmer", "STROBE")
         first = patchbay.auto_suggest()
         assert manual in patchbay.plan.edges       # untouched
         assert patchbay.auto_suggest() == []       # nothing new
@@ -247,7 +248,7 @@ class TestAutoSuggest:
 class TestCheckerStrip:
     def test_gap_on_an_unrouted_capability(self, patchbay, rigs):
         _s, _t, _pars, movers = rigs
-        patchbay.add_edge(movers.lane_id, "dimmer", "SPOT")
+        patchbay.add_edge(movers.fixture_targets[0], "dimmer", "SPOT")
         summary = {(g, s): (p, gap)
                    for g, s, p, gap in patchbay.coverage_summary()}
         assert summary[("SPOT", "dimmer")] == (50, False)  # 8s of 16s
@@ -255,7 +256,7 @@ class TestCheckerStrip:
 
     def test_full_coverage_is_not_a_gap(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
-        patchbay.add_lane_patch(pars.lane_id, "WASH")
+        patchbay.add_group_patch(pars.fixture_targets[0], "WASH")
         summary = {(g, s): (p, gap)
                    for g, s, p, gap in patchbay.coverage_summary()}
         assert summary[("WASH", "dimmer")] == (100, False)
@@ -328,38 +329,38 @@ class TestDragAndDropWiring:
     def test_stream_drop_on_matching_chip_docks(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
         assert patchbay.wire_drop_allowed(
-            pars.lane_id, "colour", "WASH", "colour")
+            pars.fixture_targets[0], "colour", "WASH", "colour")
         assert patchbay.handle_wire_drop(
-            pars.lane_id, "colour", "WASH", "colour")
+            pars.fixture_targets[0], "colour", "WASH", "colour")
         assert [e.sublane for e in patchbay.plan.edges] == ["colour"]
 
     def test_stream_drop_on_wrong_chip_is_refused(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
         assert not patchbay.wire_drop_allowed(
-            pars.lane_id, "colour", "WASH", "dimmer")
+            pars.fixture_targets[0], "colour", "WASH", "dimmer")
         assert not patchbay.handle_wire_drop(
-            pars.lane_id, "colour", "WASH", "dimmer")
+            pars.fixture_targets[0], "colour", "WASH", "dimmer")
         assert patchbay.plan.edges == []
 
     def test_stream_drop_on_the_row_docks_its_capability(self, patchbay,
                                                          rigs):
         _s, _t, pars, _m = rigs
-        assert patchbay.handle_wire_drop(pars.lane_id, "colour", "WASH")
+        assert patchbay.handle_wire_drop(pars.fixture_targets[0], "colour", "WASH")
         assert [e.sublane for e in patchbay.plan.edges] == ["colour"]
 
     def test_incompatible_stream_drop_on_row_is_refused(self, patchbay,
                                                         rigs):
         _s, _t, pars, _m = rigs
         assert not patchbay.handle_wire_drop(
-            pars.lane_id, "colour", "STROBE")
+            pars.fixture_targets[0], "colour", "STROBE")
         assert patchbay.plan.edges == []
 
     def test_lane_drop_fans_out_as_lane_patch(self, patchbay, rigs):
         _s, _t, pars, _m = rigs
-        assert patchbay.handle_wire_drop(pars.lane_id, None, "WASH")
+        assert patchbay.handle_wire_drop(pars.fixture_targets[0], None, "WASH")
         assert sorted(e.sublane for e in patchbay.plan.edges) == \
             ["colour", "dimmer"]
-        assert patchbay.is_lane_patch(pars.lane_id, "WASH")
+        assert patchbay.is_group_patch(pars.fixture_targets[0], "WASH")
 
     def test_lane_drop_on_chip_the_lane_lacks_is_refused(self, patchbay,
                                                          rigs):
@@ -367,7 +368,7 @@ class TestDragAndDropWiring:
         # POSITION chip even though SPOT renders it.
         _s, _t, pars, _m = rigs
         assert not patchbay.wire_drop_allowed(
-            pars.lane_id, None, "SPOT", "movement")
+            pars.fixture_targets[0], None, "SPOT", "movement")
 
     def test_unknown_lane_never_docks(self, patchbay):
         assert not patchbay.wire_drop_allowed(
@@ -385,7 +386,7 @@ class TestDragAndDropWiring:
         from gui.dialogs.morph_patchbay import encode_wire_mime
         _s, _t, pars, _m = rigs
         chip = self._target_chip(patchbay, "WASH", "colour")
-        mime = encode_wire_mime(pars.lane_id, "colour")
+        mime = encode_wire_mime(pars.fixture_targets[0], "colour")
         enter = QtGui.QDragEnterEvent(
             QtCore.QPoint(2, 2), QtCore.Qt.DropAction.CopyAction, mime,
             QtCore.Qt.MouseButton.LeftButton,
@@ -407,7 +408,7 @@ class TestDragAndDropWiring:
         chip = self._target_chip(patchbay, "WASH", "dimmer")
         # Keep the mime alive for the handler: QDragEnterEvent does NOT
         # take ownership, an inline temporary is freed under the event.
-        mime = encode_wire_mime(pars.lane_id, "colour")
+        mime = encode_wire_mime(pars.fixture_targets[0], "colour")
         enter = QtGui.QDragEnterEvent(
             QtCore.QPoint(2, 2), QtCore.Qt.DropAction.CopyAction, mime,
             QtCore.Qt.MouseButton.LeftButton,
@@ -419,7 +420,7 @@ class TestDragAndDropWiring:
     def test_drag_gates_targets_like_a_pending_click(self, patchbay,
                                                      rigs):
         _s, _t, pars, _m = rigs
-        patchbay.begin_wire_drag((pars.lane_id, "colour"))
+        patchbay.begin_wire_drag((pars.fixture_targets[0], "colour"))
         assert "Drop on" in patchbay.hint_label.text()
         assert self._target_chip(patchbay, "WASH", "colour").isEnabled()
         assert not self._target_chip(patchbay, "WASH", "dimmer").isEnabled()

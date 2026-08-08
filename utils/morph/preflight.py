@@ -274,15 +274,17 @@ def derive_plan_from_config(config) -> MorphPlan:
                 if group not in groups:
                     continue
                 for sublane in sorted(sublanes):
-                    key = (lane.lane_id, sublane, group)
+                    # Keyed by SELECTOR, not lane id: the same group's
+                    # lane recurs in every song and would otherwise
+                    # generate one identical synthetic edge per song.
+                    key = (raw, sublane, group)
                     if key in seen:
                         continue
                     seen.add(key)
                     edge_id = hashlib.sha256(
                         "|".join(key).encode("utf-8")).hexdigest()[:12]
                     plan.edges.append(MorphEdge(
-                        source_lane_id=lane.lane_id,
-                        source_lane_name=lane.name,
+                        source_group=raw,
                         sublane=sublane, target_group=group,
                         edge_id=edge_id))
     return plan

@@ -493,15 +493,13 @@ def _build_envelopes(streams: Dict[str, list], source_names: List[str],
 # the compile
 # ---------------------------------------------------------------------------
 
-def _same_definition(source_config, lane, target_config,
+def _same_definition(source_config, source_selector: str, target_config,
                      target_group: str) -> bool:
     """Specials rule (design doc 3.6): identical fixture definition
-    identity between the lane's first source group and the target."""
-    src_groups = [g for g in lane.fixture_targets
-                  if g.split(":")[0] in source_config.groups]
-    if not src_groups:
+    identity between the edge's source group and the target."""
+    src = source_config.groups.get(source_selector.split(":")[0])
+    if src is None:
         return False
-    src = source_config.groups[src_groups[0].split(":")[0]]
     dst = target_config.groups.get(target_group)
     if dst is None or not src.fixtures or not dst.fixtures:
         return False
@@ -517,28 +515,24 @@ def compile_song(song: Song, plan: MorphPlan, source_config,
     if not song.timeline_data:
         report.add("note", song.name, "no timeline data; skipped")
         return None
-    lanes_by_id = {lane.lane_id: lane
-                   for lane in song.timeline_data.lanes}
+    # Lanes route by their GROUP SELECTOR, which is consistent across
+    # songs, so ONE rig-level plan covers the whole setlist (design doc
+    # 5.2). One selector may match SEVERAL lanes in a song; their streams
+    # concatenate here and the fan-in resolution below settles any
+    # overlap (design doc 3.3) rather than one lane silently winning.
+    lanes_by_selector: Dict[str, list] = {}
+    for lane in song.timeline_data.lanes:
+        for selector in lane.fixture_targets:
+            lanes_by_selector.setdefault(selector, []).append(lane)
     edges = plan.edges_for_song(song.name)
-    # Lanes are PER SONG: a plan wired across the whole setlist (the
-    # patchbay catalogs every song's lanes) routinely carries edges
-    # for other songs' lanes. Those are not this song's business and
-    # must skip silently - only a lane id found in NO source song is a
-    # broken edge (fixed 2026-07-16: the single-song demo shows never
-    # exercised this, and a real 12-song project drowned in errors).
-    all_lane_ids = {lane.lane_id
-                    for s in source_config.songs.values()
-                    if s.timeline_data
-                    for lane in s.timeline_data.lanes}
 
     # target group -> sublane -> [(edge, blocks)]
     buckets: Dict[str, Dict[str, List[Tuple[MorphEdge, list]]]] = {}
     routed_sources = set()
 
     for edge in edges:
-        lane = lanes_by_id.get(edge.source_lane_id)
-        if lane is None and edge.source_lane_id in all_lane_ids:
-            continue                       # another song's lane
+        lanes = lanes_by_selector.get(edge.source_group, [])
+        lane_label = " + ".join(lane.name for lane in lanes) or edge.source_group
         target_group = edge.target_group
         selector = _subset_selector(edge)
         if selector:
@@ -551,7 +545,7 @@ def compile_song(song: Song, plan: MorphPlan, source_config,
 
         if edge.mode == "regenerate":
             source_dimmer = []
-            if lane is not None:
+            for lane in lanes:
                 for lb in lane.light_blocks:
                     source_dimmer.extend(copy.deepcopy(lb.dimmer_blocks))
             if edge.sublane != "movement":
@@ -564,29 +558,34 @@ def compile_song(song: Song, plan: MorphPlan, source_config,
             bucket.setdefault("movement", []).append((edge, blocks))
             continue
 
-        if lane is None:
-            report.add("error", song.name,
-                       f"source lane '{edge.source_lane_name}' "
-                       f"({edge.source_lane_id}) not in this song",
-                       edge.edge_id)
+        if not lanes:
+            # Edges are RIG-level now, so a song that simply does not use
+            # this group is ordinary, not an error. (Format 1 raised an
+            # error per edge x song here, which is what drowned a real
+            # 12-song project on 2026-07-16.)
+            report.add("note", song.name,
+                       f"source group '{edge.source_group}' has no lane in "
+                       f"this song; edge produced nothing", edge.edge_id)
             continue
 
         if edge.sublane == "special" and not _same_definition(
-                source_config, lane, target_config, edge.target_group):
+                source_config, edge.source_group, target_config,
+                edge.target_group):
             report.add("dropped_special", song.name,
-                       f"special stream from '{lane.name}' dropped: "
+                       f"special stream from '{lane_label}' dropped: "
                        f"'{edge.target_group}' is not the same fixture "
                        f"definition (design rule 3.6)", edge.edge_id)
             continue
 
         attr = SUBLANE_ATTRS[edge.sublane]
         blocks = []
-        for lb in lane.light_blocks:
-            blocks.extend(copy.deepcopy(getattr(lb, attr)))
+        for lane in lanes:
+            for lb in lane.light_blocks:
+                blocks.extend(copy.deepcopy(getattr(lb, attr)))
         blocks.sort(key=lambda b: b.start_time)
         if not blocks:
             report.add("note", song.name,
-                       f"'{lane.name}' has no {edge.sublane} blocks; "
+                       f"'{lane_label}' has no {edge.sublane} blocks; "
                        f"edge produced nothing", edge.edge_id)
             continue
         if edge.sublane == "movement":
@@ -595,16 +594,18 @@ def compile_song(song: Song, plan: MorphPlan, source_config,
         blocks = _apply_transforms(blocks, edge.sublane, edge, report,
                                    song.name)
         bucket.setdefault(edge.sublane, []).append((edge, blocks))
-        routed_sources.add((edge.source_lane_id, edge.sublane))
+        routed_sources.add((edge.source_group, edge.sublane))
         report.add("routed", song.name,
                    f"{len(blocks)} {edge.sublane} block(s) "
-                   f"'{lane.name}' -> '{target_group}'", edge.edge_id)
+                   f"'{lane_label}' -> '{target_group}'", edge.edge_id)
 
     # Unrouted source streams = deliberate drops, surfaced (doc 3).
     for lane in song.timeline_data.lanes:
         for sublane, attr in SUBLANE_ATTRS.items():
             count = sum(len(getattr(lb, attr)) for lb in lane.light_blocks)
-            if count and (lane.lane_id, sublane) not in routed_sources:
+            routed = any((selector, sublane) in routed_sources
+                         for selector in lane.fixture_targets)
+            if count and not routed:
                 report.add("note", song.name,
                            f"unrouted source stream: '{lane.name}' "
                            f"{sublane} ({count} block(s)) - deliberate "
@@ -635,8 +636,8 @@ def compile_song(song: Song, plan: MorphPlan, source_config,
                 sublane_streams[sublane] = resolved
             for edge, _blocks in contributions:
                 edge_ids.append(edge.edge_id)
-                if edge.source_lane_name:
-                    source_names.append(edge.source_lane_name)
+                if edge.source_group:
+                    source_names.append(edge.source_group)
         # Shared-channel gap flags (design doc 3.4; playback already
         # multiplies dimmer into colour-only groups).
         group = target_config.groups.get(target_group)
@@ -678,6 +679,15 @@ def compile_setlist(source_config, plan: MorphPlan, target_config,
     import json
 
     report = MorphReport()
+    # A format-1 (lane-keyed) plan collapses onto group selectors before
+    # anything reads its edges, so every entry point - GUI, CLI, checker
+    # - sees the same rig-level wiring.
+    if plan.needs_migration():
+        dropped = plan.migrate_legacy_edges(source_config)
+        report.add("note", "-",
+                   f"plan migrated from format 1 (lane-keyed) to group-keyed "
+                   f"edges: {len(plan.edges)} edge(s), {dropped} per-song "
+                   f"duplicate(s) collapsed")
     problems = plan.validate(source_config=source_config,
                              target_config=target_config)
     for problem in problems:

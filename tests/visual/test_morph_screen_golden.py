@@ -127,10 +127,10 @@ def test_morph_screen_patchbay_golden(qapp, morph_window):
     window, screen = morph_window
     screen._go_next()                       # TARGET -> PATCH
     screen.patchbay.auto_suggest()
-    # One lane expanded + one pending wire: the golden pins the sublane
-    # rows, the arrow glyphs, the checked chip and the gated (disabled)
-    # target chips in a single grab.
-    first = screen.patchbay._lanes[0].lane_id
+    # One source group expanded + one pending wire: the golden pins the
+    # sublane rows, the arrow glyphs, the checked chip and the gated
+    # (disabled) target chips in a single grab.
+    first = screen.patchbay._sources[0].selector
     screen.patchbay.set_expanded(first, True)
     screen.patchbay._chip_clicked(first, "dimmer")
     _flush(qapp)

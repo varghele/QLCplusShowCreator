@@ -11,6 +11,19 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
 
 ## [Unreleased]
 
+### Changed
+
+- **Morph to Venue patches group to group, once for the whole setlist.**
+  The patchbay used to list every song's lanes separately, so the same
+  wire had to be drawn again for each song: a real 12-song gig needed
+  293 edges to express 39 actual wires. Edges now key on the fixture
+  group itself, so the source column is one row per group and a single
+  wire covers every song in the set. Per-song overrides remain for a
+  song that genuinely differs. Existing plans are converted on load and
+  say what they collapsed. Note that a converted plan can render MORE
+  than it used to: where the old per-song wiring left a song out, that
+  song now follows the same routing as the rest.
+
 ### Fixed
 
 - **The test suite no longer leaks every widget tree it builds.** The

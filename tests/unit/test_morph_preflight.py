@@ -53,11 +53,11 @@ def _rig():
     b.spots = {"Centre": Spot(name="Centre", x=0.0, y=0.0, z=0.0)}
     b.songs = {}
     plan = MorphPlan(edges=[
-        MorphEdge(source_lane_id=lane.lane_id, source_lane_name="Pars",
+        MorphEdge(source_group=lane.fixture_targets[0],
                   sublane="dimmer", target_group="WASH"),
-        MorphEdge(source_lane_id=lane.lane_id, source_lane_name="Pars",
+        MorphEdge(source_group=lane.fixture_targets[0],
                   sublane="colour", target_group="WASH"),
-        MorphEdge(source_lane_id=lane.lane_id, source_lane_name="Pars",
+        MorphEdge(source_group=lane.fixture_targets[0],
                   sublane="movement", target_group="MOVERS"),
     ])
     return a, plan, b

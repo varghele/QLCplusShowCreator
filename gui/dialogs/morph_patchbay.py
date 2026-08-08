@@ -1,11 +1,15 @@
 # gui/dialogs/morph_patchbay.py
 """The morph patchbay (v1.5b phase 4, mockup 15-morph-patch-flow-6d).
 
-Left column: the source show's lanes, lane-level rows by default,
-expandable to their four sublane streams. Right column: the target
-config's groups with capability chips. Wires are cubic curves in the
-middle canvas, coloured per source lane; a dashed wire is a lane-level
-patch that fans out to several sublanes at once. Capability vocabulary
+Left column: the source show's fixture GROUPS (one row per group
+selector, e.g. "WASH" / "WASH:0"), expandable to their four sublane
+streams. Group-keyed, not lane-keyed: lanes live inside a song, so
+cataloguing them made the user redraw every wire once per song - a real
+12-song gig needed 293 edges for 39 distinct wires (changed 2026-08-08;
+design doc 5.2). Right column: the target config's groups with
+capability chips. Wires are cubic curves in the middle canvas, coloured
+per source group; a dashed wire is a group-level patch that fans out to
+several sublanes at once. Capability vocabulary
 is the locked 1:1 mapping: INTENSITY / COLOUR / POSITION / BEAM ==
 dimmer / colour / movement / special.
 
@@ -18,7 +22,7 @@ plain method on the widget; painting only reads):
   target capability chip. While a wire is pending (clicked or mid-
   drag), incompatible target chips are disabled - only the matching
   capability docks (the mockup's core rule). Clicking the pending chip
-  again cancels. A collapsed lane row wires the whole lane: every
+  again cancels. A collapsed group row wires the whole group: every
   sublane the lane carries that the target renders. Drops route
   through ``handle_wire_drop`` so tests drive them without synthetic
   mouse events.
@@ -36,7 +40,7 @@ plain method on the widget; painting only reads):
   carrying transforms wears the mockup's filter marker.
 - Lock: the LOCK button per target row round-trips
   plan.protected_target_lanes (re-morph leaves the lane untouched).
-- AUTO-SUGGEST prefills edges by source lane primary-group
+- AUTO-SUGGEST prefills edges by source group
   lighting_role first, capability overlap second (design doc 8). It
   only ever ADDS edges the user can delete - manual-first stands.
 - The checker strip at the bottom shows live per-group coverage from
@@ -75,63 +79,82 @@ SUBSET_SELECTORS = ("left-half", "right-half", "front-half", "back-half")
 ROW_HEIGHT = 40
 FILTER_MARK = "◐"   # the mockup's "capability filter active" glyph
 
-#: drag payload: "<lane_id>\n<sublane>" ('' = whole lane)
+#: drag payload: "<selector>\n<sublane>" ('' = whole lane)
 WIRE_MIME = "application/x-lm-morph-wire"
 
 
-def encode_wire_mime(lane_id: str,
+def encode_wire_mime(selector: str,
                      sublane: Optional[str]) -> QtCore.QMimeData:
     mime = QtCore.QMimeData()
-    mime.setData(WIRE_MIME, f"{lane_id}\n{sublane or ''}".encode("utf-8"))
+    mime.setData(WIRE_MIME, f"{selector}\n{sublane or ''}".encode("utf-8"))
     return mime
 
 
 def decode_wire_mime(mime: QtCore.QMimeData
                      ) -> Optional[Tuple[str, Optional[str]]]:
-    """(lane_id, sublane-or-None) from a wire drag, else None."""
+    """(selector, sublane-or-None) from a wire drag, else None."""
     if not mime.hasFormat(WIRE_MIME):
         return None
     raw = bytes(mime.data(WIRE_MIME)).decode("utf-8")
-    lane_id, _, sublane = raw.partition("\n")
-    return lane_id, (sublane or None)
+    selector, _, sublane = raw.partition("\n")
+    return selector, (sublane or None)
 
 
-class LaneInfo:
-    """Display metadata for one distinct source lane (by lane_id)."""
+class SourceInfo:
+    """Display metadata for one distinct source GROUP SELECTOR."""
 
-    def __init__(self, lane_id: str, name: str, song: str, colour: str,
-                 content: Dict[str, int]):
-        self.lane_id = lane_id
-        self.name = name
-        self.song = song
+    def __init__(self, selector: str, name: str, songs: List[str],
+                 colour: str, content: Dict[str, int]):
+        self.selector = selector     # "WASH" / "WASH:0" - the edge key
+        self.name = name             # display label
+        self.songs = songs           # songs whose lanes use this selector
         self.colour = colour
         self.content = content       # sublane -> block count (0 omitted)
 
+    @property
+    def song(self) -> str:
+        """Back-compat single-song label; the rail shows the count."""
+        return self.songs[0] if len(self.songs) == 1 else ""
 
-def _lane_catalog(source_config) -> List[LaneInfo]:
-    """Every distinct lane across the setlist, in song order."""
-    infos: List[LaneInfo] = []
-    seen = set()
-    multi = len(source_config.songs) > 1
+
+def _source_catalog(source_config) -> List[SourceInfo]:
+    """Every distinct GROUP SELECTOR the setlist's lanes target.
+
+    Group-keyed, not lane-keyed (design doc 5.2): the same group recurs
+    in every song, so one row here wires the whole setlist. Cataloguing
+    lanes instead produced one row per song per lane - 58 rows and 293
+    edges on a real 12-song gig that expresses 39 distinct wires.
+    """
+    content: Dict[str, Dict[str, int]] = {}
+    songs: Dict[str, List[str]] = {}
+    order: List[str] = []
     for song_name, song in source_config.songs.items():
         if not song.timeline_data:
             continue
         for lane in song.timeline_data.lanes:
-            if lane.lane_id in seen:
-                continue
-            seen.add(lane.lane_id)
-            content = {}
-            for sublane, attr in SUBLANE_ATTRS.items():
-                count = sum(len(getattr(lb, attr))
-                            for lb in lane.light_blocks)
-                if count:
-                    content[sublane] = count
-            name = lane.name
-            if multi:
-                name = f"{song_name} · {lane.name}"
-            infos.append(LaneInfo(
-                lane.lane_id, name, song_name,
-                LANE_COLOURS[len(infos) % len(LANE_COLOURS)], content))
+            for selector in lane.fixture_targets:
+                if selector not in content:
+                    content[selector] = {}
+                    songs[selector] = []
+                    order.append(selector)
+                if song_name not in songs[selector]:
+                    songs[selector].append(song_name)
+                for sublane, attr in SUBLANE_ATTRS.items():
+                    count = sum(len(getattr(lb, attr))
+                                for lb in lane.light_blocks)
+                    if count:
+                        content[selector][sublane] = \
+                            content[selector].get(sublane, 0) + count
+    infos: List[SourceInfo] = []
+    for selector in order:
+        used = songs[selector]
+        label = selector
+        if len(source_config.songs) > 1:
+            label = f"{selector}  ({len(used)} song{'s' if len(used) != 1 else ''})"
+        infos.append(SourceInfo(
+            selector, label, used,
+            LANE_COLOURS[len(infos) % len(LANE_COLOURS)],
+            content[selector]))
     return infos
 
 
@@ -263,25 +286,25 @@ class MorphPatchbay(QtWidgets.QWidget):
         self.target_config = target_config
         self.plan = plan if plan is not None else MorphPlan()
 
-        self._lanes = _lane_catalog(source_config)
-        self._lanes_by_id = {info.lane_id: info for info in self._lanes}
+        self._sources = _source_catalog(source_config)
+        self._sources_by_selector = {info.selector: info for info in self._sources}
         self._caps = group_capabilities(target_config)
         self._expanded: set = set()
-        #: (lane_id, target_group) pairs wired as one lane-level patch
-        self._lane_patches: set = set()
+        #: (selector, target_group) pairs wired as one group-level patch
+        self._group_patches: set = set()
         self._pending: Optional[Tuple[str, Optional[str]]] = None
         self._dragging = False
         self._source_anchors: Dict[Tuple[str, Optional[str]],
                                    QtWidgets.QWidget] = {}
         self._target_anchors: Dict[str, QtWidgets.QWidget] = {}
         self._build_ui()
-        self._derive_lane_patches()
+        self._derive_group_patches()
         self._rebuild_rows()
 
     # ── model operations (tests drive these directly) ────────────────────
 
-    def lane_content(self, lane_id: str) -> Dict[str, int]:
-        info = self._lanes_by_id.get(lane_id)
+    def source_content(self, selector: str) -> Dict[str, int]:
+        info = self._sources_by_selector.get(selector)
         return dict(info.content) if info else {}
 
     def edge(self, edge_id: str) -> Optional[MorphEdge]:
@@ -290,55 +313,54 @@ class MorphPatchbay(QtWidgets.QWidget):
                 return e
         return None
 
-    def can_dock(self, lane_id: str, sublane: str,
+    def can_dock(self, selector: str, sublane: str,
                  target_group: str) -> bool:
         """Capability gating: the target group must render the sublane,
         and the lane must carry it (POSITION alone may be empty - that
         is the regenerate path)."""
         if sublane not in self._caps.get(target_group, set()):
             return False
-        content = self.lane_content(lane_id)
+        content = self.source_content(selector)
         if sublane == "movement":
             return True          # empty movement wires as regenerate
         return bool(content.get(sublane))
 
-    def add_edge(self, lane_id: str, sublane: str, target_group: str,
+    def add_edge(self, selector: str, sublane: str, target_group: str,
                  mode: Optional[str] = None) -> Optional[MorphEdge]:
         """One wire; returns None (adds nothing) when the dock is
         incompatible or the identical edge already exists."""
-        if not self.can_dock(lane_id, sublane, target_group):
+        if not self.can_dock(selector, sublane, target_group):
             return None
         for e in self.plan.edges:
-            if (e.source_lane_id == lane_id and e.sublane == sublane
+            if (e.source_group == selector and e.sublane == sublane
                     and e.target_group == target_group):
                 return None
-        info = self._lanes_by_id[lane_id]
+        info = self._sources_by_selector[selector]
         if mode is None:
             if sublane == "movement" and not info.content.get("movement"):
                 mode = "regenerate"
             else:
                 mode = "copy"
-        edge = MorphEdge(source_lane_id=lane_id,
-                         source_lane_name=info.name, sublane=sublane,
+        edge = MorphEdge(source_group=selector, sublane=sublane,
                          target_group=target_group, mode=mode)
         self.plan.edges.append(edge)
         self._notify()
         return edge
 
-    def add_lane_patch(self, lane_id: str,
+    def add_group_patch(self, selector: str,
                        target_group: str) -> List[MorphEdge]:
         """Lane-level wire: every sublane the lane carries that the
         target renders, marked as one dashed fan-out."""
         added = []
-        content = self.lane_content(lane_id)
+        content = self.source_content(selector)
         for sublane in SUBLANE_ORDER:
             if not content.get(sublane):
                 continue
-            edge = self.add_edge(lane_id, sublane, target_group)
+            edge = self.add_edge(selector, sublane, target_group)
             if edge is not None:
                 added.append(edge)
         if len(added) >= 2:
-            self._lane_patches.add((lane_id, target_group))
+            self._group_patches.add((selector, target_group))
             self._notify()
         return added
 
@@ -347,11 +369,11 @@ class MorphPatchbay(QtWidgets.QWidget):
         if edge is None:
             return False
         self.plan.edges.remove(edge)
-        pair = (edge.source_lane_id, edge.target_group)
-        if pair in self._lane_patches and not any(
-                e.source_lane_id == pair[0] and e.target_group == pair[1]
+        pair = (edge.source_group, edge.target_group)
+        if pair in self._group_patches and not any(
+                e.source_group == pair[0] and e.target_group == pair[1]
                 for e in self.plan.edges):
-            self._lane_patches.discard(pair)
+            self._group_patches.discard(pair)
         self._notify()
         return True
 
@@ -417,14 +439,14 @@ class MorphPatchbay(QtWidgets.QWidget):
     def is_locked(self, target_group: str) -> bool:
         return target_group in self.plan.protected_target_lanes
 
-    def is_lane_patch(self, lane_id: str, target_group: str) -> bool:
-        return (lane_id, target_group) in self._lane_patches
+    def is_group_patch(self, selector: str, target_group: str) -> bool:
+        return (selector, target_group) in self._group_patches
 
-    def set_expanded(self, lane_id: str, expanded: bool) -> None:
+    def set_expanded(self, selector: str, expanded: bool) -> None:
         if expanded:
-            self._expanded.add(lane_id)
+            self._expanded.add(selector)
         else:
-            self._expanded.discard(lane_id)
+            self._expanded.discard(selector)
         self._rebuild_rows()
 
     def auto_suggest(self) -> List[MorphEdge]:
@@ -432,10 +454,10 @@ class MorphPatchbay(QtWidgets.QWidget):
         (same lighting_role, capability overlap, name) and wire every
         compatible sublane. Adds only; never edits or removes."""
         added: List[MorphEdge] = []
-        for info in self._lanes:
+        for info in self._sources:
             if not info.content:
                 continue
-            role = self._lane_role(info)
+            role = self._source_role(info)
             candidates = []
             for group, caps in self._caps.items():
                 overlap = len(set(info.content) & caps)
@@ -452,19 +474,19 @@ class MorphPatchbay(QtWidgets.QWidget):
             best = candidates[0][2]
             for sublane in SUBLANE_ORDER:
                 if info.content.get(sublane):
-                    edge = self.add_edge(info.lane_id, sublane, best)
+                    edge = self.add_edge(info.selector, sublane, best)
                     if edge is not None:
                         added.append(edge)
         if added:
             self._notify()
         return added
 
-    def _lane_role(self, info: LaneInfo) -> str:
+    def _source_role(self, info: SourceInfo) -> str:
         for song in self.source_config.songs.values():
             if not song.timeline_data:
                 continue
             for lane in song.timeline_data.lanes:
-                if lane.lane_id != info.lane_id:
+                if lane.lane_id != info.selector:
                     continue
                 for target in lane.fixture_targets:
                     group = self.source_config.groups.get(
@@ -495,35 +517,35 @@ class MorphPatchbay(QtWidgets.QWidget):
     def load_plan(self, plan: MorphPlan) -> None:
         """Adopt an existing plan (re-morph workflow)."""
         self.plan = plan
-        self._lane_patches.clear()
-        self._derive_lane_patches()
+        self._group_patches.clear()
+        self._derive_group_patches()
         self._rebuild_rows()
         self.changed.emit()
 
-    def _derive_lane_patches(self) -> None:
+    def _derive_group_patches(self) -> None:
         """A loaded plan carries no widget state: any (lane, target)
-        pair wired on 2+ sublanes reads as a lane-level patch."""
+        pair wired on 2+ sublanes reads as a group-level patch."""
         pairs: Dict[Tuple[str, str], set] = {}
         for edge in self.plan.edges:
             pairs.setdefault(
-                (edge.source_lane_id, edge.target_group),
+                (edge.source_group, edge.target_group),
                 set()).add(edge.sublane)
         for pair, sublanes in pairs.items():
             if len(sublanes) >= 2:
-                self._lane_patches.add(pair)
+                self._group_patches.add(pair)
 
     # ── drag-and-drop wiring (the drop half is plain methods) ────────────
 
-    def wire_drop_allowed(self, lane_id: str, sublane: Optional[str],
+    def wire_drop_allowed(self, selector: str, sublane: Optional[str],
                           target_group: str,
                           target_sublane: Optional[str]) -> bool:
         """Would this drop dock? Same gate for dragEnter and tests.
         ``sublane`` None = whole-lane drag; ``target_sublane`` None =
         dropped on the row rather than one capability chip."""
-        if lane_id not in self._lanes_by_id:
+        if selector not in self._sources_by_selector:
             return False
         if sublane is None:
-            content = self.lane_content(lane_id)
+            content = self.source_content(selector)
             docks = [s for s in content
                      if s in self._caps.get(target_group, set())]
             if target_sublane is not None:
@@ -531,21 +553,21 @@ class MorphPatchbay(QtWidgets.QWidget):
             return bool(docks)
         if target_sublane is not None and target_sublane != sublane:
             return False
-        return self.can_dock(lane_id, sublane, target_group)
+        return self.can_dock(selector, sublane, target_group)
 
-    def handle_wire_drop(self, lane_id: str, sublane: Optional[str],
+    def handle_wire_drop(self, selector: str, sublane: Optional[str],
                          target_group: str,
                          target_sublane: Optional[str] = None) -> bool:
         """A wire dropped on a target: lane drags fan out (dashed lane
         patch), stream drags dock their capability. Returns True when
         at least one edge was added."""
-        if not self.wire_drop_allowed(lane_id, sublane, target_group,
+        if not self.wire_drop_allowed(selector, sublane, target_group,
                                       target_sublane):
             return False
         if sublane is None:
-            added = bool(self.add_lane_patch(lane_id, target_group))
+            added = bool(self.add_group_patch(selector, target_group))
         else:
-            added = self.add_edge(lane_id, sublane, target_group) \
+            added = self.add_edge(selector, sublane, target_group) \
                 is not None
         if added:
             self._pending = None
@@ -692,7 +714,7 @@ class MorphPatchbay(QtWidgets.QWidget):
         self._clear_column(self._source_column)
         self._clear_column(self._target_column)
 
-        for info in self._lanes:
+        for info in self._sources:
             self._source_column.addWidget(self._build_source_row(info))
         self._source_column.addStretch(1)
 
@@ -704,7 +726,7 @@ class MorphPatchbay(QtWidgets.QWidget):
         self._refresh_checker()
         self._canvas.update()
 
-    def _build_source_row(self, info: LaneInfo) -> QtWidgets.QWidget:
+    def _build_source_row(self, info: SourceInfo) -> QtWidgets.QWidget:
         holder = QtWidgets.QWidget()
         vbox = QtWidgets.QVBoxLayout(holder)
         vbox.setContentsMargins(0, 0, 0, 0)
@@ -713,7 +735,7 @@ class MorphPatchbay(QtWidgets.QWidget):
         frame = self._row_frame(info.colour)
         row = QtWidgets.QHBoxLayout(frame)
         row.setContentsMargins(8, 4, 8, 4)
-        expanded = info.lane_id in self._expanded
+        expanded = info.selector in self._expanded
         expand = QtWidgets.QToolButton()
         # A drawn arrow, not a text glyph: the dialog era used "+"/"-"
         # text, which rendered as an anonymous blank square.
@@ -725,7 +747,7 @@ class MorphPatchbay(QtWidgets.QWidget):
                              " background: transparent; padding: 0; }")
         expand.setToolTip("Expand to the four sublane streams")
         expand.clicked.connect(
-            lambda _=False, lid=info.lane_id:
+            lambda _=False, lid=info.selector:
             self.set_expanded(lid, lid not in self._expanded))
         row.addWidget(expand)
         row.addWidget(self._name_label(info.name), 1)
@@ -745,31 +767,31 @@ class MorphPatchbay(QtWidgets.QWidget):
                     f"{count}x" if count else "empty"))
                 sub_row.addStretch(1)
                 chip = self._source_chip(
-                    (info.lane_id, sublane), SUBLANE_LABELS[sublane],
+                    (info.selector, sublane), SUBLANE_LABELS[sublane],
                     info.colour, ghost=not has_content)
                 if not has_content:
                     chip.setToolTip(
                         "No movement authored - wiring this creates a "
                         "REGENERATE edge")
                 chip.clicked.connect(
-                    lambda _=False, lid=info.lane_id, s=sublane:
+                    lambda _=False, lid=info.selector, s=sublane:
                     self._chip_clicked(lid, s))
-                self._register_chip((info.lane_id, sublane), chip)
+                self._register_chip((info.selector, sublane), chip)
                 sub_row.addWidget(chip)
-                self._source_anchors[(info.lane_id, sublane)] = sub
+                self._source_anchors[(info.selector, sublane)] = sub
                 vbox.addWidget(sub)
         else:
-            chip = self._source_chip((info.lane_id, None), "LANE",
+            chip = self._source_chip((info.selector, None), "GROUP",
                                      info.colour)
             chip.setToolTip(
                 "Wire the whole lane: every stream it carries that the "
                 "target renders (dashed fan-out)")
             chip.clicked.connect(
-                lambda _=False, lid=info.lane_id:
+                lambda _=False, lid=info.selector:
                 self._chip_clicked(lid, None))
-            self._register_chip((info.lane_id, None), chip)
+            self._register_chip((info.selector, None), chip)
             row.addWidget(chip)
-            self._source_anchors[(info.lane_id, None)] = frame
+            self._source_anchors[(info.selector, None)] = frame
 
         vbox.insertWidget(0, frame)
         return holder
@@ -778,7 +800,7 @@ class MorphPatchbay(QtWidgets.QWidget):
         colour = "#8d9299"
         for edge in self.plan.edges:
             if edge.target_group == group:
-                info = self._lanes_by_id.get(edge.source_lane_id)
+                info = self._sources_by_selector.get(edge.source_group)
                 if info:
                     colour = info.colour
                 break
@@ -833,9 +855,9 @@ class MorphPatchbay(QtWidgets.QWidget):
         return frame
 
     def _build_edge_chip(self, edge: MorphEdge) -> QtWidgets.QToolButton:
-        info = self._lanes_by_id.get(edge.source_lane_id)
+        info = self._sources_by_selector.get(edge.source_group)
         colour = info.colour if info else "#8d9299"
-        text = f"{edge.source_lane_name} · {SUBLANE_LABELS[edge.sublane]}"
+        text = f"{edge.source_group} · {SUBLANE_LABELS[edge.sublane]}"
         if edge.mode == "regenerate":
             text += f" · REGEN({edge.regenerate_strategy})"
         if edge.transforms:
@@ -860,8 +882,8 @@ class MorphPatchbay(QtWidgets.QWidget):
     def _register_target_chip(self, group, sublane, chip) -> None:
         chip.setProperty("target_key", (group, sublane))
 
-    def _chip_clicked(self, lane_id: str, sublane: Optional[str]) -> None:
-        key = (lane_id, sublane)
+    def _chip_clicked(self, selector: str, sublane: Optional[str]) -> None:
+        key = (selector, sublane)
         if self._pending == key:
             self._pending = None
         else:
@@ -874,13 +896,13 @@ class MorphPatchbay(QtWidgets.QWidget):
             self.hint_label.setText(
                 "Click (or drag) a source chip first.")
             return
-        lane_id, pending_sublane = self._pending
+        selector, pending_sublane = self._pending
         if pending_sublane is None:
-            self.add_lane_patch(lane_id, group)
+            self.add_group_patch(selector, group)
         else:
             if pending_sublane != sublane:
                 return               # gated: only matching capability docks
-            self.add_edge(lane_id, pending_sublane, group)
+            self.add_edge(selector, pending_sublane, group)
         self._pending = None
         self._refresh_gating()
 
@@ -905,19 +927,19 @@ class MorphPatchbay(QtWidgets.QWidget):
             if pending is None:
                 chip.setEnabled(True)
                 continue
-            lane_id, pending_sublane = pending
+            selector, pending_sublane = pending
             if pending_sublane is None:
-                content = self.lane_content(lane_id)
+                content = self.source_content(selector)
                 chip.setEnabled(bool(content.get(sublane)))
             else:
                 chip.setEnabled(sublane == pending_sublane and
-                                self.can_dock(lane_id, sublane, group))
+                                self.can_dock(selector, sublane, group))
         if pending is None:
             self.hint_label.setText(self.HINT_IDLE)
         else:
-            lane_id, sublane = pending
-            info = self._lanes_by_id.get(lane_id)
-            what = SUBLANE_LABELS.get(sublane, "LANE")
+            selector, sublane = pending
+            info = self._sources_by_selector.get(selector)
+            what = SUBLANE_LABELS.get(sublane, "GROUP")
             verb = "Drop on" if self._dragging else "Click"
             self.hint_label.setText(
                 f"Wiring {info.name if info else '?'} · {what} - {verb} "
@@ -1019,18 +1041,18 @@ class MorphPatchbay(QtWidgets.QWidget):
         coordinates. Painting reads this; nothing else."""
         curves = []
         for edge in self.plan.edges:
-            info = self._lanes_by_id.get(edge.source_lane_id)
+            info = self._sources_by_selector.get(edge.source_group)
             if info is None:
                 continue
             anchor = self._source_anchors.get(
-                (edge.source_lane_id, edge.sublane))
+                (edge.source_group, edge.sublane))
             if anchor is None:
                 anchor = self._source_anchors.get(
-                    (edge.source_lane_id, None))
+                    (edge.source_group, None))
             target = self._target_anchors.get(edge.target_group)
             if anchor is None or target is None:
                 continue
-            dashed = self.is_lane_patch(edge.source_lane_id,
+            dashed = self.is_group_patch(edge.source_group,
                                         edge.target_group)
             y1 = self._anchor_y(anchor)
             y2 = self._anchor_y(target)

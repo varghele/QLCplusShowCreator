@@ -143,7 +143,7 @@ class TestAutogenRegeneration:
                                                  output={})})
         b.songs = {}
         plan = MorphPlan(edges=[MorphEdge(
-            source_lane_id=lane.lane_id, source_lane_name="Pars",
+            source_group=lane.fixture_targets[0],
             sublane="movement", target_group="WASH", mode="regenerate",
             regenerate_strategy="autogen")])
         import copy

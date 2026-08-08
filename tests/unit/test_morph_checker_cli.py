@@ -47,8 +47,7 @@ def _lane(name, dimmer_spans=(), colour_spans=()):
 
 
 def _edge(lane, sublane, target, **kw):
-    return MorphEdge(source_lane_id=lane.lane_id,
-                     source_lane_name=lane.name, sublane=sublane,
+    return MorphEdge(source_group=lane.fixture_targets[0], sublane=sublane,
                      target_group=target, **kw)
 
 

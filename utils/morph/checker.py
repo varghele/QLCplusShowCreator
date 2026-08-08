@@ -108,8 +108,12 @@ def check(source_config, plan: MorphPlan, target_config) -> CheckResult:
         if not song.timeline_data:
             continue
         duration = _song_duration(song) or 1.0
-        lanes_by_id = {lane.lane_id: lane
-                       for lane in song.timeline_data.lanes}
+        # Group-keyed, matching the compile: one selector can gather
+        # several lanes, whose spans merge for coverage purposes.
+        lanes_by_selector: Dict[str, list] = {}
+        for lane in song.timeline_data.lanes:
+            for selector in lane.fixture_targets:
+                lanes_by_selector.setdefault(selector, []).append(lane)
         edges = plan.edges_for_song(song_name)
 
         routed: Dict[Tuple[str, str], List[Tuple[float, float]]] = {}
@@ -124,16 +128,18 @@ def check(source_config, plan: MorphPlan, target_config) -> CheckResult:
                     routed.setdefault(key, []).append((0.0, duration))
                 edge_counts[key] = edge_counts.get(key, 0) + 1
                 continue
-            lane = lanes_by_id.get(edge.source_lane_id)
-            if lane is None:
+            lanes = lanes_by_selector.get(edge.source_group, [])
+            if not lanes:
                 continue
             attr = SUBLANE_ATTRS[edge.sublane]
             spans = [(b.start_time, b.end_time)
+                     for lane in lanes
                      for lb in lane.light_blocks
                      for b in getattr(lb, attr)]
             routed.setdefault(key, []).extend(spans)
             edge_counts[key] = edge_counts.get(key, 0) + 1
-            eaten.add((lane.lane_id, edge.sublane))
+            for lane in lanes:
+                eaten.add((lane.lane_id, edge.sublane))
 
         # Every target group x sublane the plan touches, plus every
         # capability the target group could render (0% rows included -

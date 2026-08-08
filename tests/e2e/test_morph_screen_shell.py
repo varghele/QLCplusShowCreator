@@ -75,7 +75,7 @@ class TestMorphScreenShell:
         main_window.open_morph_screen()
         screen = main_window._morph_screen
         screen.set_target_config(_target_config(), "venue.lms")
-        assert screen.patchbay.add_edge(lane.lane_id, "dimmer", "WASH")
+        assert screen.patchbay.add_edge(lane.fixture_targets[0], "dimmer", "WASH")
 
         # The user checks something on the tabs mid-morph...
         main_window.show_pages()
@@ -103,7 +103,7 @@ class TestMorphScreenShell:
         main_window.open_morph_screen()
         stale = main_window._morph_screen
         stale.set_target_config(_target_config(), "venue.lms")
-        assert stale.patchbay.add_edge(lane.lane_id, "dimmer", "WASH")
+        assert stale.patchbay.add_edge(lane.fixture_targets[0], "dimmer", "WASH")
 
         # A project load swaps the config reference (rebind ladder).
         fresh = Configuration(fixtures=[], groups={}, universes={})

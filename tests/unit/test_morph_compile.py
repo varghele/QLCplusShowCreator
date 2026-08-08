@@ -59,8 +59,9 @@ def _lane(name, targets, dimmer=(), colour=(), movement=(), special=()):
 
 
 def _edge(lane, sublane, target, **kw):
-    return MorphEdge(source_lane_id=lane.lane_id,
-                     source_lane_name=lane.name, sublane=sublane,
+    """Edges key by GROUP SELECTOR (design doc 5.2), so the helper takes
+    a lane only for convenience and reads its first target."""
+    return MorphEdge(source_group=lane.fixture_targets[0], sublane=sublane,
                      target_group=target, **kw)
 
 
@@ -113,8 +114,8 @@ class TestPlanPersistence:
             _edge(lane, "dimmer", "WASH",
                   transforms=[{"type": "warp"}],                # kind
                   mode="copy_transform"),
-            MorphEdge(source_lane_id="ghost", source_lane_name="?",
-                      sublane="dimmer", target_group="WASH"),   # lane
+            MorphEdge(source_group="ghost",
+                      sublane="dimmer", target_group="WASH"),   # source group
         ])
         problems = plan.validate(source_config=a, target_config=b)
         assert len(problems) == 5
@@ -398,13 +399,14 @@ class TestReMorph:
         assert kept.light_blocks[0].provenance == "hand_edited"
 
 
-class TestPerSongLanes:
-    """Lanes are per song: a setlist-wide plan carries edges for every
-    song's lanes, and compiling song S must silently skip the other
-    songs' edges (fixed 2026-07-16 - the single-song demos never
-    exercised this and real multi-song projects drowned in
-    'not in this song' errors). A lane id in NO source song still
-    errors: that edge is genuinely broken."""
+class TestSetlistWidePlan:
+    """Edges key by GROUP SELECTOR, so ONE edge covers the whole setlist
+    (design doc 5.2: "lanes are keyed by group targets, which are
+    consistent across songs in a config").
+
+    Format 1 keyed by per-song lane uuid, which forced the user to draw
+    the same wire once per song - a real 12-song gig needed 293 edges to
+    express 39 distinct wires. Changed 2026-08-08."""
 
     def _two_song_source(self):
         lane1 = _lane("Pars", ["PARS"],
@@ -416,33 +418,62 @@ class TestPerSongLanes:
                            "Two": _song("Two", lanes=[lane2])})
         return a, lane1, lane2
 
-    def test_cross_song_edges_skip_silently(self):
+    def test_one_edge_covers_every_song(self):
         a, lane1, lane2 = self._two_song_source()
         b = _config({"WASH": [_fixture("w1", group="WASH")]})
-        plan = MorphPlan(edges=[_edge(lane1, "dimmer", "WASH"),
-                                _edge(lane2, "dimmer", "WASH")])
+        # ONE edge, not one per song - that is the whole point.
+        plan = MorphPlan(edges=[_edge(lane1, "dimmer", "WASH")])
         result = compile_setlist(a, plan, b)
         assert not result.report.has_errors
+        assert set(result.songs) == {"One", "Two"}
         for name, lane in (("One", lane1), ("Two", lane2)):
             (out,) = result.songs[name].timeline_data.lanes
-            blocks = [d for lb in out.light_blocks
-                      for d in lb.dimmer_blocks]
-            src = [d for lb in lane.light_blocks
-                   for d in lb.dimmer_blocks]
+            blocks = [d for lb in out.light_blocks for d in lb.dimmer_blocks]
+            src = [d for lb in lane.light_blocks for d in lb.dimmer_blocks]
             assert len(blocks) == len(src), name
 
-    def test_lane_in_no_song_still_errors(self):
-        # Caught by plan validation before any song compiles - the
-        # per-song skip must never swallow a genuinely dangling edge.
-        a, lane1, _lane2 = self._two_song_source()
+    def test_group_in_no_song_still_errors(self):
+        a, lane1, _ = self._two_song_source()
         b = _config({"WASH": [_fixture("w1", group="WASH")]})
-        ghost = _lane("Gone", ["PARS"],
-                      dimmer=[DimmerBlock(0.0, 4.0)])
-        plan = MorphPlan(edges=[_edge(lane1, "dimmer", "WASH"),
-                                _edge(ghost, "dimmer", "WASH")])
+        plan = MorphPlan(edges=[
+            _edge(lane1, "dimmer", "WASH"),
+            MorphEdge(source_group="GHOST", sublane="dimmer",
+                      target_group="WASH"),
+        ])
         result = compile_setlist(a, plan, b)
         errors = result.report.of_kind("error")
         assert errors and "not in the source config" in errors[0].format()
+
+    def test_song_without_that_group_notes_rather_than_errors(self):
+        """A rig-level edge naturally covers groups some songs do not
+        use. That is ordinary, and must not read as a failure."""
+        lane1 = _lane("Pars", ["PARS"], dimmer=[DimmerBlock(0.0, 8.0)])
+        lane2 = _lane("Movers", ["MOVERS"], dimmer=[DimmerBlock(0.0, 8.0)])
+        a = _config({"PARS": [_fixture("p1")],
+                     "MOVERS": [_fixture("m1", group="MOVERS")]},
+                    songs={"One": _song("One", lanes=[lane1]),
+                           "Two": _song("Two", lanes=[lane2])})
+        b = _config({"WASH": [_fixture("w1", group="WASH")]})
+        plan = MorphPlan(edges=[_edge(lane1, "dimmer", "WASH")])
+        result = compile_setlist(a, plan, b)
+        assert not result.report.has_errors
+        notes = " ".join(n.format() for n in result.report.of_kind("note"))
+        assert "has no lane in this song" in notes
+
+    def test_two_lanes_on_one_group_merge_rather_than_one_winning(self):
+        """User decision 2026-08-08: within a song, several lanes sharing
+        a selector merge and fan-in resolution settles them (doc 3.3)."""
+        first = _lane("Pars A", ["PARS"], dimmer=[DimmerBlock(0.0, 4.0)])
+        second = _lane("Pars B", ["PARS"], dimmer=[DimmerBlock(8.0, 12.0)])
+        a = _config({"PARS": [_fixture("p1")]},
+                    songs={"One": _song("One", lanes=[first, second])})
+        b = _config({"WASH": [_fixture("w1", group="WASH")]})
+        plan = MorphPlan(edges=[_edge(first, "dimmer", "WASH")])
+        result = compile_setlist(a, plan, b)
+        assert not result.report.has_errors
+        (out,) = result.songs["One"].timeline_data.lanes
+        blocks = [d for lb in out.light_blocks for d in lb.dimmer_blocks]
+        assert len(blocks) == 2, "both lanes' streams should survive"
 
 
 class TestAudioCarryOver:
@@ -560,3 +591,136 @@ class TestSetlistAdoption:
         result = compile_setlist(a, plan, b)
         apply_morph(result, b, plan, force=True)
         assert [e.song for e in b.setlist.entries] == ["VenueOpener"]
+
+
+class TestFormat1Migration:
+    """Format-1 plans keyed edges by per-song lane uuid, so the same wire
+    was repeated once per song. migrate_legacy_edges() collapses them
+    onto group selectors on load (2026-08-08, user decision).
+
+    Sized from the real 12-song gig that exposed this: 293 edges
+    expressing 39 distinct wires, all 14 (selector, sublane) keys routing
+    identically in every song.
+    """
+
+    def _multi_song_source(self, songs=6):
+        lanes = {}
+        made = {}
+        for i in range(songs):
+            lane = _lane("Pars", ["PARS"],
+                         dimmer=[DimmerBlock(0.0, 8.0, intensity=200.0)])
+            lanes[f"S{i}"] = lane
+            made[f"S{i}"] = _song(f"S{i}", lanes=[lane])
+        return _config({"PARS": [_fixture("p1")]}, songs=made), lanes
+
+    def _legacy(self, lane, sublane, target):
+        """An edge as format 1 wrote it: keyed by the lane uuid."""
+        return MorphEdge.from_dict({
+            "source_lane_id": lane.lane_id,
+            "source_lane_name": "Pars",
+            "sublane": sublane,
+            "target_group": target,
+        })
+
+    def test_per_song_duplicates_collapse_to_one_edge(self):
+        a, lanes = self._multi_song_source()
+        plan = MorphPlan(edges=[self._legacy(lane, "dimmer", "WASH")
+                                for lane in lanes.values()])
+        assert plan.needs_migration()
+        assert len(plan.edges) == 6
+
+        dropped = plan.migrate_legacy_edges(a)
+
+        assert dropped == 5
+        assert len(plan.edges) == 1
+        assert plan.edges[0].source_group == "PARS"
+        assert not plan.needs_migration()
+
+    def test_migrated_plan_still_compiles_every_song(self):
+        """The collapse must not lose coverage - one edge now drives all
+        six songs, which is the entire point."""
+        a, lanes = self._multi_song_source()
+        b = _config({"WASH": [_fixture("w1", group="WASH")]})
+        plan = MorphPlan(edges=[self._legacy(lane, "dimmer", "WASH")
+                                for lane in lanes.values()])
+        result = compile_setlist(a, plan, b)
+        assert not result.report.has_errors
+        assert set(result.songs) == set(lanes)
+        for name in lanes:
+            (out,) = result.songs[name].timeline_data.lanes
+            assert [d for lb in out.light_blocks for d in lb.dimmer_blocks]
+
+    def test_compile_migrates_and_says_so(self):
+        a, lanes = self._multi_song_source()
+        b = _config({"WASH": [_fixture("w1", group="WASH")]})
+        plan = MorphPlan(edges=[self._legacy(lane, "dimmer", "WASH")
+                                for lane in lanes.values()])
+        result = compile_setlist(a, plan, b)
+        notes = " ".join(n.format() for n in result.report.of_kind("note"))
+        assert "migrated from format 1" in notes
+
+    def test_distinct_wires_are_preserved_not_merged(self):
+        """Collapsing must only drop DUPLICATES. Different targets off
+        the same source are fan-out (design doc 3), and must survive."""
+        a, lanes = self._multi_song_source(songs=3)
+        plan = MorphPlan(edges=(
+            [self._legacy(lane, "dimmer", "WASH") for lane in lanes.values()]
+            + [self._legacy(lane, "dimmer", "SPOT") for lane in lanes.values()]
+            + [self._legacy(lane, "colour", "WASH") for lane in lanes.values()]
+        ))
+        assert len(plan.edges) == 9
+        plan.migrate_legacy_edges(a)
+        wires = {(e.source_group, e.sublane, e.target_group)
+                 for e in plan.edges}
+        assert wires == {("PARS", "dimmer", "WASH"),
+                         ("PARS", "dimmer", "SPOT"),
+                         ("PARS", "colour", "WASH")}
+
+    def test_unresolvable_legacy_edge_is_kept_and_flagged(self):
+        """A lane id in no song must not be silently discarded - the
+        user authored that routing and deserves to be told."""
+        a, lanes = self._multi_song_source(songs=2)
+        plan = MorphPlan(edges=[MorphEdge.from_dict({
+            "source_lane_id": "ghost-uuid", "source_lane_name": "?",
+            "sublane": "dimmer", "target_group": "WASH"})])
+        plan.migrate_legacy_edges(a)
+        assert len(plan.edges) == 1
+        problems = plan.validate(source_config=a)
+        assert any("needs migrate_legacy_edges" in p for p in problems)
+
+    def test_saved_plan_is_format_2_and_drops_lane_keys(self):
+        a, lanes = self._multi_song_source(songs=2)
+        plan = MorphPlan(edges=[self._legacy(lane, "dimmer", "WASH")
+                                for lane in lanes.values()])
+        plan.migrate_legacy_edges(a)
+        data = plan.to_dict()
+        assert data["morphplan"] == 2
+        assert "source_lane_id" not in data["edges"][0]
+        assert data["edges"][0]["source_group"] == "PARS"
+
+    def test_collapse_broadens_coverage_to_every_song(self):
+        """Union semantics, decided 2026-08-08 after measuring the real
+        gig: format 1 gave each song a DIFFERENT subset of the wires (the
+        SBD plan ranged from 1 to 36 of 39, because auto-suggest gated
+        each song on that song's lane content). Collapsing applies every
+        wire to every song, which CHANGES compiled output - 9 of 12 SBD
+        songs moved. That is intended: the per-song gaps were an artifact
+        of being forced to wire per song, not a design.
+        """
+        rich = _lane("Pars", ["PARS"], dimmer=[DimmerBlock(0.0, 8.0)])
+        poor = _lane("Pars", ["PARS"], dimmer=[DimmerBlock(0.0, 8.0)])
+        a = _config({"PARS": [_fixture("p1")]},
+                    songs={"Rich": _song("Rich", lanes=[rich]),
+                           "Poor": _song("Poor", lanes=[poor])})
+        b = _config({"WASH": [_fixture("w1", group="WASH")]})
+        # Format 1: only "Rich" was ever wired.
+        plan = MorphPlan(edges=[self._legacy(rich, "dimmer", "WASH")])
+        plan.migrate_legacy_edges(a)
+
+        result = compile_setlist(a, plan, b)
+        assert not result.report.has_errors
+        # "Poor" now renders too, off the same single edge.
+        for name in ("Rich", "Poor"):
+            (out,) = result.songs[name].timeline_data.lanes
+            assert [d for lb in out.light_blocks
+                    for d in lb.dimmer_blocks], f"{name} should render"

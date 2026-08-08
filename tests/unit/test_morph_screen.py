@@ -68,8 +68,8 @@ def _screen(qapp, source, target, lane=None):
     screen = MorphScreen(source, source_path="master.lms")
     screen.set_target_config(target, "venue.lms")
     if lane is not None:
-        screen.patchbay.add_edge(lane.lane_id, "dimmer", "WASH")
-        screen.patchbay.add_edge(lane.lane_id, "colour", "WASH")
+        screen.patchbay.add_edge(lane.fixture_targets[0], "dimmer", "WASH")
+        screen.patchbay.add_edge(lane.fixture_targets[0], "colour", "WASH")
     return screen
 
 

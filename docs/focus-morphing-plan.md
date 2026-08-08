@@ -339,3 +339,44 @@ assume one active config.
   swept; legacy-load fixture preserved as
   tests/fixtures/legacy_band_midsize.yaml; export hashes verified
   byte-identical before/after).
+
+- **2026-08-08 - edges key by GROUP, not by lane (format 2).** The
+  2026-07-16 "cross-song edges skip silently" entry above treated the
+  symptom; this is the cause. `MorphEdge` keyed its source by
+  `LightLane.lane_id`, a per-lane `uuid4()`. Lanes live inside a song,
+  so every wire was per-song - the exact opposite of design doc 5.2
+  ("lanes are keyed by group targets, which are consistent across songs
+  in a config... the single biggest workflow multiplier in the design").
+  Measured on the real SBD gig: **293 edges expressing 39 distinct
+  wires**, the patchbay listing all 58 song-qualified lanes as source
+  rows. The key is now the group SELECTOR (`"WASH"`, `"WASH:0"`) - the
+  vocabulary `fixture_targets` already speaks - so the patchbay's left
+  rail is ~7 rows and one wire covers the setlist.
+
+  Decisions taken with the user this round:
+
+  - **Group-to-group, not fixture-to-fixture.** The show has no
+    fixture-level handle to patch FROM (blocks are authored per lane,
+    per group), and fixture keys would break the fan-out that makes one
+    dimmer stream drive several target groups. Sub-group precision stays
+    where the design put it: indexed selectors plus the
+    `spatial_subset` transform (3.1).
+  - **Two lanes on one selector merge**, settled by the existing fan-in
+    rules (3.3), rather than one silently winning.
+  - **Migration collapses to the UNION.** `migrate_legacy_edges()`
+    resolves format-1 lane ids onto selectors and dedupes; the SBD plan
+    goes 293 -> 39, dropping 254 duplicates, validating clean and
+    compiling all 12 songs.
+
+  **This changes compiled output, deliberately.** Verified old-vs-new
+  block for block by running the pre-change code from a git worktree:
+  5413 spans -> 5525, differing in 9 of 12 songs and in BOTH directions.
+  Cause: format 1 gave each song a different subset of the wires (SBD
+  songs carried 1 to 36 of the 39, because auto-suggest gated each song
+  on that song's lane content). Applying every wire everywhere both adds
+  streams a song never had AND changes fan-in outcomes where more
+  contributions now compete. The per-song gaps were an artifact of being
+  forced to wire per song; `song_overrides` remains the escape hatch for
+  a song that genuinely differs. Pinned by
+  `test_morph_compile.py::TestFormat1Migration` and
+  `::TestSetlistWidePlan`.
