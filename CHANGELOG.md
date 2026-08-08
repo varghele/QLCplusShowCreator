@@ -11,32 +11,6 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
 
 ## [Unreleased]
 
-### Changed
-
-- **Morph to Venue patches group to group, once for the whole setlist.**
-  The patchbay used to list every song's lanes separately, so the same
-  wire had to be drawn again for each song: a real 12-song gig needed
-  293 edges to express 39 actual wires. Edges now key on the fixture
-  group itself, so the source column is one row per group and a single
-  wire covers every song in the set. Per-song overrides remain for a
-  song that genuinely differs. Existing plans are converted on load and
-  say what they collapsed. Note that a converted plan can render MORE
-  than it used to: where the old per-song wiring left a song out, that
-  song now follows the same routing as the rest.
-
-### Fixed
-
-- **The test suite no longer leaks every widget tree it builds.** The
-  standard UI-fixture teardown (`deleteLater()` followed by
-  `processEvents()`) freed nothing: `processEvents()` does not deliver
-  `DeferredDelete` when no event loop is running, so every tab and
-  dialog a worker ever built stayed alive. Since applying a theme
-  re-polishes every widget in the application, each later theme apply
-  walked a bigger pile of dead widgets until it crashed - the CI
-  access violations in the Live tab tests, and the earlier
-  offscreen-Linux segfaults. There is now a suite-wide flush.
-  Side effect: the unit suite runs in 34 s instead of 193 s.
-
 ## [1.5.0] - 2026-08-08
 
 ### Added
@@ -217,6 +191,17 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
 
 ### Changed
 
+- **Morph to Venue patches group to group, once for the whole setlist.**
+  The patchbay used to list every song's lanes separately, so the same
+  wire had to be drawn again for each song: a real 12-song gig needed
+  293 edges to express 39 actual wires. Edges now key on the fixture
+  group itself, so the source column is one row per group and a single
+  wire covers every song in the set. Per-song overrides remain for a
+  song that genuinely differs. Existing plans are converted on load and
+  say what they collapsed. Note that a converted plan can render MORE
+  than it used to: where the old per-song wiring left a song out, that
+  song now follows the same routing as the rest.
+
 - **Help > About is a branded card now.** The generic message box
   became a real dialog: rotor glyph and wordmark with the slogan, a
   short body paragraph, the rating plate (the same verifiable facts
@@ -285,6 +270,17 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
   old path, just slower.
 
 ### Fixed
+
+- **The test suite no longer leaks every widget tree it builds.** The
+  standard UI-fixture teardown (`deleteLater()` followed by
+  `processEvents()`) freed nothing: `processEvents()` does not deliver
+  `DeferredDelete` when no event loop is running, so every tab and
+  dialog a worker ever built stayed alive. Since applying a theme
+  re-polishes every widget in the application, each later theme apply
+  walked a bigger pile of dead widgets until it crashed - the CI
+  access violations in the Live tab tests, and the earlier
+  offscreen-Linux segfaults. There is now a suite-wide flush.
+  Side effect: the unit suite runs in 34 s instead of 193 s.
 
 - **Audio inputs that refuse 44.1 kHz work now.** Arming the SMPTE
   chase (or Auto mode) on an onboard microphone input failed with
