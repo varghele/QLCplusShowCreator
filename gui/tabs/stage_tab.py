@@ -1430,27 +1430,22 @@ class StageTab(BaseTab):
         """
         name = self._mark_near(x_m, y_m)
         if name is not None:
-            self._select_mark(name)
+            self._select_mark_in_list(name)
             self._show_status(
                 f"PLACE MARK: '{name}' is already here - selected it")
             return
         spot = self.stage_view.add_spot(round(x_m, 3), round(y_m, 3), 0.0)
-        self._select_mark(spot.name)
+        self._select_mark_in_list(spot.name)
+        # Select it on the PLAN too: the plan has focus (you just
+        # clicked it), so Delete undoes a misplaced mark straight away.
+        self.stage_view.scene.clearSelection()
+        spot.setSelected(True)
         if not keep_going:
             self.aim_btn.setChecked(False)      # disarms via toggled
         self._show_status(
             f"PLACE MARK: '{spot.name}' at "
             f"({x_m:.2f}, {y_m:.2f}) m - rename it in the MARKS list"
             + ("" if keep_going else " · Shift-click to place several"))
-
-    def _select_mark(self, name: str) -> None:
-        """Highlight a mark in the MARKS list, so a freshly placed one
-        is ready to rename or re-height."""
-        for row in range(self.marks_list.count()):
-            item = self.marks_list.item(row)
-            if item is not None and item.text() == name:
-                self.marks_list.setCurrentItem(item)
-                return
 
     def _on_preview_collapsed(self, collapsed: bool) -> None:
         """Chevron in the 3D preview header: hide/show the GL pane."""

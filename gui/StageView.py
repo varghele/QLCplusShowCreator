@@ -1323,6 +1323,22 @@ class StageView(QtWidgets.QGraphicsView):
         for fit-view, which is owned by StageTab) fall through to the
         default handler.
         """
+        # Delete removes the MARKS selected on the plan. Marks used to be
+        # deletable only from the MARKS list, and only while that list
+        # held keyboard focus - so selecting a mark on the plan (where
+        # you placed it, and where you are looking) and pressing Delete
+        # did nothing at all (reported 2026-08-09). Fixtures are
+        # deliberately NOT deleted here: there is no undo on this tab.
+        if event.key() in (QtCore.Qt.Key.Key_Delete,
+                           QtCore.Qt.Key.Key_Backspace):
+            names = [name for name, item in self.spots.items()
+                     if item.isSelected()]
+            if names:
+                for name in names:
+                    self.remove_spot(name)
+                event.accept()
+                return
+
         if event.key() == QtCore.Qt.Key.Key_Space and not event.isAutoRepeat():
             self._space_held = True
             # OpenHand = "you can grab"; ClosedHand only shows during the

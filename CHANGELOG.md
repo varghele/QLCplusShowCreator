@@ -328,6 +328,11 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
 
 ### Fixed
 
+- **Delete removes a mark selected on the stage plan.** It only worked
+  while the MARKS list itself had keyboard focus, so selecting a mark
+  on the plan and pressing Delete did nothing. Fixtures are left alone
+  deliberately - the stage plan has no undo.
+
 - **A saved pre-flight no longer breaks New from Template.** Saving a
   venue pre-flight next to a rig put a sidecar file in the templates
   folder, which then listed as an empty starter project.

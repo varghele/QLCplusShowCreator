@@ -470,3 +470,70 @@ class TestPlaceMarkSnapsToGrid:
         x, y = self._click_at(view, 1.18, -0.87)
         assert x == pytest.approx(1.18, abs=0.05)
         assert y == pytest.approx(-0.87, abs=0.05)
+
+
+class TestDeleteMarksOnThePlan:
+    """Reported 2026-08-09: Delete did not remove marks.
+
+    The only Delete binding was a WidgetShortcut on the MARKS list, so
+    it fired only while that list held keyboard focus - selecting a mark
+    on the plan (where you placed it, and where you are looking) and
+    pressing Delete did nothing."""
+
+    @pytest.fixture
+    def stage_tab(self, qapp):
+        from gui.tabs.stage_tab import StageTab
+        tab = StageTab(_mover_config(), parent=None)
+        yield tab
+        tab.deleteLater()
+
+    def _press(self, view, key):
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+        view.keyPressEvent(QKeyEvent(QEvent.Type.KeyPress, key,
+                                     Qt.KeyboardModifier.NoModifier))
+
+    def test_delete_removes_the_mark_selected_on_the_plan(self, stage_tab):
+        from PyQt6.QtCore import Qt
+        view = stage_tab.stage_view
+        view.spots["Mark"].setSelected(True)
+        self._press(view, Qt.Key.Key_Delete)
+        assert "Mark" not in stage_tab.config.spots
+        assert "Mark" not in view.spots
+
+    def test_backspace_works_too(self, stage_tab):
+        from PyQt6.QtCore import Qt
+        view = stage_tab.stage_view
+        view.spots["Mark"].setSelected(True)
+        self._press(view, Qt.Key.Key_Backspace)
+        assert "Mark" not in stage_tab.config.spots
+
+    def test_a_freshly_placed_mark_can_be_deleted_immediately(self,
+                                                              stage_tab):
+        """The 'oops, wrong spot' flow: place, then Delete."""
+        from PyQt6.QtCore import Qt
+        before = set(stage_tab.config.spots)
+        stage_tab._on_aim_clicked(3.5, 2.5, False)
+        placed = (set(stage_tab.config.spots) - before).pop()
+        self._press(stage_tab.stage_view, Qt.Key.Key_Delete)
+        assert placed not in stage_tab.config.spots
+
+    def test_delete_leaves_fixtures_alone(self, stage_tab):
+        """No undo on this tab - Delete must not reach the rig."""
+        from PyQt6.QtCore import Qt
+        view = stage_tab.stage_view
+        before = len(stage_tab.config.fixtures)
+        for item in view.scene.items():
+            if hasattr(item, "fixture"):
+                item.setSelected(True)
+        self._press(view, Qt.Key.Key_Delete)
+        assert len(stage_tab.config.fixtures) == before
+
+    def test_the_marks_list_follows(self, stage_tab):
+        from PyQt6.QtCore import Qt
+        view = stage_tab.stage_view
+        view.spots["Mark"].setSelected(True)
+        self._press(view, Qt.Key.Key_Delete)
+        names = {stage_tab.marks_list.item(i).text()
+                 for i in range(stage_tab.marks_list.count())}
+        assert "Mark" not in names
