@@ -652,3 +652,72 @@ were KEPT - they still back the riff browser, autogen and timeline.
 Tests: test_live_tab.py TestCompositeEffectsPool + TestColourFXPool,
 test_live_engine.py TestPerGroupIntensityBinder, test_live_busk_layer
 TestColourFX; two live goldens regenerated.
+
+**v1.5.0 desktop checks, 4 of 6 (2026-08-08/09, branch
+`v1.5-focus-morphing`, 32 commits since the release commit, 3185 unit
++ 134 visual/e2e green):** the release is PREPPED but NOT tagged -
+`_version.py` is `1.5.0`, CHANGELOG `[1.5.0]` is complete and
+`[Unreleased]` empty, brand assets + About golden current. Nothing is
+pushed. The last two gate checks (bench pre-flight, INVERT DMX) are
+BLOCKED on rig access, not on code.
+
+THE PATTERN, and the reason these checks were worth running: the
+engine maths was correct every single time (morph routing, lissajous
+aiming, `Song.apply_palette`); every defect was the UI around it
+misreporting state. Do not assume a green suite means a working
+surface.
+
+What changed, by area:
+
+- **Morph patchbay edges are GROUP-keyed, not lane-keyed** (`ab9e283`).
+  `MorphEdge.source_group` is a group selector (`"WASH"`, `"WASH:0"`);
+  format 2 plans. Format 1 keyed by `LightLane.lane_id` (a per-lane
+  uuid4), so every wire was per-song: the real 12-song gig needed 293
+  edges to express 39 wires. `MorphPlan.migrate_legacy_edges()`
+  collapses old plans on load, wired into the compile, CLI and screen.
+  CAREFUL: the collapse BROADENS coverage (union semantics, user call)
+  - format 1 gave each song a different subset of the wires, so a
+  re-morph of shoo_bee_doom changes 9 of 12 songs. Verified old-vs-new
+  block for block from a git worktree: 5413 -> 5525 spans.
+- **Patchbay UX**: cable follows the cursor while dragging
+  (`1796ecb`), four ways to unpatch (`c61117d` × chip, `0ebf813`
+  Delete, `ce2e83a` click-the-wire, `9d07c30` drag-off), unpatch-all
+  at three scopes (`dd1d3b7`), and snapshot-based undo/redo on the
+  patchbay's OWN QUndoStack (`72e830f`) - grouped edits undo as one
+  step; nine inverse operations would have drifted.
+- **Morph preview batches** (`33372b5`). `capture_stills` walks the
+  song ONCE and only pays for kept frames, so cost tracks how far in
+  you go, NOT how many frames: 1 still at 90% = 7.1 s, 20 stills
+  across the song = 7.3 s. RENDER SCRUB renders every 2 s (140 frames
+  per rig, 18.4 s both rigs on a 4:39 song) then the slider is
+  instant. Lowering resolution saves ~1.5% - it is NOT the lever.
+- **Marks replaced anonymous aim points.** AIM became PLACE MARK
+  (`9a2e4fc`, `7f42ac5`): Stage tab PLACES marks (one per arm, Shift
+  to keep placing, snaps to grid, Delete removes one selected on the
+  plan `a2acbd5`); the movement block dialog PICKS which mark a block
+  aims at; the Live POSITION pool AIMS real movers at one (it now
+  refreshes on tab activation `f2d35b6` - it only refreshed on project
+  load, so a new mark was invisible until reload). One job per
+  surface: an earlier pass had aiming do all three and it duplicated
+  both the MARKS `+` button and the dialog. `target_point` still
+  resolves for existing shows; migrating the 255 SBD point-blocks onto
+  ~8 marks is a v1.6 item (it would break `retarget_heads.py` /
+  `tame_head_envelopes.py`, which match on points).
+- **Palette roles**: tagging a block with a role now APPLIES that
+  role's colour and previews it on pick (`3f9c681`); a palette edit
+  repaints every tagged block, not just the open one (`6dda226`);
+  sub-block selection is exclusive across clips and clears on Escape
+  (`097c60e`) - it was per-widget and nothing ever cleared it.
+- **Test-suite fixes, both latent and CI-only**: `processEvents()`
+  never delivered `DeferredDelete`, so every UI fixture leaked its
+  whole widget tree and `ThemeManager.apply` eventually crashed on the
+  pile (`4c344c3`, suite-wide autouse flush; qt-gotchas #9). Side
+  effect: the unit suite went 193 s -> 34 s. And the GDTF companion
+  tests raced on a shared repo-root directory under xdist (`9be8d67`).
+
+Confirmed NOT bugs: a lissajous DOES follow a re-aim on both playback
+and export (`45c3844`) - a cross-stage re-aim moves a hung mover's
+tilt ~7 degrees against a +/-106 degree sweep at default amplitude, so
+it just looks unchanged; and Tools > Convert Movement to World Targets
+finds nothing to convert in ANY project we have (all blocks already
+carry a target), so that gate item is closed as not-exercisable.
