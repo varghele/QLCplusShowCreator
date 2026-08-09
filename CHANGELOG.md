@@ -51,6 +51,18 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
   for, so one late frame already paid for all of them. A 4:39 song
   renders both rigs in about 18 seconds, once.
 
+- **Aiming a movement block now places a mark, and marks reach the Live
+  tab straight away.** Click-to-aim used to write a one-off coordinate
+  that only that block could use; it now creates (or reuses) a named
+  mark on the stage plan. A mark is reusable, can be dragged to a new
+  spot, keeps its meaning through a venue morph, and appears in the
+  Live tab's POSITION pool - so the same click that authors a show also
+  gives you something to aim the movers at during a pre-show rig check,
+  with no show running. Clicking near an existing mark reuses it rather
+  than stacking near-duplicates, and aiming never moves a mark another
+  block might be using. Shows authored with the old coordinates keep
+  working unchanged.
+
 - **Click-to-aim shows you where you aimed.** The stage plan now draws
   a marker at the target of every selected movement block, so an aim
   lands visibly instead of only as a status line that fades. It also

@@ -348,28 +348,72 @@ class TestStageTabClickToAim:
         stage_tab.aim_btn.setChecked(False)
         assert stage_tab.stage_view.aim_mode is False
 
-    def test_click_writes_the_selected_blocks_target_point(self, stage_tab):
+    def test_click_aims_the_blocks_at_a_new_mark(self, stage_tab):
+        """Aiming mints a NAMED mark, not an anonymous point (user call
+        2026-08-08): reusable, draggable, morph-safe by name, and it
+        turns up in the Live POSITION pool for a pre-show rig check."""
         blocks = [_block(target_spot_name="Mark"),
                   _block(target_plane_name="Floor")]
         stage_tab.aim_blocks_provider = lambda: blocks
         stage_tab._on_aim_clicked(2.0, -1.5, False)
+
+        name = blocks[0].target_spot_name
+        assert name and name != "Mark"
+        spot = stage_tab.config.spots[name]
+        assert (spot.x, spot.y, spot.z) == (2.0, -1.5, 0.0)
         for block in blocks:
-            assert block.target_point == [2.0, -1.5, 0.0]
-            # the click's point must actually win: spot/plane cleared
-            assert block.target_spot_name is None
+            assert block.target_spot_name == name
+            # the mark must actually win: point/plane cleared
+            assert block.target_point is None
             assert block.target_plane_name is None
             assert block.modified is True
+
+    def test_clicking_near_an_existing_mark_reuses_it(self, stage_tab):
+        """Otherwise a heavily aimed song fills the marks list with
+        near-duplicates."""
+        from gui.tabs.stage_tab import AIM_SNAP_M
+        before = set(stage_tab.config.spots)
+        existing = stage_tab.config.spots["Mark"]
+        block = _block()
+        stage_tab.aim_blocks_provider = lambda: [block]
+        stage_tab._on_aim_clicked(existing.x + AIM_SNAP_M / 2,
+                                  existing.y, False)
+        assert block.target_spot_name == "Mark"
+        assert set(stage_tab.config.spots) == before, "no new mark"
+
+    def test_aiming_never_moves_the_reused_mark(self, stage_tab):
+        """A mark can be shared; moving it would silently re-aim every
+        other block using it. Marks move by dragging, not by aiming."""
+        from gui.tabs.stage_tab import AIM_SNAP_M
+        existing = stage_tab.config.spots["Mark"]
+        before = (existing.x, existing.y, existing.z)
+        block = _block()
+        stage_tab.aim_blocks_provider = lambda: [block]
+        stage_tab._on_aim_clicked(existing.x + AIM_SNAP_M / 2,
+                                  existing.y, False)
+        moved = stage_tab.config.spots["Mark"]
+        assert (moved.x, moved.y, moved.z) == before
+
+    def test_a_click_far_from_marks_creates_another(self, stage_tab):
+        block_a, block_b = _block(), _block()
+        stage_tab.aim_blocks_provider = lambda: [block_a]
+        stage_tab._on_aim_clicked(4.0, 4.0, False)
+        stage_tab.aim_blocks_provider = lambda: [block_b]
+        stage_tab._on_aim_clicked(-4.0, -4.0, False)
+        assert block_a.target_spot_name != block_b.target_spot_name
 
     def test_shift_click_keeps_the_current_height(self, stage_tab):
         block = _block(target_point=[0.0, 0.0, 1.5])
         stage_tab.aim_blocks_provider = lambda: [block]
         stage_tab._on_aim_clicked(3.0, 1.0, True)
-        assert block.target_point == [3.0, 1.0, 1.5]
-        # without a stored point, Shift falls back to the floor
+        spot = stage_tab.config.spots[block.target_spot_name]
+        assert (spot.x, spot.y, spot.z) == (3.0, 1.0, 1.5)
+        # without a stored target, Shift falls back to the floor
         fresh = _block()
         stage_tab.aim_blocks_provider = lambda: [fresh]
-        stage_tab._on_aim_clicked(3.0, 1.0, True)
-        assert fresh.target_point == [3.0, 1.0, 0.0]
+        stage_tab._on_aim_clicked(-3.0, -1.0, True)
+        fresh_spot = stage_tab.config.spots[fresh.target_spot_name]
+        assert fresh_spot.z == 0.0
 
     def test_no_selection_is_a_no_op(self, stage_tab):
         stage_tab.aim_blocks_provider = lambda: []

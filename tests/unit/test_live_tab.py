@@ -1991,3 +1991,42 @@ class TestTeardownHygiene:
             f"LiveTab widget trees are accumulating ({grew_by} widgets left "
             f"after 3 build/teardown cycles); one whole tab is 251"
         )
+
+
+class TestPositionPoolTracksMarks:
+    """The pre-show rig check (user call 2026-08-08): drop a mark on the
+    Stage tab, come to LIVE, aim the movers at it.
+
+    The POSITION pool used to refresh ONLY on project load, so a mark
+    added during a session was invisible here until a reload."""
+
+    def test_a_mark_added_after_load_appears_on_activation(self, live_tab,
+                                                           three_group_config):
+        from config.models import Spot
+        before = set(live_tab._position_cells)
+        three_group_config.spots["Checkpoint"] = Spot(
+            name="Checkpoint", x=1.0, y=2.0, z=0.0)
+        live_tab.on_tab_activated()
+        after = set(live_tab._position_cells)
+        assert "mark:Checkpoint" in after
+        assert "mark:Checkpoint" not in before
+
+    def test_a_removed_mark_disappears_on_activation(self, live_tab,
+                                                     three_group_config):
+        from config.models import Spot
+        three_group_config.spots["Gone"] = Spot(name="Gone", x=0.0, y=0.0,
+                                                z=0.0)
+        live_tab.on_tab_activated()
+        assert "mark:Gone" in set(live_tab._position_cells)
+        del three_group_config.spots["Gone"]
+        live_tab.on_tab_activated()
+        assert "mark:Gone" not in set(live_tab._position_cells)
+
+    def test_activation_without_changes_is_cheap(self, live_tab):
+        """The fingerprint guard must short-circuit, or every tab switch
+        rebuilds the whole pool."""
+        live_tab.on_tab_activated()
+        rebuilt = []
+        live_tab._populate_position_pool = lambda: rebuilt.append(1)
+        live_tab.on_tab_activated()
+        assert rebuilt == []

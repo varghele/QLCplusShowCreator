@@ -1865,8 +1865,17 @@ class LiveTab(BaseTab):
 
     def on_tab_activated(self) -> None:
         """Shell hook (gui._on_tab_changed): the device list is
-        enumerated the first time the busk surface is actually shown."""
+        enumerated the first time the busk surface is actually shown,
+        and the POSITION pool re-reads the marks.
+
+        The pool used to refresh ONLY on project load, so a mark added
+        on the Stage tab was invisible here until you reloaded - which
+        broke the obvious pre-show workflow: drop a mark where you want
+        to check, come to LIVE, aim the movers at it (2026-08-08).
+        ``_rebuild_positions`` early-returns on an unchanged
+        fingerprint, so this costs nothing on a normal tab switch."""
         self.refresh_sync_devices()
+        self._rebuild_positions()
 
     @staticmethod
     def _set_chip_state(chip: QLabel, on: bool) -> None:
