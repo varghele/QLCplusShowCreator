@@ -10,12 +10,12 @@
   world POINT (read-only display) / every named spot / every stage
   plane, mirroring the resolution priority plane > spot > point >
   manual (timeline_ui/movement_block_dialog.py).
-- Click-to-aim: the Stage tab's AIM toggle arms StageView's aim mode,
-  a left click reports the stage coordinate, and the tab writes it into
-  the Shows tab's selected movement blocks (Shift keeps the current
-  target height).
-- ShowsTab.selected_movement_blocks: explicit movement sublane
-  selection wins over the envelope multi-selection.
+- PLACE MARK: the Stage tab's toggle arms StageView's click mode and a
+  left click drops a MARK there - placement only, touching no show
+  data. Reworked 2026-08-09: it used to also assign the target to the
+  Shows tab's selected movement blocks, which duplicated both the MARKS
+  "+" button and the movement block dialog's mark picker, and forced a
+  cross-tab selection carry. One job per surface now.
 
 All offscreen; dialogs are driven through accept()/injected exec (the
 suite blocks real QDialog.exec, qt-gotchas #7)."""
@@ -332,218 +332,16 @@ class TestStageViewAimMode:
         assert received == []
 
 
-class TestStageTabClickToAim:
-    @pytest.fixture
-    def stage_tab(self, qapp):
-        from gui.tabs.stage_tab import StageTab
-        tab = StageTab(_mover_config(), parent=None)
-        yield tab
-        tab.deleteLater()
+class TestStageTabPlaceMark:
+    """PLACE MARK drops a mark on the plan and touches NOTHING else
+    (user call 2026-08-09).
 
-    def test_aim_button_arms_the_view(self, stage_tab):
-        assert stage_tab.aim_btn.isCheckable()
-        assert stage_tab.stage_view.aim_mode is False
-        stage_tab.aim_btn.setChecked(True)
-        assert stage_tab.stage_view.aim_mode is True
-        stage_tab.aim_btn.setChecked(False)
-        assert stage_tab.stage_view.aim_mode is False
-
-    def test_click_aims_the_blocks_at_a_new_mark(self, stage_tab):
-        """Aiming mints a NAMED mark, not an anonymous point (user call
-        2026-08-08): reusable, draggable, morph-safe by name, and it
-        turns up in the Live POSITION pool for a pre-show rig check."""
-        blocks = [_block(target_spot_name="Mark"),
-                  _block(target_plane_name="Floor")]
-        stage_tab.aim_blocks_provider = lambda: blocks
-        stage_tab._on_aim_clicked(2.0, -1.5, False)
-
-        name = blocks[0].target_spot_name
-        assert name and name != "Mark"
-        spot = stage_tab.config.spots[name]
-        assert (spot.x, spot.y, spot.z) == (2.0, -1.5, 0.0)
-        for block in blocks:
-            assert block.target_spot_name == name
-            # the mark must actually win: point/plane cleared
-            assert block.target_point is None
-            assert block.target_plane_name is None
-            assert block.modified is True
-
-    def test_clicking_near_an_existing_mark_reuses_it(self, stage_tab):
-        """Otherwise a heavily aimed song fills the marks list with
-        near-duplicates."""
-        from gui.tabs.stage_tab import AIM_SNAP_M
-        before = set(stage_tab.config.spots)
-        existing = stage_tab.config.spots["Mark"]
-        block = _block()
-        stage_tab.aim_blocks_provider = lambda: [block]
-        stage_tab._on_aim_clicked(existing.x + AIM_SNAP_M / 2,
-                                  existing.y, False)
-        assert block.target_spot_name == "Mark"
-        assert set(stage_tab.config.spots) == before, "no new mark"
-
-    def test_aiming_never_moves_the_reused_mark(self, stage_tab):
-        """A mark can be shared; moving it would silently re-aim every
-        other block using it. Marks move by dragging, not by aiming."""
-        from gui.tabs.stage_tab import AIM_SNAP_M
-        existing = stage_tab.config.spots["Mark"]
-        before = (existing.x, existing.y, existing.z)
-        block = _block()
-        stage_tab.aim_blocks_provider = lambda: [block]
-        stage_tab._on_aim_clicked(existing.x + AIM_SNAP_M / 2,
-                                  existing.y, False)
-        moved = stage_tab.config.spots["Mark"]
-        assert (moved.x, moved.y, moved.z) == before
-
-    def test_a_click_far_from_marks_creates_another(self, stage_tab):
-        block_a, block_b = _block(), _block()
-        stage_tab.aim_blocks_provider = lambda: [block_a]
-        stage_tab._on_aim_clicked(4.0, 4.0, False)
-        stage_tab.aim_blocks_provider = lambda: [block_b]
-        stage_tab._on_aim_clicked(-4.0, -4.0, False)
-        assert block_a.target_spot_name != block_b.target_spot_name
-
-    def test_shift_click_keeps_the_current_height(self, stage_tab):
-        block = _block(target_point=[0.0, 0.0, 1.5])
-        stage_tab.aim_blocks_provider = lambda: [block]
-        stage_tab._on_aim_clicked(3.0, 1.0, True)
-        spot = stage_tab.config.spots[block.target_spot_name]
-        assert (spot.x, spot.y, spot.z) == (3.0, 1.0, 1.5)
-        # without a stored target, Shift falls back to the floor
-        fresh = _block()
-        stage_tab.aim_blocks_provider = lambda: [fresh]
-        stage_tab._on_aim_clicked(-3.0, -1.0, True)
-        fresh_spot = stage_tab.config.spots[fresh.target_spot_name]
-        assert fresh_spot.z == 0.0
-
-    def test_no_selection_is_a_no_op(self, stage_tab):
-        stage_tab.aim_blocks_provider = lambda: []
-        stage_tab._on_aim_clicked(1.0, 1.0, False)  # must not raise
-
-    def test_default_provider_asks_the_shows_tab(self, stage_tab):
-        """Without the test hook, the tab resolves the Shows tab via its
-        MainWindow parent; parentless (as here) it degrades to no-op."""
-        assert stage_tab._aim_movement_blocks() == []
-
-
-# ---------------------------------------------------------------------------
-# ShowsTab selection tiers
-# ---------------------------------------------------------------------------
-
-def _stub_heavy_widgets(monkeypatch):
-    """Replace the GL visualizer + riff panel with inert widgets (same
-    trick as tests/unit/test_shows_tab_chrome.py)."""
-    from PyQt6.QtWidgets import QWidget
-
-    class StubVisualizer(QWidget):
-        def __init__(self, parent=None):
-            super().__init__(parent)
-
-        def set_pop_out_callback(self, callback):
-            pass
-
-        def set_inner_pop_out_visible(self, visible):
-            pass
-
-        def set_config(self, config):
-            pass
-
-        def set_preview_mode(self, mode):
-            pass
-
-        def feed_dmx(self, universe, dmx_bytes):
-            pass
-
-        def cleanup(self):
-            pass
-
-    class StubRiffPanel(QWidget):
-        def __init__(self, library=None, parent=None):
-            super().__init__(parent)
-
-    monkeypatch.setattr("gui.tabs.shows_tab.EmbeddedVisualizer",
-                        StubVisualizer)
-    monkeypatch.setattr("gui.tabs.shows_tab.RiffBrowserPanel",
-                        StubRiffPanel)
-    monkeypatch.setattr(
-        "gui.tabs.shows_tab.ShowsTab._get_shared_riff_library",
-        lambda self: None)
-
-
-class TestShowsTabSelection:
-    @pytest.fixture
-    def shows_tab(self, qapp, monkeypatch, sample_configuration):
-        from PyQt6.QtCore import QEvent
-        from PyQt6.QtWidgets import QApplication
-        from gui.theme_manager import ThemeManager
-
-        _stub_heavy_widgets(monkeypatch)
-        ThemeManager().apply(qapp, "dark")
-        from gui.tabs.shows_tab import ShowsTab
-        tab = ShowsTab(sample_configuration, parent=None)
-        tab.artnet_enabled = False
-        tab.tcp_enabled = False
-        try:
-            yield tab
-        finally:
-            tab.cleanup()
-            tab.deleteLater()
-            QApplication.sendPostedEvents(
-                None, QEvent.Type.DeferredDelete.value)
-            QApplication.processEvents()
-
-    def _lane_with_movement(self, shows_tab, blocks):
-        from timeline.light_lane import LightLane
-        lane = LightLane("Movers")
-        lane.fixture_targets = ["TestGroup"]
-        envelope = LightBlock(start_time=0.0, end_time=8.0,
-                              effect_name="", movement_blocks=list(blocks))
-        lane.light_blocks = [envelope]
-        shows_tab._add_lane_widget(lane)
-        return shows_tab.lane_widgets[-1]
-
-    def test_empty_selection_returns_nothing(self, shows_tab):
-        self._lane_with_movement(shows_tab, [_block()])
-        assert shows_tab.selected_movement_blocks() == []
-
-    def test_envelope_selection_returns_its_movement_blocks(self, shows_tab):
-        first, second = _block(), _block(start_time=4.0, end_time=8.0)
-        lane_widget = self._lane_with_movement(shows_tab, [first, second])
-        widget = lane_widget.get_all_block_widgets()[0]
-        shows_tab.selection_manager.select(widget)
-        assert shows_tab.selected_movement_blocks() == [first, second]
-
-    def test_explicit_sublane_selection_wins(self, shows_tab):
-        first, second = _block(), _block(start_time=4.0, end_time=8.0)
-        lane_widget = self._lane_with_movement(shows_tab, [first, second])
-        widget = lane_widget.get_all_block_widgets()[0]
-        shows_tab.selection_manager.select(widget)
-        widget.selected_sublane_type = "movement"
-        widget.selected_sublane_block = second
-        assert shows_tab.selected_movement_blocks() == [second]
-
-    def test_non_movement_sublane_selection_does_not_count(self, shows_tab):
-        block = _block()
-        lane_widget = self._lane_with_movement(shows_tab, [block])
-        widget = lane_widget.get_all_block_widgets()[0]
-        widget.selected_sublane_type = "dimmer"
-        widget.selected_sublane_block = object()
-        assert shows_tab.selected_movement_blocks() == []
-
-    def test_refresh_movement_targets_is_safe(self, shows_tab):
-        self._lane_with_movement(shows_tab, [_block()])
-        shows_tab.refresh_movement_targets()  # must not raise
-
-
-class TestAimTargetMarker:
-    """The plan draws where the selected movement block(s) point
-    (2026-08-08).
-
-    Added because click-to-aim had no visible result: the status line
-    disappears, the Stage tab's own 3D preview runs in BUILD mode (it
-    never shows the aim), and a wide-amplitude pattern sweeps far enough
-    that a re-centred beam reads as unchanged even in playback -
-    measured, a cross-stage re-aim moves a hung mover's tilt by ~7
-    degrees against a +/-106 degree sweep at the default amplitude.
+    It used to also assign the clicked target to whatever movement
+    blocks were selected in the Shows tab, which duplicated both the
+    MARKS "+" button (creating) and the movement block dialog
+    (assigning), and forced a cross-tab selection carry. One job per
+    surface now: the Stage tab places marks, the dialog picks which
+    mark a block uses, the Live POSITION pool aims real movers at one.
     """
 
     @pytest.fixture
@@ -553,63 +351,59 @@ class TestAimTargetMarker:
         yield tab
         tab.deleteLater()
 
-    def test_no_selection_means_no_marker(self, stage_tab):
-        stage_tab.aim_blocks_provider = lambda: []
-        stage_tab.refresh_aim_targets()
-        assert stage_tab.stage_view.aim_targets() == []
+    def test_button_arms_the_view(self, stage_tab):
+        assert stage_tab.aim_btn.isCheckable()
+        assert stage_tab.stage_view.aim_mode is False
+        stage_tab.aim_btn.setChecked(True)
+        assert stage_tab.stage_view.aim_mode is True
+        stage_tab.aim_btn.setChecked(False)
+        assert stage_tab.stage_view.aim_mode is False
 
-    def test_marker_follows_an_aim_click(self, stage_tab):
-        blocks = [_block()]
-        stage_tab.aim_blocks_provider = lambda: blocks
+    def test_click_places_a_mark_at_the_point(self, stage_tab):
+        before = set(stage_tab.config.spots)
         stage_tab._on_aim_clicked(2.0, -1.5, False)
-        assert stage_tab.stage_view.aim_targets() == [(2.0, -1.5)]
+        created = set(stage_tab.config.spots) - before
+        assert len(created) == 1
+        spot = stage_tab.config.spots[created.pop()]
+        assert (spot.x, spot.y, spot.z) == (2.0, -1.5, 0.0)
 
-    def test_one_marker_per_selected_block(self, stage_tab):
-        blocks = [_block(target_point=[1.0, 1.0, 0.0]),
-                  _block(target_point=[-2.0, 0.5, 0.0])]
-        stage_tab.aim_blocks_provider = lambda: blocks
-        stage_tab.refresh_aim_targets()
-        assert stage_tab.stage_view.aim_targets() == [(1.0, 1.0),
-                                                      (-2.0, 0.5)]
+    def test_click_writes_no_show_data(self, stage_tab):
+        """The whole point of the 2026-08-09 simplification."""
+        block = _block(target_spot_name="Mark")
+        stage_tab._on_aim_clicked(2.0, -1.5, False)
+        assert block.target_spot_name == "Mark"
+        assert block.target_point is None
 
-    def test_a_named_spot_target_also_shows(self, stage_tab):
-        """A block aimed at a spot has no target_point, but the operator
-        still wants to see where it points."""
-        blocks = [_block(target_spot_name="Mark")]
-        stage_tab.aim_blocks_provider = lambda: blocks
-        stage_tab.refresh_aim_targets()
-        spot = stage_tab.config.spots["Mark"]
-        assert stage_tab.stage_view.aim_targets() == [(spot.x, spot.y)]
+    def test_needs_no_timeline_selection(self, stage_tab):
+        """It is a rig-setup tool: nothing has to be selected anywhere."""
+        stage_tab._on_aim_clicked(1.0, 1.0, False)   # must not raise
+        assert stage_tab.config.spots
 
-    def test_manual_block_contributes_no_marker(self, stage_tab):
-        blocks = [_block()]
-        stage_tab.aim_blocks_provider = lambda: blocks
-        stage_tab.refresh_aim_targets()
-        assert stage_tab.stage_view.aim_targets() == []
+    def test_clicking_an_existing_mark_selects_it(self, stage_tab):
+        from gui.tabs.stage_tab import MARK_SNAP_M
+        before = set(stage_tab.config.spots)
+        existing = stage_tab.config.spots["Mark"]
+        stage_tab._on_aim_clicked(existing.x + MARK_SNAP_M / 2,
+                                  existing.y, False)
+        assert set(stage_tab.config.spots) == before, "no duplicate mark"
 
-    def test_arriving_on_the_tab_refreshes_the_marker(self, stage_tab):
-        """The Shows tab has no selection-changed signal, so activation
-        is when the marker gets corrected."""
-        blocks = [_block(target_point=[3.0, -1.0, 0.0])]
-        stage_tab.aim_blocks_provider = lambda: blocks
-        assert stage_tab.stage_view.aim_targets() == []
-        stage_tab.on_tab_activated()
-        assert stage_tab.stage_view.aim_targets() == [(3.0, -1.0)]
+    def test_selecting_an_existing_mark_never_moves_it(self, stage_tab):
+        from gui.tabs.stage_tab import MARK_SNAP_M
+        existing = stage_tab.config.spots["Mark"]
+        before = (existing.x, existing.y, existing.z)
+        stage_tab._on_aim_clicked(existing.x + MARK_SNAP_M / 2,
+                                  existing.y, False)
+        moved = stage_tab.config.spots["Mark"]
+        assert (moved.x, moved.y, moved.z) == before
 
-    def test_marker_is_view_state_only(self, stage_tab):
-        """It must never write to the model."""
-        block = _block(target_point=[1.0, 2.0, 0.5])
-        stage_tab.aim_blocks_provider = lambda: [block]
-        stage_tab.refresh_aim_targets()
-        assert block.target_point == [1.0, 2.0, 0.5]
+    def test_two_distant_clicks_make_two_marks(self, stage_tab):
+        before = len(stage_tab.config.spots)
+        stage_tab._on_aim_clicked(4.0, 4.0, False)
+        stage_tab._on_aim_clicked(-4.0, -4.0, False)
+        assert len(stage_tab.config.spots) == before + 2
 
-    def test_setting_the_same_targets_twice_is_idempotent(self, stage_tab):
-        view = stage_tab.stage_view
-        view.set_aim_targets([(1.0, 2.0)])
-        view.set_aim_targets([(1.0, 2.0)])
-        assert view.aim_targets() == [(1.0, 2.0)]
-
-    def test_garbage_targets_are_ignored_not_crashed_on(self, stage_tab):
-        view = stage_tab.stage_view
-        view.set_aim_targets([(1.0, 2.0), None, ("x", "y"), (3.0,)])
-        assert view.aim_targets() == [(1.0, 2.0)]
+    def test_a_placed_mark_is_selected_for_renaming(self, stage_tab):
+        stage_tab._on_aim_clicked(3.0, 3.0, False)
+        current = stage_tab.marks_list.currentItem()
+        assert current is not None
+        assert current.text() in stage_tab.config.spots

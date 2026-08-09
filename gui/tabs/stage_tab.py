@@ -56,9 +56,9 @@ LIBRARY_WIDTH = 260
 RIGHT_COLUMN_WIDTH = 448
 STRIP_HEIGHT = 38
 
-#: click-to-aim reuses an existing mark within this radius (metres)
-#: instead of minting a near-duplicate next to it
-AIM_SNAP_M = 0.5
+#: clicking within this radius (metres) of an existing mark selects it
+#: instead of stacking a near-duplicate on top of it
+MARK_SNAP_M = 0.5
 PREVIEW_HEADER_HEIGHT = 30
 
 # The stage-element kinds the reference screen shows first, in its
@@ -429,7 +429,7 @@ class StageTab(BaseTab):
         # (tests/visual/test_widget_clipping.py); the base :checked rule
         # tints it while the mode is armed, like the Shows INSPECTOR
         # toggle.
-        self.aim_btn = QtWidgets.QPushButton("AIM")
+        self.aim_btn = QtWidgets.QPushButton("PLACE MARK")
         self.aim_btn.setProperty("role", "cta-outline")
         self.aim_btn.setFont(strip_font)
         self.aim_btn.setCheckable(True)
@@ -1387,61 +1387,15 @@ class StageTab(BaseTab):
 
     def _on_aim_mode_toggled(self, checked: bool) -> None:
         self.stage_view.set_aim_mode(checked)
-        self.refresh_aim_targets()
         if checked:
             self._show_status(
-                "AIM: click the stage plan to aim the selected movement "
-                "block(s) · Shift keeps the current target height")
-
-    def _block_target_point(self, block):
-        """Where a movement block currently points, as (x, y, z), or
-        None. Follows the documented spot > point priority."""
-        spot_name = getattr(block, "target_spot_name", None)
-        if spot_name:
-            spot = (getattr(self.config, "spots", {}) or {}).get(spot_name)
-            if spot is not None:
-                return (spot.x, spot.y, spot.z)
-        point = getattr(block, "target_point", None)
-        if point:
-            return (point[0], point[1], point[2])
-        return None
-
-    def refresh_aim_targets(self) -> None:
-        """Push the selected movement block(s) targets onto the plan.
-
-        Called when aim mode is armed, after an aim click, and whenever
-        the tab is shown - the Shows tab has no selection-changed signal
-        to subscribe to, and arriving on the Stage tab is exactly when
-        the marker needs to be right."""
-        targets = []
-        for block in self._aim_movement_blocks():
-            point = self._block_target_point(block)
-            if point:
-                targets.append((point[0], point[1]))
-        self.stage_view.set_aim_targets(targets)
-
-    def _aim_movement_blocks(self) -> list:
-        """The movement blocks an aim click writes to.
-
-        ``aim_blocks_provider`` (a callable) overrides for tests /
-        embedding; the default asks the Shows tab for its current
-        movement-block selection through the shared MainWindow parent -
-        the tabs never hold references to each other.
-        """
-        provider = getattr(self, "aim_blocks_provider", None)
-        if provider is not None:
-            return list(provider())
-        shows_tab = getattr(self.window(), "shows_tab", None)
-        if shows_tab is None or not hasattr(shows_tab,
-                                            "selected_movement_blocks"):
-            return []
-        return shows_tab.selected_movement_blocks()
+                "PLACE MARK: click the stage plan to drop a mark there")
 
     def _mark_near(self, x_m: float, y_m: float):
-        """Name of an existing mark within AIM_SNAP_M of a point, else
+        """Name of an existing mark within MARK_SNAP_M of a point, else
         None. Nearest wins."""
         spots = getattr(self.config, "spots", {}) or {}
-        best, best_distance = None, AIM_SNAP_M
+        best, best_distance = None, MARK_SNAP_M
         for name, spot in spots.items():
             distance = math.hypot(spot.x - x_m, spot.y - y_m)
             if distance <= best_distance:
@@ -1449,57 +1403,40 @@ class StageTab(BaseTab):
         return best
 
     def _on_aim_clicked(self, x_m: float, y_m: float, keep_z: bool) -> None:
-        """Aim the selected movement block(s) at a NAMED MARK.
+        """Drop a mark where the plan was clicked.
 
-        Aiming mints a mark rather than an anonymous ``target_point``
-        (user call 2026-08-08): a mark is reusable, draggable on the
-        plan, survives a morph by name, and shows up in the Live
-        POSITION pool - so the same click that authors a show also gives
-        you something to aim at during a pre-show rig check. Clicking
-        within ``AIM_SNAP_M`` of an existing mark REUSES it instead of
-        filling the list with near-duplicates.
+        Placement only - it does NOT touch any show block (user call
+        2026-08-09). The Stage tab owns rig geometry: marks are placed
+        and dragged here. Choosing WHICH mark a movement block aims at
+        belongs to the movement block dialog, and pointing real movers
+        at a mark belongs to the Live POSITION pool. One job per
+        surface; an earlier version of this did all three and duplicated
+        both of the others.
 
-        An existing mark is never MOVED by aiming: it may be shared, and
-        moving it would silently re-aim every other block using it.
-        Marks move by dragging them on the plan.
-
-        ``target_point`` stays fully supported for reading shows
-        authored before this; only new aims write a mark.
+        A click within ``MARK_SNAP_M`` of an existing mark selects that
+        one instead of stacking a near-duplicate on top of it. New marks
+        land on the floor (z=0); edit the height in the MARKS list.
         """
-        blocks = self._aim_movement_blocks()
-        if not blocks:
-            self._show_status(
-                "AIM: no movement block selected in the Show timeline")
-            return
-
         name = self._mark_near(x_m, y_m)
-        reused = name is not None
-        if not reused:
-            z_m = 0.0
-            if keep_z:
-                for block in blocks:
-                    current = self._block_target_point(block)
-                    if current:
-                        z_m = float(current[2])
-                        break
-            spot = self.stage_view.add_spot(round(x_m, 3), round(y_m, 3),
-                                            round(z_m, 3))
-            name = spot.name
-
-        for block in blocks:
-            block.target_spot_name = name
-            block.target_point = None
-            block.target_plane_name = None
-            block.modified = True
-        shows_tab = getattr(self.window(), "shows_tab", None)
-        if shows_tab is not None and hasattr(shows_tab,
-                                             "refresh_movement_targets"):
-            shows_tab.refresh_movement_targets()
-        self.refresh_aim_targets()
+        if name is not None:
+            self._select_mark(name)
+            self._show_status(
+                f"PLACE MARK: '{name}' is already here - selected it")
+            return
+        spot = self.stage_view.add_spot(round(x_m, 3), round(y_m, 3), 0.0)
+        self._select_mark(spot.name)
         self._show_status(
-            f"AIM: {len(blocks)} movement block(s) -> mark '{name}' "
-            f"({'reused' if reused else 'new'}) at "
-            f"({x_m:.2f}, {y_m:.2f}) m")
+            f"PLACE MARK: '{spot.name}' at "
+            f"({x_m:.2f}, {y_m:.2f}) m - rename it in the MARKS list")
+
+    def _select_mark(self, name: str) -> None:
+        """Highlight a mark in the MARKS list, so a freshly placed one
+        is ready to rename or re-height."""
+        for row in range(self.marks_list.count()):
+            item = self.marks_list.item(row)
+            if item is not None and item.text() == name:
+                self.marks_list.setCurrentItem(item)
+                return
 
     def _on_preview_collapsed(self, collapsed: bool) -> None:
         """Chevron in the 3D preview header: hide/show the GL pane."""
@@ -1782,10 +1719,6 @@ class StageTab(BaseTab):
         if hasattr(self, "embedded_visualizer") and self.embedded_visualizer is not None:
             self.embedded_visualizer.set_preview_mode("build")
             self._refresh_embedded_visualizer()
-        # The Shows tab's selection may have changed while we were away,
-        # and arriving here is exactly when the aim marker has to be
-        # right - there is no selection-changed signal to subscribe to.
-        self.refresh_aim_targets()
 
     def on_tab_deactivated(self):
         """Called when switching away from stage tab."""

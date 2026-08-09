@@ -51,24 +51,22 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
   for, so one late frame already paid for all of them. A 4:39 song
   renders both rigs in about 18 seconds, once.
 
-- **Aiming a movement block now places a mark, and marks reach the Live
-  tab straight away.** Click-to-aim used to write a one-off coordinate
-  that only that block could use; it now creates (or reuses) a named
-  mark on the stage plan. A mark is reusable, can be dragged to a new
-  spot, keeps its meaning through a venue morph, and appears in the
-  Live tab's POSITION pool - so the same click that authors a show also
-  gives you something to aim the movers at during a pre-show rig check,
-  with no show running. Clicking near an existing mark reuses it rather
-  than stacking near-duplicates, and aiming never moves a mark another
-  block might be using. Shows authored with the old coordinates keep
-  working unchanged.
+- **Marks, one job per place.** The Stage tab's AIM button became
+  **PLACE MARK**: click the plan and a mark lands there, ready to
+  rename. That is all it does now - marks are the rig's geometry, so
+  the Stage tab places and moves them, the movement block dialog picks
+  which mark a block aims at, and the Live tab's POSITION pool points
+  real movers at one. Aiming used to create an invisible one-off
+  coordinate AND assign it to whatever was selected in the timeline,
+  which meant selecting a block in one tab and clicking in another.
+  Clicking an existing mark selects it instead of stacking a duplicate
+  on top. Shows authored with the old coordinates keep working
+  unchanged.
 
-- **Click-to-aim shows you where you aimed.** The stage plan now draws
-  a marker at the target of every selected movement block, so an aim
-  lands visibly instead of only as a status line that fades. It also
-  shows blocks aimed at a named spot. This matters most for wide
-  patterns: a lissajous or circle at the default amplitude sweeps far
-  enough that a re-aimed beam can look unchanged even though it moved.
+- **Marks reach the Live tab straight away.** A mark added while the
+  app is running used to be invisible in the POSITION pool until the
+  project was reloaded. Now dropping a mark and pointing the movers at
+  it is a two-step pre-show rig check, with no show running.
 
 ### Fixed
 
