@@ -328,6 +328,11 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
 
 ### Fixed
 
+- **Selecting a sub-block deselects the previous one.** Clicking a
+  colour or dimmer block inside one clip left the previously selected
+  sub-block highlighted in another clip, so several looked selected at
+  once, and Escape did not clear them.
+
 - **Editing a colour palette re-skins every tagged block on screen.**
   Changing a role's colour updated all its blocks, but only the one
   whose dialog was open repainted - the others kept showing the old

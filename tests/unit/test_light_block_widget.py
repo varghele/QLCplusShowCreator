@@ -227,3 +227,83 @@ class TestBulkDeleteSublaneBlocks:
 
         assert stub_block.dimmer_blocks == []
         assert stub_block.colour_blocks == []
+
+
+class TestSublaneSelectionIsExclusive:
+    """Reported 2026-08-09: "some sort of selection gets stuck where I
+    click on another block and the selection doesn't vanish".
+
+    Sublane selection lives on EACH LightBlockWidget and was never made
+    exclusive, so selecting a sub-block in one clip left the previous
+    one highlighted in another clip. Escape did not clear it either - it
+    only clears the SelectionManager's envelope selection."""
+
+    def test_helper_clears_every_other_widget(self, qapp):
+        from timeline_ui.light_block_widget import clear_sublane_selection
+
+        class FakeWidget:
+            def __init__(self):
+                self.selected_sublane_type = "colour"
+                self.selected_sublane_block = object()
+                self.updated = 0
+
+            def update(self):
+                self.updated += 1
+
+        class FakeLane:
+            def __init__(self, widgets):
+                self.light_block_widgets = widgets
+
+        class FakeHost:
+            def __init__(self, lanes):
+                self.lane_widgets = lanes
+
+        keep, other_a, other_b = FakeWidget(), FakeWidget(), FakeWidget()
+        host = FakeHost([FakeLane([keep, other_a]), FakeLane([other_b])])
+
+        class FakeLaneWidget:
+            def parent(self):
+                return host
+
+        assert clear_sublane_selection(FakeLaneWidget(), keep=keep) is True
+        assert keep.selected_sublane_block is not None, "the clicked one stays"
+        for other in (other_a, other_b):
+            assert other.selected_sublane_type is None
+            assert other.selected_sublane_block is None
+            assert other.updated == 1
+
+    def test_helper_reports_no_host(self, qapp):
+        from timeline_ui.light_block_widget import clear_sublane_selection
+        assert clear_sublane_selection(None) is False
+
+    def test_already_clear_widgets_are_not_repainted(self, qapp):
+        """Escape on a clean timeline must not repaint every clip."""
+        from timeline_ui.light_block_widget import clear_sublane_selection
+
+        class Clean:
+            selected_sublane_type = None
+            selected_sublane_block = None
+
+            def __init__(self):
+                self.updated = 0
+
+            def update(self):
+                self.updated += 1
+
+        class FakeLane:
+            def __init__(self, widgets):
+                self.light_block_widgets = widgets
+
+        class FakeHost:
+            def __init__(self, lanes):
+                self.lane_widgets = lanes
+
+        clean = Clean()
+        host = FakeHost([FakeLane([clean])])
+
+        class FakeLaneWidget:
+            def parent(self):
+                return host
+
+        clear_sublane_selection(FakeLaneWidget())
+        assert clean.updated == 0

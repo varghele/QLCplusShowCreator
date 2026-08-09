@@ -3164,6 +3164,17 @@ class ShowsTab(BaseTab):
         """Clear all selection."""
         self.selection_manager.clear_selection()
 
+        # ...including the per-widget SUBLANE highlight, which is a
+        # separate system from the SelectionManager's envelope selection
+        # and used to survive Escape entirely (2026-08-09).
+        for lane in self.lane_widgets:
+            for widget in getattr(lane, "light_block_widgets", []):
+                if widget.selected_sublane_block is not None or \
+                        widget.selected_sublane_type is not None:
+                    widget.selected_sublane_type = None
+                    widget.selected_sublane_block = None
+                    widget.update()
+
         # Also cancel any in-progress rubber-band
         if self._is_selecting:
             # Release mouse grab

@@ -325,6 +325,35 @@ def repaint_block_widgets_from(lane_widget) -> bool:
     return True
 
 
+def clear_sublane_selection(lane_widget, keep=None) -> bool:
+    """Clear the sublane highlight on every block widget except ``keep``.
+
+    Sublane selection (``selected_sublane_type`` / ``selected_sublane_block``)
+    lives on EACH LightBlockWidget and was never exclusive: selecting a
+    colour block in one clip left the previously selected sub-block in
+    another clip still highlighted, and Escape did not clear it either
+    (it only clears the SelectionManager's envelope selection). Reported
+    2026-08-09 as "some sort of selection gets stuck".
+
+    Returns False when no host owning ``lane_widgets`` is above the
+    given lane widget.
+    """
+    host = lane_widget
+    while host is not None and not hasattr(host, "lane_widgets"):
+        host = host.parent() if hasattr(host, "parent") else None
+    if host is None:
+        return False
+    for lane in host.lane_widgets:
+        for widget in getattr(lane, "light_block_widgets", []):
+            if widget is keep:
+                continue
+            if widget.selected_sublane_block is not None or                     widget.selected_sublane_type is not None:
+                widget.selected_sublane_type = None
+                widget.selected_sublane_block = None
+                widget.update()
+    return True
+
+
 class LightBlockWidget(QWidget):
     """Visual representation of a light effect block on the timeline.
 
@@ -1487,6 +1516,7 @@ class LightBlockWidget(QWidget):
                 # is unreachable while copy/save-as-riff keep working.
                 self.selected_sublane_type = sublane_type
                 self.selected_sublane_block = sublane_block
+                self._make_sublane_selection_exclusive()
                 self.update()
                 flash_locked(self)
                 return
@@ -1494,6 +1524,7 @@ class LightBlockWidget(QWidget):
                 # Clicking on intensity handle - start intensity drag
                 self.selected_sublane_type = sublane_type
                 self.selected_sublane_block = sublane_block
+                self._make_sublane_selection_exclusive()
                 self.dragging_intensity_handle = sublane_block
                 self.drag_start_pos = event.globalPosition().toPoint()
                 self.update()
@@ -1524,6 +1555,7 @@ class LightBlockWidget(QWidget):
                 self.clicked_sublane_type = sublane_type
                 self.selected_sublane_type = sublane_type
                 self.selected_sublane_block = sublane_block  # Store block reference
+                self._make_sublane_selection_exclusive()
                 self.update()  # Trigger repaint to show selection
 
                 # Store initial sublane times for resizing
@@ -2232,6 +2264,10 @@ class LightBlockWidget(QWidget):
                 # repaint (found 2026-08-09).
                 self._repaint_all_block_widgets()
             self.block_edited.emit()  # Trigger auto-save
+
+    def _make_sublane_selection_exclusive(self) -> None:
+        """Only one sub-block is selected at a time, across all clips."""
+        clear_sublane_selection(self.lane_widget, keep=self)
 
     def _repaint_all_block_widgets(self) -> None:
         if not repaint_block_widgets_from(self.lane_widget):
