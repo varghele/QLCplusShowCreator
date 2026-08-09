@@ -65,3 +65,85 @@ class TestLaneIds:
     def test_legacy_lane_gets_an_id_on_load(self):
         lane = LightLane.from_dict({"name": "old", "fixture_targets": ["G"]})
         assert len(lane.lane_id) == 32
+
+
+class TestPaletteRepaintsEveryTaggedBlock:
+    """Editing the palette re-resolves role-tagged blocks across the
+    WHOLE song, so every block widget has to repaint - not just the one
+    whose dialog was open.
+
+    Found 2026-08-09 while writing up the desktop check: the sublane
+    dialog called self.update_display(), which repaints only itself, so
+    a second block sharing the role kept showing its old colour until a
+    scroll or a song switch forced a repaint."""
+
+    def test_apply_palette_reaches_blocks_in_other_lanes(self):
+        """The data half: one palette edit, several lanes affected."""
+        from config.models import LightBlock, LightLane, TimelineData
+        a = ColourBlock(start_time=0, end_time=4, palette_role="primary")
+        b = ColourBlock(start_time=0, end_time=4, palette_role="primary")
+        lanes = [
+            LightLane(name="L1", fixture_targets=["G1"], light_blocks=[
+                LightBlock(start_time=0.0, end_time=8.0, effect_name="x",
+                           colour_blocks=[a])]),
+            LightLane(name="L2", fixture_targets=["G2"], light_blocks=[
+                LightBlock(start_time=0.0, end_time=8.0, effect_name="x",
+                           colour_blocks=[b])]),
+        ]
+        song = Song(name="S", timeline_data=TimelineData(lanes=lanes),
+                    palette={"primary": [240, 86, 46]})
+        assert song.apply_palette() == 2
+        for cb in (a, b):
+            assert (cb.red, cb.green, cb.blue) == (240.0, 86.0, 46.0)
+
+    def test_repaint_helper_walks_to_the_host_and_updates_all(self):
+        """The view half, driven through the plain helper."""
+        from timeline_ui.light_block_widget import (
+            repaint_block_widgets_from)
+
+        class FakeWidget:
+            def __init__(self):
+                self.updated = 0
+
+            def update(self):
+                self.updated += 1
+
+        class FakeLane:
+            def __init__(self, widgets):
+                self.light_block_widgets = widgets
+
+        class FakeHost:
+            def __init__(self, lanes):
+                self.lane_widgets = lanes
+
+        painted = [FakeWidget(), FakeWidget(), FakeWidget()]
+        lanes = [FakeLane(painted[:2]), FakeLane(painted[2:])]
+
+        class FakeLaneWidget:
+            def __init__(self, host):
+                self._host = host
+
+            def parent(self):
+                return self._host
+
+        assert repaint_block_widgets_from(
+            FakeLaneWidget(FakeHost(lanes))) is True
+        assert [w.updated for w in painted] == [1, 1, 1]
+
+    def test_repaint_helper_degrades_without_a_host(self):
+        """A lane widget with no Shows tab above it must not crash."""
+        from timeline_ui.light_block_widget import (
+            repaint_block_widgets_from)
+
+        class Solo:
+            def __init__(self):
+                self.updated = 0
+
+            def update(self):
+                self.updated += 1
+
+            def parent(self):
+                return None
+
+        assert repaint_block_widgets_from(None) is False
+        assert repaint_block_widgets_from(Solo()) is False

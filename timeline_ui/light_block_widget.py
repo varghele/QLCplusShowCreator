@@ -302,6 +302,29 @@ def elided(metrics, text: str, width: float) -> str:
     return out
 
 
+def repaint_block_widgets_from(lane_widget) -> bool:
+    """Repaint every block widget in the tab hosting ``lane_widget``.
+
+    Walks up to whoever owns ``lane_widgets`` (the Shows tab) and
+    repaints all of its lanes' block widgets. Returns False when there
+    is no such host, so the caller can fall back to repainting itself.
+
+    Exists because Song.apply_palette() rewrites role-tagged colour
+    blocks across the WHOLE song: repainting only the block whose dialog
+    was open left its siblings showing the old colour (2026-08-09).
+    Module-level so it is testable without building a real widget.
+    """
+    host = lane_widget
+    while host is not None and not hasattr(host, "lane_widgets"):
+        host = host.parent() if hasattr(host, "parent") else None
+    if host is None:
+        return False
+    for lane in host.lane_widgets:
+        for widget in getattr(lane, "light_block_widgets", []):
+            widget.update()
+    return True
+
+
 class LightBlockWidget(QWidget):
     """Visual representation of a light effect block on the timeline.
 
@@ -2201,7 +2224,18 @@ class LightBlockWidget(QWidget):
             # Mark effect as modified since sublane was changed
             self._mark_hand_edit()
             self.update_display()
+            if sublane_type == "colour":
+                # EDIT PALETTE re-resolves every role-tagged colour block
+                # in the SONG (Song.apply_palette), not just this one, so
+                # repainting only self left the other tagged blocks
+                # showing their old colour until something else forced a
+                # repaint (found 2026-08-09).
+                self._repaint_all_block_widgets()
             self.block_edited.emit()  # Trigger auto-save
+
+    def _repaint_all_block_widgets(self) -> None:
+        if not repaint_block_widgets_from(self.lane_widget):
+            self.update()
 
     def _find_owning_song(self):
         """The Song whose timeline contains this envelope block, or None.

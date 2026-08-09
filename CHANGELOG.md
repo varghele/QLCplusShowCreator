@@ -328,6 +328,11 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
 
 ### Fixed
 
+- **Editing a colour palette re-skins every tagged block on screen.**
+  Changing a role's colour updated all its blocks, but only the one
+  whose dialog was open repainted - the others kept showing the old
+  colour until a scroll or a song switch.
+
 - **Delete removes a mark selected on the stage plan.** It only worked
   while the MARKS list itself had keyboard focus, so selecting a mark
   on the plan and pressing Delete did nothing. Fixtures are left alone
