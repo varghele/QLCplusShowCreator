@@ -407,3 +407,66 @@ class TestStageTabPlaceMark:
         current = stage_tab.marks_list.currentItem()
         assert current is not None
         assert current.text() in stage_tab.config.spots
+
+    def test_placing_disarms_the_mode(self, stage_tab):
+        """Reported 2026-08-09: a sticky placement mode dropped a mark
+        on every following click, including ones meant to select a
+        fixture. One mark per arm."""
+        stage_tab.aim_btn.setChecked(True)
+        stage_tab._on_aim_clicked(3.0, 3.0, False)
+        assert stage_tab.aim_btn.isChecked() is False
+        assert stage_tab.stage_view.aim_mode is False
+
+    def test_shift_click_stays_armed_for_a_row_of_marks(self, stage_tab):
+        stage_tab.aim_btn.setChecked(True)
+        before = len(stage_tab.config.spots)
+        stage_tab._on_aim_clicked(3.0, 3.0, True)
+        assert stage_tab.aim_btn.isChecked() is True
+        stage_tab._on_aim_clicked(-3.0, 3.0, True)
+        assert len(stage_tab.config.spots) == before + 2
+
+    def test_selecting_an_existing_mark_stays_armed(self, stage_tab):
+        """Nothing was placed, so the arm has not been spent."""
+        from gui.tabs.stage_tab import MARK_SNAP_M
+        existing = stage_tab.config.spots["Mark"]
+        stage_tab.aim_btn.setChecked(True)
+        stage_tab._on_aim_clicked(existing.x + MARK_SNAP_M / 2,
+                                  existing.y, False)
+        assert stage_tab.aim_btn.isChecked() is True
+
+
+class TestPlaceMarkSnapsToGrid:
+    """A mark placed off-grid next to snapped rig geometry is wrong, so
+    the click honours the Stage tab's Snap to grid setting."""
+
+    @pytest.fixture
+    def view(self, qapp):
+        from gui.StageView import StageView
+        view = StageView()
+        view.set_config(_mover_config())
+        yield view
+        view.deleteLater()
+
+    def _click_at(self, view, x_m, y_m):
+        from PyQt6.QtCore import QPointF, Qt
+        received = []
+        view.aim_clicked.connect(lambda x, y, k: received.append((x, y)))
+        view.set_aim_mode(True)
+        x_px, y_px = view.meters_to_pixels(x_m, y_m)
+        view.mousePressEvent(_mouse_press(
+            view, view.mapFromScene(QPointF(x_px, y_px)),
+            Qt.KeyboardModifier.NoModifier))
+        return received[0]
+
+    def test_snapped_click_lands_on_the_grid(self, view):
+        view.set_snap_to_grid(True)
+        view.grid_size_m = 0.5
+        x, y = self._click_at(view, 1.18, -0.87)
+        assert x == pytest.approx(1.0, abs=0.01)
+        assert y == pytest.approx(-1.0, abs=0.01)
+
+    def test_unsnapped_click_keeps_the_exact_point(self, view):
+        view.set_snap_to_grid(False)
+        x, y = self._click_at(view, 1.18, -0.87)
+        assert x == pytest.approx(1.18, abs=0.05)
+        assert y == pytest.approx(-0.87, abs=0.05)

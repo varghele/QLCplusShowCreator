@@ -1389,7 +1389,8 @@ class StageTab(BaseTab):
         self.stage_view.set_aim_mode(checked)
         if checked:
             self._show_status(
-                "PLACE MARK: click the stage plan to drop a mark there")
+                "PLACE MARK: click the stage plan to drop ONE mark "
+                "there · Shift-click to keep placing")
 
     def _mark_near(self, x_m: float, y_m: float):
         """Name of an existing mark within MARK_SNAP_M of a point, else
@@ -1402,7 +1403,8 @@ class StageTab(BaseTab):
                 best, best_distance = name, distance
         return best
 
-    def _on_aim_clicked(self, x_m: float, y_m: float, keep_z: bool) -> None:
+    def _on_aim_clicked(self, x_m: float, y_m: float,
+                        keep_going: bool) -> None:
         """Drop a mark where the plan was clicked.
 
         Placement only - it does NOT touch any show block (user call
@@ -1413,9 +1415,18 @@ class StageTab(BaseTab):
         surface; an earlier version of this did all three and duplicated
         both of the others.
 
+        ONE MARK PER ARM: placing disarms the mode, because a sticky
+        placement mode drops a mark on every subsequent click, including
+        the ones meant to select a fixture (reported 2026-08-09). Hold
+        SHIFT to stay armed and place several in a row.
+
         A click within ``MARK_SNAP_M`` of an existing mark selects that
-        one instead of stacking a near-duplicate on top of it. New marks
-        land on the floor (z=0); edit the height in the MARKS list.
+        one instead of stacking a near-duplicate on top of it, and does
+        NOT disarm - nothing was placed yet. New marks land on the floor
+        (z=0); edit the height in the MARKS list. The coordinate arrives
+        already grid-snapped when Snap to grid is on.
+
+        ``keep_going`` is the Shift flag from the view.
         """
         name = self._mark_near(x_m, y_m)
         if name is not None:
@@ -1425,9 +1436,12 @@ class StageTab(BaseTab):
             return
         spot = self.stage_view.add_spot(round(x_m, 3), round(y_m, 3), 0.0)
         self._select_mark(spot.name)
+        if not keep_going:
+            self.aim_btn.setChecked(False)      # disarms via toggled
         self._show_status(
             f"PLACE MARK: '{spot.name}' at "
-            f"({x_m:.2f}, {y_m:.2f}) m - rename it in the MARKS list")
+            f"({x_m:.2f}, {y_m:.2f}) m - rename it in the MARKS list"
+            + ("" if keep_going else " · Shift-click to place several"))
 
     def _select_mark(self, name: str) -> None:
         """Highlight a mark in the MARKS list, so a freshly placed one

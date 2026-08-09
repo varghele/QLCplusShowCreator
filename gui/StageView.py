@@ -1076,7 +1076,11 @@ class StageView(QtWidgets.QGraphicsView):
         # it lands on a fixture symbol).
         if (event.button() == QtCore.Qt.MouseButton.LeftButton
                 and self.aim_mode):
-            scene_pos = self.mapToScene(event.pos())
+            # Honour Snap to grid, like dragging a fixture or a mark
+            # does - a mark placed off-grid next to snapped rig geometry
+            # is just wrong (2026-08-09).
+            scene_pos = self.snap_to_grid_position(
+                self.mapToScene(event.pos()))
             x_m, y_m = self.pixels_to_meters(scene_pos.x(), scene_pos.y())
             keep_z = bool(event.modifiers()
                           & QtCore.Qt.KeyboardModifier.ShiftModifier)

@@ -52,8 +52,10 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
   renders both rigs in about 18 seconds, once.
 
 - **Marks, one job per place.** The Stage tab's AIM button became
-  **PLACE MARK**: click the plan and a mark lands there, ready to
-  rename. That is all it does now - marks are the rig's geometry, so
+  **PLACE MARK**: click the plan and ONE mark lands there, ready to
+  rename, and the mode disarms so the next click does not drop another
+  one. Shift-click to keep placing a row of them. Placement follows
+  Snap to grid, like everything else you position on the plan. That is all it does now - marks are the rig's geometry, so
   the Stage tab places and moves them, the movement block dialog picks
   which mark a block aims at, and the Live tab's POSITION pool points
   real movers at one. Aiming used to create an invisible one-off
