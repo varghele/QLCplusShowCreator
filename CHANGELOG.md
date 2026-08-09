@@ -328,6 +328,14 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
 
 ### Fixed
 
+- **Tagging a colour block with a palette role now colours it.** Picking
+  a role only recorded the intent: the block kept its old colour until
+  the palette editor happened to be opened and accepted again, so
+  tagging a white block "secondary" left it white and read as the role
+  doing nothing. The role's colour is applied on OK, and the sliders
+  show it the moment you pick the role. A role the palette has no entry
+  for yet leaves the colour alone.
+
 - **Selecting a sub-block deselects the previous one.** Clicking a
   colour or dimmer block inside one clip left the previously selected
   sub-block highlighted in another clip, so several looked selected at

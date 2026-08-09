@@ -447,6 +447,23 @@ class ColourBlockDialog(QDialog):
     def _on_role_changed(self):
         self.new_role_edit.setVisible(
             self.role_combo.currentData() is None)
+        # Show the role's colour NOW. Picking "secondary" used to leave
+        # the sliders on whatever the block already was, so the block
+        # stayed white until the palette editor was next accepted - it
+        # read as the role simply not working (reported 2026-08-09).
+        rgb = self._palette_rgb(self.selected_role())
+        if rgb is not None:
+            self._apply_preset(rgb[0], rgb[1], rgb[2],
+                               int(self.sliders["white"][0].value()))
+
+    def _palette_rgb(self, role):
+        """(r, g, b) for a role in the song's palette, else None."""
+        if not role or self.song is None:
+            return None
+        rgb = (getattr(self.song, "palette", None) or {}).get(role)
+        if not rgb or len(rgb) < 3:
+            return None
+        return int(rgb[0]), int(rgb[1]), int(rgb[2])
 
     def selected_role(self) -> str:
         """The role the dialog will write on accept ("" = literal)."""
@@ -622,9 +639,18 @@ class ColourBlockDialog(QDialog):
         self.block.blue = float(self.sliders["blue"][1].value())
         self.block.white = float(self.sliders["white"][1].value())
 
-        # Palette role: intent metadata only - the literals above stand
-        # until the next Song.apply_palette() (palette editor / morph).
-        self.block.palette_role = self.selected_role()
+        # Palette role. A role that RESOLVES wins over the sliders: the
+        # block IS the role's colour, and the next Song.apply_palette()
+        # (palette editor or morph) would overwrite the sliders anyway,
+        # so letting them win here only shows a colour the block will
+        # not keep. An unresolvable role (brand new, or one the palette
+        # has no entry for) leaves the literals alone.
+        role = self.selected_role()
+        self.block.palette_role = role
+        rgb = self._palette_rgb(role)
+        if rgb is not None:
+            self.block.red, self.block.green, self.block.blue = (
+                float(rgb[0]), float(rgb[1]), float(rgb[2]))
 
         # Determine color mode
         if self.color_wheel_options and hasattr(self, 'wheel_combo'):

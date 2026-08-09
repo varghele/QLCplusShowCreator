@@ -147,3 +147,77 @@ class TestPaletteRepaintsEveryTaggedBlock:
 
         assert repaint_block_widgets_from(None) is False
         assert repaint_block_widgets_from(Solo()) is False
+
+
+class TestRolePicksUpItsColour:
+    """Reported 2026-08-09: tagging a block "Secondary" (green) left it
+    white. The dialog treated the role as intent metadata only, so the
+    literals stood until the palette editor was next accepted - which
+    reads as the role simply not working."""
+
+    def _dialog(self, qapp, block, song):
+        from timeline_ui.colour_block_dialog import ColourBlockDialog
+        return ColourBlockDialog(block, parent=None, song=song)
+
+    def _song(self, *blocks, palette=None):
+        return _song_with_blocks(*blocks, palette=palette)
+
+    def test_selecting_a_role_resolves_the_colour_on_accept(self, qapp):
+        cb = ColourBlock(start_time=0, end_time=4, red=255, green=255,
+                         blue=255)
+        song = self._song(cb, palette={"secondary": [0, 200, 0]})
+        dlg = self._dialog(qapp, cb, song)
+        dlg.role_combo.setCurrentIndex(dlg.role_combo.findData("secondary"))
+        dlg.accept()
+        assert cb.palette_role == "secondary"
+        assert (cb.red, cb.green, cb.blue) == (0.0, 200.0, 0.0)
+        dlg.deleteLater()
+
+    def test_the_sliders_preview_the_role_immediately(self, qapp):
+        """You should see the colour before pressing OK."""
+        cb = ColourBlock(start_time=0, end_time=4, red=255, green=255,
+                         blue=255)
+        song = self._song(cb, palette={"secondary": [0, 200, 0]})
+        dlg = self._dialog(qapp, cb, song)
+        dlg.role_combo.setCurrentIndex(dlg.role_combo.findData("secondary"))
+        assert dlg.sliders["red"][0].value() == 0
+        assert dlg.sliders["green"][0].value() == 200
+        assert dlg.sliders["blue"][0].value() == 0
+        dlg.deleteLater()
+
+    def test_a_brand_new_role_leaves_the_literals_alone(self, qapp):
+        """Nothing to resolve to yet - keep what the user picked."""
+        cb = ColourBlock(start_time=0, end_time=4, red=10, green=20,
+                         blue=30)
+        song = self._song(cb, palette={"secondary": [0, 200, 0]})
+        dlg = self._dialog(qapp, cb, song)
+        index = dlg.role_combo.count() - 1        # "New role..."
+        dlg.role_combo.setCurrentIndex(index)
+        dlg.new_role_edit.setText("tertiary")
+        dlg.accept()
+        assert cb.palette_role == "tertiary"
+        assert (cb.red, cb.green, cb.blue) == (10.0, 20.0, 30.0)
+        dlg.deleteLater()
+
+    def test_going_back_to_literal_keeps_the_colour(self, qapp):
+        cb = ColourBlock(start_time=0, end_time=4, red=10, green=20,
+                         blue=30, palette_role="secondary")
+        song = self._song(cb, palette={"secondary": [0, 200, 0]})
+        dlg = self._dialog(qapp, cb, song)
+        dlg.role_combo.setCurrentIndex(0)          # LITERAL
+        dlg.accept()
+        assert cb.palette_role == ""
+        assert (cb.red, cb.green, cb.blue) == (10.0, 20.0, 30.0)
+        dlg.deleteLater()
+
+    def test_without_a_song_the_role_is_still_recorded(self, qapp):
+        from timeline_ui.colour_block_dialog import ColourBlockDialog
+        cb = ColourBlock(start_time=0, end_time=4, red=1, green=2, blue=3)
+        dlg = ColourBlockDialog(cb, parent=None, song=None)
+        index = dlg.role_combo.count() - 1
+        dlg.role_combo.setCurrentIndex(index)
+        dlg.new_role_edit.setText("primary")
+        dlg.accept()
+        assert cb.palette_role == "primary"
+        assert (cb.red, cb.green, cb.blue) == (1.0, 2.0, 3.0)
+        dlg.deleteLater()
