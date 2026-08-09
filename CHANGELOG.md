@@ -11,6 +11,8 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-08-09
+
 ### Added
 
 - **The patch cable follows your cursor.** Pulling a wire in Morph to
@@ -69,20 +71,6 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
   app is running used to be invisible in the POSITION pool until the
   project was reloaded. Now dropping a mark and pointing the movers at
   it is a two-step pre-show rig check, with no show running.
-
-### Fixed
-
-- **A saved pre-flight no longer breaks New from Template.** Saving a
-  venue pre-flight next to a rig put a sidecar file in the templates
-  folder, which then listed as an empty starter project.
-
-- **The morph review page's coverage table looks like the rest of the
-  app.** The area below the last row painted white under the dark
-  theme, and the columns left dead space instead of filling the width.
-
-## [1.5.0] - 2026-08-08
-
-### Added
 
 - **The Live tab owns the SMPTE chase now: input, arm and watch.**
   The fade row's SYNC cluster grew the sync INPUT picker (moved off
@@ -339,6 +327,14 @@ verbatim as the GitHub Release notes (see [docs/releasing.md](docs/releasing.md)
   old path, just slower.
 
 ### Fixed
+
+- **A saved pre-flight no longer breaks New from Template.** Saving a
+  venue pre-flight next to a rig put a sidecar file in the templates
+  folder, which then listed as an empty starter project.
+
+- **The morph review page's coverage table looks like the rest of the
+  app.** The area below the last row painted white under the dark
+  theme, and the columns left dead space instead of filling the width.
 
 - **The test suite no longer leaks every widget tree it builds.** The
   standard UI-fixture teardown (`deleteLater()` followed by
